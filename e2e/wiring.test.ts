@@ -59,11 +59,11 @@ describe("wiring", () => {
 
     const path = await connectorPath(driver);
     expect(path.startsWith("M ")).toBe(true);
-    expect(path).toContain("C ");
+    expect(path.includes("L ") || path.includes("C ")).toBe(true);
     const tag = await (await diagramCss(driver, "bld-connector")).getTagName();
     expect(tag).toBe("bld-connector");
     const diagram = await waitDeep(driver, "bld-diagram");
-    expect(await diagram.getAttribute("data-connector")).toBe("curve");
+    expect(await diagram.getAttribute("data-connector")).toBe("jumpover");
     expect(await diagram.getAttribute("data-worker")).toBe("true");
   });
 
