@@ -1,4 +1,4 @@
-export { type BlockDef, blockAttribute, blockInput, blockOutput, displayType, typeToString } from "./ast";
+export { type BlockDef, arrayOf, blockAttribute, blockInput, blockOutput, displayType, typeToString } from "./ast";
 export { associateBuiltinModels } from "./builtin";
 export { blockSignature, signatureWat, wasmValType } from "../runtime/signatures";
 export { assembleWat, BLOCK_WAT } from "../runtime/assemble";

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blocks id="types" name="Types">
+  <namespace id="types" name="Types"/>
+
+  <!--
+    Language-agnostic catalog. WASM is a compilation target, recorded as attributes:
+
+      f64  → wasm f64
+      f32  → wasm f32
+      i32  → wasm i32
+      i64  → wasm i64
+      str  → wasm js-string (wasm 3.0)
+      bool → wasm i32
+      c1<T>         consumer
+      c2<T1, T2>    consumer
+      s<R>          supplier
+      f1<T, R>      function
+      f2<T1, T2, R> function
+      T[]           array
+  -->
+
+  <type name="f64">
+    <attribute name="wasm">f64</attribute>
+  </type>
+  <type name="f32">
+    <attribute name="wasm">f32</attribute>
+  </type>
+  <type name="i32">
+    <attribute name="wasm">i32</attribute>
+  </type>
+  <type name="i64">
+    <attribute name="wasm">i64</attribute>
+  </type>
+  <type name="str">
+    <attribute name="wasm">js-string</attribute>
+  </type>
+  <type name="bool">
+    <attribute name="wasm">i32</attribute>
+  </type>
+
+  <type name="c1">
+    <attribute name="wasm">(func (param T))</attribute>
+    <param name="T"/>
+  </type>
+  <type name="c2">
+    <attribute name="wasm">(func (param T1) (param T2))</attribute>
+    <param name="T1"/>
+    <param name="T2"/>
+  </type>
+  <type name="s">
+    <attribute name="wasm">(func (result R))</attribute>
+    <param name="R"/>
+  </type>
+  <type name="f1">
+    <attribute name="wasm">(func (param T) (result R))</attribute>
+    <param name="T"/>
+    <param name="R"/>
+  </type>
+  <type name="f2">
+    <attribute name="wasm">(func (param T1) (param T2) (result R))</attribute>
+    <param name="T1"/>
+    <param name="T2"/>
+    <param name="R"/>
+  </type>
+  <type name="[]">
+    <attribute name="wasm">array</attribute>
+    <param name="T"/>
+  </type>
+
+  <block id="b_i32" name="i32" ns="types" icon="i32">
+    <attribute name="kind">Data</attribute>
+    <out name="value" type="i32"/>
+  </block>
+
+  <block id="b_i64" name="i64" ns="types" icon="i64">
+    <attribute name="kind">Data</attribute>
+    <out name="value" type="i64"/>
+  </block>
+
+  <block id="b_f32" name="f32" ns="types" icon="f32">
+    <attribute name="kind">Data</attribute>
+    <out name="value" type="f32"/>
+  </block>
+
+  <block id="b_f64" name="f64" ns="types" icon="f64">
+    <attribute name="kind">Data</attribute>
+    <out name="value" type="f64"/>
+  </block>
+
+  <block id="b_str" name="str" ns="types" icon="string">
+    <attribute name="kind">Data</attribute>
+    <out name="value" type="str"/>
+  </block>
+
+  <block id="b_bool" name="bool" ns="types" icon="bool">
+    <attribute name="kind">Data</attribute>
+    <out name="value" type="bool"/>
+  </block>
+
+  <block id="b_array_of" name="array" ns="types" icon="list">
+    <attribute name="kind">Process</attribute>
+    <attribute name="description">Vararg elements become T[]</attribute>
+    <param name="T"/>
+    <factory id="array#of">
+      <t type="T"/>
+    </factory>
+    <in name="elems" type="T" vararg="true"/>
+    <out name="result" type="[]">
+      <t type="T"/>
+    </out>
+  </block>
+
+  <block id="b_array_get" name="array.get" ns="types" icon="list">
+    <attribute name="kind">Process</attribute>
+    <param name="T"/>
+    <factory id="array#get">
+      <t type="T"/>
+    </factory>
+    <in name="array" type="[]">
+      <t type="T"/>
+    </in>
+    <in name="index" type="i32"/>
+    <out name="elem" type="T"/>
+  </block>
+</blocks>

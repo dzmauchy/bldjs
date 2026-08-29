@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type TypeExpr,
+  arrayOf,
   displayType,
   extendsBound,
   generic,
@@ -9,7 +10,7 @@ import {
   typesEqual,
   unbounded,
 } from "./ast";
-import { CONTROL_SYSTEMS_XML, FLOW_XML, WASM_XML, associateBuiltinModels } from "./builtin";
+import { CONTROL_SYSTEMS_XML, FLOW_XML, TYPES_XML, associateBuiltinModels } from "./builtin";
 import { Catalog } from "./catalog";
 import { isCompatible } from "./compat";
 import {
@@ -40,7 +41,7 @@ function g(name: string, args: TypeExpr[]): TypeExpr {
 
 function catalog(): Catalog {
   const next = new Catalog();
-  next.addXml("wasm.xml", WASM_XML);
+  next.addXml("types.xml", TYPES_XML);
   next.addXml("flow.xml", FLOW_XML);
   next.addXml("control-systems.xml", CONTROL_SYSTEMS_XML);
   return next;
@@ -62,45 +63,46 @@ function expectType(actual: TypeExpr | undefined, expected: TypeExpr): void {
 }
 
 describe("blocks", () => {
-  it("parses blocks.md map example", () => {
+  it("parses blocks.md apply example", () => {
     const xml = `
       <blocks id="workspace_01" name="Signal Processing" icon="workspace.png">
-        <namespace id="wasm" name="WebAssembly" icon="box.png"/>
-        <block id="b_create_map" name="Create Map" ns="wasm" icon="map.png">
-          <param name="K"/>
-          <param name="V"/>
-          <factory id="map#of">
-            <t type="K"/>
-            <t type="V"/>
+        <namespace id="types" name="Types" icon="box.png"/>
+        <block id="b_apply" name="Apply" ns="types" icon="func.png">
+          <param name="T"/>
+          <param name="R"/>
+          <factory id="f1#apply">
+            <t type="T"/>
+            <t type="R"/>
           </factory>
-          <in name="key" type="K"/>
-          <in name="val" type="V"/>
-          <out name="result" type="map">
-            <t type="K"/>
-            <t type="V"/>
-          </out>
+          <in name="fn" type="f1">
+            <t type="T"/>
+            <t type="R"/>
+          </in>
+          <in name="arg" type="T"/>
+          <out name="result" type="R"/>
         </block>
       </blocks>
     `;
-    const doc = parseBlocks("map.xml", xml);
+    const doc = parseBlocks("apply.xml", xml);
     expect(doc.id).toBe("workspace_01");
     const block = doc.blocks[0];
     expect(block.params.length).toBe(2);
-    expectType(block.inputs[0].ty, t("K"));
-    expectType(block.outputs[0].ty, g("map", [t("K"), t("V")]));
+    expectType(block.inputs[0].ty, g("f1", [t("T"), t("R")]));
+    expectType(block.inputs[1].ty, t("T"));
+    expectType(block.outputs[0].ty, t("R"));
   });
 
   it("parses variance wildcards", () => {
     const xml = `
       <blocks id="w" name="Wildcards">
         <block id="b" name="W" ns="test">
-          <in name="covariantInput" type="table">
+          <in name="covariantInput" type="[]">
             <t type="i32" variance="+"/>
           </in>
-          <in name="contravariantInput" type="func">
+          <in name="contravariantInput" type="c1">
             <t type="f64" variance="-"/>
           </in>
-          <in name="unboundedInput" type="table">
+          <in name="unboundedInput" type="[]">
             <t variance="?"/>
           </in>
         </block>
@@ -108,20 +110,22 @@ describe("blocks", () => {
     `;
     const doc = parseBlocks("wild.xml", xml);
     const block = doc.blocks[0];
-    expectType(block.inputs[0].ty, g("table", [extendsBound(t("i32"))]));
-    expectType(block.inputs[1].ty, g("func", [{ kind: "wildcard", variance: "contravariant", bound: t("f64") }]));
-    expectType(block.inputs[2].ty, g("table", [unbounded()]));
+    expectType(block.inputs[0].ty, arrayOf(extendsBound(t("i32"))));
+    expectType(block.inputs[1].ty, g("c1", [{ kind: "wildcard", variance: "contravariant", bound: t("f64") }]));
+    expectType(block.inputs[2].ty, arrayOf(unbounded()));
   });
 
   it("parses union intersection and self", () => {
     const xml = `
       <blocks id="u" name="U">
-        <block id="b_path" name="path" ns="wasm.module.Builder">
-          <in name="segment" type="externref"/>
+        <block id="b_path" name="path" ns="example.Builder">
+          <in name="segment" type="str"/>
           <in name="complexPayload">
             <intersection>
-              <t type="funcref"/>
-              <t type="func">
+              <t type="c1">
+                <t type="T"/>
+              </t>
+              <t type="s">
                 <t type="T"/>
               </t>
             </intersection>
@@ -148,13 +152,13 @@ describe("blocks", () => {
   it("parses f-bounded rec param", () => {
     const xml = `
       <blocks id="e" name="E">
-        <block id="b_rec_new" name="rec.new" ns="wasm">
+        <block id="b_rec_new" name="rec.new" ns="example">
           <param name="T">
             <extends type="rec">
               <t type="T"/>
             </extends>
           </param>
-          <in name="cls" type="func">
+          <in name="cls" type="c1">
             <t type="T"/>
           </in>
           <out name="value" type="T"/>
@@ -167,74 +171,130 @@ describe("blocks", () => {
 
   it("builtin models merge", () => {
     const cat = catalog();
-    expect(cat.block("b_table_of")).toBeDefined();
+    expect(cat.block("b_array_of")).toBeDefined();
     expect(cat.block("b_start")).toBeDefined();
     expect(cat.block("timer")).toBeDefined();
-    expect(cat.findType("func", "wasm")).toBeDefined();
-    expect(cat.findType("f64", "wasm")).toBeDefined();
+    expect(cat.findType("c1")).toBeDefined();
+    expect(cat.findType("f64")).toBeDefined();
+    expect(cat.findType("[]")).toBeDefined();
+    expect(cat.findType("str")).toBeDefined();
+    expect(cat.findType("bool")).toBeDefined();
+    expect(cat.findType("str")?.attributes.find((attribute) => attribute.name === "wasm")?.value).toBe("js-string");
+    expect(cat.findType("bool")?.attributes.find((attribute) => attribute.name === "wasm")?.value).toBe("i32");
+    expect(cat.findType("c1")?.attributes.find((attribute) => attribute.name === "wasm")?.value).toBe(
+      "(func (param T))",
+    );
     expect(cat.sources().length).toBe(3);
   });
 
-  it("table of f64 is compatible with table wildcard", () => {
+  it("array of f64 is compatible with array wildcard", () => {
     const cat = catalog();
-    const formal = g("table", [extendsBound(t("f64"))]);
-    const actual = g("table", [t("f64")]);
+    const formal = arrayOf(extendsBound(t("f64")));
+    const actual = arrayOf(t("f64"));
     expect(isCompatible(cat, [], formal, actual)).toBe(true);
-    const invariant = g("table", [t("i32")]);
+    const invariant = arrayOf(t("i32"));
     expect(isCompatible(cat, [], invariant, actual)).toBe(false);
   });
 
-  it("typed func is a funcref", () => {
+  it("c1 and f1 are distinct function types", () => {
     const cat = catalog();
-    expect(isCompatible(cat, [], t("funcref"), g("func", [t("f64")]))).toBe(true);
-    expect(isCompatible(cat, [], g("func", [t("f64")]), t("funcref"))).toBe(false);
+    expect(isCompatible(cat, [], g("c1", [t("f64")]), g("c1", [t("f64")]))).toBe(true);
+    expect(isCompatible(cat, [], g("c1", [t("f64")]), g("f1", [t("f64"), t("f64")]))).toBe(false);
+    expect(isCompatible(cat, [], g("s", [t("f64")]), g("c1", [t("f64")]))).toBe(false);
   });
 
-  it("func contravariance", () => {
+  it("c1 contravariance", () => {
     const cat = catalog();
-    const formal = g("func", [{ kind: "wildcard", variance: "contravariant", bound: g("func", [t("f64")]) }]);
-    expect(isCompatible(cat, [], formal, g("func", [t("funcref")]))).toBe(true);
-    expect(isCompatible(cat, [], formal, g("func", [t("i32")]))).toBe(false);
+    const formal = g("c1", [{ kind: "wildcard", variance: "contravariant", bound: g("c1", [t("f64")]) }]);
+    expect(isCompatible(cat, [], formal, g("c1", [g("s", [t("f64")])]))).toBe(false);
+    expect(isCompatible(cat, [], formal, g("c1", [t("i32")]))).toBe(false);
+    expect(isCompatible(cat, [], formal, g("c1", [g("c1", [t("f64")])]))).toBe(true);
   });
 
-  it("wasm value types do not widen", () => {
+  it("parses T[] sugar and array as []", () => {
+    const xml = `
+      <blocks id="a" name="A">
+        <block id="b" name="B" ns="test">
+          <in name="sugar" type="f64[]"/>
+          <in name="nested" type="i32[][]"/>
+          <out name="alias" type="array">
+            <t type="str"/>
+          </out>
+        </block>
+      </blocks>
+    `;
+    const doc = parseBlocks("arr.xml", xml);
+    expectType(doc.blocks[0].inputs[0].ty, arrayOf(t("f64")));
+    expectType(doc.blocks[0].inputs[1].ty, arrayOf(arrayOf(t("i32"))));
+    expectType(doc.blocks[0].outputs[0].ty, arrayOf(t("str")));
+  });
+
+  it("catalog primitives do not widen and bool is not i32", () => {
     const cat = catalog();
     expect(isCompatible(cat, [], t("i64"), t("i32"))).toBe(false);
     expect(isCompatible(cat, [], t("i32"), t("i64"))).toBe(false);
     expect(isCompatible(cat, [], t("f64"), t("f32"))).toBe(false);
     expect(isCompatible(cat, [], t("f64"), t("f64"))).toBe(true);
+    expect(isCompatible(cat, [], t("bool"), t("i32"))).toBe(false);
+    expect(isCompatible(cat, [], t("i32"), t("bool"))).toBe(false);
+    expect(isCompatible(cat, [], t("str"), t("i32"))).toBe(false);
   });
 
-  it("infer table of from f64 grounding", () => {
+  it("infer array of from f64 grounding", () => {
     const resolved = resolveBlock(
       catalog(),
-      "b_table_of",
+      "b_array_of",
       new Map([["elems", { kind: "single", ty: t("f64") }]]),
     );
     expectType(resolved.params.get("T"), t("f64"));
-    expectType(resolvedOutput(resolved, "result"), g("table", [t("f64")]));
+    expectType(resolvedOutput(resolved, "result"), arrayOf(t("f64")));
     expect(resolved.compatible.get("elems")).toBe(true);
   });
 
-  it("infer table of vararg union", () => {
+  it("infer array of vararg union", () => {
     const resolved = resolveBlock(
       catalog(),
-      "b_table_of",
+      "b_array_of",
       new Map([["elems", { kind: "varargs", items: [t("f64"), t("i32")] }]]),
     );
-    expectType(resolvedOutput(resolved, "result"), g("table", [{ kind: "union", members: [t("f64"), t("i32")] }]));
+    expectType(resolvedOutput(resolved, "result"), arrayOf({ kind: "union", members: [t("f64"), t("i32")] }));
   });
 
-  it("infer map of from two inputs", () => {
+  it("infer f2 from two inputs", () => {
+    const cat = catalog();
+    cat.addXml(
+      "f2.xml",
+      `
+        <blocks id="fn" name="Fn">
+          <block id="b_apply_f2" name="apply2" ns="test">
+            <param name="T1"/>
+            <param name="T2"/>
+            <param name="R"/>
+            <in name="fn" type="f2">
+              <t type="T1"/>
+              <t type="T2"/>
+              <t type="R"/>
+            </in>
+            <in name="a" type="T1"/>
+            <in name="b" type="T2"/>
+            <out name="result" type="R"/>
+          </block>
+        </blocks>
+      `,
+    );
     const resolved = resolveBlock(
-      catalog(),
-      "b_map_of",
+      cat,
+      "b_apply_f2",
       new Map([
-        ["key", { kind: "single", ty: t("i32") }],
-        ["val", { kind: "single", ty: t("f64") }],
+        ["fn", { kind: "single", ty: g("f2", [t("i32"), t("str"), t("bool")]) }],
+        ["a", { kind: "single", ty: t("i32") }],
+        ["b", { kind: "single", ty: t("str") }],
       ]),
     );
-    expectType(resolvedOutput(resolved, "result"), g("map", [t("i32"), t("f64")]));
+    expectType(resolved.params.get("T1"), t("i32"));
+    expectType(resolved.params.get("T2"), t("str"));
+    expectType(resolved.params.get("R"), t("bool"));
+    expectType(resolvedOutput(resolved, "result"), t("bool"));
   });
 
   it("unbound param grounds to wildcard", () => {
@@ -242,21 +302,21 @@ describe("blocks", () => {
     expectType(resolvedOutput(resolved, "out"), unbounded());
   });
 
-  it("process identity from table", () => {
+  it("process identity from array", () => {
     const resolved = resolveBlock(
       catalog(),
       "b_process",
-      new Map([["in", { kind: "single", ty: g("table", [t("f64")]) }]]),
+      new Map([["in", { kind: "single", ty: arrayOf(t("f64")) }]]),
     );
-    expectType(resolvedOutput(resolved, "out"), g("table", [t("f64")]));
+    expectType(resolvedOutput(resolved, "out"), arrayOf(t("f64")));
   });
 
-  it("table get infers element type", () => {
+  it("array get infers element type", () => {
     const resolved = resolveBlock(
       catalog(),
-      "b_table_get",
+      "b_array_get",
       new Map([
-        ["table", { kind: "single", ty: g("table", [t("f64")]) }],
+        ["array", { kind: "single", ty: arrayOf(t("f64")) }],
         ["index", { kind: "single", ty: t("i32") }],
       ]),
     );
@@ -282,7 +342,7 @@ describe("blocks", () => {
             </ancestor>
           </type>
           <block id="b_color_fn" name="Color.fn" ns="example">
-            <out name="value" type="func">
+            <out name="value" type="c1">
               <t type="Color"/>
             </out>
           </block>
@@ -292,7 +352,7 @@ describe("blocks", () => {
                 <t type="T"/>
               </extends>
             </param>
-            <in name="cls" type="func">
+            <in name="cls" type="c1">
               <t type="T"/>
             </in>
             <out name="value" type="T"/>
@@ -303,7 +363,7 @@ describe("blocks", () => {
     const resolved = resolveBlock(
       cat,
       "b_rec_new",
-      new Map([["cls", { kind: "single", ty: g("func", [t("Color")]) }]]),
+      new Map([["cls", { kind: "single", ty: g("c1", [t("Color")]) }]]),
     );
     expectType(resolvedOutput(resolved, "value"), t("Color"));
     expect(resolved.compatible.get("cls")).toBe(true);
@@ -315,9 +375,11 @@ describe("blocks", () => {
       "need.xml",
       `
         <blocks id="b" name="B">
-          <block id="need_funcref" name="Need" ns="test">
+          <block id="need_c1" name="Need" ns="test">
             <param name="N">
-              <extends type="funcref"/>
+              <extends type="c1">
+                <t type="f64"/>
+              </extends>
             </param>
             <in name="in" type="N"/>
             <out name="out" type="N"/>
@@ -325,7 +387,7 @@ describe("blocks", () => {
         </blocks>
       `,
     );
-    const resolved = resolveBlock(cat, "need_funcref", new Map([["in", { kind: "single", ty: t("i32") }]]));
+    const resolved = resolveBlock(cat, "need_c1", new Map([["in", { kind: "single", ty: t("i32") }]]));
     expect(resolved.compatible.get("in")).toBe(false);
   });
 
@@ -335,9 +397,9 @@ describe("blocks", () => {
       "mod.xml",
       `
         <blocks id="mod" name="Module">
-          <block id="b_path" name="path" ns="wasm.module.Builder">
+          <block id="b_path" name="path" ns="example.Builder">
             <factory id="Builder#path"/>
-            <in name="segment" type="externref"/>
+            <in name="segment" type="str"/>
             <out name="this">
               <self/>
             </out>
@@ -345,8 +407,8 @@ describe("blocks", () => {
         </blocks>
       `,
     );
-    const resolved = resolveBlock(cat, "b_path", new Map([["segment", { kind: "single", ty: t("externref") }]]));
-    expectType(resolvedOutput(resolved, "this"), t("wasm.module.Builder"));
+    const resolved = resolveBlock(cat, "b_path", new Map([["segment", { kind: "single", ty: t("str") }]]));
+    expectType(resolvedOutput(resolved, "this"), t("example.Builder"));
   });
 
   it("diagram associates multiple xml files and grounds inputs", () => {
@@ -356,21 +418,18 @@ describe("blocks", () => {
 
     const f64Id = diagram.addNode("b_f64");
     const i32Id = diagram.addNode("b_i32");
-    const tableId = diagram.addNode("b_table_of");
-    const mapId = diagram.addNode("b_map_of");
-    const getId = diagram.addNode("b_table_get");
+    const arrayId = diagram.addNode("b_array_of");
+    const getId = diagram.addNode("b_array_get");
     const processId = diagram.addNode("b_process");
 
-    diagram.addLink(f64Id, "value", tableId, "elems");
-    diagram.addLink(i32Id, "value", mapId, "key");
-    diagram.addLink(f64Id, "value", mapId, "val");
-    diagram.addLink(tableId, "result", getId, "table");
-    diagram.addLink(tableId, "result", processId, "in");
+    diagram.addLink(f64Id, "value", arrayId, "elems");
+    diagram.addLink(arrayId, "result", getId, "array");
+    diagram.addLink(i32Id, "value", getId, "index");
+    diagram.addLink(arrayId, "result", processId, "in");
 
-    expectType(resolvedOutput(diagram.resolveNode(tableId)!, "result"), g("table", [t("f64")]));
-    expectType(resolvedOutput(diagram.resolveNode(mapId)!, "result"), g("map", [t("i32"), t("f64")]));
+    expectType(resolvedOutput(diagram.resolveNode(arrayId)!, "result"), arrayOf(t("f64")));
     expectType(resolvedOutput(diagram.resolveNode(getId)!, "elem"), t("f64"));
-    expectType(resolvedOutput(diagram.resolveNode(processId)!, "out"), g("table", [t("f64")]));
+    expectType(resolvedOutput(diagram.resolveNode(processId)!, "out"), arrayOf(t("f64")));
   });
 
   it("diagram chain grounds through identity", () => {
@@ -378,18 +437,18 @@ describe("blocks", () => {
     associateBuiltinModels(diagram);
     const f64Id = diagram.addNode("b_f64");
     const identId = diagram.addNode("b_identity");
-    const globalId = diagram.addNode("b_global_of");
+    const arrayId = diagram.addNode("b_array_of");
     diagram.addLink(f64Id, "value", identId, "in");
-    diagram.addLink(identId, "out", globalId, "value");
-    expectType(resolvedOutput(diagram.resolveNode(globalId)!, "result"), g("global", [t("f64")]));
+    diagram.addLink(identId, "out", arrayId, "elems");
+    expectType(resolvedOutput(diagram.resolveNode(arrayId)!, "result"), arrayOf(t("f64")));
   });
 
   it("dissociate xml rebuilds catalog", () => {
     const diagram = new Diagram("d3", "Drop");
     associateBuiltinModels(diagram);
-    diagram.addNode("b_table_of");
-    diagram.dissociateXml("wasm.xml");
-    expect(diagram.catalog().block("b_table_of")).toBeUndefined();
+    diagram.addNode("b_array_of");
+    diagram.dissociateXml("types.xml");
+    expect(diagram.catalog().block("b_array_of")).toBeUndefined();
     expect(diagram.catalog().block("b_start")).toBeDefined();
     expect(diagram.nodes().length).toBe(0);
   });
@@ -399,13 +458,18 @@ describe("blocks", () => {
     expect(parseVariance("+")).toBe("covariant");
   });
 
-  it("displays typed functions in compact form", () => {
-    expect(displayType(g("func", [t("f64")]), true)).toBe("fn<f64>");
-    expect(displayType(g("func", [g("func", [t("f64")])]), true)).toBe("fn<fn<f64>>");
-    expect(displayType(g("func", [g("func", [g("func", [t("f64")])])]), true)).toBe("fn<fn<fn<f64>>>");
+  it("displays common types in compact form", () => {
+    expect(displayType(g("c1", [t("f64")]), true)).toBe("c1<f64>");
+    expect(displayType(g("c1", [g("c1", [t("f64")])]), true)).toBe("c1<c1<f64>>");
+    expect(displayType(g("f1", [t("i32"), t("str")]), true)).toBe("f1<i32, str>");
+    expect(displayType(g("f2", [t("i32"), t("i64"), t("bool")]), true)).toBe("f2<i32, i64, bool>");
+    expect(displayType(g("s", [t("f64")]), true)).toBe("s<f64>");
+    expect(displayType(g("c2", [t("str"), t("bool")]), true)).toBe("c2<str, bool>");
     expect(displayType(t("f64"), true)).toBe("f64");
-    expect(displayType(g("func", [t("f64")]), false)).toBe("func<f64>");
-    expect(displayType(g("table", [t("f64")]), true)).toBe("table<f64>");
+    expect(displayType(arrayOf(t("f64")), true)).toBe("f64[]");
+    expect(displayType(arrayOf(arrayOf(t("i32"))), true)).toBe("i32[][]");
+    expect(displayType({ kind: "union", members: [t("i32"), t("i64")] }, true)).toBe("i32 | i64");
+    expect(displayType(arrayOf({ kind: "union", members: [t("i32"), t("i64")] }), true)).toBe("(i32 | i64)[]");
   });
 
   it("control systems model and types", () => {
@@ -422,23 +486,25 @@ describe("blocks", () => {
     expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
     expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("f64");
     expect(cat.namespaceLabel("cs")).toBe("Control Systems");
-    expect(cat.findType("f64", "wasm")).toBeDefined();
-    expect(cat.findType("func", "wasm")).toBeDefined();
+    expect(cat.findType("f64")).toBeDefined();
+    expect(cat.findType("c1")).toBeDefined();
+    expect(cat.findType("s")).toBeDefined();
+    expect(cat.findType("f1")).toBeDefined();
   });
 
-  it("nested funcs are not f64 sample ports", () => {
+  it("nested consumers are not f64 sample ports", () => {
     const cat = catalog();
-    const c3 = g("func", [g("func", [g("func", [t("f64")])])]);
-    const c2 = g("func", [g("func", [t("f64")])]);
-    const c1 = g("func", [t("f64")]);
-    expect(isCompatible(cat, [], c3, t("f64"))).toBe(false);
-    expect(isCompatible(cat, [], c2, t("f64"))).toBe(false);
-    expect(isCompatible(cat, [], c1, t("f64"))).toBe(false);
-    expect(isCompatible(cat, [], c2, c3)).toBe(false);
-    expect(isCompatible(cat, [], c1, c2)).toBe(false);
-    expect(isCompatible(cat, [], c3, c3)).toBe(true);
-    expect(isCompatible(cat, [], c2, c2)).toBe(true);
-    expect(isCompatible(cat, [], c1, c1)).toBe(true);
+    const nested = g("c1", [g("c1", [g("c1", [t("f64")])])]);
+    const mid = g("c1", [g("c1", [t("f64")])]);
+    const leaf = g("c1", [t("f64")]);
+    expect(isCompatible(cat, [], nested, t("f64"))).toBe(false);
+    expect(isCompatible(cat, [], mid, t("f64"))).toBe(false);
+    expect(isCompatible(cat, [], leaf, t("f64"))).toBe(false);
+    expect(isCompatible(cat, [], mid, nested)).toBe(false);
+    expect(isCompatible(cat, [], leaf, mid)).toBe(false);
+    expect(isCompatible(cat, [], nested, nested)).toBe(true);
+    expect(isCompatible(cat, [], mid, mid)).toBe(true);
+    expect(isCompatible(cat, [], leaf, leaf)).toBe(true);
   });
 
   it("sin maps samples", () => {
@@ -543,10 +609,10 @@ describe("blocks", () => {
     expect(displayType(scopeResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
   });
 
-  it("skipping a nested func layer is incompatible", () => {
+  it("array is incompatible with an f64 sample port", () => {
     const diagram = new Diagram("cs", "Skip");
     associateBuiltinModels(diagram);
-    const tableId = diagram.addNode("b_table_of");
+    const tableId = diagram.addNode("b_array_of");
     const sinId = diagram.addNode("sin");
     diagram.addLink(tableId, "result", sinId, "in");
 

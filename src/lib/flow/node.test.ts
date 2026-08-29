@@ -7,19 +7,18 @@ import "./node";
 function sampleState(overrides: Partial<BldNodeState> = {}): BldNodeState {
   return {
     blockId: 7,
-    defId: "b_map_of",
-    name: "map",
-    icon: "map",
+    defId: "b_array_of",
+    name: "array",
+    icon: "list",
     kindClass: "block-kind-process",
     selected: false,
-    paramsLine: "K = i32 · V = f64",
+    paramsLine: "T = f64",
     showChart: false,
     chartEnabled: false,
     inputs: [
-      { name: "key", typeLabel: "i32", vararg: false, grounded: true, compatible: true },
-      { name: "val", typeLabel: "f64", vararg: false, grounded: false, compatible: true },
+      { name: "elems", typeLabel: "f64", vararg: true, grounded: true, compatible: true },
     ],
-    outputs: [{ name: "result", typeLabel: "map<i32, f64>", vararg: false }],
+    outputs: [{ name: "result", typeLabel: "f64[]", vararg: false }],
     ...overrides,
   };
 }
@@ -49,13 +48,13 @@ describe("BldNode", () => {
     expect(shadow).not.toBeNull();
     expect(shadow!.querySelector(".flow-node")).not.toBeNull();
     expect(shadow!.querySelector(".flow-node-ports")).not.toBeNull();
-    expect(shadow!.querySelectorAll("[data-port]")).toHaveLength(3);
-    expect(shadow!.querySelector('[data-testid="input-key"]')?.textContent).toContain("key");
+    expect(shadow!.querySelectorAll("[data-port]")).toHaveLength(2);
+    expect(shadow!.querySelector('[data-testid="input-elems"]')?.textContent).toContain("elems");
     expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).toContain("result");
-    expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).not.toContain("map<i32, f64>");
-    expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("map<i32, f64>");
-    expect(shadow!.querySelector(".flow-node-params")?.textContent).toContain("K = i32");
-    expect(node.dataset.blockDef).toBe("b_map_of");
+    expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).not.toContain("f64[]");
+    expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("f64[]");
+    expect(shadow!.querySelector(".flow-node-params")?.textContent).toContain("T = f64");
+    expect(node.dataset.blockDef).toBe("b_array_of");
     const glyph = shadow!.querySelector(".flow-node-icon path, .flow-node-icon rect, .flow-node-icon circle");
     expect(glyph).not.toBeNull();
     expect(glyph!.namespaceURI).toBe("http://www.w3.org/2000/svg");
@@ -74,12 +73,12 @@ describe("BldNode", () => {
 
   it("resolves a port from the composed path", async () => {
     const node = await mountNode(sampleState());
-    const handle = node.shadowRoot!.querySelector('[data-testid="input-val"]')!;
+    const handle = node.shadowRoot!.querySelector('[data-testid="input-elems"]')!;
     const event = new PointerEvent("pointerup", { bubbles: true, composed: true });
     Object.defineProperty(event, "composedPath", {
       value: () => [handle, node.shadowRoot, node, document.body],
     });
-    expect(portFromComposedPath(event)).toEqual({ host: node, side: "in", port: "val" });
+    expect(portFromComposedPath(event)).toEqual({ host: node, side: "in", port: "elems" });
   });
 
   it("toggles selected and chart chrome from state", async () => {
@@ -90,7 +89,7 @@ describe("BldNode", () => {
         showChart: true,
         chartEnabled: true,
         selected: true,
-        inputs: [{ name: "in", typeLabel: "double", vararg: false }],
+        inputs: [{ name: "in", typeLabel: "f64", vararg: false }],
         outputs: [],
         paramsLine: "",
       }),
@@ -114,7 +113,7 @@ describe("BldNode", () => {
         name: "Oscilloscope",
         showChart: true,
         chartEnabled: false,
-        inputs: [{ name: "in", typeLabel: "fn<f64>", vararg: false }],
+        inputs: [{ name: "in", typeLabel: "c1<f64>", vararg: false }],
         outputs: [],
         paramsLine: "",
       }),

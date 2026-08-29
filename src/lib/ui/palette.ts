@@ -15,7 +15,7 @@ export class BldPalette extends LitElement {
   declare app: AppState;
 
   #ctrl?: AppController;
-  #open = new Set(["cs", "flow", "wasm"]);
+    #open = new Set(["cs", "flow", "types"]);
 
   static override styles = [
     bootstrapStyles,

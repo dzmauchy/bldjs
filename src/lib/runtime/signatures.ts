@@ -1,9 +1,9 @@
-import { type BlockDef, type TypeExpr, displayType } from "$lib/blocks/ast";
+import { type BlockDef, type TypeExpr, displayType, isArrayType } from "$lib/blocks/ast";
 
-/** WASM value type emitted for an XML type expression. */
+/** WASM value type emitted for a language-agnostic XML type expression. */
 export type WasmVal = string;
 
-const PRIMITIVES = new Set(["i32", "i64", "f32", "f64", "v128"]);
+const WASM_PRIMITIVES = new Set(["i32", "i64", "f32", "f64"]);
 
 function rawName(expr: TypeExpr): string {
   if (expr.kind !== "type") {
@@ -12,42 +12,58 @@ function rawName(expr: TypeExpr): string {
   return expr.name.split(".").at(-1) ?? expr.name;
 }
 
+function typeToken(expr: TypeExpr): string {
+  return displayType(expr, true).replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
 export function funcTypeId(expr: TypeExpr): string {
-  return `fn_${displayType(expr, true).replace(/[^A-Za-z0-9]+/g, "_")}`;
+  return typeToken(expr);
 }
 
 /**
- * Map an XML type to a WASM valtype.
- * `func<T>` is a typed function reference `(ref $fn_…)`.
+ * Map a language-agnostic XML type to a WASM valtype.
+ *
+ *   f64 / f32 / i32 / i64 → themselves
+ *   bool                  → i32
+ *   str                   → externref (js-string in wasm 3.0)
+ *   c1<T>                 → (func (param T))
+ *   c2<T1, T2>            → (func (param T1) (param T2))
+ *   s<R>                  → (func (result R))
+ *   f1<T, R>              → (func (param T) (result R))
+ *   f2<T1, T2, R>         → (func (param T1) (param T2) (result R))
+ *   T[]                   → array of T
  */
 export function wasmValType(expr: TypeExpr): WasmVal {
   if (expr.kind !== "type") {
     return "externref";
   }
   const name = rawName(expr);
-  if (PRIMITIVES.has(name) && expr.args.length === 0) {
+  if (WASM_PRIMITIVES.has(name) && expr.args.length === 0) {
     return name;
   }
-  if (name === "funcref" && expr.args.length === 0) {
-    return "funcref";
+  if (name === "bool" && expr.args.length === 0) {
+    return "i32";
   }
-  if (name === "externref" && expr.args.length === 0) {
+  if (name === "str" && expr.args.length === 0) {
     return "externref";
   }
-  if (name === "memory" && expr.args.length === 0) {
-    return "(ref $memory)";
+  if (name === "c1" && expr.args.length === 1) {
+    return `(ref $c1_${typeToken(expr.args[0])})`;
   }
-  if (name === "func" && expr.args.length === 1) {
-    return `(ref $${funcTypeId(expr.args[0])})`;
+  if (name === "c2" && expr.args.length === 2) {
+    return `(ref $c2_${typeToken(expr.args[0])}_${typeToken(expr.args[1])})`;
   }
-  if (name === "table" && expr.args.length === 1) {
-    return `(ref $table_${rawName(expr.args[0])})`;
+  if (name === "s" && expr.args.length === 1) {
+    return `(ref $s_${typeToken(expr.args[0])})`;
   }
-  if (name === "global" && expr.args.length === 1) {
-    return `(ref $global_${rawName(expr.args[0])})`;
+  if (name === "f1" && expr.args.length === 2) {
+    return `(ref $f1_${typeToken(expr.args[0])}_${typeToken(expr.args[1])})`;
   }
-  if (name === "map" && expr.args.length === 2) {
-    return `(ref $map_${rawName(expr.args[0])}_${rawName(expr.args[1])})`;
+  if (name === "f2" && expr.args.length === 3) {
+    return `(ref $f2_${typeToken(expr.args[0])}_${typeToken(expr.args[1])}_${typeToken(expr.args[2])})`;
+  }
+  if (isArrayType(expr) && expr.args.length === 1) {
+    return `(ref $array_${typeToken(expr.args[0])})`;
   }
   return "externref";
 }

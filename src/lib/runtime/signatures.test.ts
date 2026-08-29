@@ -2,14 +2,22 @@ import { describe, expect, it } from "vitest";
 import { associateBuiltinModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
 import { blockSignature, signatureWat, wasmValType } from "./signatures";
-import { named, generic } from "../blocks/ast";
+import { arrayOf, named, generic } from "../blocks/ast";
 
 describe("XML ↔ WASM signatures", () => {
-  it("maps catalog primitives and typed functions", () => {
+  it("maps catalog primitives and function types", () => {
     expect(wasmValType(named("f64"))).toBe("f64");
     expect(wasmValType(named("i32"))).toBe("i32");
-    expect(wasmValType(generic("func", [named("f64")]))).toBe("(ref $fn_f64)");
-    expect(wasmValType(generic("table", [named("i32")]))).toBe("(ref $table_i32)");
+    expect(wasmValType(named("bool"))).toBe("i32");
+    expect(wasmValType(named("str"))).toBe("externref");
+    expect(wasmValType(generic("c1", [named("f64")]))).toBe("(ref $c1_f64)");
+    expect(wasmValType(generic("s", [named("f64")]))).toBe("(ref $s_f64)");
+    expect(wasmValType(generic("f1", [named("i32"), named("str")]))).toBe("(ref $f1_i32_str)");
+    expect(wasmValType(generic("c2", [named("i32"), named("f64")]))).toBe("(ref $c2_i32_f64)");
+    expect(wasmValType(generic("f2", [named("i32"), named("i64"), named("bool")]))).toBe(
+      "(ref $f2_i32_i64_bool)",
+    );
+    expect(wasmValType(arrayOf(named("i32")))).toBe("(ref $array_i32)");
   });
 
   it("control-system blocks match WASM params and results", () => {
@@ -43,7 +51,7 @@ describe("XML ↔ WASM signatures", () => {
     });
   });
 
-  it("wasm.xml blocks use arguments as inputs and results as outputs", () => {
+  it("types.xml blocks use arguments as inputs and results as outputs", () => {
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);
     const cat = diagram.catalog();
@@ -54,17 +62,27 @@ describe("XML ↔ WASM signatures", () => {
       params: [],
       results: [{ name: "value", type: "f64" }],
     });
-    expect(blockSignature(cat.block("b_table_get")!)).toEqual({
-      id: "b_table_get",
-      name: "table.get",
+    expect(blockSignature(cat.block("b_bool")!)).toEqual({
+      id: "b_bool",
+      name: "bool",
+      params: [],
+      results: [{ name: "value", type: "i32" }],
+    });
+    expect(blockSignature(cat.block("b_str")!)).toEqual({
+      id: "b_str",
+      name: "str",
+      params: [],
+      results: [{ name: "value", type: "externref" }],
+    });
+    expect(blockSignature(cat.block("b_array_get")!)).toEqual({
+      id: "b_array_get",
+      name: "array.get",
       params: [
-        { name: "table", type: "(ref $table_T)" },
+        { name: "array", type: "(ref $array_T)" },
         { name: "index", type: "i32" },
       ],
       results: [{ name: "elem", type: "externref" }],
     });
-    expect(blockSignature(cat.block("b_func")!).params[0]?.type).toBe("(ref $fn_T)");
-    expect(blockSignature(cat.block("b_func")!).results[0]?.type).toBe("(ref $fn_T)");
   });
 
   it("emits named params, named results, and a runtime $ctx", () => {

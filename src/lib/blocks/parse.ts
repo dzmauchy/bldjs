@@ -114,6 +114,23 @@ function wrapVariance(inner: TypeExpr, variance: Variance | null): TypeExpr {
   return inner;
 }
 
+const ARRAY_SUFFIX = "[]";
+
+/** `f64[]` / `T[]` / `array` become the language-agnostic array type `[]`. */
+export function parseNamedType(typeName: string, args: TypeExpr[]): TypeExpr {
+  if (typeName === "array") {
+    return { kind: "type", name: "[]", ns: null, args };
+  }
+  if (typeName.endsWith(ARRAY_SUFFIX)) {
+    const innerName = typeName.slice(0, -ARRAY_SUFFIX.length);
+    if (innerName.length === 0) {
+      return { kind: "type", name: "[]", ns: null, args };
+    }
+    return { kind: "type", name: "[]", ns: null, args: [parseNamedType(innerName, args)] };
+  }
+  return { kind: "type", name: typeName, ns: null, args };
+}
+
 export function parseTexpr(file: string, node: Element): TypeExpr {
   const tag = node.tagName;
   if (tag === "self") {
@@ -152,7 +169,7 @@ export function parseTexpr(file: string, node: Element): TypeExpr {
 
   let inner: TypeExpr;
   if (typeName !== undefined) {
-    inner = { kind: "type", name: typeName, ns: null, args: parts };
+    inner = parseNamedType(typeName, parts);
   } else if (parts.length === 1) {
     inner = parts[0];
   } else if (parts.length === 0) {

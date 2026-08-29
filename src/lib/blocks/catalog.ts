@@ -9,7 +9,7 @@ import {
   named,
 } from "./ast";
 import { ParseError, parseBlocks } from "./parse";
-import { isPrimitive, subst } from "./types";
+import { subst } from "./types";
 
 export class Catalog {
   libraries: LibraryRef[] = [];
@@ -177,9 +177,6 @@ export class Catalog {
       }
     }
     stack.pop();
-    if (!result && isObjectName(targetName, targetNs) && !isPrimitive(actual.name)) {
-      return named("Object");
-    }
     return result;
   }
 
@@ -231,12 +228,3 @@ export function sameRaw(
   );
 }
 
-function isObjectName(name: string, ns: string | null): boolean {
-  return (
-    name === "externref" ||
-    name === "Object" ||
-    name === "java.lang.Object" ||
-    (name === "Object" && ns === "java.lang") ||
-    (name === "externref" && ns === "wasm")
-  );
-}

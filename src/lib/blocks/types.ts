@@ -5,7 +5,6 @@ import {
   displayType,
   extendsBound,
   intersectionOf,
-  named,
   unbounded,
   unionOf,
 } from "./ast";
@@ -84,9 +83,7 @@ function groundRec(
       return unbounded();
     }
     visited.add(param.name);
-    const bounds = param.extends
-      .map((bound) => groundRec(bound, params, catalog, visited))
-      .filter((bound) => !isObject(bound));
+    const bounds = param.extends.map((bound) => groundRec(bound, params, catalog, visited));
     visited.delete(param.name);
     if (bounds.length === 0) {
       return unbounded();
@@ -147,118 +144,10 @@ export function asParam(expr: TypeExpr, params: ParamDef[]): ParamDef | undefine
   return undefined;
 }
 
-export function isObject(expr: TypeExpr): boolean {
-  return (
-    expr.kind === "type" &&
-    expr.args.length === 0 &&
-    (expr.name === "externref" ||
-      expr.name === "Object" ||
-      expr.name === "java.lang.Object" ||
-      expr.name === "wasm.externref")
-  );
-}
+const PRIMITIVES = new Set(["f64", "f32", "i32", "i64", "str", "bool"]);
 
 export function isPrimitive(name: string): boolean {
-  return (
-    name === "i32" ||
-    name === "i64" ||
-    name === "f32" ||
-    name === "f64" ||
-    name === "v128" ||
-    name === "byte" ||
-    name === "short" ||
-    name === "int" ||
-    name === "long" ||
-    name === "float" ||
-    name === "double" ||
-    name === "char" ||
-    name === "boolean" ||
-    name === "void"
-  );
-}
-
-export function wrapperOf(primitive: string): string | undefined {
-  switch (primitive) {
-    case "byte":
-      return "Byte";
-    case "short":
-      return "Short";
-    case "int":
-      return "Integer";
-    case "long":
-      return "Long";
-    case "float":
-      return "Float";
-    case "double":
-      return "Double";
-    case "char":
-      return "Character";
-    case "boolean":
-      return "Boolean";
-    case "void":
-      return "Void";
-    default:
-      return undefined;
-  }
-}
-
-export function primitiveOfWrapper(name: string): string | undefined {
-  const shortName = name.split(".").at(-1) ?? name;
-  switch (shortName) {
-    case "Byte":
-      return "byte";
-    case "Short":
-      return "short";
-    case "Integer":
-      return "int";
-    case "Long":
-      return "long";
-    case "Float":
-      return "float";
-    case "Double":
-      return "double";
-    case "Character":
-      return "char";
-    case "Boolean":
-      return "boolean";
-    case "Void":
-      return "void";
-    default:
-      return undefined;
-  }
-}
-
-export function primitiveWidens(formal: string, actual: string): boolean {
-  if (formal === actual) {
-    return true;
-  }
-  switch (formal) {
-    case "short":
-      return actual === "byte";
-    case "int":
-      return actual === "byte" || actual === "short" || actual === "char";
-    case "long":
-      return actual === "byte" || actual === "short" || actual === "char" || actual === "int";
-    case "float":
-      return (
-        actual === "byte" ||
-        actual === "short" ||
-        actual === "char" ||
-        actual === "int" ||
-        actual === "long"
-      );
-    case "double":
-      return (
-        actual === "byte" ||
-        actual === "short" ||
-        actual === "char" ||
-        actual === "int" ||
-        actual === "long" ||
-        actual === "float"
-      );
-    default:
-      return false;
-  }
+  return PRIMITIVES.has(name.split(".").at(-1) ?? name);
 }
 
 export type { Variance };

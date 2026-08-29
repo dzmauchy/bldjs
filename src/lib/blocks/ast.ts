@@ -60,43 +60,35 @@ export function superBound(bound: TypeExpr): TypeExpr {
   return { kind: "wildcard", variance: "contravariant", bound };
 }
 
-/** Short display heads used when `compact` is true. */
-const COMPACT_HEADS: Record<string, string> = {
-  func: "fn",
-  Consumer: "c",
-  Double: "f64",
-  double: "f64",
-};
-
-/** Zero-arg aliases that already encode their type argument. */
-const COMPACT_ALIASES: Record<string, string> = {
-  DoubleConsumer: "c<f64>",
-};
-
 function rawTypeName(name: string): string {
   const parts = name.split(".");
   return parts[parts.length - 1] ?? name;
 }
 
-function compactHead(name: string): string {
-  const raw = rawTypeName(name);
-  return COMPACT_HEADS[raw] ?? raw;
+function displayArrayElem(elem: TypeExpr, compact: boolean): string {
+  const text = displayType(elem, compact);
+  if (elem.kind === "union" || elem.kind === "intersection") {
+    return `(${text})`;
+  }
+  return text;
 }
 
-function compactAlias(name: string): string | undefined {
-  return COMPACT_ALIASES[rawTypeName(name)];
+export function isArrayType(expr: TypeExpr): boolean {
+  return expr.kind === "type" && (expr.name === "[]" || rawTypeName(expr.name) === "array");
+}
+
+export function arrayOf(elem: TypeExpr): TypeExpr {
+  return { kind: "type", name: "[]", ns: null, args: [elem] };
 }
 
 export function displayType(expr: TypeExpr, compact: boolean): string {
   switch (expr.kind) {
     case "type": {
-      if (compact) {
-        const alias = compactAlias(expr.name);
-        if (alias && expr.args.length === 0) {
-          return alias;
-        }
+      if (isArrayType(expr)) {
+        const elem = expr.args[0];
+        return `${elem ? displayArrayElem(elem, compact) : "?"}[]`;
       }
-      const head = compact ? compactHead(expr.name) : expr.ns ? `${expr.ns}.${expr.name}` : expr.name;
+      const head = compact ? rawTypeName(expr.name) : expr.ns ? `${expr.ns}.${expr.name}` : expr.name;
       if (expr.args.length === 0) {
         return head;
       }
@@ -213,7 +205,7 @@ export function intersectionOf(membersIn: TypeExpr[]): TypeExpr {
   members.sort((a, b) => displayKey(a).localeCompare(displayKey(b)));
   const unique = dedupSorted(members);
   if (unique.length === 0) {
-    return named("Object");
+    return unbounded();
   }
   if (unique.length === 1) {
     return unique[0];

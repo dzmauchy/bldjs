@@ -1,12 +1,6 @@
-import { type ParamDef, type TypeExpr, type Variance, named } from "./ast";
+import { type ParamDef, type TypeExpr, type Variance, unbounded } from "./ast";
 import { type Catalog, sameRaw } from "./catalog";
-import {
-  asParam,
-  isPrimitive,
-  primitiveOfWrapper,
-  primitiveWidens,
-  wrapperOf,
-} from "./types";
+import { asParam, isPrimitive } from "./types";
 
 const MAX_DEPTH = 64;
 
@@ -124,10 +118,8 @@ function visitActualWildcard(
   switch (variance) {
     case "unbounded":
       return true;
-    case "covariant": {
-      const object = named("Object");
-      return visit(catalog, params, from, bound ?? object, visited, covariant, depth + 1, onMatch);
-    }
+    case "covariant":
+      return visit(catalog, params, from, bound ?? unbounded(), visited, covariant, depth + 1, onMatch);
     case "contravariant":
       if (bound) {
         visit(catalog, params, from, bound, visited, covariant, depth + 1, onMatch);
@@ -154,10 +146,8 @@ function visitFormalWildcard(
         return true;
       }
       return visit(catalog, params, bound, to, visited, false, depth + 1, onMatch);
-    case "covariant": {
-      const object = named("Object");
-      return visit(catalog, params, bound ?? object, to, visited, true, depth + 1, onMatch);
-    }
+    case "covariant":
+      return visit(catalog, params, bound ?? unbounded(), to, visited, true, depth + 1, onMatch);
   }
 }
 
@@ -247,18 +237,7 @@ function rawAssignable(
   if (sameRaw(formal, formalNs, actual, actualNs)) {
     return true;
   }
-  if (isPrimitive(formal)) {
-    const wrapper = wrapperOf(formal);
-    if (wrapper && sameRaw(wrapper, "java.lang", actual, actualNs)) {
-      return true;
-    }
-    return covariant === true && primitiveWidens(formal, actual);
-  }
-  if (isPrimitive(actual)) {
-    const prim = primitiveOfWrapper(formal);
-    if (prim) {
-      return prim === actual;
-    }
+  if (isPrimitive(formal) || isPrimitive(actual)) {
     return false;
   }
   if (covariant === true) {

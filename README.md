@@ -2,7 +2,7 @@
 
 A client-side [Lit](https://lit.dev/) app. The workspace is custom elements: a toolbar (Run / Stop, plus a three-line menu), a left palette of block icons, and a `bld-diagram` canvas that owns pan, zoom, drop, and wiring. Nodes (`bld-node`) and connectors (`bld-connector`) are also custom elements with shadow trees; nodes size themselves with flex, and connectors are SVG cubic paths that follow each node's measured ports.
 
-Diagrams load multiple XML type/block models (`src/resources/models/*.xml`, described by `src/resources/models/blocks.xsd` and `src/resources/models/blocks.md`). Wiring an output into an input grounds that input and infers the block's generic types. The builtin type library is WebAssembly (`wasm.xml`): value types, `funcref` / `externref`, and typed `func<T>` functions.
+Diagrams load multiple XML type/block models (`src/resources/models/*.xml`, described by `src/resources/models/blocks.xsd` and `src/resources/models/blocks.md`). Wiring an output into an input grounds that input and infers the block's generic types. The builtin type library (`types.xml`) is language-agnostic: `f64`, `f32`, `i32`, `i64`, `str`, `bool`, consumers `c1`/`c2`, supplier `s`, functions `f1`/`f2`, and arrays `T[]`. The WASM runtime maps those onto WASM valtypes (`bool` → `i32`, `str` → js-string / `externref`).
 
 This is a TypeScript port of the Rust/Leptos [bld](https://github.com/dzmauchy/bld) workspace.
 
@@ -50,7 +50,7 @@ Serve that folder with any static file server that sets the same CSP and isolati
 
 - Drag a block icon from the left pane onto the canvas (or double-click a palette item to drop it in the center).
 - Click or drag from an output handle to an input handle to ground a type. Inferred parameters and port types update on the block.
-- Control Systems (`cs`): wire Timer → Quantizer → Sin → Oscilloscope. Each block is a WAT function in `src/resources/wasm/blocks` (`timer: (ctx) → out`, `quantizer/sin: (ctx, in) → out`, `oscilloscope: (ctx, in)`), composed as `oscilloscope(sin(quantizer(timer())))`.
+- Control Systems (`cs`): wire Timer → Quantizer → Sin → Oscilloscope. Ports are `f64`; the WASM backend treats those blocks as `s<f64>`, `f1<f64, f64>`, and `c1<f64>`, composed as `oscilloscope(sin(quantizer(timer())))`.
 - **Run** assembles those block WAT files into one module, compiles it to wasm-gc (typed `call_ref`), starts one worker per generator, and parks with `memory.atomic.wait32` on a shared sample buffer. After Run, click Chart on Oscilloscope; the chart reads that buffer.
 - Scroll to zoom toward the cursor. Use the zoom controls in the lower-right, or **View** in the three-line menu.
 - Drag empty canvas space to pan. Drag a placed block to move it.
