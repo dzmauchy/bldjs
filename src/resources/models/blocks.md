@@ -149,7 +149,7 @@ oscilloscope(f64)  : c1<f64>
 </block>
 ```
 
-Run assembles each runtime block WAT file from `resources/wasm/blocks` (params = `<in>`, results = `<out>`, plus a runtime `$ctx`) into one module, then compiles it to wasm-gc (`call_ref`). Each Timer worker parks with `memory.atomic.wait32` on a SharedArrayBuffer.
+Run runs each runtime block's binaryen.js script from `resources/binaryen/blocks` (params = `<in>`, results = `<out>`, plus a runtime `$ctx`) to build one module, then emits wasm-gc (`call_ref`). Each Timer worker parks with `memory.atomic.wait32` on a SharedArrayBuffer.
 
 ### A. Varargs (`array#of`)
 Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.

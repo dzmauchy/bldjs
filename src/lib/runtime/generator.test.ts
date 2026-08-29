@@ -1,47 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { assembleWat } from "./assemble";
-import { CTX } from "./memory";
-import { compileWat, parseSexps } from "./wat";
-import { createHost } from "./host";
-import { createSharedMemory, readSamples } from "./memory";
-import { instantiateGenerator, startLocalGenerator } from "./generator";
+import { assembleModule, assembleWasm } from "./assemble";
 import { compileGenerator } from "../blocks/cs";
+import { createHost } from "./host";
+import { CTX, createSharedMemory, readSamples } from "./memory";
+import { instantiateGenerator, startLocalGenerator } from "./generator";
 
-describe("WAT compiler", () => {
-  it("parses nested lists and comments", () => {
-    const [mod] = parseSexps(`
-      ;; header
-      (module
-        (; nested ;)
-        (func $add (param $a i32) (param $b i32) (result $sum i32)
-          (i32.add (local.get $a) (local.get $b))))
-    `);
-    expect(Array.isArray(mod) && mod[0]).toBe("module");
-  });
-
-  it("compiles a multi-value function", () => {
-    const wasm = compileWat(`
-      (module
-        (func $pair (export "pair") (param $a i32) (param $b i32) (result $left i32) (result $right i32)
-          (local.get $a)
-          (local.get $b)))
-    `);
-    expect(WebAssembly.validate(wasm.slice().buffer)).toBe(true);
-  });
-
-  it("assembles block WAT then compiles a valid wasm-gc module", () => {
-    const wat = assembleWat({ stages: ["quantizer", "sin"], delayMs: 10 });
-    const wasm = compileWat(wat);
+describe("binaryen generator", () => {
+  it("assembles block scripts into a valid wasm-gc module", () => {
+    const wasm = assembleWasm({ stages: ["quantizer", "sin"], delayMs: 10 });
     expect([...wasm.slice(0, 4)]).toEqual([0, 97, 115, 109]);
     expect(WebAssembly.validate(wasm.slice().buffer)).toBe(true);
   });
 
   it("ticks sin(pi/2) through the assembled pipeline", async () => {
-    const wat = assembleWat({ stages: ["quantizer", "sin"], delayMs: 10 });
-    expect(wat).toContain("call_ref $fn_timer");
-    expect(wat).toContain("(param $ctx i32)");
-    expect(wat).toContain("(result $out f64)");
-    const wasm = compileWat(wat);
+    const { text, wasm } = assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
+    expect(text).toContain("call_ref $fn_timer");
+    expect(text).toContain("(param $ctx i32)");
+    expect(text).toContain("(result f64)");
     const memory = createSharedMemory();
     let now = Math.PI / 2;
     const gen = await instantiateGenerator(wasm, memory, () => now);
@@ -82,7 +57,7 @@ describe("WAT compiler", () => {
   });
 
   it("exports library functions that take $ctx and XML ports", async () => {
-    const wasm = compileWat(assembleWat({ stages: ["sin"], delayMs: 0 }));
+    const wasm = assembleWasm({ stages: ["sin"], delayMs: 0 });
     const memory = createSharedMemory();
     const instantiated = await WebAssembly.instantiate(wasm.slice().buffer, createHost(memory, () => 0.5));
     const view = new DataView(memory.buffer);

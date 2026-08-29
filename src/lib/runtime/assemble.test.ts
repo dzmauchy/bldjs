@@ -1,44 +1,85 @@
+import binaryen from "binaryen";
 import { describe, expect, it } from "vitest";
+import { BLOCK_SCRIPTS } from "../../resources/binaryen";
 import { associateBuiltinModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
-import { BLOCK_WAT, assembleWat, blockTypeWat } from "./assemble";
+import { assembleModule, blockTypeWat } from "./assemble";
+import { SAMPLE_CAP } from "./memory";
 import { blockSignature, signatureWat } from "./signatures";
 
-describe("block WAT assembly", () => {
-  it("keeps one WAT file per runtime block", () => {
-    expect(Object.keys(BLOCK_WAT).sort()).toEqual(["oscilloscope", "quantizer", "sin", "timer"]);
-    expect(BLOCK_WAT.timer).toContain("(param $ctx i32)");
-    expect(BLOCK_WAT.timer).toContain("(result $out f64)");
-    expect(BLOCK_WAT.quantizer).toContain("(param $in f64)");
-    expect(BLOCK_WAT.quantizer).toContain("(result $out f64)");
-    expect(BLOCK_WAT.sin).toContain("(param $in f64)");
-    expect(BLOCK_WAT.oscilloscope).toContain("(param $in f64)");
-    expect(BLOCK_WAT.oscilloscope).not.toContain("(result");
+function functionText(id: string): string {
+  const module = new binaryen.Module();
+  try {
+    BLOCK_SCRIPTS[id as keyof typeof BLOCK_SCRIPTS](module);
+    return module.emitText();
+  } finally {
+    module.dispose();
+  }
+}
+
+function localNames(id: string): string[] {
+  const module = new binaryen.Module();
+  try {
+    const fn = BLOCK_SCRIPTS[id as keyof typeof BLOCK_SCRIPTS](module);
+    const count = binaryen.Function.getNumLocals(fn);
+    const names: string[] = [];
+    for (let i = 0; i < count; i += 1) {
+      names.push(binaryen.Function.getLocalName(fn, i));
+    }
+    return names;
+  } finally {
+    module.dispose();
+  }
+}
+
+describe("block binaryen assembly", () => {
+  it("keeps one binaryen.js script per runtime block", () => {
+    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["oscilloscope", "quantizer", "sin", "timer"]);
+    expect(functionText("timer")).toContain("(param $ctx i32)");
+    expect(functionText("timer")).toContain("(result f64)");
+    expect(functionText("quantizer")).toContain("(param $in f64)");
+    expect(functionText("quantizer")).toContain("(result f64)");
+    expect(functionText("sin")).toContain("(param $in f64)");
+    expect(functionText("oscilloscope")).toContain("(param $in f64)");
+    expect(functionText("oscilloscope")).not.toContain("(result");
   });
 
-  it("matches XML port names in each block file", () => {
+  it("matches XML port names in each block script", () => {
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);
     const cat = diagram.catalog();
-    for (const [id, wat] of Object.entries(BLOCK_WAT)) {
-      const header = signatureWat(blockSignature(cat.block(id)!));
-      const ports = header.replace(`(func $${id} `, "");
-      expect(wat, id).toContain(ports);
+    for (const id of Object.keys(BLOCK_SCRIPTS)) {
+      const sig = blockSignature(cat.block(id)!);
+      const names = localNames(id);
+      expect(names[0], id).toBe("ctx");
+      expect(names.slice(1), id).toEqual(sig.params.map((port) => port.name));
+      const header = signatureWat(sig);
+      expect(header, id).toContain(`(func $${id}`);
+      for (const port of sig.params) {
+        expect(header, id).toContain(`(param $${port.name} ${port.type})`);
+      }
     }
   });
 
-  it("assembles every block file into the final module", () => {
-    const wat = assembleWat({ stages: ["quantizer", "sin"], delayMs: 10 });
-    expect(wat.startsWith("(module")).toBe(true);
-    expect(wat).toContain('(func $timer (export "timer") (type $fn_timer) (param $ctx i32) (result $out f64)');
-    expect(wat).toContain('(func $quantizer (export "quantizer") (type $fn_quantizer) (param $ctx i32) (param $in f64) (result $out f64)');
-    expect(wat).toContain('(func $sin (export "sin") (type $fn_sin) (param $ctx i32) (param $in f64) (result $out f64)');
-    expect(wat).toContain('(func $oscilloscope (export "oscilloscope") (type $fn_oscilloscope) (param $ctx i32) (param $in f64)');
-    expect(wat).toContain("call_ref $fn_quantizer");
-    expect(wat).toContain("call_ref $fn_sin");
-    expect(wat).toContain("call_ref $fn_oscilloscope");
-    expect(wat).toContain("(local $ctx i32)");
-    expect(wat).toContain("memory.atomic.wait32");
+  it("assembles every block script into the final module", () => {
+    const { text, wasm } = assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
+    expect(text).toContain("(module");
+    expect(text).toContain("(func $timer");
+    expect(text).toContain("(type $fn_timer");
+    expect(text).toContain("(func $quantizer");
+    expect(text).toContain("(func $sin");
+    expect(text).toContain("(func $oscilloscope");
+    expect(text).toContain("(type $fn_oscilloscope");
+    expect(text).toContain("ref.func $timer");
+    expect(text).toContain("ref.func $quantizer");
+    expect(text).toContain("ref.func $sin");
+    expect(text).toContain("ref.func $oscilloscope");
+    expect(text).toContain("call_ref $fn_timer");
+    expect(text).toContain("call_ref $fn_oscilloscope");
+    expect(text).toContain("(local $ctx i32)");
+    expect(text).toContain("memory.atomic.wait32");
+    expect(text).toContain(`i32.const ${SAMPLE_CAP}`);
+    expect([...wasm.slice(0, 4)]).toEqual([0, 97, 115, 109]);
 
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);
