@@ -9,6 +9,7 @@ describe("flow icons", () => {
     expect(iconKey("enum.svg")).toBe("enum");
     expect(iconSvgInner("missing")).toBe(iconSvgInner("process"));
     expect(renderIconSvg("string")).toContain("viewBox");
+    expect(renderIconSvg("string")).toContain('xmlns="http://www.w3.org/2000/svg"');
     expect(renderIconSvg("string")).toContain(iconSvgInner("string"));
   });
 

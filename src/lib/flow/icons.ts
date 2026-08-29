@@ -33,5 +33,5 @@ export function iconSvgInner(name: string | null | undefined): string {
 }
 
 export function renderIconSvg(name: string | null | undefined, className = "block-icon"): string {
-  return `<svg class="${className}" viewBox="0 0 16 16" fill="none" aria-hidden="true">${iconSvgInner(name)}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" class="${className}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconSvgInner(name)}</svg>`;
 }

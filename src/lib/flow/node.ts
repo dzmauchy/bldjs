@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing } from "lit";
-import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import { iconSvgInner } from "./icons";
+import { unsafeSVG } from "lit/directives/unsafe-svg.js";
+import { renderIconSvg } from "./icons";
 import { measureHostLayout, portFromComposedPath } from "./layout";
 import type { BldNodeState, NodeLayout, PortPointerDetail, PortSide, PortView } from "./types";
 
@@ -327,9 +327,7 @@ export class BldNode extends LitElement {
       >
         <div class="flow-node-header">
           <span class="flow-node-icon" aria-hidden="true">
-            <svg class="block-icon" viewBox="0 0 16 16" fill="none">
-              ${unsafeHTML(iconSvgInner(view.icon))}
-            </svg>
+            ${unsafeSVG(renderIconSvg(view.icon))}
           </span>
           <span class="flow-node-title">${view.name}</span>
           ${view.showChart
