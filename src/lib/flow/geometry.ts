@@ -121,18 +121,33 @@ export function translatePolyline(points: Point[], origin: Point): string {
   return polylinePath(points.map((point) => ({ x: point.x - origin.x, y: point.y - origin.y })));
 }
 
-const CURVE_ARGS = {
-  direction: connectors.curve.Directions.HORIZONTAL,
-  sourceDirection: connectors.curve.TangentDirections.RIGHT,
-  targetDirection: connectors.curve.TangentDirections.LEFT,
-} as const;
+const CURVE_HANDLE_RATIO = 0.35;
+const CURVE_MIN_HANDLE = 12;
+const CURVE_MAX_HANDLE = 36;
+
+function horizontalHandle(from: Point, to: Point): number {
+  return Math.min(Math.max(Math.abs(to.x - from.x) * CURVE_HANDLE_RATIO, CURVE_MIN_HANDLE), CURVE_MAX_HANDLE);
+}
+
+function curveArgs(from: Point, to: Point) {
+  const handle = horizontalHandle(from, to);
+  return {
+    direction: connectors.curve.Directions.HORIZONTAL,
+    sourceDirection: connectors.curve.TangentDirections.RIGHT,
+    targetDirection: connectors.curve.TangentDirections.LEFT,
+    sourceTangent: { x: handle, y: 0 },
+    targetTangent: { x: -handle, y: 0 },
+    distanceCoefficient: 0.3,
+    angleTangentCoefficient: 0,
+  };
+}
 
 export function curvePath(from: Point, to: Point, route: Point[] = []): CurvePath {
-  return connectors.curve(from, to, route, { ...CURVE_ARGS, raw: true }) as CurvePath;
+  return connectors.curve(from, to, route, { ...curveArgs(from, to), raw: true }) as CurvePath;
 }
 
 export function curveLinkPath(from: Point, to: Point, route: Point[] = []): string {
-  return connectors.curve(from, to, route, CURVE_ARGS) as string;
+  return connectors.curve(from, to, route, curveArgs(from, to)) as string;
 }
 
 export function curveLinkBounds(from: Point, to: Point, route: Point[] = [], pad = 16): Rect {
