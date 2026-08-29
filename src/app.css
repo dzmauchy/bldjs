@@ -309,7 +309,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 88px;
+  max-width: 148px;
 }
 
 .block-port-row.is-grounded .block-port {

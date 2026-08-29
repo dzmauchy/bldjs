@@ -8,13 +8,17 @@
   <type name="double" ns="java.lang"/>
 
   <!--
-    Push chain (source → sink):
-      Timer.out : Double
-      Quantizer / Sin : Double → Double
-      Oscilloscope.in : Double
+    Connected blocks are Java expressions, not a Double sample bus:
 
-    The timer pushes timestamps downstream. Processors map each sample and
-    push to the next consumer. The oscilloscope is the terminal sink.
+      oscilloscope(sin(quantizer(timer())))
+
+    timer()      : Consumer<Consumer<Consumer<Double>>>
+    quantizer(_) : Consumer<Consumer<Double>>
+    sin(_)       : Consumer<Double>
+    oscilloscope : Consumer<Double> → void
+
+    DoubleConsumer           = Consumer<Double>
+    Consumer<DoubleConsumer> = Consumer<Consumer<Double>>
   -->
   <type name="DoubleConsumer" ns="java.util.function">
     <ancestor type="Consumer">
@@ -25,27 +29,51 @@
   <block id="timer" name="Timer" ns="cs" icon="timer">
     <attribute name="kind">Start</attribute>
     <attribute name="runnable">true</attribute>
-    <attribute name="description">Runnable time source. Pushes timestamps downstream on its own interval.</attribute>
-    <out name="out" type="Double"/>
+    <attribute name="description">Runnable time source. Returns Consumer&lt;Consumer&lt;Consumer&lt;Double&gt;&gt;&gt; for quantizer(timer()).</attribute>
+    <out name="out" type="Consumer">
+      <t type="Consumer">
+        <t type="Consumer">
+          <t type="Double"/>
+        </t>
+      </t>
+    </out>
   </block>
 
   <block id="quantizer" name="Quantizer" ns="cs" icon="quantizer">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">Holds each pushed sample for 10 ms (LockSupport.parkNanos).</attribute>
-    <in name="in" type="Double"/>
-    <out name="out" type="Double"/>
+    <attribute name="description">Consumer&lt;Consumer&lt;Consumer&lt;Double&gt;&gt;&gt; → Consumer&lt;Consumer&lt;Double&gt;&gt;. Parks 10 ms (LockSupport.parkNanos) per sample.</attribute>
+    <in name="in" type="Consumer">
+      <t type="Consumer">
+        <t type="Consumer">
+          <t type="Double"/>
+        </t>
+      </t>
+    </in>
+    <out name="out" type="Consumer">
+      <t type="Consumer">
+        <t type="Double"/>
+      </t>
+    </out>
   </block>
 
   <block id="sin" name="Sin" ns="cs" icon="sin">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">Pushes Math.sin of each sample.</attribute>
-    <in name="in" type="Double"/>
-    <out name="out" type="Double"/>
+    <attribute name="description">Consumer&lt;Consumer&lt;Double&gt;&gt; → Consumer&lt;Double&gt;. Maps each sample through Math.sin.</attribute>
+    <in name="in" type="Consumer">
+      <t type="Consumer">
+        <t type="Double"/>
+      </t>
+    </in>
+    <out name="out" type="Consumer">
+      <t type="Double"/>
+    </out>
   </block>
 
   <block id="oscilloscope" name="Oscilloscope" ns="cs" icon="scope">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Sink that plots pushed doubles. Click Chart for a live view.</attribute>
-    <in name="in" type="Double"/>
+    <attribute name="description">Consumes Consumer&lt;Double&gt; and plots samples. Click Chart for a live view.</attribute>
+    <in name="in" type="Consumer">
+      <t type="Double"/>
+    </in>
   </block>
 </blocks>
