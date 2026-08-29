@@ -51,6 +51,7 @@
       <button
         class="dropdown-item"
         type="button"
+        data-testid="menu-delete-selected"
         onclick={() => {
           app.deleteSelected();
           close();
@@ -67,13 +68,14 @@
   </div>
 
   <div class="menu-item-wrap position-relative">
-    <button class="menu-item btn btn-sm" class:active={openMenu === "view"} type="button" onclick={() => toggle("view")}>
+    <button class="menu-item btn btn-sm" class:active={openMenu === "view"} type="button" data-testid="menu-view" onclick={() => toggle("view")}>
       View
     </button>
     <div class="dropdown-menu app-menu-dropdown" class:show={openMenu === "view"} class:d-block={openMenu === "view"}>
       <button
         class="dropdown-item"
         type="button"
+        data-testid="menu-zoom-in"
         onclick={() => {
           app.zoomIn();
           close();
@@ -84,6 +86,7 @@
       <button
         class="dropdown-item"
         type="button"
+        data-testid="menu-zoom-out"
         onclick={() => {
           app.zoomOut();
           close();
@@ -94,6 +97,7 @@
       <button
         class="dropdown-item"
         type="button"
+        data-testid="menu-reset-view"
         onclick={() => {
           app.resetView();
           close();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BLOCK_HEIGHT, BLOCK_WIDTH } from "./model";
+import { BLOCK_PLACE_HEIGHT, BLOCK_PLACE_WIDTH } from "./model";
 import { AppState } from "./state.svelte";
 
 function wireCsPipeline(app: AppState): { timerId: number; scopeId: number } {
@@ -30,8 +30,8 @@ describe("AppState placement", () => {
       for (let j = i + 1; j < app.blocks.length; j++) {
         const a = app.blocks[i];
         const b = app.blocks[j];
-        const overlapX = Math.abs(a.x - b.x) < BLOCK_WIDTH;
-        const overlapY = Math.abs(a.y - b.y) < BLOCK_HEIGHT;
+        const overlapX = Math.abs(a.x - b.x) < BLOCK_PLACE_WIDTH;
+        const overlapY = Math.abs(a.y - b.y) < BLOCK_PLACE_HEIGHT;
         expect(overlapX && overlapY).toBe(false);
       }
     }
@@ -49,6 +49,20 @@ describe("AppState wiring", () => {
     expect(app.links).toEqual([
       { fromBlock: stringId, fromOut: "value", toBlock: listId, toIn: "elements" },
     ]);
+  });
+
+  it("deletes a selected connector without removing blocks", () => {
+    const app = new AppState();
+    const stringId = app.nextId;
+    app.addBlock("b_string", 0, 0);
+    const listId = app.nextId;
+    app.addBlock("b_list_of", 300, 0);
+    app.toggleLink(stringId, "value", listId, "elements");
+    app.selectLink({ fromBlock: stringId, fromOut: "value", toBlock: listId, toIn: "elements" });
+    app.deleteSelected();
+    expect(app.links).toEqual([]);
+    expect(app.blocks).toHaveLength(2);
+    expect(app.selectedLink).toBeNull();
   });
 
   it("removes a block and its links", () => {

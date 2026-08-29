@@ -106,7 +106,7 @@
           ></button>
         </div>
         <div class="modal-body p-3">
-          <div class="scope-chart nowheel nopan nodrag">
+          <div class="scope-chart">
             <canvas bind:this={canvas}></canvas>
           </div>
           <div class="small text-secondary mt-2">

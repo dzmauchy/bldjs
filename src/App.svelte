@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
-  import { NONE_ID } from "$lib/model";
+  import { isNoneId } from "$lib/model";
   import { provideAppState } from "$lib/context";
   import { AppState } from "$lib/state.svelte";
   import AboutModal from "$lib/ui/AboutModal.svelte";
@@ -21,8 +21,19 @@
     const onKey = (event: KeyboardEvent) => {
       const meta = event.ctrlKey || event.metaKey;
       switch (event.key) {
+        case "Delete":
+        case "Backspace":
+          if (app.aboutOpen || !isNoneId(app.scopeOpen)) {
+            break;
+          }
+          if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+            break;
+          }
+          event.preventDefault();
+          app.deleteSelected();
+          break;
         case "Escape":
-          app.selected = NONE_ID;
+          app.clearSelection();
           app.aboutOpen = false;
           app.draggingDefId = null;
           app.linkingFrom = null;
