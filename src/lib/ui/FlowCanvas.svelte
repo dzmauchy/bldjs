@@ -4,6 +4,8 @@
     Background,
     BackgroundVariant,
     ConnectionMode,
+    Controls,
+    Panel,
     SvelteFlow,
     useSvelteFlow,
     type Connection,
@@ -11,6 +13,7 @@
     type IsValidConnection,
     type Node,
     type OnConnectStartParams,
+    type OnDelete,
     type Viewport,
   } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
@@ -22,7 +25,7 @@
 
   const app = getAppState();
   const nodeTypes = { block: FlowBlock };
-  const flow = $derived(useSvelteFlow());
+  const { zoomIn, zoomOut, setViewport, screenToFlowPosition, getViewport } = useSvelteFlow();
 
   let viewportEl: HTMLDivElement | undefined = $state();
   let nodes = $state.raw<BlockNode[]>([]);
@@ -69,19 +72,18 @@
   });
 
   $effect(() => {
-    const controller = flow;
     app.viewport = {
       zoomIn: () => {
-        void controller.zoomIn();
+        void zoomIn();
       },
       zoomOut: () => {
-        void controller.zoomOut();
+        void zoomOut();
       },
       resetView: () => {
-        void controller.setViewport({ x: 48, y: 48, zoom: 1 });
+        void setViewport({ x: 48, y: 48, zoom: 1 });
       },
-      screenToFlow: (clientX, clientY) => controller.screenToFlowPosition({ x: clientX, y: clientY }),
-      getViewport: () => controller.getViewport(),
+      screenToFlow: (clientX, clientY) => screenToFlowPosition({ x: clientX, y: clientY }),
+      getViewport: () => getViewport(),
     };
   });
 
@@ -148,6 +150,23 @@
     app.selected = NONE_ID;
     app.linkingFrom = null;
   }
+
+  const ondelete: OnDelete<BlockNode> = ({ nodes: removed, edges: removedEdges }) => {
+    for (const node of removed) {
+      app.removeBlock(Number(node.id));
+    }
+    for (const edge of removedEdges) {
+      if (!edge.sourceHandle || !edge.targetHandle) {
+        continue;
+      }
+      app.removeLink({
+        fromBlock: Number(edge.source),
+        fromOut: edge.sourceHandle,
+        toBlock: Number(edge.target),
+        toIn: edge.targetHandle,
+      });
+    }
+  };
 </script>
 
 <main class="workspace d-flex flex-column flex-grow-1 min-h-0">
@@ -170,12 +189,12 @@
       maxZoom={MAX_ZOOM}
       {defaultEdgeOptions}
       {isValidConnection}
-      clickConnect={false}
+      clickConnect={true}
       connectionMode={ConnectionMode.Strict}
       connectionRadius={16}
       connectionDragThreshold={8}
       zoomOnDoubleClick={false}
-      deleteKey={null}
+      deleteKey={["Backspace", "Delete"]}
       nodeDragThreshold={4}
       attributionPosition="bottom-left"
       class="bld-flow"
@@ -188,6 +207,7 @@
       onnodedragstop={onnodedrag}
       onselectionchange={onselectionchange}
       onpaneclick={onpaneclick}
+      ondelete={ondelete}
     >
       <Background
         variant={BackgroundVariant.Lines}
@@ -195,45 +215,17 @@
         patternColor="rgba(255, 255, 255, 0.045)"
         bgColor="#14171a"
       />
+      <Controls position="bottom-right" showLock={false} />
+      {#if app.blocks.length === 0}
+        <Panel position="top-center" class="canvas-hint-panel">
+          <div class="canvas-hint-card">
+            <div class="fw-semibold mb-1">Drop blocks here</div>
+            <div class="small text-secondary">
+              Drag from the left pane. Click or drag an output handle, then an input.
+            </div>
+          </div>
+        </Panel>
+      {/if}
     </SvelteFlow>
-    <div class="canvas-hint" class:d-none={app.blocks.length > 0}>
-      <div class="canvas-hint-card">
-        <div class="fw-semibold mb-1">Drop blocks here</div>
-        <div class="small text-secondary">
-          Drag from the left pane. Click an output, then an input, to ground types.
-        </div>
-      </div>
-    </div>
-    <div class="canvas-toolbar btn-group">
-      <button
-        class="btn btn-sm btn-outline-secondary"
-        type="button"
-        title="Zoom out"
-        data-testid="zoom-out"
-        disabled={!app.canZoomOut()}
-        onclick={() => app.zoomOut()}
-      >
-        −
-      </button>
-      <button
-        class="btn btn-sm btn-outline-secondary"
-        type="button"
-        title="Reset view"
-        data-testid="zoom-percent"
-        onclick={() => app.resetView()}
-      >
-        {app.zoomPercent()}%
-      </button>
-      <button
-        class="btn btn-sm btn-outline-secondary"
-        type="button"
-        title="Zoom in"
-        data-testid="zoom-in"
-        disabled={!app.canZoomIn()}
-        onclick={() => app.zoomIn()}
-      >
-        +
-      </button>
-    </div>
   </div>
 </main>

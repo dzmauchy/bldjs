@@ -41,11 +41,11 @@ Serve that folder with any static file server.
 ## Using the canvas
 
 - Drag a block from the left pane onto the canvas (or double-click a palette item to drop it in the center).
-- Click an output port, then an input port, to ground a type. Inferred parameters and port types update on the block.
+- Click or drag from an output handle to an input handle to ground a type. Inferred parameters and port types update on the block.
 - Control Systems (`cs`): wire Oscilloscope → Sin → Quantizer → Timer. The timer runs on its own interval. Click Oscilloscope to open a live chart.
-- Scroll to zoom toward the cursor. Use the zoom control in the lower-right, or **View** in the menu.
+- Scroll to zoom toward the cursor. Use Svelte Flow's zoom controls in the lower-right, or **View** in the menu.
 - Drag empty canvas space to pan. Drag a placed block to move it.
-- **Delete** / **Backspace** removes the selected block. **Ctrl/Cmd+0** resets the view.
+- **Delete** / **Backspace** removes the selected block or edge. **Ctrl/Cmd+0** resets the view.
 
 ## Stack
 

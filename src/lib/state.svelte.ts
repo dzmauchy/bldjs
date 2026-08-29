@@ -63,11 +63,8 @@ export class AppState {
   viewportH = $state(600);
   aboutOpen = $state(false);
   draggingDefId = $state<string | null>(null);
-  draggingId = $state(NONE_ID);
   dragX = $state(0);
   dragY = $state(0);
-  dragOriginX = $state(0);
-  dragOriginY = $state(0);
   linkingFrom = $state<LinkingFrom | null>(null);
   samples = $state<Map<number, SampleBuf>>(new Map());
   scopeOpen = $state(NONE_ID);
@@ -84,7 +81,7 @@ export class AppState {
   }
 
   isDragging(): boolean {
-    return this.draggingDefId !== null || this.draggingId !== NONE_ID;
+    return this.draggingDefId !== null;
   }
 
   blockDef(defId: string): BlockDef | undefined {
@@ -132,7 +129,6 @@ export class AppState {
   dropPaletteBlock(clientX: number, clientY: number, rect: DOMRect): void {
     const defId = this.draggingDefId;
     this.draggingDefId = null;
-    this.draggingId = NONE_ID;
     if (!defId) {
       return;
     }
@@ -158,14 +154,12 @@ export class AppState {
     this.samples = new Map();
     this.scopeOpen = NONE_ID;
     this.selected = NONE_ID;
-    this.draggingId = NONE_ID;
     this.linkingFrom = null;
     this.resetView();
   }
 
-  deleteSelected(): void {
-    const id = this.selected;
-    if (id === NONE_ID) {
+  removeBlock(id: number): void {
+    if (!this.blocks.some((block) => block.id === id)) {
       return;
     }
     this.stopTimer(id);
@@ -177,57 +171,25 @@ export class AppState {
     }
     this.blocks = this.blocks.filter((block) => block.id !== id);
     this.links = this.links.filter((link) => link.fromBlock !== id && link.toBlock !== id);
-    this.selected = NONE_ID;
-    if (this.draggingId === id) {
-      this.draggingId = NONE_ID;
+    if (this.selected === id) {
+      this.selected = NONE_ID;
     }
     if (this.linkingFrom?.blockId === id) {
       this.linkingFrom = null;
     }
   }
 
+  deleteSelected(): void {
+    this.removeBlock(this.selected);
+  }
+
+  removeLink(link: Link): void {
+    this.links = this.links.filter((item) => !linksEqual(item, link));
+  }
+
   resolveAll(): Map<number, ResolvedBlock> {
     const nodes = this.blocks.map((block) => [block.id, block.defId] as const);
     return infer(this.catalog, nodes, this.links);
-  }
-
-  onOutputPort(blockId: number, port: string): void {
-    const from = this.linkingFrom;
-    if (from && from.blockId === blockId && from.port === port) {
-      this.linkingFrom = null;
-      return;
-    }
-    this.selected = blockId;
-    this.linkingFrom = { blockId, port };
-  }
-
-  onInputPort(blockId: number, port: string): void {
-    const from = this.linkingFrom;
-    if (!from) {
-      return;
-    }
-    if (from.blockId === blockId) {
-      this.linkingFrom = null;
-      return;
-    }
-    this.toggleLink(from.blockId, from.port, blockId, port);
-    this.linkingFrom = null;
-  }
-
-  tryOpenOscilloscopeClick(): void {
-    const id = this.draggingId;
-    if (id === NONE_ID) {
-      return;
-    }
-    const block = this.blocks.find((item) => item.id === id);
-    if (!block || block.defId !== "oscilloscope") {
-      return;
-    }
-    const dx = Math.abs(block.x - this.dragOriginX);
-    const dy = Math.abs(block.y - this.dragOriginY);
-    if (dx < 4 && dy < 4) {
-      this.openOscilloscope(id);
-    }
   }
 
   openOscilloscope(id: number): void {

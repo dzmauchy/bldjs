@@ -1,6 +1,5 @@
 <script lang="ts">
   import { type BlockDef } from "$lib/blocks";
-  import { NONE_ID } from "$lib/model";
   import { getAppState } from "$lib/context";
   import BlockCard from "./BlockCard.svelte";
 
@@ -78,7 +77,6 @@
                 }}
                 ondblclick={() => {
                   app.draggingDefId = null;
-                  app.draggingId = NONE_ID;
                   app.addBlockAtViewCenter(def.id);
                 }}
               >

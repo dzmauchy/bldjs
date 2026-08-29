@@ -8,11 +8,10 @@
     def: BlockDef;
     id?: number;
     compact?: boolean;
-    useHandles?: boolean;
     resolved?: ResolvedBlock;
   }
 
-  let { def, id = NONE_ID, compact = false, useHandles = false, resolved }: Props = $props();
+  let { def, id = NONE_ID, compact = false, resolved }: Props = $props();
 
   const app = getAppState();
   const kind = $derived(app.kindOf(def));
@@ -45,47 +44,6 @@
     }
     const ty = output ? resolvedOutput(resolved, portName) : resolvedInput(resolved, portName);
     return typeToString(ty ?? fallback);
-  }
-
-  function onPortPointerDown(event: PointerEvent, name: string, output: boolean): void {
-    if (isNoneId(id)) {
-      return;
-    }
-    event.stopPropagation();
-    event.preventDefault();
-    if (output) {
-      app.onOutputPort(id, name);
-    } else {
-      app.onInputPort(id, name);
-    }
-  }
-
-  function onPortPointerUp(event: PointerEvent, name: string, output: boolean): void {
-    if (isNoneId(id) || output) {
-      return;
-    }
-    event.stopPropagation();
-    app.onInputPort(id, name);
-  }
-
-  function onHandleClick(event: MouseEvent | KeyboardEvent, name: string, output: boolean): void {
-    if (isNoneId(id)) {
-      return;
-    }
-    event.stopPropagation();
-    if (output) {
-      app.onOutputPort(id, name);
-    } else {
-      app.onInputPort(id, name);
-    }
-  }
-
-  function onPortKeyDown(event: KeyboardEvent, name: string, output: boolean): void {
-    if (event.key !== "Enter" && event.key !== " ") {
-      return;
-    }
-    event.preventDefault();
-    onHandleClick(event, name, output);
   }
 </script>
 
@@ -124,55 +82,30 @@
       {#if paramsLine}
         <div class="small font-monospace text-info mb-1">{paramsLine}</div>
       {/if}
-      <div class="d-flex justify-content-between gap-2 block-ports">
+      <div class="d-flex justify-content-between gap-2 block-ports nodrag nopan">
         <div class="d-flex flex-column gap-1 flex-grow-1">
           {#each def.inputs as port (port.name)}
             {@const ty = portType(port.name, port.ty, false)}
             {@const ok = resolved ? isResolvedCompatible(resolved, port.name) : true}
             {@const grounded = app.inputIsGrounded(id, port.name)}
-            {#if useHandles}
-              <div
-                class="block-port-row is-in nodrag nopan"
-                class:is-bad={!ok}
-                class:is-grounded={grounded}
+            <div
+              class="block-port-row is-in"
+              class:is-bad={!ok}
+              class:is-grounded={grounded}
+              title={ty}
+            >
+              <Handle
+                type="target"
+                id={port.name}
+                position={Position.Left}
+                class="block-handle"
                 data-testid={`input-${port.name}`}
-                title={ty}
-                role="button"
-                tabindex="0"
-                onclick={(event) => onHandleClick(event, port.name, false)}
-                onkeydown={(event) => onPortKeyDown(event, port.name, false)}
-                onpointerdown={(event) => event.stopPropagation()}
-              >
-                <Handle
-                  type="target"
-                  id={port.name}
-                  position={Position.Left}
-                  class="block-handle nodrag nopan"
-                  isConnectable={true}
-                  style="position: relative; top: auto; left: auto; right: auto; bottom: auto; transform: none; pointer-events: all;"
-                />
-                <span class="block-port-meta">
-                  <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
-                  <span class="block-port-type font-monospace">{ty}</span>
-                </span>
-              </div>
-            {:else}
-              <button
-                class="block-port-row is-in"
-                class:is-bad={!ok}
-                class:is-grounded={grounded}
-                type="button"
-                title={ty}
-                onpointerdown={(event) => onPortPointerDown(event, port.name, false)}
-                onpointerup={(event) => onPortPointerUp(event, port.name, false)}
-              >
-                <span class="block-port block-port-in"></span>
-                <span class="block-port-meta">
-                  <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
-                  <span class="block-port-type font-monospace">{ty}</span>
-                </span>
-              </button>
-            {/if}
+              />
+              <span class="block-port-meta">
+                <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
+                <span class="block-port-type font-monospace">{ty}</span>
+              </span>
+            </div>
           {/each}
         </div>
         <div class="d-flex flex-column gap-1 align-items-end flex-grow-1">
@@ -180,47 +113,23 @@
             {@const ty = portType(port.name, port.ty, true)}
             {@const linking =
               app.linkingFrom?.blockId === id && app.linkingFrom.port === port.name}
-            {#if useHandles}
-              <div
-                class="block-port-row is-out nodrag nopan"
-                class:is-linking={linking}
+            <div
+              class="block-port-row is-out"
+              class:is-linking={linking}
+              title={ty}
+            >
+              <span class="block-port-meta">
+                <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
+                <span class="block-port-type font-monospace">{ty}</span>
+              </span>
+              <Handle
+                type="source"
+                id={port.name}
+                position={Position.Right}
+                class="block-handle"
                 data-testid={`output-${port.name}`}
-                title={ty}
-                role="button"
-                tabindex="0"
-                onclick={(event) => onHandleClick(event, port.name, true)}
-                onkeydown={(event) => onPortKeyDown(event, port.name, true)}
-                onpointerdown={(event) => event.stopPropagation()}
-              >
-                <span class="block-port-meta">
-                  <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
-                  <span class="block-port-type font-monospace">{ty}</span>
-                </span>
-                <Handle
-                  type="source"
-                  id={port.name}
-                  position={Position.Right}
-                  class="block-handle nodrag nopan"
-                  isConnectable={true}
-                  style="position: relative; top: auto; left: auto; right: auto; bottom: auto; transform: none; pointer-events: all;"
-                />
-              </div>
-            {:else}
-              <button
-                class="block-port-row is-out"
-                class:is-linking={linking}
-                type="button"
-                title={ty}
-                onpointerdown={(event) => onPortPointerDown(event, port.name, true)}
-                onpointerup={(event) => onPortPointerUp(event, port.name, true)}
-              >
-                <span class="block-port-meta">
-                  <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
-                  <span class="block-port-type font-monospace">{ty}</span>
-                </span>
-                <span class="block-port block-port-out"></span>
-              </button>
-            {/if}
+              />
+            </div>
           {/each}
         </div>
       </div>

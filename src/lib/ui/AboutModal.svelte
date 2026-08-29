@@ -37,7 +37,7 @@
             <li>Scroll to zoom toward the cursor</li>
             <li>Drag empty space to pan</li>
             <li>Drag a placed block to move it</li>
-            <li>Click an output port, then an input port, to ground a type</li>
+            <li>Click or drag from an output handle to an input handle to ground a type</li>
             <li>Delete or Backspace removes the selection</li>
             <li>Ctrl/Cmd + 0 resets the view</li>
           </ul>

@@ -21,6 +21,6 @@
     data-block-id={numericId}
     data-block-def={data.defId}
   >
-    <BlockCard {def} id={numericId} {resolved} useHandles={true} />
+    <BlockCard {def} id={numericId} {resolved} />
   </div>
 {/if}

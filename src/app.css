@@ -274,23 +274,6 @@ body {
   border-color: var(--bs-danger);
 }
 
-.canvas-links {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 1px;
-  height: 1px;
-  overflow: visible;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.block-link {
-  stroke: color-mix(in srgb, var(--bs-primary) 80%, white);
-  stroke-width: 2.2;
-  stroke-linecap: round;
-}
-
 .canvas-viewport.is-linking {
   cursor: crosshair;
 }
@@ -307,41 +290,10 @@ body {
   touch-action: none;
 }
 
-.canvas-viewport.is-panning {
-  cursor: grabbing;
-}
-
-.canvas-viewport.is-moving-block {
-  cursor: grabbing;
-}
-
 .canvas-viewport.drop-target {
   outline: 2px dashed var(--bs-primary);
   outline-offset: -8px;
   background: #17202a;
-}
-
-.canvas-viewport.drop-target .canvas-grid {
-  background-image:
-    linear-gradient(to right, rgba(13, 110, 253, 0.12) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(13, 110, 253, 0.12) 1px, transparent 1px);
-}
-
-.canvas-grid {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-}
-
-.canvas-world {
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform-origin: 0 0;
-  will-change: transform;
 }
 
 .canvas-block {
@@ -350,7 +302,6 @@ body {
   cursor: grab;
   user-select: none;
   touch-action: none;
-  transform-origin: center center;
 }
 
 .canvas-block:active {
@@ -364,52 +315,6 @@ body {
     0 8px 18px rgba(0, 0, 0, 0.28);
 }
 
-.canvas-block.is-dragging {
-  z-index: 30;
-  transform: translateY(-14px) scale(1.08);
-  filter: drop-shadow(0 28px 36px rgba(0, 0, 0, 0.72));
-  pointer-events: none;
-  transition:
-    filter 0.16s ease,
-    transform 0.16s ease,
-    rotate 0s;
-  animation:
-    drag-rotate-in 0.28s ease-out forwards,
-    drag-rotate-wobble 0.7s ease-in-out 0.28s infinite alternate;
-}
-
-.canvas-block.is-dragging .block-card {
-  border-color: var(--block-accent);
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--block-accent) 70%, transparent),
-    0 22px 40px rgba(0, 0, 0, 0.5);
-}
-
-.canvas-block-footprint {
-  position: absolute;
-  width: 248px;
-  height: 118px;
-  border: 2px dashed rgba(255, 255, 255, 0.32);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.04);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.canvas-hint {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.canvas-hint.d-none {
-  display: none !important;
-}
-
 .canvas-hint-card {
   padding: 1rem 1.25rem;
   border: 1px dashed var(--bs-border-color);
@@ -417,16 +322,7 @@ body {
   background: rgba(20, 23, 26, 0.72);
   text-align: center;
   max-width: 280px;
-}
-
-.canvas-toolbar {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  background: #1c2125;
-  border-radius: 0.4rem;
-  overflow: hidden;
-  z-index: 2;
+  pointer-events: none;
 }
 
 .drag-ghost {
@@ -515,6 +411,32 @@ body {
   background: rgba(28, 33, 37, 0.85) !important;
 }
 
+.svelte-flow__controls {
+  background: #1c2125;
+  border: 1px solid var(--bs-border-color);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.svelte-flow__controls-button {
+  background: #1c2125;
+  border-bottom-color: var(--bs-border-color);
+  fill: var(--bs-body-color);
+}
+
+.svelte-flow__controls-button:hover {
+  background: #2b3238;
+}
+
+.svelte-flow__controls-button svg {
+  fill: var(--bs-body-color);
+}
+
+.canvas-hint-panel {
+  pointer-events: none;
+  margin-top: 2.5rem;
+}
+
 .block-port-row .svelte-flow__handle.block-handle {
   position: relative !important;
   top: auto !important;
@@ -532,7 +454,8 @@ body {
   border-radius: 50%;
 }
 
-.block-port-row.is-grounded .svelte-flow__handle.block-handle {
+.block-port-row.is-grounded .svelte-flow__handle.block-handle,
+.block-port-row .svelte-flow__handle.block-handle.connectingfrom {
   background: var(--block-accent);
 }
 
@@ -543,13 +466,5 @@ body {
 
 .block-port-row.is-bad .svelte-flow__handle.block-handle {
   border-color: var(--bs-danger);
-}
-
-.canvas-toolbar {
-  z-index: 5;
-}
-
-.canvas-hint {
-  z-index: 3;
 }
 

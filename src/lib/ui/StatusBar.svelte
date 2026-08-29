@@ -15,9 +15,9 @@
   <span class="me-3" data-testid="status-zoom">{app.zoomPercent()}%</span>
   <span class="ms-auto">
     {#if app.linkingFrom}
-      Click an input port to ground its type · Esc cancels
+      Click an input handle to ground its type · Esc cancels
     {:else}
-      Click output → input to infer types · scroll to zoom
+      Click or drag output → input handles · scroll to zoom
     {/if}
   </span>
 </footer>
