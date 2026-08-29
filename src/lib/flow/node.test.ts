@@ -58,7 +58,7 @@ describe("BldNode", () => {
     const inputHint = shadow!.querySelector('[data-testid="input-elems-type"]') as HTMLElement | null;
     expect(outputHint?.textContent).toBe("f64[]");
     expect(inputHint?.textContent).toBe("f64");
-    expect(getComputedStyle(outputHint!).visibility).toBe("hidden");
+    expect(outputHint?.getAttribute("role")).toBe("tooltip");
     expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("aria-describedby")).toBe(
       "port-type-out-result",
     );
