@@ -1,47 +1,29 @@
 import { createHost } from "./host";
+import { requestStop } from "./memory";
 
-let buffer: number[] = [];
-let handle: ReturnType<typeof setTimeout> | undefined;
-let tick: (() => void) | undefined;
+let memory: WebAssembly.Memory | undefined;
 
-function stopInner(): void {
-  if (handle !== undefined) {
-    clearTimeout(handle);
-  }
-  handle = undefined;
-  tick = undefined;
-}
-
-async function start(wasm: ArrayBuffer, delayMs: number): Promise<void> {
-  stopInner();
-  buffer = [];
+async function start(wasm: ArrayBuffer, shared: WebAssembly.Memory): Promise<void> {
+  memory = shared;
   const bytes = new Uint8Array(wasm);
   const module = await WebAssembly.compile(bytes.buffer);
-  const instance = await WebAssembly.instantiate(module, createHost(buffer));
-  const exported = instance.exports.tick;
-  if (typeof exported !== "function") {
-    throw new Error("generator wasm is missing exported tick");
+  const instance = await WebAssembly.instantiate(module, createHost(shared));
+  const run = instance.exports.run;
+  if (typeof run !== "function") {
+    throw new Error("generator wasm is missing exported run");
   }
-  tick = exported as () => void;
-  const delay = Math.max(delayMs, 1);
-  const loop = (): void => {
-    tick?.();
-    handle = setTimeout(loop, delay);
-  };
-  handle = setTimeout(loop, 0);
+  (run as () => void)();
 }
 
-self.onmessage = (event: MessageEvent<{ type: string; wasm?: ArrayBuffer; delayMs?: number; id?: number }>) => {
+self.onmessage = (event: MessageEvent<{ type: string; wasm?: ArrayBuffer; memory?: WebAssembly.Memory }>) => {
   const msg = event.data;
-  if (msg.type === "start" && msg.wasm) {
-    void start(msg.wasm, msg.delayMs ?? 1);
-    return;
-  }
-  if (msg.type === "snapshot") {
-    self.postMessage({ type: "samples", id: msg.id, values: buffer.slice() });
+  if (msg.type === "start" && msg.wasm && msg.memory) {
+    void start(msg.wasm, msg.memory);
     return;
   }
   if (msg.type === "stop") {
-    stopInner();
+    if (memory) {
+      requestStop(memory);
+    }
   }
 };

@@ -1,5 +1,6 @@
 export { type BlockDef, blockAttribute, blockInput, blockOutput, displayType, typeToString } from "./ast";
 export { associateBuiltinModels } from "./builtin";
+export { blockSignature, wasmValType } from "../runtime/signatures";
 export { Catalog } from "./catalog";
 export {
   type CompiledGenerator,
