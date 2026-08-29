@@ -49,10 +49,19 @@ describe("BldNode", () => {
     expect(shadow!.querySelector(".flow-node")).not.toBeNull();
     expect(shadow!.querySelector(".flow-node-ports")).not.toBeNull();
     expect(shadow!.querySelectorAll("[data-port]")).toHaveLength(2);
-    expect(shadow!.querySelector('[data-testid="input-elems"]')?.textContent).toContain("elems");
-    expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).toContain("result");
-    expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).not.toContain("f64[]");
+    expect(shadow!.querySelector('[data-testid="input-elems"] .block-port-name')?.textContent).toContain("elems");
+    expect(shadow!.querySelector('[data-testid="output-result"] .block-port-name')?.textContent).toContain("result");
+    expect(shadow!.querySelector('[data-testid="output-result"] .block-port-name')?.textContent).not.toContain("f64[]");
     expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("f64[]");
+    expect(shadow!.querySelector('[data-testid="input-elems"]')?.getAttribute("title")).toBe("f64");
+    const outputHint = shadow!.querySelector('[data-testid="output-result-type"]') as HTMLElement | null;
+    const inputHint = shadow!.querySelector('[data-testid="input-elems-type"]') as HTMLElement | null;
+    expect(outputHint?.textContent).toBe("f64[]");
+    expect(inputHint?.textContent).toBe("f64");
+    expect(getComputedStyle(outputHint!).visibility).toBe("hidden");
+    expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("aria-describedby")).toBe(
+      "port-type-out-result",
+    );
     expect(shadow!.querySelector(".flow-node-params")?.textContent).toContain("T = f64");
     expect(node.dataset.blockDef).toBe("b_array_of");
     const glyph = shadow!.querySelector(".flow-node-icon path, .flow-node-icon rect, .flow-node-icon circle");

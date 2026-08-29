@@ -44,6 +44,8 @@ Release assets go to `dist/`:
 make build
 ```
 
+`make check` / `npm run check` typechecks the app and validates every `src/resources/models/*.xml` catalog against `blocks.xsd`.
+
 Serve that folder with any static file server that sets the same CSP and isolation headers.
 
 ## Using the canvas

@@ -44,6 +44,9 @@ export class BldNode extends LitElement {
       z-index: 4;
       cursor: grabbing;
     }
+    :host(:hover) {
+      z-index: 3;
+    }
     :host(.block-kind-start) {
       --block-accent: var(--bs-success, #198754);
     }
@@ -150,6 +153,7 @@ export class BldNode extends LitElement {
       text-align: left;
       cursor: pointer;
       border-radius: 0.25rem;
+      position: relative;
     }
     .block-port-row:hover {
       background: rgba(255, 255, 255, 0.06);
@@ -157,6 +161,33 @@ export class BldNode extends LitElement {
     .block-port-row.is-out {
       text-align: right;
       justify-content: flex-end;
+    }
+    .block-port-hint {
+      position: absolute;
+      top: calc(100% + 2px);
+      left: 0;
+      z-index: 6;
+      padding: 0.12rem 0.4rem;
+      border-radius: 0.25rem;
+      background: #14171a;
+      border: 1px solid var(--bs-border-color, #495057);
+      color: var(--bs-info, #0dcaf0);
+      font-family: var(--bs-font-monospace, ui-monospace, monospace);
+      font-size: 0.62rem;
+      line-height: 1.2;
+      white-space: nowrap;
+      pointer-events: none;
+      visibility: hidden;
+      opacity: 0;
+    }
+    .block-port-row.is-out .block-port-hint {
+      left: auto;
+      right: 0;
+    }
+    .block-port-row:hover .block-port-hint,
+    .block-port-row:focus-visible .block-port-hint {
+      visibility: visible;
+      opacity: 1;
     }
     .block-port-meta {
       display: flex;
@@ -298,7 +329,13 @@ export class BldNode extends LitElement {
       .join(" ");
   }
 
+  #portHintId(side: PortSide, name: string): string {
+    return `port-type-${side}-${name}`;
+  }
+
   #renderPort(port: PortView, side: PortSide) {
+    const testId = this.#portTestId(side, port.name);
+    const hintId = this.#portHintId(side, port.name);
     const handle = html`<span class="block-port" data-handle></span>`;
     const meta = html`
       <span class="block-port-meta">
@@ -312,10 +349,17 @@ export class BldNode extends LitElement {
         data-port
         data-side=${side}
         data-name=${port.name}
-        data-testid=${this.#portTestId(side, port.name)}
+        data-testid=${testId}
         title=${port.typeLabel}
+        aria-describedby=${hintId}
       >
         ${side === "in" ? handle : meta} ${side === "in" ? meta : handle}
+        <span
+          id=${hintId}
+          class="block-port-hint"
+          role="tooltip"
+          data-testid=${`${testId}-type`}
+        >${port.typeLabel}</span>
       </button>
     `;
   }

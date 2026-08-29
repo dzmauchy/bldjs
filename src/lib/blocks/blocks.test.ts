@@ -63,6 +63,23 @@ function expectType(actual: TypeExpr | undefined, expected: TypeExpr): void {
 }
 
 describe("blocks", () => {
+  it("parses catalogs that declare blocks.xsd", () => {
+    const xml = `
+      <blocks id="t" name="T" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="blocks.xsd">
+        <namespace id="n" name="N"/>
+      </blocks>
+    `;
+    expect(parseBlocks("t.xml", xml).id).toBe("t");
+  });
+
+  it("builtin catalogs declare blocks.xsd", () => {
+    for (const xml of [TYPES_XML, FLOW_XML, CONTROL_SYSTEMS_XML]) {
+      expect(xml).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
+      expect(xml).toContain('xsi:noNamespaceSchemaLocation="blocks.xsd"');
+    }
+  });
+
   it("parses blocks.md apply example", () => {
     const xml = `
       <blocks id="workspace_01" name="Signal Processing" icon="workspace.png">
