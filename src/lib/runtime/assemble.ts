@@ -1,12 +1,9 @@
-import binaryen from "binaryen";
-import { BLOCK_SCRIPTS, RUNTIME_SCRIPTS } from "../../resources/binaryen";
-import { nameLocals } from "../../resources/binaryen/util";
 import { CTX, SAMPLE_CAP } from "./memory";
 import { CTX_PARAM, type WasmSignature } from "./signatures";
 
 export type Stage = "sin" | "quantizer";
 
-export { BLOCK_SCRIPTS };
+export type { BlockScriptId } from "../../resources/binaryen";
 
 export interface AssembleOptions {
   stages: readonly Stage[];
@@ -18,12 +15,7 @@ export interface AssembledModule {
   text: string;
 }
 
-const FEATURES =
-  binaryen.Features.Atomics |
-  binaryen.Features.ReferenceTypes |
-  binaryen.Features.GC |
-  binaryen.Features.BulkMemory |
-  binaryen.Features.Multivalue;
+type Binaryen = typeof import("binaryen").default;
 
 function typeDecl(id: string, params: { name: string; type: string }[], results: { name: string; type: string }[]): string {
   const inner = [
@@ -53,9 +45,15 @@ export function blockTypeWat(sig: WasmSignature): string {
   return typeDecl(`fn_${sig.id}`, [CTX_PARAM, ...sig.params], sig.results);
 }
 
-function nameFuncType(module: binaryen.Module, seen: Set<binaryen.HeapType>, name: string, typeName: string): void {
+function nameFuncType(
+  bin: Binaryen,
+  module: InstanceType<Binaryen["Module"]>,
+  seen: Set<number>,
+  name: string,
+  typeName: string,
+): void {
   const fn = module.getFunction(name);
-  const heap = binaryen.getHeapType(binaryen.getFunctionInfo(fn).type);
+  const heap = bin.getHeapType(bin.getFunctionInfo(fn).type);
   if (seen.has(heap)) {
     return;
   }
@@ -63,73 +61,56 @@ function nameFuncType(module: binaryen.Module, seen: Set<binaryen.HeapType>, nam
   module.setTypeName(heap, typeName);
 }
 
-function funcRefType(module: binaryen.Module, name: string): binaryen.Type {
+function funcRefType(bin: Binaryen, module: InstanceType<Binaryen["Module"]>, name: string): number {
   const fn = module.getFunction(name);
-  return binaryen.getTypeFromHeapType(binaryen.getHeapType(binaryen.getFunctionInfo(fn).type), false);
+  return bin.getTypeFromHeapType(bin.getHeapType(bin.getFunctionInfo(fn).type), false);
 }
 
 function callBlock(
-  module: binaryen.Module,
+  bin: Binaryen,
+  module: InstanceType<Binaryen["Module"]>,
   name: string,
-  operands: readonly binaryen.ExpressionRef[],
-  results: binaryen.Type,
-): binaryen.ExpressionRef {
-  return module.call_ref(module.ref.func(name, funcRefType(module, name)), [...operands], results);
+  operands: readonly number[],
+  results: number,
+): number {
+  return module.call_ref(module.ref.func(name, funcRefType(bin, module, name)), [...operands], results);
 }
 
-function composeTick(module: binaryen.Module, stages: readonly Stage[]): binaryen.ExpressionRef {
-  const ctx = (): binaryen.ExpressionRef => module.local.get(0, binaryen.i32);
-  let expr = callBlock(module, "timer", [ctx()], binaryen.f64);
+function composeTick(
+  bin: Binaryen,
+  module: InstanceType<Binaryen["Module"]>,
+  stages: readonly Stage[],
+): number {
+  const ctx = (): number => module.local.get(0, bin.i32);
+  let expr = callBlock(bin, module, "timer", [ctx()], bin.f64);
   for (const stage of stages) {
-    expr = callBlock(module, stage, [ctx(), expr], binaryen.f64);
+    expr = callBlock(bin, module, stage, [ctx(), expr], bin.f64);
   }
-  return callBlock(module, "oscilloscope", [ctx(), expr], binaryen.none);
-}
-
-function addTick(module: binaryen.Module, stages: readonly Stage[], delayNs: bigint): void {
-  const fn = module.addFunction(
-    "tick",
-    binaryen.none,
-    binaryen.none,
-    [binaryen.i32],
-    module.block(null, [
-      module.local.set(0, module.i32.const(CTX)),
-      module.f64.store(0, 8, module.local.get(0, binaryen.i32), module.call("now", [], binaryen.f64)),
-      module.i64.store(8, 8, module.local.get(0, binaryen.i32), module.i64.const(delayNs)),
-      composeTick(module, stages),
-    ]),
-  );
-  nameLocals(fn, ["ctx"]);
-  module.addFunctionExport("tick", "tick");
-}
-
-function addRun(module: binaryen.Module, delayNs: bigint): void {
-  module.addFunction(
-    "run",
-    binaryen.none,
-    binaryen.none,
-    [],
-    module.loop(
-      "again",
-      module.block(null, [
-        module.call("tick", [], binaryen.none),
-        module.call("park", [module.i64.const(delayNs)], binaryen.none),
-        module.br("again", module.i32.eqz(module.call("stopped", [], binaryen.i32))),
-      ]),
-    ),
-  );
-  module.addFunctionExport("run", "run");
+  return callBlock(bin, module, "oscilloscope", [ctx(), expr], bin.none);
 }
 
 /**
  * Assemble catalog block scripts, runtime helpers, and a tick/run composition
  * into one binaryen module, then emit wasm-gc + threads.
+ *
+ * binaryen.js is loaded on demand so the compiler is not in the first paint chunk.
  */
-export function assembleModule(options: AssembleOptions): AssembledModule {
+export async function assembleModule(options: AssembleOptions): Promise<AssembledModule> {
+  const [{ default: binaryen }, { BLOCK_SCRIPTS, RUNTIME_SCRIPTS }, { nameLocals }] = await Promise.all([
+    import("binaryen"),
+    import("../../resources/binaryen"),
+    import("../../resources/binaryen/util"),
+  ]);
   const delayNs = BigInt(Math.max(options.delayMs, 1)) * 1_000_000n;
   const module = new binaryen.Module();
   try {
-    module.setFeatures(FEATURES as binaryen.Features);
+    module.setFeatures(
+      binaryen.Features.Atomics |
+        binaryen.Features.ReferenceTypes |
+        binaryen.Features.GC |
+        binaryen.Features.BulkMemory |
+        binaryen.Features.Multivalue,
+    );
     RUNTIME_SCRIPTS.imports(module);
     RUNTIME_SCRIPTS.push(module, SAMPLE_CAP);
     RUNTIME_SCRIPTS.park(module);
@@ -138,19 +119,47 @@ export function assembleModule(options: AssembleOptions): AssembledModule {
       add(module);
     }
 
-    const seen = new Set<binaryen.HeapType>();
-    nameFuncType(module, seen, "now", "fn_now");
-    nameFuncType(module, seen, "host_sin", "fn_host_sin");
-    nameFuncType(module, seen, "push", "fn_push");
-    nameFuncType(module, seen, "park", "fn_park");
-    nameFuncType(module, seen, "stopped", "fn_stopped");
+    const seen = new Set<number>();
+    nameFuncType(binaryen, module, seen, "now", "fn_now");
+    nameFuncType(binaryen, module, seen, "host_sin", "fn_host_sin");
+    nameFuncType(binaryen, module, seen, "push", "fn_push");
+    nameFuncType(binaryen, module, seen, "park", "fn_park");
+    nameFuncType(binaryen, module, seen, "stopped", "fn_stopped");
     for (const id of Object.keys(BLOCK_SCRIPTS)) {
-      nameFuncType(module, seen, id, `fn_${id}`);
+      nameFuncType(binaryen, module, seen, id, `fn_${id}`);
     }
 
-    addTick(module, options.stages, delayNs);
-    addRun(module, delayNs);
-    nameFuncType(module, seen, "tick", "fn_void");
+    const tick = module.addFunction(
+      "tick",
+      binaryen.none,
+      binaryen.none,
+      [binaryen.i32],
+      module.block(null, [
+        module.local.set(0, module.i32.const(CTX)),
+        module.f64.store(0, 8, module.local.get(0, binaryen.i32), module.call("now", [], binaryen.f64)),
+        module.i64.store(8, 8, module.local.get(0, binaryen.i32), module.i64.const(delayNs)),
+        composeTick(binaryen, module, options.stages),
+      ]),
+    );
+    nameLocals(tick, ["ctx"]);
+    module.addFunctionExport("tick", "tick");
+
+    module.addFunction(
+      "run",
+      binaryen.none,
+      binaryen.none,
+      [],
+      module.loop(
+        "again",
+        module.block(null, [
+          module.call("tick", [], binaryen.none),
+          module.call("park", [module.i64.const(delayNs)], binaryen.none),
+          module.br("again", module.i32.eqz(module.call("stopped", [], binaryen.i32))),
+        ]),
+      ),
+    );
+    module.addFunctionExport("run", "run");
+    nameFuncType(binaryen, module, seen, "tick", "fn_void");
 
     if (!module.validate()) {
       throw new Error("binaryen rejected the assembled generator module");
@@ -165,11 +174,11 @@ export function assembleModule(options: AssembleOptions): AssembledModule {
   }
 }
 
-export function assembleWasm(options: AssembleOptions): Uint8Array {
-  return assembleModule(options).wasm;
+export async function assembleWasm(options: AssembleOptions): Promise<Uint8Array> {
+  return (await assembleModule(options)).wasm;
 }
 
 /** @deprecated Prefer {@link assembleModule}; emitText of the assembled module. */
-export function assembleWat(options: AssembleOptions): string {
-  return assembleModule(options).text;
+export async function assembleWat(options: AssembleOptions): Promise<string> {
+  return (await assembleModule(options)).text;
 }

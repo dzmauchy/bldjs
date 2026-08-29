@@ -143,7 +143,7 @@ export function planGenerator(timerId: number, nodes: NodeSpec[], links: Link[])
 }
 
 /** Run each block's binaryen.js script and emit wasm for this pipeline. */
-export function assembleGenerator(plan: Pick<GeneratorPlan, "stages" | "delayMs">): Uint8Array {
+export async function assembleGenerator(plan: Pick<GeneratorPlan, "stages" | "delayMs">): Promise<Uint8Array> {
   return assembleWasm({ stages: plan.stages, delayMs: plan.delayMs });
 }
 
@@ -151,26 +151,26 @@ export function assembleGenerator(plan: Pick<GeneratorPlan, "stages" | "delayMs"
  * Walk Timer → … → Oscilloscope, then generate the module with binaryen.js.
  * `runDiagram` does the same assemble step when the simulation starts.
  */
-export function compileGenerator(
+export async function compileGenerator(
   timerId: number,
   nodes: NodeSpec[],
   links: Link[],
-): CompiledGenerator | undefined {
+): Promise<CompiledGenerator | undefined> {
   const plan = planGenerator(timerId, nodes, links);
   if (!plan) {
     return undefined;
   }
-  const assembled = assembleModule(plan);
+  const assembled = await assembleModule(plan);
   return { ...plan, text: assembled.text, wasm: assembled.wasm };
 }
 
 /** Assemble the catalog block scripts into one module and return binaryen text. */
-export function generatorText(stages: readonly Stage[], delayMs = 0): string {
-  return assembleModule({ stages, delayMs }).text;
+export async function generatorText(stages: readonly Stage[], delayMs = 0): Promise<string> {
+  return (await assembleModule({ stages, delayMs })).text;
 }
 
 /** @deprecated Prefer {@link generatorText}. */
-export function generatorWat(stages: readonly Stage[], delayMs = 0): string {
+export async function generatorWat(stages: readonly Stage[], delayMs = 0): Promise<string> {
   return generatorText(stages, delayMs);
 }
 
@@ -180,13 +180,13 @@ export interface CompiledTimer {
   delayMs: number;
 }
 
-export function compileTimer(
+export async function compileTimer(
   timerId: number,
   nodes: NodeSpec[],
   links: Link[],
   buffers: Map<number, SampleBuf>,
-): CompiledTimer | undefined {
-  const compiled = compileGenerator(timerId, nodes, links);
+): Promise<CompiledTimer | undefined> {
+  const compiled = await compileGenerator(timerId, nodes, links);
   if (!compiled) {
     return undefined;
   }

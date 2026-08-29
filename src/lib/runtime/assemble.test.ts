@@ -56,8 +56,8 @@ describe("block binaryen assembly", () => {
     }
   });
 
-  it("assembles every block script into the final module", () => {
-    const { text, wasm } = assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
+  it("assembles every block script into the final module", async () => {
+    const { text, wasm } = await assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
     expect(text).toContain("(module");
     expect(text).toContain("(func $timer");
     expect(text).toContain("(type $fn_timer");

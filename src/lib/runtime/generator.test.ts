@@ -6,14 +6,14 @@ import { CTX, createSharedMemory, readSamples } from "./memory";
 import { instantiateGenerator, startLocalGenerator } from "./generator";
 
 describe("binaryen generator", () => {
-  it("assembles block scripts into a valid wasm-gc module", () => {
-    const wasm = assembleWasm({ stages: ["quantizer", "sin"], delayMs: 10 });
+  it("assembles block scripts into a valid wasm-gc module", async () => {
+    const wasm = await assembleWasm({ stages: ["quantizer", "sin"], delayMs: 10 });
     expect([...wasm.slice(0, 4)]).toEqual([0, 97, 115, 109]);
     expect(WebAssembly.validate(wasm.slice().buffer)).toBe(true);
   });
 
   it("ticks sin(pi/2) through the assembled pipeline", async () => {
-    const { text, wasm } = assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
+    const { text, wasm } = await assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
     expect(text).toContain("call_ref $fn_timer");
     expect(text).toContain("(param $ctx i32)");
     expect(text).toContain("(result f64)");
@@ -31,7 +31,7 @@ describe("binaryen generator", () => {
   });
 
   it("runs a compiled timer pipeline in-process", async () => {
-    const compiled = compileGenerator(
+    const compiled = (await compileGenerator(
       4,
       [
         { id: 1, defId: "oscilloscope" },
@@ -44,7 +44,7 @@ describe("binaryen generator", () => {
         { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
         { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
       ],
-    )!;
+    ))!;
     const handle = await startLocalGenerator({
       wasm: compiled.wasm,
       delayMs: 0,
@@ -57,7 +57,7 @@ describe("binaryen generator", () => {
   });
 
   it("exports library functions that take $ctx and XML ports", async () => {
-    const wasm = assembleWasm({ stages: ["sin"], delayMs: 0 });
+    const wasm = await assembleWasm({ stages: ["sin"], delayMs: 0 });
     const memory = createSharedMemory();
     const instantiated = await WebAssembly.instantiate(wasm.slice().buffer, createHost(memory, () => 0.5));
     const view = new DataView(memory.buffer);

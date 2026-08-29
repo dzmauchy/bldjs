@@ -1,7 +1,7 @@
 export { type BlockDef, arrayOf, blockAttribute, blockInput, blockOutput, displayType, typeToString } from "./ast";
 export { associateBuiltinModels } from "./builtin";
 export { blockSignature, signatureWat, wasmValType } from "../runtime/signatures";
-export { assembleModule, assembleWasm, assembleWat, BLOCK_SCRIPTS } from "../runtime/assemble";
+export { assembleModule, assembleWasm, assembleWat } from "../runtime/assemble";
 export { Catalog } from "./catalog";
 export {
   type CompiledGenerator,

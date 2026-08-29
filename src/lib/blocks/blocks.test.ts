@@ -533,7 +533,7 @@ describe("blocks", () => {
     expect(Math.abs(out[1] - 1)).toBeLessThan(1e-9);
   });
 
-  it("compile generator emits typed-function wasm", () => {
+  it("compile generator emits typed-function wasm", async () => {
     const nodes = [
       { id: 1, defId: "oscilloscope" },
       { id: 2, defId: "sin" },
@@ -545,7 +545,7 @@ describe("blocks", () => {
       { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
       { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
     ];
-    const compiled = compileGenerator(4, nodes, links)!;
+    const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.scopeId).toBe(1);
     expect(compiled.delayMs).toBe(QUANTIZER_DELAY_MS);
     expect(compiled.text).toContain("(type $fn_timer (func (param i32) (result f64)))");
@@ -566,7 +566,7 @@ describe("blocks", () => {
     expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
   });
 
-  it("compile timer chain sines into scope", () => {
+  it("compile timer chain sines into scope", async () => {
     const nodes = [
       { id: 1, defId: "oscilloscope" },
       { id: 2, defId: "sin" },
@@ -579,7 +579,7 @@ describe("blocks", () => {
       { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
     ];
     const buffers = new Map<number, SampleBuf>([[1, new SampleBuf()]]);
-    const compiled = compileTimer(4, nodes, links, buffers)!;
+    const compiled = (await compileTimer(4, nodes, links, buffers))!;
     compiled.emit(0);
     compiled.emit(Math.PI / 2);
     const got = buffers.get(1)!.snapshot();
@@ -588,14 +588,14 @@ describe("blocks", () => {
     expect(compiled.delayMs).toBe(QUANTIZER_DELAY_MS);
   });
 
-  it("compile timer needs oscilloscope", () => {
+  it("compile timer needs oscilloscope", async () => {
     const nodes = [
       { id: 3, defId: "quantizer" },
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [{ fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in" }];
-    expect(compileGenerator(4, nodes, links)).toBeUndefined();
-    expect(compileTimer(4, nodes, links, new Map())).toBeUndefined();
+    expect(await compileGenerator(4, nodes, links)).toBeUndefined();
+    expect(await compileTimer(4, nodes, links, new Map())).toBeUndefined();
   });
 
   it("control systems diagram grounds nested func chain", () => {
@@ -660,8 +660,8 @@ describe("blocks", () => {
     expect(buf.snapshot().length).toBe(0);
   });
 
-  it("generator text uses typed func types even without stages", () => {
-    const text = generatorText([]);
+  it("generator text uses typed func types even without stages", async () => {
+    const text = await generatorText([]);
     expect(text).toContain("(type $fn_timer (func (param i32) (result f64)))");
     expect(text).toContain("(func $tick");
     expect(text).toContain('(export "tick"');

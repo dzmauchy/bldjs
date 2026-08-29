@@ -289,7 +289,7 @@ export class AppState extends EventTarget {
     const op = this.#runningOp;
     try {
       for (const plan of plans) {
-        const wasm = assembleGenerator(plan);
+        const wasm = await assembleGenerator(plan);
         const handle = await startGenerator({ wasm, delayMs: plan.delayMs });
         if (op !== this.#runningOp) {
           handle.stop();
