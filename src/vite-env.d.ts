@@ -20,15 +20,3 @@ declare module "*.css?inline" {
   export default css;
 }
 
-declare module "wabt" {
-  interface WasmModule {
-    resolveNames(): void;
-    validate(): void;
-    toBinary(options?: { write_debug_names?: boolean }): { buffer: Uint8Array; log: string };
-    destroy(): void;
-  }
-  interface WabtModule {
-    parseWat(filename: string, buffer: string | Uint8Array): WasmModule;
-  }
-  export default function loadWabt(): Promise<WabtModule>;
-}

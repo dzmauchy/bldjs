@@ -27,7 +27,7 @@ export default defineConfig({
     format: "es",
   },
   optimizeDeps: {
-    exclude: ["wabt"],
+    include: ["wabt"],
   },
   test: {
     environment: "jsdom",

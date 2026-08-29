@@ -2,9 +2,15 @@ import { describe, expect, it } from "vitest";
 import { compileGenerator, generatorWat } from "../blocks/cs";
 import { createHost } from "./host";
 import { instantiateGenerator, startLocalGenerator } from "./generator";
-import { wat2wasm } from "./wabt";
+import { getWabt, wabtLoader, wat2wasm } from "./wabt";
 
 describe("wabt generators", () => {
+  it("resolves the CJS wabt loader without a default import", async () => {
+    expect(typeof wabtLoader()).toBe("function");
+    const wabt = await getWabt();
+    expect(typeof wabt.parseWat).toBe("function");
+  });
+
   it("compiles typed-function wat and ticks sin(pi/2)", async () => {
     const wat = generatorWat(["quantizer", "sin"]);
     const wasm = await wat2wasm(wat);
