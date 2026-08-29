@@ -200,85 +200,12 @@ export function connectorPolyline(from: Point, to: Point, route: Point[] = []): 
   return [from, { x: link.c1x, y: link.c1y }, { x: link.c2x, y: link.c2y }, to];
 }
 
-export function usefulWaypoints(from: Point, to: Point, route: Point[] = []): Point[] {
-  const span = to.x - from.x;
-  const edge = Math.max(PORT_STUB * 2, span * 0.2);
-  const left = from.x + edge;
-  const right = to.x - edge;
-  if (right - left < PORT_STUB) {
-    return [];
-  }
-  const out: Point[] = [];
-  for (const point of route) {
-    if (point.x <= left || point.x >= right) {
-      continue;
-    }
-    if (Math.hypot(point.x - from.x, point.y - from.y) < PORT_STUB) {
-      continue;
-    }
-    if (Math.hypot(point.x - to.x, point.y - to.y) < PORT_STUB) {
-      continue;
-    }
-    const prev = out.at(-1);
-    if (prev && Math.hypot(point.x - prev.x, point.y - prev.y) < 8) {
-      continue;
-    }
-    out.push({ x: snapCoord(point.x), y: snapCoord(point.y) });
-  }
-  return out;
+export function connectorPath(from: Point, to: Point, _route: Point[] = []): string {
+  return cubicLink(from, to).d;
 }
 
-export function catmullRomPath(points: Point[]): string {
-  if (points.length < 2) {
-    return points.length === 1 ? `M ${pt(points[0]!)}` : "";
-  }
-  if (points.length === 2) {
-    return polylinePath(points);
-  }
-  if (points.length === 3) {
-    return `M ${pt(points[0]!)} Q ${pt(points[1]!)} ${pt(points[2]!)}`;
-  }
-  const padded = [points[0]!, ...points, points[points.length - 1]!];
-  const parts = [`M ${pt(points[0]!)}`];
-  for (let i = 1; i < padded.length - 2; i++) {
-    const p0 = padded[i - 1]!;
-    const p1 = padded[i]!;
-    const p2 = padded[i + 1]!;
-    const p3 = padded[i + 2]!;
-    const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
-    const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
-    parts.push(`C ${pt(c1)}, ${pt(c2)}, ${pt(p2)}`);
-  }
-  return parts.join(" ");
-}
-
-export function connectorPath(from: Point, to: Point, route: Point[] = []): string {
-  const mids = usefulWaypoints(from, to, route);
-  if (mids.length === 0) {
-    return cubicLink(from, to).d;
-  }
-  return catmullRomPath([
-    from,
-    { x: from.x + PORT_STUB, y: from.y },
-    ...mids,
-    { x: to.x - PORT_STUB, y: to.y },
-    to,
-  ]);
-}
-
-export function connectorBounds(from: Point, to: Point, route: Point[] = [], pad = 16): Rect {
-  const link = cubicLink(from, to);
-  const extras = usefulWaypoints(from, to, route);
-  const xs = [link.x1, link.c1x, link.c2x, link.x2, ...extras.map((point) => point.x)];
-  const ys = [link.y1, link.c1y, link.c2y, link.y2, ...extras.map((point) => point.y)];
-  const left = Math.min(...xs) - pad;
-  const top = Math.min(...ys) - pad;
-  return {
-    left,
-    top,
-    width: Math.max(Math.max(...xs) + pad - left, 1),
-    height: Math.max(Math.max(...ys) + pad - top, 1),
-  };
+export function connectorBounds(from: Point, to: Point, _route: Point[] = [], pad = 16): Rect {
+  return cubicLinkBounds(cubicLink(from, to), pad);
 }
 
 export function translateConnector(from: Point, to: Point, route: Point[], origin: Point): string {

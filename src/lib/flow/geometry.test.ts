@@ -170,6 +170,20 @@ describe("flow geometry", () => {
     expect(path.endsWith("400 220")).toBe(true);
   });
 
+  it("does not detour when a box sits under the wire", () => {
+    const from = { x: 80, y: 200 };
+    const to = { x: 420, y: 40 };
+    const empty = connectorPath(from, to);
+    const nearBox = connectorPath(from, to, [
+      { x: 180, y: 200 },
+      { x: 220, y: 120 },
+      { x: 260, y: 40 },
+      { x: 320, y: 40 },
+    ]);
+    expect(nearBox).toBe(empty);
+    expect(nearBox).toBe(cubicLink(from, to).d);
+  });
+
   it("builds a piecewise cubic SVG path from ELK spline points", () => {
     const path = splinePath([
       { x: 0, y: 10 },
