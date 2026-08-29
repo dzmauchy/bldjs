@@ -205,7 +205,6 @@ export class ElkRouteEngine {
   }
 
   destroy(): void {
-    this.#elk?.terminateWorker();
     this.#elk = null;
     this.#routes = new Map();
     this.#onChange = null;
