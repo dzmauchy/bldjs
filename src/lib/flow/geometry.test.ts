@@ -3,6 +3,7 @@ import {
   clientToWorld,
   cubicLink,
   cubicLinkBounds,
+  curvePath,
   linkKey,
   orthogonalLink,
   polylineBounds,
@@ -95,5 +96,14 @@ describe("flow geometry", () => {
     expect(routed).not.toBe(empty);
     const local = translateCurve(from, to, [], { x: -16, y: -6 });
     expect(local.startsWith("M 16 16")).toBe(true);
+  });
+
+  it("keeps a short horizontal span from looping far past the ports", () => {
+    const from = { x: 0, y: 10 };
+    const to = { x: 80, y: 140 };
+    const box = curvePath(from, to, []).bbox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(-8);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(88);
   });
 });
