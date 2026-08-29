@@ -40,6 +40,15 @@ export interface LinkingFrom {
   port: string;
 }
 
+/** Svelte Flow viewport helpers registered by the workspace. */
+export interface ViewportController {
+  zoomIn(): void;
+  zoomOut(): void;
+  resetView(): void;
+  screenToFlow(clientX: number, clientY: number): { x: number; y: number };
+  getViewport(): { x: number; y: number; zoom: number };
+}
+
 export class AppState {
   catalog = $state<Catalog>(new Catalog());
   sources = $state<XmlSource[]>([]);
@@ -63,7 +72,9 @@ export class AppState {
   samples = $state<Map<number, SampleBuf>>(new Map());
   scopeOpen = $state(NONE_ID);
   runFlags = $state<Map<number, { value: boolean }>>(new Map());
+  viewport: ViewportController | null = null;
   private timerStops = new Map<number, () => void>();
+  private lastTimerTopology = "";
 
   constructor() {
     const diagram = new Diagram("workspace", "Workspace");
@@ -111,6 +122,28 @@ export class AppState {
       zoom,
     );
     this.addBlock(defId, worldX - BLOCK_WIDTH / 2 + cascade, worldY - BLOCK_HEIGHT / 2 + cascade);
+  }
+
+  dropPaletteBlock(clientX: number, clientY: number, rect: DOMRect): void {
+    const defId = this.draggingDefId;
+    this.draggingDefId = null;
+    this.draggingId = NONE_ID;
+    if (!defId) {
+      return;
+    }
+    if (this.viewport) {
+      const point = this.viewport.screenToFlow(clientX, clientY);
+      this.addBlock(defId, point.x - BLOCK_WIDTH / 2, point.y - BLOCK_HEIGHT / 2);
+      return;
+    }
+    const [worldX, worldY] = screenToWorld(
+      clientX - rect.left,
+      clientY - rect.top,
+      this.panX,
+      this.panY,
+      this.zoom,
+    );
+    this.addBlock(defId, worldX - BLOCK_WIDTH / 2, worldY - BLOCK_HEIGHT / 2);
   }
 
   clearCanvas(): void {
@@ -223,9 +256,23 @@ export class AppState {
     }
     this.timerStops.clear();
     this.runFlags = new Map();
+    this.lastTimerTopology = "";
+  }
+
+  /** Block ids, definitions, and links — not positions — so moving a block does not restart timers. */
+  timerTopologyKey(): string {
+    const nodes = this.blocks.map((block) => `${block.id}:${block.defId}`).join(",");
+    const links = this.links
+      .map((link) => `${link.fromBlock}:${link.fromOut}->${link.toBlock}:${link.toIn}`)
+      .join(",");
+    return `${nodes}|${links}`;
   }
 
   reconcileTimers(): void {
+    const topology = this.timerTopologyKey();
+    if (topology === this.lastTimerTopology) {
+      return;
+    }
     const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
     const wanted = this.blocks
       .filter((block) => block.defId === "timer")
@@ -245,6 +292,7 @@ export class AppState {
       this.timerStops.set(id, cancel);
     }
     this.runFlags = flags;
+    this.lastTimerTopology = topology;
   }
 
   toggleLink(fromBlock: number, fromOut: string, toBlock: number, toIn: string): void {
@@ -267,13 +315,31 @@ export class AppState {
     return this.links.some((link) => link.toBlock === blockId && link.toIn === port);
   }
 
+  syncViewport(panX: number, panY: number, zoom: number): void {
+    this.panX = panX;
+    this.panY = panY;
+    this.zoom = zoom;
+  }
+
   resetView(): void {
+    if (this.viewport) {
+      this.viewport.resetView();
+      return;
+    }
     this.panX = 48;
     this.panY = 48;
     this.zoom = 1;
   }
 
   zoomBy(factor: number): void {
+    if (this.viewport) {
+      if (factor > 1) {
+        this.viewport.zoomIn();
+      } else {
+        this.viewport.zoomOut();
+      }
+      return;
+    }
     const oldZoom = this.zoom;
     const newZoom = clampZoom(oldZoom * factor);
     if (Math.abs(newZoom - oldZoom) < Number.EPSILON) {
@@ -301,21 +367,36 @@ export class AppState {
   }
 
   zoomPercent(): number {
-    return Math.round(this.zoom * 100);
+    const zoom = this.viewport?.getViewport().zoom ?? this.zoom;
+    return Math.round(zoom * 100);
   }
 
   canZoomIn(): boolean {
-    return this.zoom < MAX_ZOOM - 1e-9;
+    const zoom = this.viewport?.getViewport().zoom ?? this.zoom;
+    return zoom < MAX_ZOOM - 1e-9;
   }
 
   canZoomOut(): boolean {
-    return this.zoom > MIN_ZOOM + 1e-9;
+    const zoom = this.viewport?.getViewport().zoom ?? this.zoom;
+    return zoom > MIN_ZOOM + 1e-9;
   }
 
   moveBlock(id: number, dx: number, dy: number): void {
-    this.blocks = this.blocks.map((block) =>
-      block.id === id ? { ...block, x: block.x + dx, y: block.y + dy } : block,
-    );
+    const block = this.blocks.find((item) => item.id === id);
+    if (!block) {
+      return;
+    }
+    block.x += dx;
+    block.y += dy;
+  }
+
+  moveBlockTo(id: number, x: number, y: number): void {
+    const block = this.blocks.find((item) => item.id === id);
+    if (!block) {
+      return;
+    }
+    block.x = x;
+    block.y = y;
   }
 }
 

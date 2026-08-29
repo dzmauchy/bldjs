@@ -345,18 +345,12 @@ body {
 }
 
 .canvas-block {
-  position: absolute;
+  position: relative;
   width: 248px;
   cursor: grab;
   user-select: none;
   touch-action: none;
-  z-index: 1;
   transform-origin: center center;
-  rotate: 0deg;
-  transition:
-    filter 0.16s ease,
-    transform 0.16s ease,
-    rotate 0.16s ease;
 }
 
 .canvas-block:active {
@@ -496,3 +490,63 @@ body {
   flex: 0 0 28px;
   background: #1b1f22;
 }
+
+.bld-flow,
+.canvas-viewport .svelte-flow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.svelte-flow__node-block {
+  width: 248px;
+}
+
+.svelte-flow__edge-path,
+.svelte-flow__connection-path {
+  stroke: color-mix(in srgb, var(--bs-primary) 80%, white);
+  stroke-width: 2.2;
+}
+
+.svelte-flow__attribution {
+  background: rgba(28, 33, 37, 0.85) !important;
+}
+
+.block-port-row .svelte-flow__handle.block-handle {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  transform: none;
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
+  min-height: 10px;
+  background: #14171a;
+  border: 2px solid var(--block-accent);
+  border-radius: 50%;
+}
+
+.block-port-row.is-grounded .svelte-flow__handle.block-handle {
+  background: var(--block-accent);
+}
+
+.block-port-row.is-linking .svelte-flow__handle.block-handle {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--block-accent) 55%, transparent);
+  background: var(--block-accent);
+}
+
+.block-port-row.is-bad .svelte-flow__handle.block-handle {
+  border-color: var(--bs-danger);
+}
+
+.canvas-toolbar {
+  z-index: 5;
+}
+
+.canvas-hint {
+  z-index: 3;
+}
+

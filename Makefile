@@ -1,4 +1,4 @@
-.PHONY: serve serve-open build test check
+.PHONY: serve serve-open build test test-e2e check
 
 serve:
 	npm run dev -- --port 8080 --host
@@ -11,6 +11,9 @@ build:
 
 test:
 	npm test
+
+test-e2e:
+	npm run build && npm run test:e2e
 
 check:
 	npm run check

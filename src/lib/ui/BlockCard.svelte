@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Handle, Position } from "@xyflow/svelte";
   import { type BlockDef, type ResolvedBlock, isResolvedCompatible, resolvedInput, resolvedOutput, typeToString } from "$lib/blocks";
   import { NONE_ID, isNoneId } from "$lib/model";
   import { getAppState } from "$lib/context";
@@ -7,10 +8,11 @@
     def: BlockDef;
     id?: number;
     compact?: boolean;
+    useHandles?: boolean;
     resolved?: ResolvedBlock;
   }
 
-  let { def, id = NONE_ID, compact = false, resolved }: Props = $props();
+  let { def, id = NONE_ID, compact = false, useHandles = false, resolved }: Props = $props();
 
   const app = getAppState();
   const kind = $derived(app.kindOf(def));
@@ -75,9 +77,10 @@
       <span class="ms-auto d-flex align-items-center gap-1">
         {#if isScope}
           <button
-            class="btn btn-sm btn-outline-info py-0 px-1"
+            class="btn btn-sm btn-outline-info py-0 px-1 nodrag nopan"
             type="button"
             title="Open live chart"
+            data-testid={`chart-${id}`}
             onpointerdown={(event) => event.stopPropagation()}
             onclick={(event) => {
               event.stopPropagation();
@@ -107,21 +110,43 @@
             {@const ty = portType(port.name, port.ty, false)}
             {@const ok = resolved ? isResolvedCompatible(resolved, port.name) : true}
             {@const grounded = app.inputIsGrounded(id, port.name)}
-            <button
-              class="block-port-row is-in"
-              class:is-bad={!ok}
-              class:is-grounded={grounded}
-              type="button"
-              title={ty}
-              onpointerdown={(event) => onPortPointerDown(event, port.name, false)}
-              onpointerup={(event) => onPortPointerUp(event, port.name, false)}
-            >
-              <span class="block-port block-port-in"></span>
-              <span class="block-port-meta">
-                <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
-                <span class="block-port-type font-monospace">{ty}</span>
-              </span>
-            </button>
+            {#if useHandles}
+              <div
+                class="block-port-row is-in"
+                class:is-bad={!ok}
+                class:is-grounded={grounded}
+                data-testid={`input-${port.name}`}
+                title={ty}
+              >
+                <Handle
+                  type="target"
+                  id={port.name}
+                  position={Position.Left}
+                  class="block-handle"
+                  isConnectable={true}
+                />
+                <span class="block-port-meta">
+                  <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
+                  <span class="block-port-type font-monospace">{ty}</span>
+                </span>
+              </div>
+            {:else}
+              <button
+                class="block-port-row is-in"
+                class:is-bad={!ok}
+                class:is-grounded={grounded}
+                type="button"
+                title={ty}
+                onpointerdown={(event) => onPortPointerDown(event, port.name, false)}
+                onpointerup={(event) => onPortPointerUp(event, port.name, false)}
+              >
+                <span class="block-port block-port-in"></span>
+                <span class="block-port-meta">
+                  <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
+                  <span class="block-port-type font-monospace">{ty}</span>
+                </span>
+              </button>
+            {/if}
           {/each}
         </div>
         <div class="d-flex flex-column gap-1 align-items-end flex-grow-1">
@@ -129,20 +154,41 @@
             {@const ty = portType(port.name, port.ty, true)}
             {@const linking =
               app.linkingFrom?.blockId === id && app.linkingFrom.port === port.name}
-            <button
-              class="block-port-row is-out"
-              class:is-linking={linking}
-              type="button"
-              title={ty}
-              onpointerdown={(event) => onPortPointerDown(event, port.name, true)}
-              onpointerup={(event) => onPortPointerUp(event, port.name, true)}
-            >
-              <span class="block-port-meta">
-                <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
-                <span class="block-port-type font-monospace">{ty}</span>
-              </span>
-              <span class="block-port block-port-out"></span>
-            </button>
+            {#if useHandles}
+              <div
+                class="block-port-row is-out"
+                class:is-linking={linking}
+                data-testid={`output-${port.name}`}
+                title={ty}
+              >
+                <span class="block-port-meta">
+                  <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
+                  <span class="block-port-type font-monospace">{ty}</span>
+                </span>
+                <Handle
+                  type="source"
+                  id={port.name}
+                  position={Position.Right}
+                  class="block-handle"
+                  isConnectable={true}
+                />
+              </div>
+            {:else}
+              <button
+                class="block-port-row is-out"
+                class:is-linking={linking}
+                type="button"
+                title={ty}
+                onpointerdown={(event) => onPortPointerDown(event, port.name, true)}
+                onpointerup={(event) => onPortPointerUp(event, port.name, true)}
+              >
+                <span class="block-port-meta">
+                  <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
+                  <span class="block-port-type font-monospace">{ty}</span>
+                </span>
+                <span class="block-port block-port-out"></span>
+              </button>
+            {/if}
           {/each}
         </div>
       </div>

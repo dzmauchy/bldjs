@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
-  import { BLOCK_HEIGHT, BLOCK_WIDTH, NONE_ID, screenToWorld } from "$lib/model";
+  import { NONE_ID } from "$lib/model";
   import { provideAppState } from "$lib/context";
   import { AppState } from "$lib/state.svelte";
   import AboutModal from "$lib/ui/AboutModal.svelte";
@@ -14,8 +14,7 @@
   const app = provideAppState(new AppState());
 
   $effect(() => {
-    void app.blocks;
-    void app.links;
+    void app.timerTopologyKey();
     untrack(() => app.reconcileTimers());
   });
 
@@ -28,12 +27,9 @@
       app.dragY = event.clientY;
     };
     const onUp = (event: PointerEvent) => {
-      const defId = app.draggingDefId;
-      if (!defId) {
+      if (app.draggingDefId === null) {
         return;
       }
-      app.draggingDefId = null;
-      app.draggingId = NONE_ID;
       const clientX = event.clientX;
       const clientY = event.clientY;
       const fromTarget =
@@ -41,17 +37,11 @@
       const fromPoint = document.elementFromPoint(clientX, clientY)?.closest(".canvas-viewport") ?? null;
       const viewport = fromTarget ?? fromPoint;
       if (!(viewport instanceof Element)) {
+        app.draggingDefId = null;
+        app.draggingId = NONE_ID;
         return;
       }
-      const rect = viewport.getBoundingClientRect();
-      const [worldX, worldY] = screenToWorld(
-        clientX - rect.left,
-        clientY - rect.top,
-        app.panX,
-        app.panY,
-        app.zoom,
-      );
-      app.addBlock(defId, worldX - BLOCK_WIDTH / 2, worldY - BLOCK_HEIGHT / 2);
+      app.dropPaletteBlock(clientX, clientY, viewport.getBoundingClientRect());
     };
     const onCancel = () => {
       app.draggingDefId = null;
