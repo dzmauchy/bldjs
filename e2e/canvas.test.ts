@@ -3,6 +3,7 @@ import { By, type WebDriver } from "selenium-webdriver";
 import {
   diagramCss,
   diagramRoot,
+  dropOnDiagram,
   newCanvas,
   nodeHost,
   openWorkspace,
@@ -10,6 +11,7 @@ import {
   pressDelete,
   statusBlocks,
   statusZoom,
+  waitDeep,
   waitForBlock,
 } from "./actions";
 import { createDriver } from "./harness";
@@ -30,18 +32,18 @@ describe("canvas", () => {
     expect(await statusBlocks(driver)).toBe("0 blocks");
     const hint = await (await diagramCss(driver, ".hint-card")).getText();
     expect(hint).toContain("Drop blocks here");
-    const paletteItem = await driver.findElement(By.css('[data-testid="palette-b_string"]')).getText();
+    const paletteItem = await (await waitDeep(driver, '[data-testid="palette-b_string"]')).getText();
     expect(paletteItem).toContain("String");
     expect(paletteItem).not.toContain("→");
     const defined = await driver.executeScript(
-      "return [!!customElements.get('bld-diagram'), !!customElements.get('bld-node'), !!customElements.get('bld-connector')]",
+      "return [!!customElements.get('bld-app'), !!customElements.get('bld-diagram'), !!customElements.get('bld-node'), !!customElements.get('bld-connector')]",
     );
-    expect(defined).toEqual([true, true, true]);
+    expect(defined).toEqual([true, true, true, true]);
   });
 
   it("zooms from the canvas toolbar", async () => {
     const before = await statusZoom(driver);
-    await driver.findElement(By.css("bld-diagram"));
+    await waitDeep(driver, "bld-diagram");
     const zoomIn = await diagramCss(driver, '[data-testid="zoom-in"]');
     await zoomIn.click();
     await driver.wait(async () => (await statusZoom(driver)) !== before, 5000);
@@ -106,19 +108,7 @@ describe("canvas", () => {
 
   it("drops a palette item onto the canvas", async () => {
     await newCanvas(driver);
-    await driver.executeScript(`
-      const diagram = document.querySelector("bld-diagram");
-      const rect = diagram.getBoundingClientRect();
-      const data = new DataTransfer();
-      data.setData("application/x-bld-block", "b_integer");
-      diagram.dispatchEvent(new DragEvent("drop", {
-        bubbles: true,
-        cancelable: true,
-        dataTransfer: data,
-        clientX: rect.left + rect.width / 2,
-        clientY: rect.top + rect.height / 2,
-      }));
-    `);
+    await dropOnDiagram(driver, "b_integer");
     await waitForBlock(driver, "b_integer");
     expect(await statusBlocks(driver)).toBe("1 block");
   });

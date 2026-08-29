@@ -1,6 +1,6 @@
-import "./BldConnector.svelte";
-import "./BldDiagram.svelte";
-import "./BldNode.svelte";
+import "./connector";
+import "./diagram";
+import "./node";
 
 export { FLOW_MIME } from "./mime";
 export {
@@ -24,3 +24,6 @@ export type {
   PortSide,
   PortView,
 } from "./types";
+export { BldConnector } from "./connector";
+export { BldDiagram } from "./diagram";
+export { BldNode } from "./node";

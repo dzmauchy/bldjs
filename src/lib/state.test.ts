@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BLOCK_PLACE_HEIGHT, BLOCK_PLACE_WIDTH } from "./model";
-import { AppState } from "./state.svelte";
+import { AppState } from "./state";
 
 function wireCsPipeline(app: AppState): { timerId: number; scopeId: number } {
   const timerId = app.nextId;
@@ -99,6 +99,20 @@ describe("AppState timers", () => {
     expect(app.runFlags.get(timerId)).toBe(running);
     expect(running?.value).toBe(true);
 
+    app.stopAllTimers();
+  });
+
+  it("does not reenter reconcileTimers when runFlags notify subscribers", () => {
+    const app = new AppState();
+    let n = 0;
+    app.subscribe(() => {
+      n += 1;
+      app.reconcileTimers();
+    });
+    wireCsPipeline(app);
+    app.reconcileTimers();
+    expect(n).toBeGreaterThan(0);
+    expect(app.runFlags.get(app.blocks.find((block) => block.defId === "timer")!.id)?.value).toBe(true);
     app.stopAllTimers();
   });
 

@@ -1,8 +1,8 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { flushSync, tick } from "svelte";
 import { portFromComposedPath } from "./layout";
+import { BldNode } from "./node";
 import type { BldNodeState } from "./types";
-import "./BldNode.svelte";
+import "./node";
 
 function sampleState(overrides: Partial<BldNodeState> = {}): BldNodeState {
   return {
@@ -23,12 +23,13 @@ function sampleState(overrides: Partial<BldNodeState> = {}): BldNodeState {
   };
 }
 
-async function mountNode(state: BldNodeState): Promise<HTMLElement> {
+async function mountNode(state: BldNodeState): Promise<BldNode> {
   const node = document.createElement("bld-node");
-  Object.assign(node, { view: state, x: 0, y: 0 });
+  node.view = state;
+  node.x = 0;
+  node.y = 0;
   document.body.append(node);
-  flushSync();
-  await tick();
+  await node.updateComplete;
   return node;
 }
 
@@ -49,7 +50,9 @@ describe("BldNode", () => {
     expect(shadow!.querySelector(".flow-node-ports")).not.toBeNull();
     expect(shadow!.querySelectorAll("[data-port]")).toHaveLength(3);
     expect(shadow!.querySelector('[data-testid="input-key"]')?.textContent).toContain("key");
-    expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).toContain("Map<String, Integer>");
+    expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).toContain("result");
+    expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).not.toContain("Map<String, Integer>");
+    expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("Map<String, Integer>");
     expect(shadow!.querySelector(".flow-node-params")?.textContent).toContain("K = String");
     expect(node.dataset.blockDef).toBe("b_map_of");
   });
@@ -104,11 +107,10 @@ describe("BldNode", () => {
     node.addEventListener("noderesize", (event) => {
       layouts.push((event as CustomEvent).detail);
     });
-    Object.assign(node, { view: sampleState() });
+    node.view = sampleState();
     document.body.append(node);
-    flushSync();
-    await tick();
-    await tick();
+    await node.updateComplete;
+    await node.updateComplete;
     expect(layouts.length).toBeGreaterThan(0);
     expect(layouts.at(-1)).toMatchObject({
       width: expect.any(Number),

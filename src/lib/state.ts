@@ -40,33 +40,84 @@ export interface LinkingFrom {
   port: string;
 }
 
-export class AppState {
-  catalog = $state<Catalog>(new Catalog());
-  sources = $state<XmlSource[]>([]);
-  blocks = $state<BlockInstance[]>([]);
-  links = $state<Link[]>([]);
-  selected = $state(NONE_ID);
-  selectedLink = $state<Link | null>(null);
-  panX = $state(48);
-  panY = $state(48);
-  zoom = $state(1);
-  nextId = $state(1);
-  viewportW = $state(800);
-  viewportH = $state(600);
-  aboutOpen = $state(false);
-  draggingDefId = $state<string | null>(null);
-  linkingFrom = $state<LinkingFrom | null>(null);
-  samples = $state<Map<number, SampleBuf>>(new Map());
-  scopeOpen = $state(NONE_ID);
-  runFlags = $state<Map<number, { value: boolean }>>(new Map());
-  private timerStops = new Map<number, () => void>();
-  private lastTimerTopology = "";
+function reactiveFields(target: AppState, fields: Record<string, unknown>): void {
+  for (const [key, initial] of Object.entries(fields)) {
+    let value = initial;
+    Object.defineProperty(target, key, {
+      get: () => value,
+      set(next: unknown) {
+        if (Object.is(value, next)) {
+          return;
+        }
+        value = next;
+        target.notify();
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
+}
+
+export class AppState extends EventTarget {
+  declare catalog: Catalog;
+  declare sources: XmlSource[];
+  declare blocks: BlockInstance[];
+  declare links: Link[];
+  declare selected: number;
+  declare selectedLink: Link | null;
+  declare panX: number;
+  declare panY: number;
+  declare zoom: number;
+  declare nextId: number;
+  declare viewportW: number;
+  declare viewportH: number;
+  declare aboutOpen: boolean;
+  declare draggingDefId: string | null;
+  declare linkingFrom: LinkingFrom | null;
+  declare samples: Map<number, SampleBuf>;
+  declare scopeOpen: number;
+  declare runFlags: Map<number, { value: boolean }>;
+
+  #timerStops = new Map<number, () => void>();
+  #lastTimerTopology = "";
+  #reconciling = false;
 
   constructor() {
+    super();
     const diagram = new Diagram("workspace", "Workspace");
     associateBuiltinModels(diagram);
-    this.catalog = diagram.catalog();
-    this.sources = [...diagram.sources()];
+    reactiveFields(this, {
+      catalog: diagram.catalog(),
+      sources: [...diagram.sources()],
+      blocks: [],
+      links: [],
+      selected: NONE_ID,
+      selectedLink: null,
+      panX: 48,
+      panY: 48,
+      zoom: 1,
+      nextId: 1,
+      viewportW: 800,
+      viewportH: 600,
+      aboutOpen: false,
+      draggingDefId: null,
+      linkingFrom: null,
+      samples: new Map(),
+      scopeOpen: NONE_ID,
+      runFlags: new Map(),
+    });
+  }
+
+  subscribe(listener: () => void): () => void {
+    const wrapped = (): void => {
+      listener();
+    };
+    this.addEventListener("change", wrapped);
+    return () => this.removeEventListener("change", wrapped);
+  }
+
+  notify(): void {
+    this.dispatchEvent(new Event("change"));
   }
 
   isDragging(): boolean {
@@ -191,8 +242,8 @@ export class AppState {
       stop(flag);
       flags.delete(id);
     }
-    this.timerStops.get(id)?.();
-    this.timerStops.delete(id);
+    this.#timerStops.get(id)?.();
+    this.#timerStops.delete(id);
     this.runFlags = flags;
   }
 
@@ -200,12 +251,12 @@ export class AppState {
     for (const flag of this.runFlags.values()) {
       stop(flag);
     }
-    for (const cancel of this.timerStops.values()) {
+    for (const cancel of this.#timerStops.values()) {
       cancel();
     }
-    this.timerStops.clear();
+    this.#timerStops.clear();
     this.runFlags = new Map();
-    this.lastTimerTopology = "";
+    this.#lastTimerTopology = "";
   }
 
   /** Block ids, definitions, and links — not positions — so moving a block does not restart timers. */
@@ -218,30 +269,38 @@ export class AppState {
   }
 
   reconcileTimers(): void {
-    const topology = this.timerTopologyKey();
-    if (topology === this.lastTimerTopology) {
+    if (this.#reconciling) {
       return;
     }
-    const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
-    const wanted = this.blocks
-      .filter((block) => block.defId === "timer")
-      .filter((block) => compileTimer(block.id, nodes, this.links, this.samples) !== undefined)
-      .map((block) => block.id);
-
-    this.stopAllTimers();
-    const flags = new Map<number, { value: boolean }>();
-    for (const id of wanted) {
-      const compiled = compileTimer(id, nodes, this.links, this.samples);
-      if (!compiled) {
-        continue;
-      }
-      const running = { value: true };
-      const cancel = spawnTimer(compiled, running);
-      flags.set(id, running);
-      this.timerStops.set(id, cancel);
+    const topology = this.timerTopologyKey();
+    if (topology === this.#lastTimerTopology) {
+      return;
     }
-    this.runFlags = flags;
-    this.lastTimerTopology = topology;
+    this.#reconciling = true;
+    try {
+      const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
+      const wanted = this.blocks
+        .filter((block) => block.defId === "timer")
+        .filter((block) => compileTimer(block.id, nodes, this.links, this.samples) !== undefined)
+        .map((block) => block.id);
+
+      this.stopAllTimers();
+      const flags = new Map<number, { value: boolean }>();
+      for (const id of wanted) {
+        const compiled = compileTimer(id, nodes, this.links, this.samples);
+        if (!compiled) {
+          continue;
+        }
+        const running = { value: true };
+        const cancel = spawnTimer(compiled, running);
+        flags.set(id, running);
+        this.#timerStops.set(id, cancel);
+      }
+      this.runFlags = flags;
+      this.#lastTimerTopology = topology;
+    } finally {
+      this.#reconciling = false;
+    }
   }
 
   toggleLink(fromBlock: number, fromOut: string, toBlock: number, toIn: string): void {

@@ -40,8 +40,8 @@ export function measureHostLayout(host: HTMLElement): NodeLayout {
     }
     const rect = handle.getBoundingClientRect();
     ports[side][name] = {
-      x: (rect.left + rect.width / 2 - hostRect.left) / scaleX,
-      y: (rect.top + rect.height / 2 - hostRect.top) / scaleY,
+      x: Math.round((rect.left + rect.width / 2 - hostRect.left) / scaleX),
+      y: Math.round((rect.top + rect.height / 2 - hostRect.top) / scaleY),
     };
   }
   return { width, height, ports };
