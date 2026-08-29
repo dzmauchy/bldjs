@@ -42,11 +42,10 @@ describe("wiring", () => {
     await waitForLinks(driver, "1 link");
 
     const listHost = await nodeHost(driver, "b_list_of");
-    const listText = await listHost.getShadowRoot().then(async (root) => {
-      const body = await root.findElement(By.css(".flow-node"));
-      return body.getText();
-    });
-    expect(listText).toContain("List<String>");
+    const listRoot = await listHost.getShadowRoot();
+    const result = await listRoot.findElement(By.css('[data-testid="output-result"]'));
+    expect(await result.getText()).not.toContain("List<String>");
+    expect(await result.getAttribute("title")).toBe("List<String>");
 
     const path = await connectorPath(driver);
     expect(path.startsWith("M ")).toBe(true);

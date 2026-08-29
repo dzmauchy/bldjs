@@ -50,7 +50,9 @@ describe("BldNode", () => {
     expect(shadow!.querySelector(".flow-node-ports")).not.toBeNull();
     expect(shadow!.querySelectorAll("[data-port]")).toHaveLength(3);
     expect(shadow!.querySelector('[data-testid="input-key"]')?.textContent).toContain("key");
-    expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).toContain("Map<String, Integer>");
+    expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).toContain("result");
+    expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).not.toContain("Map<String, Integer>");
+    expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("Map<String, Integer>");
     expect(shadow!.querySelector(".flow-node-params")?.textContent).toContain("K = String");
     expect(node.dataset.blockDef).toBe("b_map_of");
   });
