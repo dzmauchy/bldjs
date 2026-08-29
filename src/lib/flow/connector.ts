@@ -1,5 +1,5 @@
 import { LitElement, css, html } from "lit";
-import { connectorPolyline, polylineBounds, translateSpline, type Point } from "./geometry";
+import { connectorBounds, translateConnector, type Point } from "./geometry";
 
 export class BldConnector extends LitElement {
   static override properties = {
@@ -80,18 +80,13 @@ export class BldConnector extends LitElement {
     this.dataset.testid = this.preview ? "connector-preview" : "connector";
   }
 
-  #poly(): Point[] {
-    return connectorPolyline(this.from, this.to, this.points);
-  }
-
   #box() {
-    return polylineBounds(this.#poly());
+    return connectorBounds(this.from, this.to, this.points);
   }
 
   #d(): string {
-    const points = this.#poly();
-    const box = polylineBounds(points);
-    return translateSpline(points, { x: box.left, y: box.top });
+    const box = this.#box();
+    return translateConnector(this.from, this.to, this.points, { x: box.left, y: box.top });
   }
 
   #onHitPointerDown = (event: PointerEvent): void => {

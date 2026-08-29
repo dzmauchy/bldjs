@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clientToWorld,
+  connectorPath,
   connectorPolyline,
   cubicLink,
   cubicLinkBounds,
@@ -143,10 +144,30 @@ describe("flow geometry", () => {
   });
 
   it("falls back to a cubic spline when ELK has not routed yet", () => {
+    const path = connectorPath({ x: 0, y: 10 }, { x: 200, y: 80 });
+    expect(path.startsWith("M 0 10")).toBe(true);
+    expect(path.endsWith("200 80")).toBe(true);
+    expect(path).toContain("C ");
     const points = connectorPolyline({ x: 0, y: 10 }, { x: 200, y: 80 });
     expect(points[0]).toEqual({ x: 0, y: 10 });
     expect(points.at(-1)).toEqual({ x: 200, y: 80 });
     expect(splinePath(points)).toContain("C ");
+  });
+
+  it("ignores an ELK attachment on the bottom of the source node", () => {
+    const from = { x: 160, y: 80 };
+    const to = { x: 400, y: 220 };
+    const path = connectorPath(from, to, [
+      { x: 160, y: 120 },
+      { x: 160, y: 180 },
+      { x: 160, y: 220 },
+      { x: 200, y: 220 },
+      { x: 400, y: 220 },
+    ]);
+    expect(path).toBe(cubicLink(from, to).d);
+    expect(path.startsWith("M 160 80")).toBe(true);
+    expect(path).toContain("C ");
+    expect(path.endsWith("400 220")).toBe(true);
   });
 
   it("builds a piecewise cubic SVG path from ELK spline points", () => {
