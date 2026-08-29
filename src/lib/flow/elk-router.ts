@@ -31,8 +31,10 @@ export interface RouteConnector {
 const ROOT_OPTIONS: Record<string, string> = {
   "elk.algorithm": "layered",
   "elk.direction": "RIGHT",
-  "elk.edgeRouting": "ORTHOGONAL",
+  "elk.edgeRouting": "SPLINES",
+  "elk.layered.edgeRouting.splines.mode": "CONSERVATIVE_SOFT",
   "elk.portConstraints": "FIXED_POS",
+  "elk.layered.allowNonFlowPortsToSwitchSides": "false",
   "elk.layered.cycleBreaking.strategy": "INTERACTIVE",
   "elk.layered.layering.strategy": "INTERACTIVE",
   "elk.layered.crossingMinimization.strategy": "INTERACTIVE",
@@ -111,6 +113,7 @@ export function elkNodeFromObstacle(obstacle: RouteObstacle): ElkNode {
       height: 0,
       layoutOptions: {
         "elk.port.side": port.side === "out" ? "EAST" : "WEST",
+        "elk.port.borderOffset": "0",
       },
     })),
   };

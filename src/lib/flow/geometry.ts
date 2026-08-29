@@ -145,31 +145,102 @@ export function simplifyOrthogonal(points: Point[]): Point[] {
   return out;
 }
 
+export const PORT_STUB = 24;
+
+function dedupeConsecutive(points: Point[]): Point[] {
+  const out: Point[] = [];
+  for (const point of points) {
+    const prev = out.at(-1);
+    if (prev && Math.abs(prev.x - point.x) < 0.05 && Math.abs(prev.y - point.y) < 0.05) {
+      continue;
+    }
+    out.push({ ...point });
+  }
+  return out;
+}
+
+export function ensureHorizontalStubs(points: Point[], from: Point, to: Point, stub = PORT_STUB): Point[] {
+  const out = (points.length >= 2 ? points : [from, to]).map((point) => ({ ...point }));
+  out[0] = { ...from };
+  out[out.length - 1] = { ...to };
+
+  const startStub = { x: snapCoord(from.x + stub), y: from.y };
+  const second = out[1]!;
+  if (Math.abs(second.y - from.y) < 0.5 && second.x > from.x + 1) {
+    out[1] = { x: Math.max(second.x, from.x + stub), y: from.y };
+  } else {
+    out.splice(1, 0, startStub);
+  }
+
+  const endStub = { x: snapCoord(to.x - stub), y: to.y };
+  const prev = out[out.length - 2]!;
+  if (Math.abs(prev.y - to.y) < 0.5 && prev.x < to.x - 1) {
+    out[out.length - 2] = { x: Math.min(prev.x, to.x - stub), y: to.y };
+  } else {
+    out.splice(out.length - 1, 0, endStub);
+  }
+
+  return dedupeConsecutive(out);
+}
+
 export function remapElkRoute(raw: Point[], from: Point, to: Point): Point[] {
   if (raw.length < 2) {
-    return orthogonalLink(from, to);
+    return ensureHorizontalStubs([], from, to);
   }
   const srcOff = { x: from.x - raw[0]!.x, y: from.y - raw[0]!.y };
-  const dstOff = { x: to.x - raw[raw.length - 1]!.x, y: to.y - raw[raw.length - 1]!.y };
   const points = raw.map((point) => ({ x: snapCoord(point.x + srcOff.x), y: snapCoord(point.y + srcOff.y) }));
-  points[0] = { ...from };
-  points[points.length - 1] = { ...to };
-  if (Math.abs(srcOff.x - dstOff.x) >= 2 || Math.abs(srcOff.y - dstOff.y) >= 2) {
-    if (points.length > 1) {
-      points[1] = { x: points[1]!.x, y: from.y };
-    }
-    if (points.length > 2) {
-      points[points.length - 2] = { x: points[points.length - 2]!.x, y: to.y };
-    }
-  }
-  return simplifyOrthogonal(points);
+  return ensureHorizontalStubs(points, from, to);
 }
 
 export function connectorPolyline(from: Point, to: Point, route: Point[] = []): Point[] {
   if (route.length >= 2) {
     return remapElkRoute(route, from, to);
   }
-  return orthogonalLink(from, to);
+  const link = cubicLink(from, to);
+  return [from, { x: link.c1x, y: link.c1y }, { x: link.c2x, y: link.c2y }, to];
+}
+
+function pt(point: Point): string {
+  return `${point.x} ${point.y}`;
+}
+
+export function splinePath(points: Point[]): string {
+  if (points.length === 0) {
+    return "";
+  }
+  if (points.length === 1) {
+    return `M ${pt(points[0]!)}`;
+  }
+  if (points.length === 2) {
+    return polylinePath(points);
+  }
+  const start = points[0]!;
+  const controls = points.slice(1);
+  if (controls.length % 3 === 0) {
+    const parts = [`M ${pt(start)}`];
+    for (let i = 0; i < controls.length; i += 3) {
+      parts.push(`C ${pt(controls[i]!)}, ${pt(controls[i + 1]!)}, ${pt(controls[i + 2]!)}`);
+    }
+    return parts.join(" ");
+  }
+  if (controls.length % 2 === 0) {
+    const parts = [`M ${pt(start)}`];
+    for (let i = 0; i < controls.length; i += 2) {
+      parts.push(`Q ${pt(controls[i]!)} ${pt(controls[i + 1]!)}`);
+    }
+    return parts.join(" ");
+  }
+  const filled = [...controls];
+  for (let i = filled.length - 3; i >= 2; i -= 2) {
+    const a = filled[i - 1]!;
+    const b = filled[i]!;
+    filled.splice(i, 0, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  }
+  return splinePath([start, ...filled]);
+}
+
+export function translateSpline(points: Point[], origin: Point): string {
+  return splinePath(points.map((point) => ({ x: point.x - origin.x, y: point.y - origin.y })));
 }
 
 export function roundedPolylinePath(points: Point[], radius = CORNER_RADIUS): string {

@@ -1,6 +1,6 @@
 # Bld
 
-A client-side [Lit](https://lit.dev/) app. The workspace is custom elements: a toolbar (Run / Stop, plus a three-line menu), a left palette of block icons, and a `bld-diagram` canvas that owns pan, zoom, drop, and wiring. Nodes (`bld-node`) and connectors (`bld-connector`) are also custom elements with shadow trees; nodes size themselves with flex, and connectors are orthogonal polylines routed by [elkjs](https://github.com/kieler/elkjs) (`elk.edgeRouting: ORTHOGONAL`) while keeping the user's node positions.
+A client-side [Lit](https://lit.dev/) app. The workspace is custom elements: a toolbar (Run / Stop, plus a three-line menu), a left palette of block icons, and a `bld-diagram` canvas that owns pan, zoom, drop, and wiring. Nodes (`bld-node`) and connectors (`bld-connector`) are also custom elements with shadow trees; nodes size themselves with flex, and connectors are piecewise cubic splines routed by [elkjs](https://github.com/kieler/elkjs) (`elk.edgeRouting: SPLINES`) while keeping the user's node positions. Wires leave outputs to the right and enter inputs from the left.
 
 Diagrams load multiple XML type/block models (`src/resources/models/*.xml`, described by `src/resources/models/blocks.xsd` and `src/resources/models/blocks.md`). Wiring an output into an input grounds that input and infers the block's generic types. The builtin type library (`types.xml`) is language-agnostic: `f64`, `f32`, `i32`, `i64`, `str`, `bool`, consumers `c1`/`c2`, supplier `s`, functions `f1`/`f2`, and arrays `T[]`. The WASM runtime maps those onto WASM valtypes (`bool` → `i32`, `str` → js-string / `externref`).
 
@@ -61,7 +61,7 @@ Serve that folder with any static file server that sets the same CSP and isolati
 ## Stack
 
 - [Lit](https://lit.dev/) custom elements (CSR)
-- [elkjs](https://github.com/kieler/elkjs) layered layout for orthogonal edge routing (nodes stay where they were dropped)
+- [elkjs](https://github.com/kieler/elkjs) layered layout for spline edge routing (nodes stay where they were dropped)
 - [Chart.js](https://www.chartjs.org/) for the oscilloscope (dark mode)
 - [binaryen.js](https://www.npmjs.com/package/binaryen) generates wasm-gc (`call_ref`) and `memory.atomic.wait32` on a SharedArrayBuffer
 - Vite

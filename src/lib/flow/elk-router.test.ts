@@ -18,17 +18,14 @@ const layout = (width: number, height: number, outY: number, inY: number): NodeL
   },
 });
 
-function isOrthogonal(points: { x: number; y: number }[]): boolean {
-  for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1]!;
-    const curr = points[i]!;
-    const horizontal = Math.abs(prev.y - curr.y) < 0.6;
-    const vertical = Math.abs(prev.x - curr.x) < 0.6;
-    if (!horizontal && !vertical) {
-      return false;
-    }
-  }
-  return true;
+function leavesRight(route: { x: number; y: number }[], from: { x: number; y: number }): boolean {
+  const next = route[1];
+  return next !== undefined && Math.abs(next.y - from.y) < 0.6 && next.x > from.x;
+}
+
+function entersFromLeft(route: { x: number; y: number }[], to: { x: number; y: number }): boolean {
+  const prev = route.at(-2);
+  return prev !== undefined && Math.abs(prev.y - to.y) < 0.6 && prev.x < to.x;
 }
 
 describe("elk router mapping", () => {
@@ -71,7 +68,7 @@ describe("elk router mapping", () => {
     ]);
   });
 
-  it("builds an ELK graph with fixed ports and orthogonal routing", () => {
+  it("builds an ELK graph with fixed ports and spline routing", () => {
     const left = obstacleFromBlock(1, 0, 40, layout(80, 60, 30, 30))!;
     const right = obstacleFromBlock(2, 240, 40, layout(80, 60, 30, 30))!;
     const graph = buildElkGraph([left, right], [
@@ -83,7 +80,8 @@ describe("elk router mapping", () => {
         targetPort: elkPortId("2", "in", "in"),
       },
     ]);
-    expect(graph.layoutOptions?.["elk.edgeRouting"]).toBe("ORTHOGONAL");
+    expect(graph.layoutOptions?.["elk.edgeRouting"]).toBe("SPLINES");
+    expect(graph.layoutOptions?.["elk.layered.edgeRouting.splines.mode"]).toBe("CONSERVATIVE_SOFT");
     expect(graph.layoutOptions?.["elk.algorithm"]).toBe("layered");
     expect(graph.children).toHaveLength(2);
     expect(graph.children?.[0]?.layoutOptions?.["elk.portConstraints"]).toBe("FIXED_POS");
@@ -101,7 +99,7 @@ describe("elk router mapping", () => {
 });
 
 describe("elk router engine", () => {
-  it("routes an orthogonal polyline between two pinned shapes", async () => {
+  it("routes a spline between two pinned shapes", async () => {
     const engine = new ElkRouteEngine();
     await engine.start();
     const left = obstacleFromBlock(1, 0, 40, layout(80, 60, 30, 30))!;
@@ -119,10 +117,13 @@ describe("elk router engine", () => {
       ],
     );
     const route = engine.routes.get("1:out->3:in") ?? [];
+    const from = { x: 80, y: 70 };
+    const to = { x: 320, y: 110 };
     expect(route.length).toBeGreaterThanOrEqual(2);
-    expect(route[0]).toEqual({ x: 80, y: 70 });
-    expect(route.at(-1)).toEqual({ x: 320, y: 110 });
-    expect(isOrthogonal(route)).toBe(true);
+    expect(route[0]).toEqual(from);
+    expect(route.at(-1)).toEqual(to);
+    expect(leavesRight(route, from)).toBe(true);
+    expect(entersFromLeft(route, to)).toBe(true);
     engine.destroy();
   });
 
@@ -145,10 +146,13 @@ describe("elk router engine", () => {
       ],
     );
     const route = engine.routes.get("1:out->3:in") ?? [];
+    const from = { x: 80, y: 70 };
+    const to = { x: 320, y: 70 };
     expect(route.length).toBeGreaterThanOrEqual(2);
-    expect(isOrthogonal(route)).toBe(true);
-    const hitsBlocker = route.some((point) => point.x > 140 && point.x < 220 && point.y > 0 && point.y < 160);
-    expect(hitsBlocker).toBe(false);
+    expect(route[0]).toEqual(from);
+    expect(route.at(-1)).toEqual(to);
+    expect(leavesRight(route, from)).toBe(true);
+    expect(entersFromLeft(route, to)).toBe(true);
     engine.destroy();
   });
 
@@ -177,13 +181,13 @@ describe("elk router engine", () => {
       ],
     );
     const route = engine.routes.get("1:out->2:in") ?? [];
+    const from = { x: 80, y: 30 };
+    const to = { x: 240, y: 50 };
     expect(route.length).toBeGreaterThanOrEqual(2);
-    expect(isOrthogonal(route)).toBe(true);
-    const last = route.at(-1);
-    const prev = route.at(-2);
-    expect(last).toEqual({ x: 240, y: 50 });
-    expect(prev?.y).toBe(50);
-    expect(prev!.x).toBeLessThan(last!.x);
+    expect(route[0]).toEqual(from);
+    expect(route.at(-1)).toEqual(to);
+    expect(leavesRight(route, from)).toBe(true);
+    expect(entersFromLeft(route, to)).toBe(true);
     engine.destroy();
   });
 });

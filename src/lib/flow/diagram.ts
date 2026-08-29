@@ -214,7 +214,7 @@ export class BldDiagram extends LitElement {
       return;
     }
     this.dataset.router = "elk";
-    this.dataset.connector = "orthogonal";
+    this.dataset.connector = "spline";
     this.#syncRoutes();
     this.requestUpdate();
   }
