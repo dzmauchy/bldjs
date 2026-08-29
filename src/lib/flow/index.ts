@@ -12,15 +12,14 @@ export {
   polylineBounds,
   polylinePath,
   routesEqual,
-  jumpoverLinkBounds,
-  jumpoverLinkPath,
-  translateJumpover,
+  curveLinkBounds,
+  curveLinkPath,
+  translateCurve,
   translatePath,
   translatePolyline,
   type CubicLink,
   type Point,
   type Rect,
-  type RoutedLink,
 } from "./geometry";
 export {
   AvoidRouteEngine,
