@@ -1,5 +1,9 @@
 # Agent notes
 
+## Models
+
+When launching subagents, keep the same model as this session. Do not switch to a different model.
+
 ## Testing
 
 Cover type resolution, XML parsing, catalog merge, compatibility, and input grounding with Vitest (`make test` / `npm test`). Put those tests next to the logic (for example `src/lib/blocks/blocks.test.ts`).
