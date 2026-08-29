@@ -18,7 +18,18 @@ import {
 } from "./builtin";
 import { Catalog } from "./catalog";
 import { isCompatible } from "./compat";
-import { QUANTIZER_DELAY_MS, SampleBuf, compileTimer, sinConsumer, spawnTimer, stop } from "./cs";
+import {
+  QUANTIZER_DELAY_MS,
+  SampleBuf,
+  compileTimer,
+  oscilloscope,
+  quantizer,
+  sin,
+  sinConsumer,
+  spawnTimer,
+  stop,
+  timer,
+} from "./cs";
 import { type Link, Diagram } from "./diagram";
 import { parseBlocks } from "./parse";
 import { type Grounding, TypeResolver, resolvedOutput } from "./resolve";
@@ -379,20 +390,45 @@ describe("blocks", () => {
 
   it("control systems model and types", () => {
     const cat = catalog();
-    const timer = cat.block("timer")!;
-    expect(timer.inputs.length).toBe(0);
-    expect(displayType(timer.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Double");
-    expect(timer.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
+    const timerBlock = cat.block("timer")!;
+    expect(timerBlock.inputs.length).toBe(0);
+    expect(displayType(timerBlock.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
+      "Consumer<Consumer<Consumer<Double>>>",
+    );
+    expect(timerBlock.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
     const scope = cat.block("oscilloscope")!;
     expect(scope.outputs.length).toBe(0);
-    expect(displayType(scope.inputs.find((port) => port.name === "in")!.ty, true)).toBe("Double");
-    expect(displayType(cat.block("quantizer")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
-      "Double",
+    expect(displayType(scope.inputs.find((port) => port.name === "in")!.ty, true)).toBe("Consumer<Double>");
+    expect(displayType(cat.block("quantizer")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
+      "Consumer<Consumer<Consumer<Double>>>",
     );
-    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("Double");
+    expect(displayType(cat.block("quantizer")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
+      "Consumer<Consumer<Double>>",
+    );
+    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
+      "Consumer<Consumer<Double>>",
+    );
+    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
+      "Consumer<Double>",
+    );
     expect(cat.namespaceLabel("cs")).toBe("Control Systems");
     expect(cat.findType("double", "java.lang")).toBeDefined();
     expect(cat.findType("DoubleConsumer", "java.util.function")).toBeDefined();
+  });
+
+  it("nested consumers are not Double sample ports", () => {
+    const cat = catalog();
+    const c3 = g("Consumer", [g("Consumer", [g("Consumer", [t("Double")])])]);
+    const c2 = g("Consumer", [g("Consumer", [t("Double")])]);
+    const c1 = g("Consumer", [t("Double")]);
+    expect(isCompatible(cat, [], c3, t("Double"))).toBe(false);
+    expect(isCompatible(cat, [], c2, t("Double"))).toBe(false);
+    expect(isCompatible(cat, [], c1, t("Double"))).toBe(false);
+    expect(isCompatible(cat, [], c2, c3)).toBe(false);
+    expect(isCompatible(cat, [], c1, c2)).toBe(false);
+    expect(isCompatible(cat, [], c3, c3)).toBe(true);
+    expect(isCompatible(cat, [], c2, c2)).toBe(true);
+    expect(isCompatible(cat, [], c1, c1)).toBe(true);
   });
 
   it("sin maps samples", () => {
@@ -435,28 +471,61 @@ describe("blocks", () => {
     expect(compileTimer(4, nodes, links, new Map())).toBeUndefined();
   });
 
-  it("control systems diagram grounds Double push chain", () => {
+  it("control systems diagram grounds nested consumer chain", () => {
     const diagram = new Diagram("cs", "Control Systems");
     associateBuiltinModels(diagram);
-    const timer = diagram.addNode("timer");
-    const quantizer = diagram.addNode("quantizer");
-    const sin = diagram.addNode("sin");
-    const scope = diagram.addNode("oscilloscope");
-    diagram.addLink(timer, "out", quantizer, "in");
-    diagram.addLink(quantizer, "out", sin, "in");
-    diagram.addLink(sin, "out", scope, "in");
+    const timerId = diagram.addNode("timer");
+    const quantizerId = diagram.addNode("quantizer");
+    const sinId = diagram.addNode("sin");
+    const scopeId = diagram.addNode("oscilloscope");
+    diagram.addLink(timerId, "out", quantizerId, "in");
+    diagram.addLink(quantizerId, "out", sinId, "in");
+    diagram.addLink(sinId, "out", scopeId, "in");
 
-    const timerResolved = diagram.resolveNode(timer)!;
-    expect(displayType(timerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Double");
+    const timerResolved = diagram.resolveNode(timerId)!;
+    expect(displayType(timerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
+      "Consumer<Consumer<Consumer<Double>>>",
+    );
 
-    const sinResolved = diagram.resolveNode(sin)!;
+    const quantizerResolved = diagram.resolveNode(quantizerId)!;
+    expect(quantizerResolved.compatible.get("in") ?? true).toBe(true);
+    expect(displayType(quantizerResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
+      "Consumer<Consumer<Consumer<Double>>>",
+    );
+    expect(displayType(quantizerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
+      "Consumer<Consumer<Double>>",
+    );
+
+    const sinResolved = diagram.resolveNode(sinId)!;
     expect(sinResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("Double");
-    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Double");
+    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
+      "Consumer<Consumer<Double>>",
+    );
+    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Consumer<Double>");
 
-    const scopeResolved = diagram.resolveNode(scope)!;
+    const scopeResolved = diagram.resolveNode(scopeId)!;
     expect(scopeResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(scopeResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("Double");
+    expect(displayType(scopeResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("Consumer<Double>");
+  });
+
+  it("skipping a nested consumer layer is incompatible", () => {
+    const diagram = new Diagram("cs", "Skip");
+    associateBuiltinModels(diagram);
+    const timerId = diagram.addNode("timer");
+    const sinId = diagram.addNode("sin");
+    const scopeId = diagram.addNode("oscilloscope");
+    diagram.addLink(timerId, "out", sinId, "in");
+    diagram.addLink(sinId, "out", scopeId, "in");
+
+    const sinResolved = diagram.resolveNode(sinId)!;
+    expect(sinResolved.compatible.get("in")).toBe(false);
+  });
+
+  it("interprets the wired chain as oscilloscope(sin(quantizer(timer())))", () => {
+    const out: number[] = [];
+    oscilloscope(sin(quantizer(timer(() => Math.PI / 2))), (value) => out.push(value));
+    expect(out).toHaveLength(1);
+    expect(Math.abs(out[0] - 1)).toBeLessThan(1e-9);
   });
 
   it("spawn timer emits until stopped", async () => {

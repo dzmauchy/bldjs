@@ -110,7 +110,7 @@
             <canvas bind:this={canvas}></canvas>
           </div>
           <div class="small text-secondary mt-2">
-            Push chain: Timer → Quantizer → Sin → Oscilloscope
+            oscilloscope(sin(quantizer(timer())))
           </div>
         </div>
       </div>

@@ -3,7 +3,58 @@ import type { Link } from "./diagram";
 export const QUANTIZER_DELAY_MS = 10;
 const SAMPLE_CAP = 480;
 
-export type DoubleConsumer = (value: number) => void;
+/** Java `Consumer<T>`. */
+export type Consumer<T> = (value: T) => void;
+export type DoubleConsumer = Consumer<number>;
+/** Java `Consumer<Consumer<Double>>` — a push source. */
+export type DoubleSource = Consumer<DoubleConsumer>;
+
+/**
+ * Nested `Consumer` expression. Depth matches the catalog:
+ *   Nested<3> = Consumer<Consumer<Consumer<Double>>>  (Timer)
+ *   Nested<2> = Consumer<Consumer<Double>>            (Quantizer)
+ *   Nested<1> = Consumer<Double>                      (Sin / Oscilloscope)
+ *
+ * The payload is always a source; each function peels one Consumer layer
+ * so `oscilloscope(sin(quantizer(timer())))` type-checks like Java.
+ */
+export interface Nested<D extends 1 | 2 | 3> {
+  readonly depth: D;
+  readonly source: DoubleSource;
+}
+
+export function timer(now: () => number = nowSecs): Nested<3> {
+  return { depth: 3, source: (sink) => sink(now()) };
+}
+
+export function quantizer(input: Nested<3>, delayMs = QUANTIZER_DELAY_MS): Nested<2> {
+  return {
+    depth: 2,
+    source: (sink) => {
+      input.source((value) => {
+        park(delayMs);
+        sink(value);
+      });
+    },
+  };
+}
+
+export function sin(input: Nested<2>): Nested<1> {
+  return {
+    depth: 1,
+    source: (sink) => input.source((value) => sink(Math.sin(value))),
+  };
+}
+
+export function oscilloscope(input: Nested<1>, sink: DoubleConsumer): void {
+  input.source(sink);
+}
+
+function park(delayMs: number): void {
+  if (delayMs <= 0) {
+    return;
+  }
+}
 
 export class SampleBuf {
   private inner: number[] = [];
