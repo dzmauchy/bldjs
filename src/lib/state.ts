@@ -8,8 +8,10 @@ import {
   type XmlSource,
   associateBuiltinModels,
   blockAttribute,
-  compileGenerator,
+  assembleGenerator,
+  compileWat,
   infer,
+  planGenerator,
 } from "./blocks";
 import { linksEqual } from "./blocks/diagram";
 import {
@@ -251,16 +253,16 @@ export class AppState extends EventTarget {
     return `${nodes}|${links}`;
   }
 
-  compiledGenerators() {
+  plannedGenerators() {
     const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
     return this.blocks
       .filter((block) => block.defId === "timer")
-      .map((block) => compileGenerator(block.id, nodes, this.links))
+      .map((block) => planGenerator(block.id, nodes, this.links))
       .filter((item): item is NonNullable<typeof item> => item !== undefined);
   }
 
   canRun(): boolean {
-    return this.compiledGenerators().length > 0;
+    return this.plannedGenerators().length > 0;
   }
 
   stopRun(): void {
@@ -279,22 +281,24 @@ export class AppState extends EventTarget {
 
   async runDiagram(): Promise<void> {
     const topology = this.timerTopologyKey();
-    const compiled = this.compiledGenerators();
+    const plans = this.plannedGenerators();
     this.stopRun();
-    if (compiled.length === 0) {
+    if (plans.length === 0) {
       this.runError = "Wire a Timer through to an Oscilloscope, then Run.";
       return;
     }
     const op = this.#runningOp;
     try {
-      for (const item of compiled) {
-        const handle = await startGenerator({ wasm: item.wasm, delayMs: item.delayMs });
+      for (const plan of plans) {
+        const wat = assembleGenerator(plan);
+        const wasm = compileWat(wat);
+        const handle = await startGenerator({ wasm, delayMs: plan.delayMs });
         if (op !== this.#runningOp) {
           handle.stop();
           return;
         }
-        this.#generators.set(item.timerId, handle);
-        this.#scopeToTimer.set(item.scopeId, item.timerId);
+        this.#generators.set(plan.timerId, handle);
+        this.#scopeToTimer.set(plan.scopeId, plan.timerId);
       }
       this.#runTopology = topology;
       this.runError = null;

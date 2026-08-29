@@ -13,7 +13,10 @@
     sin(f64)           : (param f64) (result f64)
     oscilloscope(f64)  : (param f64)
 
-    Typed function refs ($fn_timer, $fn_map, $fn_sink) are composed with call_ref.
+    Each block is a WAT function in resources/wasm/blocks.
+    Run assembles those files and compiles the module.
+    Every function receives runtime $ctx (i32 pointer: time, delay_ns).
+    Typed function refs ($fn_timer, $fn_quantizer, $fn_sin, $fn_oscilloscope) use call_ref.
   -->
 
   <block id="timer" name="Timer" ns="cs" icon="timer">

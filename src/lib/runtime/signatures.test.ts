@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { associateBuiltinModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
-import { blockSignature, wasmValType } from "./signatures";
+import { blockSignature, signatureWat, wasmValType } from "./signatures";
 import { named, generic } from "../blocks/ast";
 
 describe("XML ↔ WASM signatures", () => {
@@ -65,5 +65,20 @@ describe("XML ↔ WASM signatures", () => {
     });
     expect(blockSignature(cat.block("b_func")!).params[0]?.type).toBe("(ref $fn_T)");
     expect(blockSignature(cat.block("b_func")!).results[0]?.type).toBe("(ref $fn_T)");
+  });
+
+  it("emits named params, named results, and a runtime $ctx", () => {
+    const diagram = new Diagram("ws", "Workspace");
+    associateBuiltinModels(diagram);
+    const cat = diagram.catalog();
+    expect(signatureWat(blockSignature(cat.block("timer")!))).toBe(
+      "(func $timer (param $ctx i32) (result $out f64)",
+    );
+    expect(signatureWat(blockSignature(cat.block("sin")!))).toBe(
+      "(func $sin (param $ctx i32) (param $in f64) (result $out f64)",
+    );
+    expect(signatureWat(blockSignature(cat.block("b_decision")!), false)).toBe(
+      "(func $b_decision (param $in externref) (result $true externref) (result $false externref)",
+    );
   });
 });
