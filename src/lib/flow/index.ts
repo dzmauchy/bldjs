@@ -5,31 +5,34 @@ import "./node";
 export { FLOW_MIME } from "./mime";
 export {
   clientToWorld,
+  connectorPolyline,
   cubicLink,
   cubicLinkBounds,
   linkKey,
   orthogonalLink,
   polylineBounds,
   polylinePath,
+  remapElkRoute,
+  roundedPolylinePath,
   routesEqual,
-  curveLinkBounds,
-  curveLinkPath,
-  translateCurve,
+  simplifyOrthogonal,
   translatePath,
   translatePolyline,
+  translateRounded,
   type CubicLink,
   type Point,
   type Rect,
 } from "./geometry";
 export {
-  AvoidRouteEngine,
-  LIBAVOID_WASM,
+  ElkRouteEngine,
+  buildElkGraph,
   connectorFromLink,
-  elementFromObstacle,
-  jointPortId,
-  linkFromConnector,
+  elkEdgeFromConnector,
+  elkNodeFromObstacle,
+  elkPortId,
   obstacleFromBlock,
-} from "./avoid-router";
+  routesFromLayout,
+} from "./elk-router";
 export { iconKey, iconSvgInner, renderBrandSvg, renderIconSvg } from "./icons";
 export { measureHostLayout, portFromComposedPath, worldPort } from "./layout";
 export type {

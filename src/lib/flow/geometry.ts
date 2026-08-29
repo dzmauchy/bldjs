@@ -1,11 +1,4 @@
-import { connectors } from "@joint/core";
 import { screenToWorld } from "$lib/model";
-
-type CurvePath = {
-  bbox: () => { x: number; y: number; width: number; height: number } | null;
-  translate: (tx: number, ty: number) => CurvePath;
-  serialize: () => string;
-};
 
 export interface Point {
   x: number;
@@ -121,50 +114,106 @@ export function translatePolyline(points: Point[], origin: Point): string {
   return polylinePath(points.map((point) => ({ x: point.x - origin.x, y: point.y - origin.y })));
 }
 
-const CURVE_HANDLE_RATIO = 0.35;
-const CURVE_MIN_HANDLE = 12;
-const CURVE_MAX_HANDLE = 36;
+export const CORNER_RADIUS = 8;
 
-function horizontalHandle(from: Point, to: Point): number {
-  return Math.min(Math.max(Math.abs(to.x - from.x) * CURVE_HANDLE_RATIO, CURVE_MIN_HANDLE), CURVE_MAX_HANDLE);
+export function snapCoord(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
-function curveArgs(from: Point, to: Point) {
-  const handle = horizontalHandle(from, to);
-  return {
-    direction: connectors.curve.Directions.HORIZONTAL,
-    sourceDirection: connectors.curve.TangentDirections.RIGHT,
-    targetDirection: connectors.curve.TangentDirections.LEFT,
-    sourceTangent: { x: handle, y: 0 },
-    targetTangent: { x: -handle, y: 0 },
-    distanceCoefficient: 0.3,
-    angleTangentCoefficient: 0,
-  };
-}
-
-export function curvePath(from: Point, to: Point, route: Point[] = []): CurvePath {
-  return connectors.curve(from, to, route, { ...curveArgs(from, to), raw: true }) as CurvePath;
-}
-
-export function curveLinkPath(from: Point, to: Point, route: Point[] = []): string {
-  return connectors.curve(from, to, route, curveArgs(from, to)) as string;
-}
-
-export function curveLinkBounds(from: Point, to: Point, route: Point[] = [], pad = 16): Rect {
-  const box = curvePath(from, to, route).bbox();
-  if (!box) {
-    return { left: 0, top: 0, width: 1, height: 1 };
+export function simplifyOrthogonal(points: Point[]): Point[] {
+  if (points.length <= 1) {
+    return points.map((point) => ({ ...point }));
   }
-  return {
-    left: box.x - pad,
-    top: box.y - pad,
-    width: Math.max(box.width + pad * 2, 1),
-    height: Math.max(box.height + pad * 2, 1),
-  };
+  const out: Point[] = [{ ...points[0]! }];
+  for (let i = 1; i < points.length; i++) {
+    const curr = points[i]!;
+    const prev = out[out.length - 1]!;
+    if (Math.abs(curr.x - prev.x) < 0.05 && Math.abs(curr.y - prev.y) < 0.05) {
+      continue;
+    }
+    if (out.length >= 2) {
+      const before = out[out.length - 2]!;
+      const colinearX = Math.abs(before.x - prev.x) < 0.05 && Math.abs(prev.x - curr.x) < 0.05;
+      const colinearY = Math.abs(before.y - prev.y) < 0.05 && Math.abs(prev.y - curr.y) < 0.05;
+      if (colinearX || colinearY) {
+        out[out.length - 1] = { ...curr };
+        continue;
+      }
+    }
+    out.push({ ...curr });
+  }
+  return out;
 }
 
-export function translateCurve(from: Point, to: Point, route: Point[], origin: Point): string {
-  return curvePath(from, to, route).translate(-origin.x, -origin.y).serialize();
+export function remapElkRoute(raw: Point[], from: Point, to: Point): Point[] {
+  if (raw.length < 2) {
+    return orthogonalLink(from, to);
+  }
+  const srcOff = { x: from.x - raw[0]!.x, y: from.y - raw[0]!.y };
+  const dstOff = { x: to.x - raw[raw.length - 1]!.x, y: to.y - raw[raw.length - 1]!.y };
+  const points = raw.map((point) => ({ x: snapCoord(point.x + srcOff.x), y: snapCoord(point.y + srcOff.y) }));
+  points[0] = { ...from };
+  points[points.length - 1] = { ...to };
+  if (Math.abs(srcOff.x - dstOff.x) >= 2 || Math.abs(srcOff.y - dstOff.y) >= 2) {
+    if (points.length > 1) {
+      points[1] = { x: points[1]!.x, y: from.y };
+    }
+    if (points.length > 2) {
+      points[points.length - 2] = { x: points[points.length - 2]!.x, y: to.y };
+    }
+  }
+  return simplifyOrthogonal(points);
+}
+
+export function connectorPolyline(from: Point, to: Point, route: Point[] = []): Point[] {
+  if (route.length >= 2) {
+    return remapElkRoute(route, from, to);
+  }
+  return orthogonalLink(from, to);
+}
+
+export function roundedPolylinePath(points: Point[], radius = CORNER_RADIUS): string {
+  if (points.length === 0) {
+    return "";
+  }
+  if (points.length === 1) {
+    return `M ${points[0]!.x} ${points[0]!.y}`;
+  }
+  if (points.length === 2) {
+    return polylinePath(points);
+  }
+  let d = `M ${points[0]!.x} ${points[0]!.y}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = points[i - 1]!;
+    const curr = points[i]!;
+    const next = points[i + 1]!;
+    const inLen = Math.hypot(curr.x - prev.x, curr.y - prev.y);
+    const outLen = Math.hypot(next.x - curr.x, next.y - curr.y);
+    const r = Math.min(radius, inLen / 2, outLen / 2);
+    if (r < 0.5) {
+      d += ` L ${curr.x} ${curr.y}`;
+      continue;
+    }
+    const start = {
+      x: curr.x - ((curr.x - prev.x) / inLen) * r,
+      y: curr.y - ((curr.y - prev.y) / inLen) * r,
+    };
+    const end = {
+      x: curr.x + ((next.x - curr.x) / outLen) * r,
+      y: curr.y + ((next.y - curr.y) / outLen) * r,
+    };
+    d += ` L ${start.x} ${start.y} Q ${curr.x} ${curr.y} ${end.x} ${end.y}`;
+  }
+  const last = points[points.length - 1]!;
+  d += ` L ${last.x} ${last.y}`;
+  return d;
+}
+
+export function translateRounded(points: Point[], origin: Point, radius = CORNER_RADIUS): string {
+  return roundedPolylinePath(
+    points.map((point) => ({ x: point.x - origin.x, y: point.y - origin.y })),
+    radius,
+  );
 }
 
 export function routesEqual(a: Point[] | undefined, b: Point[] | undefined): boolean {
