@@ -1,6 +1,6 @@
 # Bld
 
-A client-side [Lit](https://lit.dev/) app. The workspace is custom elements: a toolbar (Run / Stop, plus a three-line menu), a left palette of block icons, and a `bld-diagram` canvas that owns pan, zoom, drop, and wiring. Nodes (`bld-node`) and connectors (`bld-connector`) are also custom elements with shadow trees; nodes size themselves with flex, and connectors are SVG polylines routed around other nodes by JointJS [`@joint/router-avoid`](https://docs.jointjs.com/api/avoid-router/loadAvoidRouter/) (libavoid WASM).
+A client-side [Lit](https://lit.dev/) app. The workspace is custom elements: a toolbar (Run / Stop, plus a three-line menu), a left palette of block icons, and a `bld-diagram` canvas that owns pan, zoom, drop, and wiring. Nodes (`bld-node`) and connectors (`bld-connector`) are also custom elements with shadow trees; nodes size themselves with flex, and connectors are JointJS [`smooth`](https://docs.jointjs.com/api/connectors/) cubics routed around other nodes by [`initAvoidRouter({ worker: true })`](https://docs.jointjs.com/api/avoid-router/initAvoidRouter/).
 
 Diagrams load multiple XML type/block models (`src/resources/models/*.xml`, described by `src/resources/models/blocks.xsd` and `src/resources/models/blocks.md`). Wiring an output into an input grounds that input and infers the block's generic types. The builtin type library (`types.xml`) is language-agnostic: `f64`, `f32`, `i32`, `i64`, `str`, `bool`, consumers `c1`/`c2`, supplier `s`, functions `f1`/`f2`, and arrays `T[]`. The WASM runtime maps those onto WASM valtypes (`bool` → `i32`, `str` → js-string / `externref`).
 
@@ -61,7 +61,7 @@ Serve that folder with any static file server that sets the same CSP and isolati
 ## Stack
 
 - [Lit](https://lit.dev/) custom elements (CSR)
-- [JointJS avoid router](https://docs.jointjs.com/api/avoid-router/) (`loadAvoidRouter` + libavoid WASM) for orthogonal connector routing
+- [JointJS avoid router](https://docs.jointjs.com/api/avoid-router/initAvoidRouter/) (`initAvoidRouter` in a Worker) plus the [`smooth`](https://docs.jointjs.com/api/connectors/) connector
 - [Chart.js](https://www.chartjs.org/) for the oscilloscope (dark mode)
 - [binaryen.js](https://www.npmjs.com/package/binaryen) generates wasm-gc (`call_ref`) and `memory.atomic.wait32` on a SharedArrayBuffer
 - Vite

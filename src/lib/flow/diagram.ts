@@ -14,7 +14,7 @@ import { AppController } from "$lib/context";
 import { GRID_SIZE, clampZoom, zoomToward } from "$lib/model";
 import { type AppState, type BlockInstance } from "$lib/state";
 import { FLOW_MIME } from "./mime";
-import { clientToWorld, linkKey, orthogonalLink, routesEqual, type Point } from "./geometry";
+import { clientToWorld, linkKey, type Point } from "./geometry";
 import { AvoidRouteEngine, connectorFromLink, obstacleFromBlock } from "./avoid-router";
 import { portFromComposedPath, worldPort } from "./layout";
 import type { BldNodeState, NodeLayout, PortPointerDetail } from "./types";
@@ -203,13 +203,19 @@ export class BldDiagram extends LitElement {
   }
 
   async #startAvoidRouter(): Promise<void> {
+    this.#avoid.onRoutesChanged(() => {
+      this.#routes = new Map(this.#avoid.routes);
+      this.requestUpdate();
+    });
     try {
-      await this.#avoid.start();
+      await this.#avoid.start({ worker: true });
     } catch (error) {
       console.warn("avoid router failed to load", error);
       return;
     }
     this.dataset.router = "avoid";
+    this.dataset.worker = this.#avoid.worker ? "true" : "false";
+    this.dataset.connector = "smooth";
     this.#syncRoutes();
     this.requestUpdate();
   }
@@ -232,19 +238,7 @@ export class BldDiagram extends LitElement {
     const connectors = this.app.links
       .filter((link) => this.#layouts.has(link.fromBlock) && this.#layouts.has(link.toBlock))
       .map(connectorFromLink);
-    const next = this.#avoid.sync(obstacles, connectors);
-    let changed = this.#routes.size !== next.size;
-    if (!changed) {
-      for (const [key, points] of next) {
-        if (!routesEqual(this.#routes.get(key), points)) {
-          changed = true;
-          break;
-        }
-      }
-    }
-    if (changed) {
-      this.#routes = next;
-    }
+    this.#avoid.sync(obstacles, connectors);
   }
 
   #viewportEl(): HTMLDivElement | null {
@@ -519,7 +513,7 @@ export class BldDiagram extends LitElement {
         link,
         from,
         to,
-        points: this.#routes.get(key) ?? orthogonalLink(from, to),
+        points: this.#routes.get(key) ?? [],
         selected: this.app.isLinkSelected(link),
       });
     }

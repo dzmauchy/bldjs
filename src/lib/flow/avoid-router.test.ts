@@ -1,12 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Link } from "$lib/blocks";
 import type { NodeLayout } from "./types";
 import {
   AvoidRouteEngine,
-  CONN_DIR,
   connectorFromLink,
+  elementFromObstacle,
+  jointPortId,
   obstacleFromBlock,
-  pinIdFor,
 } from "./avoid-router";
 
 const wasmPath = `${(globalThis as { process?: { cwd?: () => string } }).process?.cwd?.() ?? ""}/node_modules/libavoid-js/dist/libavoid.wasm`;
@@ -21,18 +21,12 @@ const layout = (width: number, height: number, outY: number, inY: number): NodeL
 });
 
 describe("avoid router mapping", () => {
-  it("allocates stable pin ids for ports", () => {
-    expect(pinIdFor("out", "value")).toBe(pinIdFor("out", "value"));
-    expect(pinIdFor("out", "value")).not.toBe(pinIdFor("in", "value"));
-    expect(pinIdFor("out", "value")).not.toBe(pinIdFor("out", "result"));
-  });
-
-  it("builds an obstacle with side-constrained pins", () => {
+  it("builds an obstacle with named port anchors", () => {
     const obstacle = obstacleFromBlock(3, 40, 10, layout(180, 90, 40, 48));
     expect(obstacle).toMatchObject({ id: "3", x: 40, y: 10, width: 180, height: 90 });
-    expect(obstacle?.pins).toEqual([
-      { id: pinIdFor("out", "out"), x: 1, y: 40 / 90, dir: CONN_DIR.right },
-      { id: pinIdFor("in", "in"), x: 0, y: 48 / 90, dir: CONN_DIR.left },
+    expect(obstacle?.ports).toEqual([
+      { side: "out", name: "out", x: 180, y: 40 },
+      { side: "in", name: "in", x: 0, y: 48 },
     ]);
   });
 
@@ -40,38 +34,51 @@ describe("avoid router mapping", () => {
     expect(obstacleFromBlock(1, 0, 0, layout(0, 0, 0, 0))).toBeUndefined();
   });
 
-  it("maps a diagram link onto avoid connector ids", () => {
+  it("maps a diagram link onto JointJS source/target ports", () => {
     const link: Link = { fromBlock: 1, fromOut: "value", toBlock: 2, toIn: "elems" };
     expect(connectorFromLink(link)).toEqual({
       id: "1:value->2:elems",
       sourceId: "1",
-      sourcePinId: pinIdFor("out", "value"),
+      sourcePort: jointPortId("out", "value"),
       targetId: "2",
-      targetPinId: pinIdFor("in", "elems"),
+      targetPort: jointPortId("in", "elems"),
     });
+  });
+
+  it("places JointJS ports at the measured anchors", () => {
+    const obstacle = obstacleFromBlock(3, 40, 10, layout(180, 90, 40, 48))!;
+    const element = elementFromObstacle(obstacle);
+    const positions = element.getPortsPositions("pin");
+    expect(positions[jointPortId("out", "out")]).toMatchObject({ x: 180, y: 40 });
+    expect(positions[jointPortId("in", "in")]).toMatchObject({ x: 0, y: 48 });
   });
 });
 
 describe("avoid router engine", () => {
   it("routes around an obstacle between two pinned shapes", async () => {
     const engine = new AvoidRouteEngine();
-    await engine.start(wasmPath);
+    await engine.start({ worker: false, filePath: wasmPath });
     const left = obstacleFromBlock(1, 0, 40, layout(80, 60, 30, 30))!;
     const blocker = obstacleFromBlock(2, 140, 0, layout(80, 160, 80, 80))!;
     const right = obstacleFromBlock(3, 320, 40, layout(80, 60, 30, 30))!;
-    const routes = engine.sync([left, blocker, right], [
+    engine.sync([left, blocker, right], [
       {
         id: "1:out->3:in",
         sourceId: "1",
-        sourcePinId: pinIdFor("out", "out"),
+        sourcePort: jointPortId("out", "out"),
         targetId: "3",
-        targetPinId: pinIdFor("in", "in"),
+        targetPort: jointPortId("in", "in"),
       },
     ]);
-    const points = routes.get("1:out->3:in") ?? [];
-    expect(points.length).toBeGreaterThanOrEqual(4);
-    expect(points[0]!.x).toBeLessThan(points.at(-1)!.x);
-    const hitsBlocker = points.some((point) => point.x > 140 && point.x < 220 && point.y > 0 && point.y < 160);
+    await vi.waitFor(
+      () => {
+        expect((engine.routes.get("1:out->3:in") ?? []).length).toBeGreaterThanOrEqual(1);
+      },
+      { timeout: 15000 },
+    );
+    const vertices = engine.routes.get("1:out->3:in") ?? [];
+    expect(vertices.length).toBeGreaterThanOrEqual(1);
+    const hitsBlocker = vertices.some((point) => point.x > 140 && point.x < 220 && point.y > 0 && point.y < 160);
     expect(hitsBlocker).toBe(false);
     engine.destroy();
   }, 20000);

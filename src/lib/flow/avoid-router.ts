@@ -1,30 +1,18 @@
-import { loadAvoidRouter } from "@joint/router-avoid";
-import { AvoidLib } from "libavoid-js";
-import type { Point } from "./geometry";
-import { linkKey } from "./geometry";
-import type { NodeLayout, PortSide } from "./types";
+import { dia, shapes } from "@joint/core";
+import { initAvoidRouter, type RouterService } from "@joint/router-avoid";
 import type { Link } from "$lib/blocks";
+import type { Point } from "./geometry";
+import { linkKey, routesEqual } from "./geometry";
+import type { NodeLayout, PortSide } from "./types";
 
 /** Served separately so the LGPL libavoid binary is not inlined into the app bundle. */
 export const LIBAVOID_WASM = "/assets/libavoid.wasm";
 
-const SHAPE_BUFFER = 10;
-const IDEAL_NUDGE = 5;
-
-/** Matches libavoid ConnDirFlags / JointJS RouterService. */
-export const CONN_DIR = {
-  top: 1,
-  right: 8,
-  bottom: 2,
-  left: 4,
-  all: 15,
-} as const;
-
-export interface RoutePin {
-  id: number;
+export interface RoutePort {
+  side: PortSide;
+  name: string;
   x: number;
   y: number;
-  dir: number;
 }
 
 export interface RouteObstacle {
@@ -33,30 +21,19 @@ export interface RouteObstacle {
   y: number;
   width: number;
   height: number;
-  pins: RoutePin[];
+  ports: RoutePort[];
 }
 
 export interface RouteConnector {
   id: string;
   sourceId: string;
-  sourcePinId: number;
+  sourcePort: string;
   targetId: string;
-  targetPinId: number;
+  targetPort: string;
 }
 
-type AvoidInstance = ReturnType<typeof AvoidLib.getInstance>;
-type AvoidRouter = InstanceType<AvoidInstance["Router"]>;
-type AvoidShapeRef = InstanceType<AvoidInstance["ShapeRef"]>;
-type AvoidConnRef = InstanceType<AvoidInstance["ConnRef"]>;
-
-export function pinIdFor(side: PortSide, name: string): number {
-  const key = `${side}:${name}`;
-  let hash = 2166136261;
-  for (let i = 0; i < key.length; i++) {
-    hash ^= key.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return ((hash >>> 0) % 900000) + 1;
+export function jointPortId(side: PortSide, name: string): string {
+  return `${side}:${name}`;
 }
 
 export function obstacleFromBlock(
@@ -68,218 +45,210 @@ export function obstacleFromBlock(
   if (layout.width <= 0 || layout.height <= 0) {
     return undefined;
   }
-  const pins: RoutePin[] = [];
+  const ports: RoutePort[] = [];
   for (const [name, anchor] of Object.entries(layout.ports.out)) {
-    pins.push({
-      id: pinIdFor("out", name),
-      x: anchor.x / layout.width,
-      y: anchor.y / layout.height,
-      dir: CONN_DIR.right,
-    });
+    ports.push({ side: "out", name, x: anchor.x, y: anchor.y });
   }
   for (const [name, anchor] of Object.entries(layout.ports.in)) {
-    pins.push({
-      id: pinIdFor("in", name),
-      x: anchor.x / layout.width,
-      y: anchor.y / layout.height,
-      dir: CONN_DIR.left,
-    });
+    ports.push({ side: "in", name, x: anchor.x, y: anchor.y });
   }
-  return { id: String(id), x, y, width: layout.width, height: layout.height, pins };
+  return { id: String(id), x, y, width: layout.width, height: layout.height, ports };
 }
 
 export function connectorFromLink(link: Link): RouteConnector {
   return {
     id: linkKey(link.fromBlock, link.fromOut, link.toBlock, link.toIn),
     sourceId: String(link.fromBlock),
-    sourcePinId: pinIdFor("out", link.fromOut),
+    sourcePort: jointPortId("out", link.fromOut),
     targetId: String(link.toBlock),
-    targetPinId: pinIdFor("in", link.toIn),
+    targetPort: jointPortId("in", link.toIn),
   };
 }
 
-export function loadRouterWasm(filePath?: string): Promise<void> {
-  return loadAvoidRouter(filePath ?? LIBAVOID_WASM);
+export function elementFromObstacle(obstacle: RouteObstacle): dia.Element {
+  return new shapes.standard.Rectangle({
+    id: obstacle.id,
+    position: { x: obstacle.x, y: obstacle.y },
+    size: { width: obstacle.width, height: obstacle.height },
+    ports: {
+      groups: {
+        pin: { position: { name: "absolute" } },
+      },
+      items: obstacle.ports.map((port) => ({
+        id: jointPortId(port.side, port.name),
+        group: "pin",
+        args: { x: port.x, y: port.y },
+      })),
+    },
+  });
+}
+
+export function linkFromConnector(connector: RouteConnector): dia.Link {
+  return new shapes.standard.Link({
+    id: connector.id,
+    source: { id: connector.sourceId, port: connector.sourcePort },
+    target: { id: connector.targetId, port: connector.targetPort },
+  });
 }
 
 function snap(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-function pinsEqual(a: RoutePin[], b: RoutePin[]): boolean {
+function portsEqual(a: RoutePort[], b: RoutePort[]): boolean {
   if (a.length !== b.length) {
     return false;
   }
-  return a.every((pin, index) => {
+  return a.every((port, index) => {
     const other = b[index]!;
-    return pin.id === other.id && pin.x === other.x && pin.y === other.y && pin.dir === other.dir;
+    return port.side === other.side && port.name === other.name && port.x === other.x && port.y === other.y;
   });
 }
 
-function readRoute(conn: AvoidConnRef): Point[] {
-  const route = conn.displayRoute();
-  const points: Point[] = [];
-  for (let i = 0; i < route.size(); i++) {
-    const point = route.get_ps(i);
-    points.push({ x: snap(point.x), y: snap(point.y) });
-  }
-  return points;
-}
-
 export class AvoidRouteEngine {
-  #avoid: AvoidInstance | null = null;
-  #router: AvoidRouter | null = null;
-  #shapes = new Map<string, { ref: AvoidShapeRef; meta: RouteObstacle }>();
-  #connectors = new Map<string, AvoidConnRef>();
+  #graph: dia.Graph | null = null;
+  #service: RouterService | null = null;
   #routes = new Map<string, Point[]>();
+  #onChange: (() => void) | null = null;
 
   get ready(): boolean {
-    return this.#router !== null;
+    return this.#service !== null;
+  }
+
+  get worker(): boolean {
+    return this.#service !== null && this.#usesWorker;
   }
 
   get routes(): ReadonlyMap<string, Point[]> {
     return this.#routes;
   }
 
-  async start(filePath?: string): Promise<void> {
-    if (this.#router) {
+  #usesWorker = false;
+
+  onRoutesChanged(callback: () => void): void {
+    this.#onChange = callback;
+  }
+
+  async start(options?: { worker?: boolean; filePath?: string }): Promise<void> {
+    if (this.#service) {
       return;
     }
-    await loadRouterWasm(filePath);
-    const avoid = AvoidLib.getInstance();
-    this.#avoid = avoid;
-    this.#router = this.#createRouter(avoid);
+    const worker = options?.worker ?? true;
+    this.#usesWorker = worker === true || typeof worker === "object";
+    const graph = new dia.Graph({}, { cellNamespace: shapes });
+    graph.on("remove", (cell: dia.Cell) => {
+      if (cell.isLink()) {
+        this.#routes.delete(String(cell.id));
+        this.#emit();
+      }
+    });
+    const service = await initAvoidRouter(graph, {
+      worker,
+      libavoidFilePath: options?.filePath ?? LIBAVOID_WASM,
+      shapeBufferDistance: 10,
+      idealNudgingDistance: 5,
+      setRouteAttributes: ({ link, attributes }) => {
+        link.set(attributes, { avoidRouter: true });
+        const vertices = (attributes.vertices ?? []).map((point) => ({ x: snap(point.x), y: snap(point.y) }));
+        const key = String(link.id);
+        if (!routesEqual(this.#routes.get(key), vertices)) {
+          this.#routes.set(key, vertices);
+          this.#emit();
+        }
+      },
+    });
+    service.start();
+    this.#graph = graph;
+    this.#service = service;
   }
 
   destroy(): void {
-    if (this.#router) {
-      for (const conn of this.#connectors.values()) {
-        this.#router.deleteConnector(conn);
-      }
-      for (const { ref } of this.#shapes.values()) {
-        this.#router.deleteShape(ref);
-      }
-    }
-    this.#connectors.clear();
-    this.#shapes.clear();
+    this.#service?.destroy();
+    this.#graph = null;
+    this.#service = null;
     this.#routes = new Map();
-    this.#router = null;
-    this.#avoid = null;
+    this.#onChange = null;
   }
 
   sync(obstacles: RouteObstacle[], connectors: RouteConnector[]): Map<string, Point[]> {
-    if (!this.#router || !this.#avoid) {
+    const graph = this.#graph;
+    if (!graph || !this.#service) {
       return new Map();
     }
-    const nextShapeIds = new Set(obstacles.map((item) => item.id));
-    const nextConnIds = new Set(connectors.map((item) => item.id));
-    for (const id of [...this.#connectors.keys()]) {
-      if (!nextConnIds.has(id)) {
-        this.#deleteConnector(id);
+    const nextElements = new Set(obstacles.map((item) => item.id));
+    const nextLinks = new Set(connectors.map((item) => item.id));
+    for (const cell of graph.getLinks()) {
+      if (!nextLinks.has(String(cell.id))) {
+        cell.remove();
       }
     }
-    for (const id of [...this.#shapes.keys()]) {
-      if (!nextShapeIds.has(id)) {
-        this.#deleteShape(id);
+    for (const cell of graph.getElements()) {
+      if (!nextElements.has(String(cell.id))) {
+        cell.remove();
       }
     }
-    for (const shape of obstacles) {
-      this.#setShape(shape);
+    for (const obstacle of obstacles) {
+      const existing = graph.getCell(obstacle.id);
+      if (existing?.isElement()) {
+        this.#updateElement(existing, obstacle);
+      } else {
+        graph.addCell(elementFromObstacle(obstacle));
+      }
     }
     for (const connector of connectors) {
-      this.#setConnector(connector);
-    }
-    this.#router.processTransaction();
-    const routes = new Map<string, Point[]>();
-    for (const [id, conn] of this.#connectors) {
-      const points = readRoute(conn);
-      if (points.length >= 2) {
-        routes.set(id, points);
+      const existing = graph.getCell(connector.id);
+      if (existing?.isLink()) {
+        this.#updateLink(existing, connector);
+      } else {
+        graph.addCell(linkFromConnector(connector));
       }
     }
-    this.#routes = routes;
-    return routes;
+    return this.#routes;
   }
 
-  #createRouter(avoid: AvoidInstance): AvoidRouter {
-    const router = new avoid.Router(avoid.OrthogonalRouting);
-    router.setRoutingParameter(avoid.shapeBufferDistance, SHAPE_BUFFER);
-    router.setRoutingParameter(avoid.idealNudgingDistance, IDEAL_NUDGE);
-    router.setRoutingOption(avoid.nudgeOrthogonalTouchingColinearSegments, false);
-    router.setRoutingOption(avoid.performUnifyingNudgingPreprocessingStep, true);
-    router.setRoutingOption(avoid.nudgeSharedPathsWithCommonEndPoint, true);
-    router.setRoutingOption(avoid.nudgeOrthogonalSegmentsConnectedToShapes, true);
-    return router;
+  #updateElement(element: dia.Element, obstacle: RouteObstacle): void {
+    const position = element.position();
+    if (position.x !== obstacle.x || position.y !== obstacle.y) {
+      element.position(obstacle.x, obstacle.y);
+    }
+    const size = element.size();
+    if (size.width !== obstacle.width || size.height !== obstacle.height) {
+      element.resize(obstacle.width, obstacle.height);
+    }
+    const current: RoutePort[] = element.getPorts().map((port) => {
+      const [side, name] = String(port.id).split(":");
+      return {
+        side: side === "in" ? "in" : "out",
+        name: name ?? String(port.id),
+        x: Number(port.args?.x ?? 0),
+        y: Number(port.args?.y ?? 0),
+      };
+    });
+    if (portsEqual(current, obstacle.ports)) {
+      return;
+    }
+    element.removePorts();
+    for (const port of obstacle.ports) {
+      element.addPort({
+        id: jointPortId(port.side, port.name),
+        group: "pin",
+        args: { x: port.x, y: port.y },
+      });
+    }
   }
 
-  #setShape(shape: RouteObstacle): void {
-    const avoid = this.#avoid!;
-    const router = this.#router!;
-    const rect = new avoid.Rectangle(
-      new avoid.Point(shape.x, shape.y),
-      new avoid.Point(shape.x + shape.width, shape.y + shape.height),
-    );
-    const existing = this.#shapes.get(shape.id);
-    if (existing && pinsEqual(existing.meta.pins, shape.pins)) {
-      if (
-        existing.meta.x !== shape.x ||
-        existing.meta.y !== shape.y ||
-        existing.meta.width !== shape.width ||
-        existing.meta.height !== shape.height
-      ) {
-        router.moveShape(existing.ref, rect);
-      }
-      existing.meta = shape;
-      return;
+  #updateLink(link: dia.Link, connector: RouteConnector): void {
+    const source = link.source();
+    const target = link.target();
+    if (source.id !== connector.sourceId || source.port !== connector.sourcePort) {
+      link.source({ id: connector.sourceId, port: connector.sourcePort });
     }
-    if (existing) {
-      this.#deleteShape(shape.id);
+    if (target.id !== connector.targetId || target.port !== connector.targetPort) {
+      link.target({ id: connector.targetId, port: connector.targetPort });
     }
-    const shapeRef = new avoid.ShapeRef(router, rect);
-    for (const pin of shape.pins) {
-      const pinRef = new avoid.ShapeConnectionPin(shapeRef, pin.id, pin.x, pin.y, true, 0, pin.dir);
-      pinRef.setExclusive(false);
-    }
-    this.#shapes.set(shape.id, { ref: shapeRef, meta: shape });
   }
 
-  #setConnector(connector: RouteConnector): void {
-    const avoid = this.#avoid!;
-    const source = this.#shapes.get(connector.sourceId);
-    const target = this.#shapes.get(connector.targetId);
-    if (!source || !target) {
-      this.#deleteConnector(connector.id);
-      return;
-    }
-    const sourceEnd = new avoid.ConnEnd(source.ref, connector.sourcePinId);
-    const targetEnd = new avoid.ConnEnd(target.ref, connector.targetPinId);
-    const existing = this.#connectors.get(connector.id);
-    if (existing) {
-      existing.setSourceEndpoint(sourceEnd);
-      existing.setDestEndpoint(targetEnd);
-      return;
-    }
-    const connRef = new avoid.ConnRef(this.#router!);
-    connRef.setSourceEndpoint(sourceEnd);
-    connRef.setDestEndpoint(targetEnd);
-    this.#connectors.set(connector.id, connRef);
-  }
-
-  #deleteShape(id: string): void {
-    const existing = this.#shapes.get(id);
-    if (!existing || !this.#router) {
-      return;
-    }
-    this.#router.deleteShape(existing.ref);
-    this.#shapes.delete(id);
-  }
-
-  #deleteConnector(id: string): void {
-    const existing = this.#connectors.get(id);
-    if (!existing || !this.#router) {
-      return;
-    }
-    this.#router.deleteConnector(existing);
-    this.#connectors.delete(id);
+  #emit(): void {
+    this.#onChange?.();
   }
 }

@@ -1,5 +1,5 @@
 import { LitElement, css, html } from "lit";
-import { orthogonalLink, polylineBounds, translatePolyline, type Point } from "./geometry";
+import { smoothLinkBounds, translateSmooth, type Point } from "./geometry";
 
 export class BldConnector extends LitElement {
   static override properties = {
@@ -80,18 +80,18 @@ export class BldConnector extends LitElement {
     this.dataset.testid = this.preview ? "connector-preview" : "connector";
   }
 
-  #route(): Point[] {
-    return this.points.length >= 2 ? this.points : orthogonalLink(this.from, this.to);
+  #vertices(): Point[] {
+    return this.points;
   }
 
   #box() {
-    return polylineBounds(this.#route());
+    return smoothLinkBounds(this.from, this.to, this.#vertices());
   }
 
   #d(): string {
-    const route = this.#route();
-    const box = polylineBounds(route);
-    return translatePolyline(route, { x: box.left, y: box.top });
+    const vertices = this.#vertices();
+    const box = smoothLinkBounds(this.from, this.to, vertices);
+    return translateSmooth(this.from, this.to, vertices, { x: box.left, y: box.top });
   }
 
   #onHitPointerDown = (event: PointerEvent): void => {

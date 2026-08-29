@@ -59,10 +59,12 @@ describe("wiring", () => {
 
     const path = await connectorPath(driver);
     expect(path.startsWith("M ")).toBe(true);
-    expect(path).toContain("L ");
-    expect(path).not.toContain("C ");
+    expect(path).toContain("C ");
     const tag = await (await diagramCss(driver, "bld-connector")).getTagName();
     expect(tag).toBe("bld-connector");
+    const diagram = await waitDeep(driver, "bld-diagram");
+    expect(await diagram.getAttribute("data-connector")).toBe("smooth");
+    expect(await diagram.getAttribute("data-worker")).toBe("true");
   });
 
   it("toggles the same wire off", async () => {

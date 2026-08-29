@@ -12,20 +12,23 @@ export {
   polylineBounds,
   polylinePath,
   routesEqual,
+  smoothLinkBounds,
+  smoothLinkPath,
   translatePath,
   translatePolyline,
+  translateSmooth,
   type CubicLink,
   type Point,
   type Rect,
 } from "./geometry";
 export {
   AvoidRouteEngine,
-  CONN_DIR,
   LIBAVOID_WASM,
   connectorFromLink,
-  loadRouterWasm,
+  elementFromObstacle,
+  jointPortId,
+  linkFromConnector,
   obstacleFromBlock,
-  pinIdFor,
 } from "./avoid-router";
 export { iconKey, iconSvgInner, renderBrandSvg, renderIconSvg } from "./icons";
 export { measureHostLayout, portFromComposedPath, worldPort } from "./layout";
