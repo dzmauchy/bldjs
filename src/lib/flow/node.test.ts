@@ -1,5 +1,8 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { BldNode, registerFlowElements, type BldNodeState } from "./index";
+import { flushSync, tick } from "svelte";
+import { portFromComposedPath } from "./layout";
+import type { BldNodeState } from "./types";
+import "./BldNode.svelte";
 
 function sampleState(overrides: Partial<BldNodeState> = {}): BldNodeState {
   return {
@@ -20,20 +23,26 @@ function sampleState(overrides: Partial<BldNodeState> = {}): BldNodeState {
   };
 }
 
+async function mountNode(state: BldNodeState): Promise<HTMLElement> {
+  const node = document.createElement("bld-node");
+  Object.assign(node, { view: state, x: 0, y: 0 });
+  document.body.append(node);
+  flushSync();
+  await tick();
+  return node;
+}
+
 describe("BldNode", () => {
   beforeAll(() => {
-    registerFlowElements();
+    expect(customElements.get("bld-node")).toBeDefined();
   });
 
   afterEach(() => {
     document.body.replaceChildren();
   });
 
-  it("renders flex columns so port count drives layout", () => {
-    const node = document.createElement("bld-node");
-    node.state = sampleState();
-    document.body.append(node);
-
+  it("renders flex columns so port count drives layout", async () => {
+    const node = await mountNode(sampleState());
     const shadow = node.shadowRoot;
     expect(shadow).not.toBeNull();
     expect(shadow!.querySelector(".flow-node")).not.toBeNull();
@@ -45,11 +54,8 @@ describe("BldNode", () => {
     expect(node.dataset.blockDef).toBe("b_map_of");
   });
 
-  it("emits composed port events from handles inside the shadow tree", () => {
-    const node = document.createElement("bld-node");
-    node.state = sampleState();
-    document.body.append(node);
-
+  it("emits composed port events from handles inside the shadow tree", async () => {
+    const node = await mountNode(sampleState());
     let detail: unknown;
     node.addEventListener("portpointerdown", (event) => {
       detail = (event as CustomEvent).detail;
@@ -59,30 +65,28 @@ describe("BldNode", () => {
     expect(detail).toMatchObject({ blockId: 7, port: "result", side: "out", clientX: 4, clientY: 8 });
   });
 
-  it("resolves a port from the composed path", () => {
-    const node = document.createElement("bld-node");
-    node.state = sampleState();
-    document.body.append(node);
+  it("resolves a port from the composed path", async () => {
+    const node = await mountNode(sampleState());
     const handle = node.shadowRoot!.querySelector('[data-testid="input-val"]')!;
     const event = new PointerEvent("pointerup", { bubbles: true, composed: true });
     Object.defineProperty(event, "composedPath", {
       value: () => [handle, node.shadowRoot, node, document.body],
     });
-    expect(BldNode.fromComposedPath(event)).toEqual({ node, side: "in", port: "val" });
+    expect(portFromComposedPath(event)).toEqual({ host: node, side: "in", port: "val" });
   });
 
-  it("toggles selected and chart chrome from state", () => {
-    const node = document.createElement("bld-node");
-    node.state = sampleState({
-      defId: "oscilloscope",
-      name: "Oscilloscope",
-      showChart: true,
-      selected: true,
-      inputs: [{ name: "in", typeLabel: "double", vararg: false }],
-      outputs: [],
-      paramsLine: "",
-    });
-    document.body.append(node);
+  it("toggles selected and chart chrome from state", async () => {
+    const node = await mountNode(
+      sampleState({
+        defId: "oscilloscope",
+        name: "Oscilloscope",
+        showChart: true,
+        selected: true,
+        inputs: [{ name: "in", typeLabel: "double", vararg: false }],
+        outputs: [],
+        paramsLine: "",
+      }),
+    );
     expect(node.hasAttribute("data-selected")).toBe(true);
     const chart = node.shadowRoot!.querySelector('[data-testid="chart-7"]') as HTMLButtonElement;
     expect(chart.hidden).toBe(false);
@@ -92,5 +96,24 @@ describe("BldNode", () => {
     });
     chart.click();
     expect(opened).toBe(true);
+  });
+
+  it("reports its measured size through noderesize", async () => {
+    const node = document.createElement("bld-node");
+    const layouts: unknown[] = [];
+    node.addEventListener("noderesize", (event) => {
+      layouts.push((event as CustomEvent).detail);
+    });
+    Object.assign(node, { view: sampleState() });
+    document.body.append(node);
+    flushSync();
+    await tick();
+    await tick();
+    expect(layouts.length).toBeGreaterThan(0);
+    expect(layouts.at(-1)).toMatchObject({
+      width: expect.any(Number),
+      height: expect.any(Number),
+      ports: { in: expect.any(Object), out: expect.any(Object) },
+    });
   });
 });

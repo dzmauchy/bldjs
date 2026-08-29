@@ -185,89 +185,10 @@ body {
   --block-accent: var(--bs-danger);
 }
 
-.workspace {
-  position: relative;
-}
-
-.canvas-viewport {
-  position: relative;
-  overflow: hidden;
-  background: #14171a;
-  cursor: grab;
-  touch-action: none;
-}
-
-.canvas-viewport.is-panning,
-.canvas-viewport.is-moving-block {
-  cursor: grabbing;
-}
-
-.canvas-viewport.is-linking {
-  cursor: crosshair;
-}
-
-.canvas-viewport.drop-target {
-  outline: 2px dashed var(--bs-primary);
-  outline-offset: -8px;
-  background: #17202a;
-}
-
-.canvas-viewport.drop-target .canvas-grid {
-  background-image:
-    linear-gradient(to right, rgba(13, 110, 253, 0.12) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(13, 110, 253, 0.12) 1px, transparent 1px);
-}
-
-.canvas-grid {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-}
-
-.canvas-world {
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform-origin: 0 0;
-  will-change: transform;
-}
-
-bld-node,
-bld-connector {
-  display: block;
-}
-
-.canvas-hint {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.canvas-hint-card {
-  padding: 1rem 1.25rem;
-  border: 1px dashed var(--bs-border-color);
-  border-radius: 0.75rem;
-  background: rgba(20, 23, 26, 0.72);
-  text-align: center;
-  max-width: 280px;
-  pointer-events: none;
-}
-
-.canvas-toolbar {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  background: #1c2125;
-  border-radius: 0.4rem;
-  overflow: hidden;
-  z-index: 2;
+bld-diagram {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
 }
 
 .app-statusbar {

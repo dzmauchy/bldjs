@@ -3,8 +3,22 @@ import { BASE_URL } from "./harness";
 
 export async function openWorkspace(driver: WebDriver): Promise<void> {
   await driver.get(BASE_URL);
-  await driver.wait(until.elementLocated(By.css('[data-testid="diagram-canvas"]')), 20000);
+  await driver.wait(until.elementLocated(By.css("bld-diagram")), 20000);
+  await driver.wait(async () => {
+    const canvas = await diagramCss(driver, '[data-testid="diagram-canvas"]').catch(() => null);
+    return canvas !== null;
+  }, 20000);
   await driver.wait(until.elementLocated(By.css('[data-testid="palette-b_string"]')), 10000);
+}
+
+export async function diagramRoot(driver: WebDriver) {
+  const host = await driver.wait(until.elementLocated(By.css("bld-diagram")), 10000);
+  return host.getShadowRoot();
+}
+
+export async function diagramCss(driver: WebDriver, selector: string) {
+  const root = await diagramRoot(driver);
+  return root.findElement(By.css(selector));
 }
 
 export async function newCanvas(driver: WebDriver): Promise<void> {
@@ -35,28 +49,28 @@ export async function doubleClickPalette(driver: WebDriver, defId: string): Prom
 }
 
 export async function waitForBlock(driver: WebDriver, defId: string): Promise<void> {
-  await driver.wait(until.elementLocated(By.css(`bld-node[data-block-def="${defId}"]`)), 10000);
+  await driver.wait(async () => {
+    const nodes = await (await diagramRoot(driver)).findElements(By.css(`bld-node[data-block-def="${defId}"]`));
+    return nodes.length > 0;
+  }, 10000);
 }
 
 export async function nodeHost(driver: WebDriver, defId: string) {
-  return driver.wait(until.elementLocated(By.css(`bld-node[data-block-def="${defId}"]`)), 10000);
-}
-
-export async function shadowCss(driver: WebDriver, hostSelector: string, innerSelector: string) {
-  const host = await driver.wait(until.elementLocated(By.css(hostSelector)), 10000);
-  const root = await host.getShadowRoot();
-  return root.findElement(By.css(innerSelector));
+  const root = await diagramRoot(driver);
+  return root.findElement(By.css(`bld-node[data-block-def="${defId}"]`));
 }
 
 export async function clickPortHandle(driver: WebDriver, blockDef: string, testId: string): Promise<void> {
-  const handle = await shadowCss(driver, `bld-node[data-block-def="${blockDef}"]`, `[data-testid="${testId}"]`);
+  const host = await nodeHost(driver, blockDef);
+  const nodeShadow = await host.getShadowRoot();
+  const handle = await nodeShadow.findElement(By.css(`[data-testid="${testId}"]`));
   await driver.wait(until.elementIsVisible(handle), 5000);
   await driver.executeScript("arguments[0].scrollIntoView({block:'nearest', inline:'nearest'});", handle);
   await driver.actions({ async: true }).move({ origin: handle }).click().perform();
 }
 
 export async function clickConnector(driver: WebDriver): Promise<void> {
-  const host = await driver.wait(until.elementLocated(By.css("bld-connector")), 10000);
+  const host = await diagramCss(driver, "bld-connector");
   const root = await host.getShadowRoot();
   const hit = await root.findElement(By.css(".path-hit"));
   await driver.executeScript(
@@ -66,7 +80,7 @@ export async function clickConnector(driver: WebDriver): Promise<void> {
 }
 
 export async function connectorPath(driver: WebDriver): Promise<string> {
-  const host = await driver.wait(until.elementLocated(By.css("bld-connector")), 10000);
+  const host = await diagramCss(driver, 'bld-connector:not([data-preview])');
   const root = await host.getShadowRoot();
   const stroke = await root.findElement(By.css(".path-stroke"));
   return (await stroke.getAttribute("d")) ?? "";

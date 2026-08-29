@@ -1,6 +1,6 @@
 # Bld
 
-A client-side [Svelte](https://svelte.dev/) app. The workspace is a menubar, a left palette of block icons, and a diagram canvas built from custom elements: `bld-node` (flex layout in a shadow tree) and `bld-connector` (SVG cubic paths).
+A client-side [Svelte](https://svelte.dev/) app. The workspace is a menubar, a left palette of block icons, and a `bld-diagram` custom element that owns pan, zoom, drop, and wiring. Nodes (`bld-node`) and connectors (`bld-connector`) are also custom elements with shadow trees; nodes size themselves with flex, and connectors are SVG cubic paths that follow each node's measured ports.
 
 Diagrams load multiple XML type/block models (`src/resources/models/*.xml`, described by `src/resources/blocks.xsd` and `src/resources/blocks.md`). Wiring an output into an input grounds that input and infers the block's generic types.
 
@@ -50,7 +50,7 @@ Serve that folder with any static file server.
 ## Stack
 
 - Svelte 5 (CSR)
-- Custom elements (`bld-node`, `bld-connector`) for the diagram
+- Custom elements compiled by Svelte (`bld-diagram`, `bld-node`, `bld-connector`)
 - [Chart.js](https://www.chartjs.org/) for the oscilloscope (dark mode)
 - Vite
 - TypeScript (ES2025)

@@ -325,21 +325,11 @@ export class AppState {
   }
 
   moveBlock(id: number, dx: number, dy: number): void {
-    const block = this.blocks.find((item) => item.id === id);
-    if (!block) {
-      return;
-    }
-    block.x += dx;
-    block.y += dy;
+    this.blocks = this.blocks.map((item) => (item.id === id ? { ...item, x: item.x + dx, y: item.y + dy } : item));
   }
 
   moveBlockTo(id: number, x: number, y: number): void {
-    const block = this.blocks.find((item) => item.id === id);
-    if (!block) {
-      return;
-    }
-    block.x = x;
-    block.y = y;
+    this.blocks = this.blocks.map((item) => (item.id === id ? { ...item, x, y } : item));
   }
 }
 

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { By, until, type WebDriver } from "selenium-webdriver";
-import { newCanvas, nodeHost, openWorkspace, placeBlock, statusBlocks, statusZoom } from "./actions";
+import { newCanvas, diagramRoot, nodeHost, openWorkspace, placeBlock, statusBlocks, statusZoom } from "./actions";
 import { createDriver } from "./harness";
 
 describe("menus", () => {
@@ -40,7 +40,7 @@ describe("menus", () => {
     expect(await statusBlocks(driver)).not.toBe("0 blocks");
     await newCanvas(driver);
     expect(await statusBlocks(driver)).toBe("0 blocks");
-    expect(await driver.findElements(By.css("bld-node"))).toHaveLength(0);
+    expect(await (await diagramRoot(driver)).findElements(By.css("bld-node"))).toHaveLength(0);
   });
 
   it("deletes the selection from the File menu", async () => {

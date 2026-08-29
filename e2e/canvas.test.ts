@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { By, until, type WebDriver } from "selenium-webdriver";
+import { By, type WebDriver } from "selenium-webdriver";
 import {
-  clickPortHandle,
+  diagramCss,
+  diagramRoot,
   newCanvas,
   nodeHost,
   openWorkspace,
@@ -9,6 +10,7 @@ import {
   pressDelete,
   statusBlocks,
   statusZoom,
+  waitForBlock,
 } from "./actions";
 import { createDriver } from "./harness";
 
@@ -26,22 +28,25 @@ describe("canvas", () => {
 
   it("loads the palette and an empty canvas of custom elements", async () => {
     expect(await statusBlocks(driver)).toBe("0 blocks");
-    const hint = await driver.findElement(By.css(".canvas-hint-card")).getText();
+    const hint = await (await diagramCss(driver, ".hint-card")).getText();
     expect(hint).toContain("Drop blocks here");
     const paletteItem = await driver.findElement(By.css('[data-testid="palette-b_string"]')).getText();
     expect(paletteItem).toContain("String");
     expect(paletteItem).not.toContain("→");
     const defined = await driver.executeScript(
-      "return [!!customElements.get('bld-node'), !!customElements.get('bld-connector')]",
+      "return [!!customElements.get('bld-diagram'), !!customElements.get('bld-node'), !!customElements.get('bld-connector')]",
     );
-    expect(defined).toEqual([true, true]);
+    expect(defined).toEqual([true, true, true]);
   });
 
   it("zooms from the canvas toolbar", async () => {
     const before = await statusZoom(driver);
-    await driver.findElement(By.css('[data-testid="zoom-in"]')).click();
+    await driver.findElement(By.css("bld-diagram"));
+    const zoomIn = await diagramCss(driver, '[data-testid="zoom-in"]');
+    await zoomIn.click();
     await driver.wait(async () => (await statusZoom(driver)) !== before, 5000);
-    await driver.findElement(By.css('[data-testid="zoom-reset"]')).click();
+    const reset = await diagramCss(driver, '[data-testid="zoom-reset"]');
+    await reset.click();
     await driver.wait(async () => (await statusZoom(driver)) === "100%", 5000);
   });
 
@@ -53,14 +58,14 @@ describe("canvas", () => {
     expect(stringBox.width).toBeGreaterThan(80);
     expect(stringBox.height).toBeGreaterThan(40);
     expect(decisionBox.height).toBeGreaterThan(stringBox.height);
-    const tag = await driver.findElement(By.css('bld-node[data-block-def="b_string"]')).getTagName();
+    const tag = await (await nodeHost(driver, "b_string")).getTagName();
     expect(tag).toBe("bld-node");
   });
 
   it("pans the world when dragging empty canvas", async () => {
     const host = await nodeHost(driver, "b_string");
     const before = await host.getRect();
-    const canvas = await driver.findElement(By.css('[data-testid="diagram-canvas"]'));
+    const canvas = await diagramCss(driver, '[data-testid="diagram-canvas"]');
     const box = await canvas.getRect();
     const fromX = Math.ceil(-box.width / 2 + 24);
     const fromY = Math.ceil(-box.height / 2 + 24);
@@ -95,18 +100,18 @@ describe("canvas", () => {
     await (await nodeHost(driver, "b_decision")).click();
     await pressDelete(driver);
     await driver.wait(async () => (await statusBlocks(driver)) !== before, 5000);
-    const leftover = await driver.findElements(By.css('bld-node[data-block-def="b_decision"]'));
+    const leftover = await (await diagramRoot(driver)).findElements(By.css('bld-node[data-block-def="b_decision"]'));
     expect(leftover).toHaveLength(0);
   });
 
   it("drops a palette item onto the canvas", async () => {
     await newCanvas(driver);
     await driver.executeScript(`
-      const canvas = document.querySelector('[data-testid="diagram-canvas"]');
-      const rect = canvas.getBoundingClientRect();
+      const diagram = document.querySelector("bld-diagram");
+      const rect = diagram.getBoundingClientRect();
       const data = new DataTransfer();
       data.setData("application/x-bld-block", "b_integer");
-      canvas.dispatchEvent(new DragEvent("drop", {
+      diagram.dispatchEvent(new DragEvent("drop", {
         bubbles: true,
         cancelable: true,
         dataTransfer: data,
@@ -114,7 +119,7 @@ describe("canvas", () => {
         clientY: rect.top + rect.height / 2,
       }));
     `);
-    await driver.wait(until.elementLocated(By.css('bld-node[data-block-def="b_integer"]')), 5000);
+    await waitForBlock(driver, "b_integer");
     expect(await statusBlocks(driver)).toBe("1 block");
   });
 });

@@ -1,7 +1,8 @@
-import { BldConnector } from "./connector";
-import { BldNode } from "./node";
+import "./BldConnector.svelte";
+import "./BldDiagram.svelte";
+import "./BldNode.svelte";
 
-export { BldConnector, type ConnectorEndpoints } from "./connector";
+export { FLOW_MIME } from "./mime";
 export {
   clientToWorld,
   cubicLink,
@@ -13,24 +14,13 @@ export {
   type Rect,
 } from "./geometry";
 export { iconKey, iconSvgInner, renderIconSvg } from "./icons";
-export {
-  BldNode,
-  type BldNodeState,
-  type PortPointerDetail,
-  type PortSide,
-  type PortView,
-} from "./node";
-
-export const FLOW_MIME = "application/x-bld-block";
-
-export function registerFlowElements(): void {
-  const defs: ReadonlyArray<readonly [string, CustomElementConstructor]> = [
-    [BldNode.tagName, BldNode],
-    [BldConnector.tagName, BldConnector],
-  ];
-  for (const [tag, ctor] of defs) {
-    if (customElements.get(tag) === undefined) {
-      customElements.define(tag, ctor);
-    }
-  }
-}
+export { measureHostLayout, portFromComposedPath, worldPort } from "./layout";
+export type {
+  BldNodeState,
+  ConnectorEndpoints,
+  NodeLayout,
+  PortAnchor,
+  PortPointerDetail,
+  PortSide,
+  PortView,
+} from "./types";

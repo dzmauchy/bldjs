@@ -4,7 +4,10 @@ import {
   clickConnector,
   clickPortHandle,
   connectorPath,
+  diagramCss,
+  diagramRoot,
   newCanvas,
+  nodeHost,
   openWorkspace,
   placeBlock,
   pressDelete,
@@ -36,7 +39,7 @@ describe("wiring", () => {
     await clickPortHandle(driver, "b_list_of", "input-elements");
     await waitForLinks(driver, "1 link");
 
-    const listHost = await driver.findElement(By.css('bld-node[data-block-def="b_list_of"]'));
+    const listHost = await nodeHost(driver, "b_list_of");
     const listText = await listHost.getShadowRoot().then(async (root) => {
       const body = await root.findElement(By.css(".flow-node"));
       return body.getText();
@@ -46,7 +49,7 @@ describe("wiring", () => {
     const path = await connectorPath(driver);
     expect(path.startsWith("M ")).toBe(true);
     expect(path).toContain("C ");
-    const tag = await driver.findElement(By.css("bld-connector")).getTagName();
+    const tag = await (await diagramCss(driver, "bld-connector")).getTagName();
     expect(tag).toBe("bld-connector");
   });
 
@@ -70,15 +73,21 @@ describe("wiring", () => {
     await clickConnector(driver);
     await pressDelete(driver);
     await waitForLinks(driver, "0 links");
-    expect(await driver.findElements(By.css("bld-connector"))).toHaveLength(0);
+    expect(await (await diagramRoot(driver)).findElements(By.css("bld-connector"))).toHaveLength(0);
   });
 
   it("cancels an in-progress link with Escape", async () => {
     await placeBlock(driver, "b_string");
     await clickPortHandle(driver, "b_string", "output-value");
-    await driver.wait(until.elementLocated(By.css('[data-testid="connector-preview"]')), 5000);
+    await driver.wait(async () => {
+      const preview = await (await diagramRoot(driver)).findElements(By.css('[data-testid="connector-preview"]'));
+      return preview.length === 1;
+    }, 5000);
     await driver.actions({ async: true }).sendKeys(Key.ESCAPE).perform();
-    await driver.wait(async () => (await driver.findElements(By.css('[data-testid="connector-preview"]'))).length === 0, 5000);
+    await driver.wait(async () => {
+      const preview = await (await diagramRoot(driver)).findElements(By.css('[data-testid="connector-preview"]'));
+      return preview.length === 0;
+    }, 5000);
     expect(await statusLinks(driver)).toBe("0 links");
   });
 
@@ -97,9 +106,22 @@ describe("wiring", () => {
     await wire("quantizer", "out", "sin", "in", "2 links");
     await wire("sin", "out", "oscilloscope", "in", "3 links");
 
-    const scope = await driver.findElement(By.css('bld-node[data-block-def="oscilloscope"]'));
+    const scope = await nodeHost(driver, "oscilloscope");
     const chart = await (await scope.getShadowRoot()).findElement(By.css('[data-testid^="chart-"]'));
     await chart.click();
     await driver.wait(until.elementLocated(By.css('[data-testid="oscilloscope-modal"]')), 5000);
+  });
+
+  it("moves the connector when a wired node is dragged", async () => {
+    await placeBlock(driver, "b_string");
+    await placeBlock(driver, "b_list_of");
+    await clickPortHandle(driver, "b_string", "output-value");
+    await clickPortHandle(driver, "b_list_of", "input-elements");
+    await waitForLinks(driver, "1 link");
+    const before = await connectorPath(driver);
+    const host = await nodeHost(driver, "b_string");
+    const header = await (await host.getShadowRoot()).findElement(By.css(".flow-node-header"));
+    await driver.actions({ async: true }).dragAndDrop(header, { x: 90, y: 30 }).perform();
+    await driver.wait(async () => (await connectorPath(driver)) !== before, 5000);
   });
 });
