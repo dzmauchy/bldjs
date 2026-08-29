@@ -1,7 +1,6 @@
 import type { Link } from "./diagram";
-import { type Stage, assembleWat } from "../runtime/assemble";
+import { type Stage, assembleModule, assembleWasm } from "../runtime/assemble";
 import { SAMPLE_CAP } from "../runtime/memory";
-import { compileWat } from "../runtime/wat";
 
 export const QUANTIZER_DELAY_MS = 10;
 
@@ -99,7 +98,7 @@ export interface GeneratorPlan {
 }
 
 export interface CompiledGenerator extends GeneratorPlan {
-  wat: string;
+  text: string;
   wasm: Uint8Array;
 }
 
@@ -143,31 +142,36 @@ export function planGenerator(timerId: number, nodes: NodeSpec[], links: Link[])
   return { timerId, scopeId, delayMs, stages };
 }
 
-/** Concatenate block WAT files and emit tick/run for this pipeline. */
-export function assembleGenerator(plan: Pick<GeneratorPlan, "stages" | "delayMs">): string {
-  return assembleWat({ stages: plan.stages, delayMs: plan.delayMs });
+/** Run each block's binaryen.js script and emit wasm for this pipeline. */
+export async function assembleGenerator(plan: Pick<GeneratorPlan, "stages" | "delayMs">): Promise<Uint8Array> {
+  return assembleWasm({ stages: plan.stages, delayMs: plan.delayMs });
 }
 
 /**
- * Walk Timer → … → Oscilloscope, assemble block WAT, then compile the module.
- * `runDiagram` does the same assemble-then-compile step when the simulation starts.
+ * Walk Timer → … → Oscilloscope, then generate the module with binaryen.js.
+ * `runDiagram` does the same assemble step when the simulation starts.
  */
-export function compileGenerator(
+export async function compileGenerator(
   timerId: number,
   nodes: NodeSpec[],
   links: Link[],
-): CompiledGenerator | undefined {
+): Promise<CompiledGenerator | undefined> {
   const plan = planGenerator(timerId, nodes, links);
   if (!plan) {
     return undefined;
   }
-  const wat = assembleGenerator(plan);
-  return { ...plan, wat, wasm: compileWat(wat) };
+  const assembled = await assembleModule(plan);
+  return { ...plan, text: assembled.text, wasm: assembled.wasm };
 }
 
-/** Assemble the catalog block WAT files into one module. */
-export function generatorWat(stages: readonly Stage[], delayMs = 0): string {
-  return assembleWat({ stages, delayMs });
+/** Assemble the catalog block scripts into one module and return binaryen text. */
+export async function generatorText(stages: readonly Stage[], delayMs = 0): Promise<string> {
+  return (await assembleModule({ stages, delayMs })).text;
+}
+
+/** @deprecated Prefer {@link generatorText}. */
+export async function generatorWat(stages: readonly Stage[], delayMs = 0): Promise<string> {
+  return generatorText(stages, delayMs);
 }
 
 /** @deprecated Prefer {@link compileGenerator}; kept for in-process tests. */
@@ -176,13 +180,13 @@ export interface CompiledTimer {
   delayMs: number;
 }
 
-export function compileTimer(
+export async function compileTimer(
   timerId: number,
   nodes: NodeSpec[],
   links: Link[],
   buffers: Map<number, SampleBuf>,
-): CompiledTimer | undefined {
-  const compiled = compileGenerator(timerId, nodes, links);
+): Promise<CompiledTimer | undefined> {
+  const compiled = await compileGenerator(timerId, nodes, links);
   if (!compiled) {
     return undefined;
   }

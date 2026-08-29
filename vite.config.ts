@@ -16,6 +16,9 @@ export default defineConfig({
       $lib: fileURLToPath(new URL("./src/lib", import.meta.url)),
     },
   },
+  optimizeDeps: {
+    include: ["binaryen"],
+  },
   server: {
     port: 8080,
     host: true,
