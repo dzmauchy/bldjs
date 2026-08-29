@@ -16,8 +16,8 @@ import {
 } from "./blocks";
 import { linksEqual } from "./blocks/diagram";
 import {
-  BLOCK_HEIGHT,
-  BLOCK_WIDTH,
+  BLOCK_PLACE_HEIGHT,
+  BLOCK_PLACE_WIDTH,
   MAX_ZOOM,
   MIN_ZOOM,
   NONE_ID,
@@ -110,8 +110,8 @@ export class AppState {
     );
     this.addBlock(
       defId,
-      worldX - BLOCK_WIDTH - 24 + col * (BLOCK_WIDTH + 48),
-      worldY - BLOCK_HEIGHT + row * (BLOCK_HEIGHT + 48),
+      worldX - BLOCK_PLACE_WIDTH - 24 + col * (BLOCK_PLACE_WIDTH + 48),
+      worldY - BLOCK_PLACE_HEIGHT + row * (BLOCK_PLACE_HEIGHT + 48),
     );
   }
 
