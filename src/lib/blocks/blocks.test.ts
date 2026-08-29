@@ -388,28 +388,42 @@ describe("blocks", () => {
     expect(parseVariance("+")).toBe("covariant");
   });
 
+  it("displays consumers and doubles in compact rust-like form", () => {
+    expect(displayType(t("DoubleConsumer"), true)).toBe("c<f64>");
+    expect(displayType(g("Consumer", [t("DoubleConsumer")]), true)).toBe("c<c<f64>>");
+    expect(displayType(g("Consumer", [t("Double")]), true)).toBe("c<f64>");
+    expect(displayType(g("Consumer", [g("Consumer", [t("Double")])]), true)).toBe("c<c<f64>>");
+    expect(displayType(g("Consumer", [g("Consumer", [g("Consumer", [t("Double")])])]), true)).toBe(
+      "c<c<c<f64>>>",
+    );
+    expect(displayType(t("double"), true)).toBe("f64");
+    expect(displayType(t("DoubleConsumer"), false)).toBe("DoubleConsumer");
+    expect(displayType(g("Consumer", [t("Double")]), false)).toBe("Consumer<Double>");
+    expect(displayType(g("List", [t("String")]), true)).toBe("List<String>");
+  });
+
   it("control systems model and types", () => {
     const cat = catalog();
     const timerBlock = cat.block("timer")!;
     expect(timerBlock.inputs.length).toBe(0);
     expect(displayType(timerBlock.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
-      "Consumer<Consumer<Consumer<Double>>>",
+      "c<c<c<f64>>>",
     );
     expect(timerBlock.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
     const scope = cat.block("oscilloscope")!;
     expect(scope.outputs.length).toBe(0);
-    expect(displayType(scope.inputs.find((port) => port.name === "in")!.ty, true)).toBe("Consumer<Double>");
+    expect(displayType(scope.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("quantizer")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
-      "Consumer<Consumer<Consumer<Double>>>",
+      "c<c<c<f64>>>",
     );
     expect(displayType(cat.block("quantizer")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
-      "Consumer<Consumer<Double>>",
+      "c<c<f64>>",
     );
     expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
-      "Consumer<Consumer<Double>>",
+      "c<c<f64>>",
     );
     expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
-      "Consumer<Double>",
+      "c<f64>",
     );
     expect(cat.namespaceLabel("cs")).toBe("Control Systems");
     expect(cat.findType("double", "java.lang")).toBeDefined();
@@ -484,28 +498,28 @@ describe("blocks", () => {
 
     const timerResolved = diagram.resolveNode(timerId)!;
     expect(displayType(timerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
-      "Consumer<Consumer<Consumer<Double>>>",
+      "c<c<c<f64>>>",
     );
 
     const quantizerResolved = diagram.resolveNode(quantizerId)!;
     expect(quantizerResolved.compatible.get("in") ?? true).toBe(true);
     expect(displayType(quantizerResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
-      "Consumer<Consumer<Consumer<Double>>>",
+      "c<c<c<f64>>>",
     );
     expect(displayType(quantizerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
-      "Consumer<Consumer<Double>>",
+      "c<c<f64>>",
     );
 
     const sinResolved = diagram.resolveNode(sinId)!;
     expect(sinResolved.compatible.get("in") ?? true).toBe(true);
     expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
-      "Consumer<Consumer<Double>>",
+      "c<c<f64>>",
     );
-    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Consumer<Double>");
+    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
 
     const scopeResolved = diagram.resolveNode(scopeId)!;
     expect(scopeResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(scopeResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("Consumer<Double>");
+    expect(displayType(scopeResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
   });
 
   it("skipping a nested consumer layer is incompatible", () => {

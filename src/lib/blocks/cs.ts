@@ -11,9 +11,9 @@ export type DoubleSource = Consumer<DoubleConsumer>;
 
 /**
  * Nested `Consumer` expression. Depth matches the catalog:
- *   Nested<3> = Consumer<Consumer<Consumer<Double>>>  (Timer)
- *   Nested<2> = Consumer<Consumer<Double>>            (Quantizer)
- *   Nested<1> = Consumer<Double>                      (Sin / Oscilloscope)
+ *   Nested<3> = c<c<c<f64>>>  (Timer)       — Consumer<Consumer<Consumer<Double>>>
+ *   Nested<2> = c<c<f64>>     (Quantizer)   — Consumer<Consumer<Double>>
+ *   Nested<1> = c<f64>        (Sin / Scope) — Consumer<Double> / DoubleConsumer
  *
  * The payload is always a source; each function peels one Consumer layer
  * so `oscilloscope(sin(quantizer(timer())))` type-checks like Java.

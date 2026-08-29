@@ -1,6 +1,6 @@
 import { LitElement, css, html } from "lit";
-import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import { iconSvgInner } from "$lib/flow/icons";
+import { unsafeSVG } from "lit/directives/unsafe-svg.js";
+import { renderIconSvg } from "$lib/flow/icons";
 
 export class BldBlockIcon extends LitElement {
   static override properties = {
@@ -14,6 +14,8 @@ export class BldBlockIcon extends LitElement {
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      width: 1em;
+      height: 1em;
       line-height: 1;
     }
     svg {
@@ -34,11 +36,7 @@ export class BldBlockIcon extends LitElement {
   }
 
   protected override render() {
-    return html`
-      <svg class="block-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        ${unsafeHTML(iconSvgInner(this.name))}
-      </svg>
-    `;
+    return html`${unsafeSVG(renderIconSvg(this.name))}`;
   }
 }
 

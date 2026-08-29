@@ -3,13 +3,13 @@
   <library id="java.lang" name="Java Lang"/>
   <namespace id="flow" name="Flow"/>
 
-  <block id="b_start" name="Start" ns="flow" icon="start">
+  <block id="b_start" name="Start" ns="flow" icon="start.svg">
     <attribute name="kind">Start</attribute>
     <attribute name="description">Entry point for a flow</attribute>
     <out name="out" type="Object"/>
   </block>
 
-  <block id="b_process" name="Process" ns="flow" icon="process">
+  <block id="b_process" name="Process" ns="flow" icon="process.svg">
     <attribute name="kind">Process</attribute>
     <attribute name="description">Do some work</attribute>
     <param name="T"/>
@@ -17,7 +17,7 @@
     <out name="out" type="T"/>
   </block>
 
-  <block id="b_decision" name="Decision" ns="flow" icon="decision">
+  <block id="b_decision" name="Decision" ns="flow" icon="decision.svg">
     <attribute name="kind">Decision</attribute>
     <attribute name="description">Branch on a condition</attribute>
     <param name="T"/>
@@ -26,7 +26,7 @@
     <out name="false" type="T"/>
   </block>
 
-  <block id="b_data" name="Data" ns="flow" icon="data">
+  <block id="b_data" name="Data" ns="flow" icon="data.svg">
     <attribute name="kind">Data</attribute>
     <attribute name="description">Read or write data</attribute>
     <param name="T"/>
@@ -34,14 +34,14 @@
     <out name="out" type="T"/>
   </block>
 
-  <block id="b_output" name="Output" ns="flow" icon="output">
+  <block id="b_output" name="Output" ns="flow" icon="output.svg">
     <attribute name="kind">Output</attribute>
     <attribute name="description">Emit a result</attribute>
     <param name="T"/>
     <in name="in" type="T"/>
   </block>
 
-  <block id="b_identity" name="Identity" ns="flow" icon="identity">
+  <block id="b_identity" name="Identity" ns="flow" icon="identity.svg">
     <attribute name="kind">Process</attribute>
     <attribute name="description">Pass a value through, unifying T</attribute>
     <param name="T"/>

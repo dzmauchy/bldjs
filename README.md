@@ -42,7 +42,7 @@ Serve that folder with any static file server.
 
 - Drag a block icon from the left pane onto the canvas (or double-click a palette item to drop it in the center).
 - Click or drag from an output handle to an input handle to ground a type. Inferred parameters and port types update on the block.
-- Control Systems (`cs`): wire Timer → Quantizer → Sin → Oscilloscope. The graph is the Java expression `oscilloscope(sin(quantizer(timer())))`, with nested `Consumer` types (Timer returns `Consumer<Consumer<Consumer<Double>>>`). Click Chart on Oscilloscope for a live Chart.js plot.
+- Control Systems (`cs`): wire Timer → Quantizer → Sin → Oscilloscope. The graph is the Java expression `oscilloscope(sin(quantizer(timer())))`, with nested `Consumer` types shown compactly (`c<f64>` is `DoubleConsumer` / `Consumer<Double>`; Timer returns `c<c<c<f64>>>`). Click Chart on Oscilloscope for a live Chart.js plot.
 - Scroll to zoom toward the cursor. Use the zoom controls in the lower-right, or **View** in the menu.
 - Drag empty canvas space to pan. Drag a placed block to move it.
 - **Delete** / **Backspace** removes the selected block or edge. **Ctrl/Cmd+0** resets the view.

@@ -55,6 +55,9 @@ describe("BldNode", () => {
     expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("Map<String, Integer>");
     expect(shadow!.querySelector(".flow-node-params")?.textContent).toContain("K = String");
     expect(node.dataset.blockDef).toBe("b_map_of");
+    const glyph = shadow!.querySelector(".flow-node-icon path, .flow-node-icon rect, .flow-node-icon circle");
+    expect(glyph).not.toBeNull();
+    expect(glyph!.namespaceURI).toBe("http://www.w3.org/2000/svg");
   });
 
   it("emits composed port events from handles inside the shadow tree", async () => {

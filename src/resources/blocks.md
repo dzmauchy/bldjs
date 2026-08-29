@@ -31,7 +31,7 @@ A `<block>` represents an executable node (e.g., a method call, constructor, or 
 *   `id`: Unique identifier.
 *   `name`: Human-readable name.
 *   `ns`: The namespace ID.
-*   `icon`: (Optional) Visual identifier.
+*   `icon`: (Optional) Visual identifier. Built-in blocks use SVG files in `src/resources/icons/` (for example `icon="map.svg"`).
 
 ### Factory Binding
 The `<factory>` element binds the block to a specific Java method.

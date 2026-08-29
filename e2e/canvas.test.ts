@@ -32,9 +32,17 @@ describe("canvas", () => {
     expect(await statusBlocks(driver)).toBe("0 blocks");
     const hint = await (await diagramCss(driver, ".hint-card")).getText();
     expect(hint).toContain("Drop blocks here");
-    const paletteItem = await (await waitDeep(driver, '[data-testid="palette-b_string"]')).getText();
-    expect(paletteItem).toContain("String");
-    expect(paletteItem).not.toContain("→");
+    const paletteItem = await waitDeep(driver, '[data-testid="palette-b_string"]');
+    expect(await paletteItem.getText()).toContain("String");
+    expect(await paletteItem.getText()).not.toContain("→");
+    const iconHost = await waitDeep(driver, '[data-testid="palette-b_string"] bld-block-icon');
+    const paletteIcon = await (await iconHost.getShadowRoot()).findElement(By.css("svg"));
+    expect(await paletteIcon.isDisplayed()).toBe(true);
+    const glyphNs = await driver.executeScript(
+      "const g = arguments[0].querySelector('path, rect, circle, ellipse'); return g && g.namespaceURI;",
+      paletteIcon,
+    );
+    expect(glyphNs).toBe("http://www.w3.org/2000/svg");
     const defined = await driver.executeScript(
       "return [!!customElements.get('bld-app'), !!customElements.get('bld-diagram'), !!customElements.get('bld-node'), !!customElements.get('bld-connector')]",
     );

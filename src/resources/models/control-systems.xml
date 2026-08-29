@@ -12,13 +12,15 @@
 
       oscilloscope(sin(quantizer(timer())))
 
-    timer()      : Consumer<Consumer<Consumer<Double>>>
-    quantizer(_) : Consumer<Consumer<Double>>
-    sin(_)       : Consumer<Double>
-    oscilloscope : Consumer<Double> → void
+    Compact display (Consumer → c, Double → f64, DoubleConsumer → c<f64>):
 
-    DoubleConsumer           = Consumer<Double>
-    Consumer<DoubleConsumer> = Consumer<Consumer<Double>>
+      timer()      : c<c<c<f64>>>
+      quantizer(_) : c<c<f64>>
+      sin(_)       : c<f64>
+      oscilloscope : c<f64> → void
+
+    DoubleConsumer           = Consumer<Double>           = c<f64>
+    Consumer<DoubleConsumer> = Consumer<Consumer<Double>> = c<c<f64>>
   -->
   <type name="DoubleConsumer" ns="java.util.function">
     <ancestor type="Consumer">
@@ -26,10 +28,10 @@
     </ancestor>
   </type>
 
-  <block id="timer" name="Timer" ns="cs" icon="timer">
+  <block id="timer" name="Timer" ns="cs" icon="timer.svg">
     <attribute name="kind">Start</attribute>
     <attribute name="runnable">true</attribute>
-    <attribute name="description">Runnable time source. Returns Consumer&lt;Consumer&lt;Consumer&lt;Double&gt;&gt;&gt; for quantizer(timer()).</attribute>
+    <attribute name="description">Runnable time source. Returns c&lt;c&lt;c&lt;f64&gt;&gt;&gt; for quantizer(timer()).</attribute>
     <out name="out" type="Consumer">
       <t type="Consumer">
         <t type="Consumer">
@@ -39,9 +41,9 @@
     </out>
   </block>
 
-  <block id="quantizer" name="Quantizer" ns="cs" icon="quantizer">
+  <block id="quantizer" name="Quantizer" ns="cs" icon="quantizer.svg">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">Consumer&lt;Consumer&lt;Consumer&lt;Double&gt;&gt;&gt; → Consumer&lt;Consumer&lt;Double&gt;&gt;. Parks 10 ms (LockSupport.parkNanos) per sample.</attribute>
+    <attribute name="description">c&lt;c&lt;c&lt;f64&gt;&gt;&gt; → c&lt;c&lt;f64&gt;&gt;. Parks 10 ms (LockSupport.parkNanos) per sample.</attribute>
     <in name="in" type="Consumer">
       <t type="Consumer">
         <t type="Consumer">
@@ -56,9 +58,9 @@
     </out>
   </block>
 
-  <block id="sin" name="Sin" ns="cs" icon="sin">
+  <block id="sin" name="Sin" ns="cs" icon="sin.svg">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">Consumer&lt;Consumer&lt;Double&gt;&gt; → Consumer&lt;Double&gt;. Maps each sample through Math.sin.</attribute>
+    <attribute name="description">c&lt;c&lt;f64&gt;&gt; → c&lt;f64&gt;. Maps each sample through Math.sin.</attribute>
     <in name="in" type="Consumer">
       <t type="Consumer">
         <t type="Double"/>
@@ -69,9 +71,9 @@
     </out>
   </block>
 
-  <block id="oscilloscope" name="Oscilloscope" ns="cs" icon="scope">
+  <block id="oscilloscope" name="Oscilloscope" ns="cs" icon="scope.svg">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Consumes Consumer&lt;Double&gt; and plots samples. Click Chart for a live view.</attribute>
+    <attribute name="description">Consumes c&lt;f64&gt; and plots samples. Click Chart for a live view.</attribute>
     <in name="in" type="Consumer">
       <t type="Double"/>
     </in>

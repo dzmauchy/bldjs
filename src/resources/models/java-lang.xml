@@ -74,22 +74,22 @@
     <ancestor type="Object"/>
   </type>
 
-  <block id="b_string" name="String" ns="java.lang" icon="string">
+  <block id="b_string" name="String" ns="java.lang" icon="string.svg">
     <attribute name="kind">Data</attribute>
     <out name="value" type="String"/>
   </block>
 
-  <block id="b_integer" name="Integer" ns="java.lang" icon="integer">
+  <block id="b_integer" name="Integer" ns="java.lang" icon="integer.svg">
     <attribute name="kind">Data</attribute>
     <out name="value" type="Integer"/>
   </block>
 
-  <block id="b_int" name="int" ns="java.lang" icon="int">
+  <block id="b_int" name="int" ns="java.lang" icon="int.svg">
     <attribute name="kind">Data</attribute>
     <out name="value" type="int"/>
   </block>
 
-  <block id="b_enum_valueof" name="Enum.valueOf" ns="java.lang">
+  <block id="b_enum_valueof" name="Enum.valueOf" ns="java.lang" icon="enum.svg">
     <attribute name="kind">Process</attribute>
     <param name="T">
       <extends type="Enum">

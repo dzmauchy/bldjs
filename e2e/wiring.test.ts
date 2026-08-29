@@ -97,6 +97,18 @@ describe("wiring", () => {
       await placeBlock(driver, id);
     }
 
+    const timerHost = await nodeHost(driver, "timer");
+    const timerRoot = await timerHost.getShadowRoot();
+    const timerOut = await timerRoot.findElement(By.css('[data-testid="output-out"]'));
+    expect(await timerOut.getAttribute("title")).toBe("c<c<c<f64>>>");
+    const timerIcon = await timerRoot.findElement(By.css(".flow-node-icon svg"));
+    expect(await timerIcon.isDisplayed()).toBe(true);
+    const glyphNs = await driver.executeScript(
+      "const g = arguments[0].querySelector('path, rect, circle, ellipse'); return g && g.namespaceURI;",
+      timerIcon,
+    );
+    expect(glyphNs).toBe("http://www.w3.org/2000/svg");
+
     async function wire(fromDef: string, fromPort: string, toDef: string, toPort: string, expected: string): Promise<void> {
       await clickPortHandle(driver, fromDef, `output-${fromPort}`);
       await clickPortHandle(driver, toDef, `input-${toPort}`);
