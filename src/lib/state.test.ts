@@ -102,6 +102,20 @@ describe("AppState timers", () => {
     app.stopAllTimers();
   });
 
+  it("does not reenter reconcileTimers when runFlags notify subscribers", () => {
+    const app = new AppState();
+    let n = 0;
+    app.subscribe(() => {
+      n += 1;
+      app.reconcileTimers();
+    });
+    wireCsPipeline(app);
+    app.reconcileTimers();
+    expect(n).toBeGreaterThan(0);
+    expect(app.runFlags.get(app.blocks.find((block) => block.defId === "timer")!.id)?.value).toBe(true);
+    app.stopAllTimers();
+  });
+
   it("restarts timers when the wiring changes", () => {
     const app = new AppState();
     const { timerId } = wireCsPipeline(app);

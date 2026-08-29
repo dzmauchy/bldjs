@@ -80,6 +80,7 @@ export class AppState extends EventTarget {
 
   #timerStops = new Map<number, () => void>();
   #lastTimerTopology = "";
+  #reconciling = false;
 
   constructor() {
     super();
@@ -268,30 +269,38 @@ export class AppState extends EventTarget {
   }
 
   reconcileTimers(): void {
+    if (this.#reconciling) {
+      return;
+    }
     const topology = this.timerTopologyKey();
     if (topology === this.#lastTimerTopology) {
       return;
     }
-    const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
-    const wanted = this.blocks
-      .filter((block) => block.defId === "timer")
-      .filter((block) => compileTimer(block.id, nodes, this.links, this.samples) !== undefined)
-      .map((block) => block.id);
+    this.#reconciling = true;
+    try {
+      const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
+      const wanted = this.blocks
+        .filter((block) => block.defId === "timer")
+        .filter((block) => compileTimer(block.id, nodes, this.links, this.samples) !== undefined)
+        .map((block) => block.id);
 
-    this.stopAllTimers();
-    const flags = new Map<number, { value: boolean }>();
-    for (const id of wanted) {
-      const compiled = compileTimer(id, nodes, this.links, this.samples);
-      if (!compiled) {
-        continue;
+      this.stopAllTimers();
+      const flags = new Map<number, { value: boolean }>();
+      for (const id of wanted) {
+        const compiled = compileTimer(id, nodes, this.links, this.samples);
+        if (!compiled) {
+          continue;
+        }
+        const running = { value: true };
+        const cancel = spawnTimer(compiled, running);
+        flags.set(id, running);
+        this.#timerStops.set(id, cancel);
       }
-      const running = { value: true };
-      const cancel = spawnTimer(compiled, running);
-      flags.set(id, running);
-      this.#timerStops.set(id, cancel);
+      this.runFlags = flags;
+      this.#lastTimerTopology = topology;
+    } finally {
+      this.#reconciling = false;
     }
-    this.runFlags = flags;
-    this.#lastTimerTopology = topology;
   }
 
   toggleLink(fromBlock: number, fromOut: string, toBlock: number, toIn: string): void {
