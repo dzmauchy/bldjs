@@ -36,8 +36,14 @@ async function clickPortHandle(driver: WebDriver, blockDef: string, testId: stri
     10000,
   );
   await driver.wait(until.elementIsVisible(port), 5000);
-  await driver.executeScript("arguments[0].scrollIntoView({block:'center', inline:'center'})", port);
-  await driver.actions({ async: true }).move({ origin: port }).pause(80).click().perform();
+  await driver.executeScript(
+    "arguments[0].scrollIntoView({block:'nearest', inline:'nearest'}); arguments[0].click();",
+    port,
+  );
+}
+
+async function linkCount(driver: WebDriver): Promise<string> {
+  return driver.findElement(By.css('[data-testid="status-links"]')).getText();
 }
 
 describe("workspace UI", () => {
@@ -119,19 +125,21 @@ describe("workspace UI", () => {
       await waitForBlock(driver, id);
     }
 
-    async function wire(fromDef: string, fromPort: string, toDef: string, toPort: string): Promise<void> {
+    async function wire(
+      fromDef: string,
+      fromPort: string,
+      toDef: string,
+      toPort: string,
+      expected: string,
+    ): Promise<void> {
       await clickPortHandle(driver, fromDef, `output-${fromPort}`);
       await clickPortHandle(driver, toDef, `input-${toPort}`);
+      await driver.wait(async () => (await linkCount(driver)) === expected, 5000);
     }
 
-    await wire("oscilloscope", "out", "sin", "in");
-    await wire("sin", "out", "quantizer", "consumer");
-    await wire("quantizer", "out", "timer", "consumer");
-
-    await driver.wait(async () => {
-      const text = await driver.findElement(By.css('[data-testid="status-links"]')).getText();
-      return text === "3 links";
-    }, 8000);
+    await wire("oscilloscope", "out", "sin", "in", "1 link");
+    await wire("sin", "out", "quantizer", "consumer", "2 links");
+    await wire("quantizer", "out", "timer", "consumer", "3 links");
 
     await driver.findElement(By.css('[data-block-def="oscilloscope"] [data-testid^="chart-"]')).click();
     await driver.wait(until.elementLocated(By.css('[data-testid="oscilloscope-modal"]')), 5000);

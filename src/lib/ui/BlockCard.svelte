@@ -150,7 +150,6 @@
                   class="block-handle nodrag nopan"
                   isConnectable={true}
                   style="position: relative; top: auto; left: auto; right: auto; bottom: auto; transform: none; pointer-events: all;"
-                  onclick={(event: MouseEvent) => onHandleClick(event, port.name, false)}
                 />
                 <span class="block-port-meta">
                   <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
@@ -204,7 +203,6 @@
                   class="block-handle nodrag nopan"
                   isConnectable={true}
                   style="position: relative; top: auto; left: auto; right: auto; bottom: auto; transform: none; pointer-events: all;"
-                  onclick={(event: MouseEvent) => onHandleClick(event, port.name, true)}
                 />
               </div>
             {:else}
