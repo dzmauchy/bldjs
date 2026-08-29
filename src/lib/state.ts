@@ -25,7 +25,6 @@ import {
   zoomToward,
 } from "./model";
 import { type GeneratorHandle, startGenerator } from "./runtime/generator";
-import { wat2wasm } from "./runtime/wabt";
 
 export interface BlockInstance {
   id: number;
@@ -289,11 +288,7 @@ export class AppState extends EventTarget {
     const op = this.#runningOp;
     try {
       for (const item of compiled) {
-        const wasm = await wat2wasm(item.wat);
-        if (op !== this.#runningOp) {
-          return;
-        }
-        const handle = await startGenerator({ wasm, delayMs: item.delayMs });
+        const handle = await startGenerator({ wasm: item.wasm, delayMs: item.delayMs });
         if (op !== this.#runningOp) {
           handle.stop();
           return;

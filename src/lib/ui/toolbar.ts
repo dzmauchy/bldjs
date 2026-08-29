@@ -1,6 +1,8 @@
 import { LitElement, css, html, nothing } from "lit";
 import { classMap } from "lit/directives/class-map.js";
+import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { AppController } from "$lib/context";
+import { renderBrandSvg } from "$lib/flow/icons";
 import type { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
 import "./block-icon";
@@ -29,9 +31,18 @@ export class BldToolbar extends LitElement {
         gap: 0.35rem;
       }
       .app-brand {
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        color: var(--bs-primary);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        flex: 0 0 28px;
+      }
+      .app-brand svg,
+      .app-brand-icon {
+        width: 28px;
+        height: 28px;
+        display: block;
       }
       .toolbar-btn {
         display: inline-flex;
@@ -128,7 +139,7 @@ export class BldToolbar extends LitElement {
     }
     return html`
       <nav class="app-toolbar border-bottom d-flex align-items-center px-2" data-testid="app-toolbar">
-        <span class="app-brand me-2">Bld</span>
+        <span class="app-brand me-2" title="Bld" data-testid="app-brand">${unsafeSVG(renderBrandSvg())}</span>
 
         <button
           class="toolbar-btn btn btn-sm"

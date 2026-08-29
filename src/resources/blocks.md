@@ -103,15 +103,16 @@ When defining a `<param>`, use `<extends>` and `<super>` to bound the generic va
 
 ## 5. Modeling WASM typed functions
 
-A typed function is `func<T>`: WASM `(type (func (param T)))`. Nested consumers are nested `func` types:
+A typed function is `func<T>`: WASM `(type (func (param T)))`. Compact display uses `fn` for `func`.
+
+Every `<block>` is a WASM function: `<in>` ports are parameters, `<out>` ports are results.
 
 ```
-timer()      : func<func<func<f64>>>
-quantizer(_) : func<func<f64>>
-sin(_)       : func<f64>
+timer()            : (result f64)
+quantizer(f64)     : (param f64) (result f64)
+sin(f64)           : (param f64) (result f64)
+oscilloscope(f64)  : (param f64)
 ```
-
-Compact display uses `fn` for `func`, so Timer is `fn<fn<fn<f64>>>`.
 
 ```xml
 <type name="func" ns="wasm">
@@ -120,17 +121,18 @@ Compact display uses `fn` for `func`, so Timer is `fn<fn<fn<f64>>>`.
 </type>
 
 <block id="timer" name="Timer" ns="cs">
-  <out name="out" type="func">
-    <t type="func">
-      <t type="func">
-        <t type="f64"/>
-      </t>
-    </t>
-  </out>
+  <factory id="timer"/>
+  <out name="out" type="f64"/>
+</block>
+
+<block id="sin" name="Sin" ns="cs">
+  <factory id="f64.sin"/>
+  <in name="in" type="f64"/>
+  <out name="out" type="f64"/>
 </block>
 ```
 
-Run compiles each generator pipeline to WAT with a `$fn_f64` type, `call` / table `funcref` entries, then `wat2wasm` (wabt). Each Timer is bound to a worker.
+Run encodes the XML block library as wasm-gc (`$fn_timer` / `$fn_map` / `$fn_sink` + `call_ref`). Each Timer worker parks with `memory.atomic.wait32` on a SharedArrayBuffer.
 
 ### A. Varargs (`table.new`)
 Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.

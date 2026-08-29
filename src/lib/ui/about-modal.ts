@@ -79,8 +79,9 @@ export class BldAboutModal extends LitElement {
                 <li>Drag empty space to pan</li>
                 <li>Drag a placed block to move it</li>
                 <li>Click or drag from an output handle to an input handle to ground a type</li>
-                <li>Run compiles each Timer to WASM (wabt) and starts a worker</li>
-                <li>After Run, Chart on Oscilloscope consumes worker samples</li>
+                <li>Run encodes the XML block library as wasm-gc and starts a worker</li>
+                <li>The worker parks with atomic.wait on a SharedArrayBuffer</li>
+                <li>After Run, Chart on Oscilloscope reads samples from that buffer</li>
                 <li>Delete or Backspace removes the selection</li>
                 <li>Ctrl/Cmd + 0 resets the view</li>
               </ul>

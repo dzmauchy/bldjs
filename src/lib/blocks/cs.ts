@@ -1,7 +1,8 @@
 import type { Link } from "./diagram";
+import { encodeLibrary } from "../runtime/encode";
+import { SAMPLE_CAP } from "../runtime/memory";
 
 export const QUANTIZER_DELAY_MS = 10;
-const SAMPLE_CAP = 480;
 
 /** WASM `func<T>` — a typed function that consumes `T`. */
 export type Func<T> = (value: T) => void;
@@ -10,13 +11,11 @@ export type F64Func = Func<number>;
 export type F64Source = Func<F64Func>;
 
 /**
- * Nested typed functions. Depth matches the catalog:
- *   Nested<3> = fn<fn<fn<f64>>>  (Timer)
- *   Nested<2> = fn<fn<f64>>      (Quantizer)
- *   Nested<1> = fn<f64>          (Sin / Scope)
- *
- * The payload is always a source; each function peels one func layer
- * so `oscilloscope(sin(quantizer(timer())))` type-checks like WASM.
+ * Nested typed functions kept for in-process tests.
+ * The XML / wasm-gc library uses first-order signatures:
+ *   timer() : (result f64)
+ *   quantizer / sin : (param f64) (result f64)
+ *   oscilloscope : (param f64)
  */
 export interface Nested<D extends 1 | 2 | 3> {
   readonly depth: D;
@@ -99,9 +98,10 @@ export interface CompiledGenerator {
   delayMs: number;
   stages: Stage[];
   wat: string;
+  wasm: Uint8Array;
 }
 
-/** Walk Timer → … → Oscilloscope and emit typed-function WAT for that generator. */
+/** Walk Timer → … → Oscilloscope and emit the wasm-gc library for that generator. */
 export function compileGenerator(
   timerId: number,
   nodes: NodeSpec[],
@@ -147,62 +147,85 @@ export function compileGenerator(
     scopeId,
     delayMs,
     stages,
-    wat: generatorWat(stages),
+    wat: generatorWat(stages, delayMs),
+    wasm: encodeLibrary(stages, delayMs),
   };
 }
 
-/**
- * WASM text with a typed `func (param f64)` per pipeline stage.
- * Host imports: `now`, `sin`, `park`, `push`. Export: `tick`.
- */
-export function generatorWat(stages: readonly Stage[]): string {
-  const funcs: string[] = [
-    `  (type $fn_f64 (func (param f64)))`,
-    `  (type $fn_tick (func))`,
-    `  (import "host" "now" (func $now (result f64)))`,
-    `  (import "host" "sin" (func $sin (param f64) (result f64)))`,
-    `  (import "host" "park" (func $park))`,
-    `  (import "host" "push" (func $push (param f64)))`,
-  ];
-
-  const stageNames: string[] = [];
-  let next = "$consume";
-  funcs.push(
-    `  (func $consume (type $fn_f64)`,
-    `    (call $push (local.get 0)))`,
-  );
-  stageNames.push("$consume");
-
-  for (const stage of [...stages].reverse()) {
-    if (stage === "sin") {
-      const name = `$apply_sin_${stageNames.length}`;
-      funcs.push(
-        `  (func ${name} (type $fn_f64)`,
-        `    (call ${next} (call $sin (local.get 0))))`,
-      );
-      next = name;
-      stageNames.push(name);
+function composeTick(stages: readonly Stage[]): string {
+  let expr = `(call_ref $fn_timer (ref.func $timer))`;
+  for (const stage of stages) {
+    if (stage === "quantizer") {
+      expr = `(call_ref $fn_map ${expr} (ref.func $quantizer))`;
     } else {
-      const name = `$apply_quantizer_${stageNames.length}`;
-      funcs.push(
-        `  (func ${name} (type $fn_f64)`,
-        `    (call $park)`,
-        `    (call ${next} (local.get 0)))`,
-      );
-      next = name;
-      stageNames.push(name);
+      expr = `(call_ref $fn_map ${expr} (ref.func $sin))`;
     }
   }
+  return `(call_ref $fn_sink ${expr} (ref.func $oscilloscope))`;
+}
 
-  funcs.push(
-    `  (table $fns ${stageNames.length} funcref)`,
-    `  (elem (i32.const 0) ${stageNames.join(" ")})`,
-    `  (func $tick (type $fn_tick)`,
-    `    (call ${next} (call $now)))`,
-    `  (export "tick" (func $tick))`,
-  );
+/**
+ * WASM library for the XML block catalog.
+ * Each exported function matches the XML block: arguments are inputs, results are outputs.
+ * Typed function references + call_ref (wasm-gc). Park uses memory.atomic.wait32 on shared memory.
+ */
+export function generatorWat(stages: readonly Stage[], delayMs = 0): string {
+  const delayNs = BigInt(Math.max(delayMs, 1)) * 1_000_000n;
+  const tick = composeTick(stages);
+  return `(module
+  (import "env" "memory" (memory 1 1 shared))
+  (import "host" "now" (func $now (result f64)))
+  (import "host" "sin" (func $host_sin (param f64) (result f64)))
 
-  return `(module\n${funcs.join("\n")}\n)\n`;
+  ;; Typed functions from the XML catalog (params = <in>, results = <out>).
+  (type $fn_timer (func (result f64)))
+  (type $fn_map (func (param f64) (result f64)))
+  (type $fn_sink (func (param f64)))
+
+  (func $push (param $v f64)
+    (local $i i32)
+    (local.set $i (i32.load (i32.const 4)))
+    (f64.store offset=16
+      (i32.mul (i32.rem_u (local.get $i) (i32.const ${SAMPLE_CAP})) (i32.const 8))
+      (local.get $v))
+    (i32.store (i32.const 4) (i32.add (local.get $i) (i32.const 1))))
+
+  (func $park (param $ns i64)
+    (if (i64.gt_s (local.get $ns) (i64.const 0))
+      (then
+        (drop (memory.atomic.wait32 (i32.const 8) (i32.const 0) (local.get $ns))))))
+
+  (func $stopped (result i32)
+    (i32.atomic.load (i32.const 0)))
+
+  ;; timer: () -> f64
+  (func $timer (export "timer") (type $fn_timer)
+    (call $now))
+
+  ;; quantizer: (f64) -> f64
+  (func $quantizer (export "quantizer") (type $fn_map)
+    (local.get 0))
+
+  ;; sin: (f64) -> f64
+  (func $sin (export "sin") (type $fn_map)
+    (call $host_sin (local.get 0)))
+
+  ;; oscilloscope: (f64) -> void
+  (func $oscilloscope (export "oscilloscope") (type $fn_sink)
+    (call $push (local.get 0)))
+
+  (elem declare func $timer $quantizer $sin $oscilloscope)
+
+  (func $tick (export "tick")
+    ${tick})
+
+  (func $run (export "run")
+    (loop $again
+      (call $tick)
+      (call $park (i64.const ${delayNs}))
+      (br_if $again (i32.eqz (call $stopped)))))
+)
+`;
 }
 
 /** @deprecated Prefer {@link compileGenerator}; kept for in-process tests. */
@@ -235,20 +258,11 @@ export function compileTimer(
 }
 
 export function spawnTimer(compiled: CompiledTimer, running: { value: boolean }): () => void {
-  const delay = Math.max(compiled.delayMs, 1);
-  const tick = () => {
-    if (!running.value) {
-      return;
-    }
+  if (running.value) {
     compiled.emit(nowSecs());
-    handle = setTimeout(tick, delay);
-  };
-  let handle: ReturnType<typeof setTimeout> | undefined = setTimeout(tick, 0);
+  }
   return () => {
     running.value = false;
-    if (handle !== undefined) {
-      clearTimeout(handle);
-    }
   };
 }
 

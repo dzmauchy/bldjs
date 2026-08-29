@@ -101,7 +101,7 @@ describe("wiring", () => {
     const timerHost = await nodeHost(driver, "timer");
     const timerRoot = await timerHost.getShadowRoot();
     const timerOut = await timerRoot.findElement(By.css('[data-testid="output-out"]'));
-    expect(await timerOut.getAttribute("title")).toBe("fn<fn<fn<f64>>>");
+    expect(await timerOut.getAttribute("title")).toBe("f64");
     const timerIcon = await timerRoot.findElement(By.css(".flow-node-icon svg"));
     expect(await timerIcon.isDisplayed()).toBe(true);
     const glyphNs = await driver.executeScript(

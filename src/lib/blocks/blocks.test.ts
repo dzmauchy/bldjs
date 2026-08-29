@@ -412,25 +412,15 @@ describe("blocks", () => {
     const cat = catalog();
     const timerBlock = cat.block("timer")!;
     expect(timerBlock.inputs.length).toBe(0);
-    expect(displayType(timerBlock.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
-      "fn<fn<fn<f64>>>",
-    );
+    expect(displayType(timerBlock.outputs.find((port) => port.name === "out")!.ty, true)).toBe("f64");
     expect(timerBlock.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
     const scope = cat.block("oscilloscope")!;
     expect(scope.outputs.length).toBe(0);
-    expect(displayType(scope.inputs.find((port) => port.name === "in")!.ty, true)).toBe("fn<f64>");
-    expect(displayType(cat.block("quantizer")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
-      "fn<fn<fn<f64>>>",
-    );
-    expect(displayType(cat.block("quantizer")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
-      "fn<fn<f64>>",
-    );
-    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
-      "fn<fn<f64>>",
-    );
-    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
-      "fn<f64>",
-    );
+    expect(displayType(scope.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
+    expect(displayType(cat.block("quantizer")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
+    expect(displayType(cat.block("quantizer")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("f64");
+    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
+    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("f64");
     expect(cat.namespaceLabel("cs")).toBe("Control Systems");
     expect(cat.findType("f64", "wasm")).toBeDefined();
     expect(cat.findType("func", "wasm")).toBeDefined();
@@ -475,12 +465,19 @@ describe("blocks", () => {
     const compiled = compileGenerator(4, nodes, links)!;
     expect(compiled.scopeId).toBe(1);
     expect(compiled.delayMs).toBe(QUANTIZER_DELAY_MS);
-    expect(compiled.wat).toContain("(type $fn_f64 (func (param f64)))");
-    expect(compiled.wat).toContain("(func $consume (type $fn_f64)");
-    expect(compiled.wat).toContain('(export "tick" (func $tick))');
-    expect(compiled.wat).toContain("(table $fns");
-    expect(compiled.wat).toContain("call $sin");
-    expect(compiled.wat).toContain("call $park");
+    expect(compiled.wat).toContain("(type $fn_timer (func (result f64)))");
+    expect(compiled.wat).toContain("(type $fn_map (func (param f64) (result f64)))");
+    expect(compiled.wat).toContain("(type $fn_sink (func (param f64)))");
+    expect(compiled.wat).toContain('(func $timer (export "timer") (type $fn_timer)');
+    expect(compiled.wat).toContain('(func $quantizer (export "quantizer") (type $fn_map)');
+    expect(compiled.wat).toContain('(func $sin (export "sin") (type $fn_map)');
+    expect(compiled.wat).toContain('(func $oscilloscope (export "oscilloscope") (type $fn_sink)');
+    expect(compiled.wat).toContain("call_ref $fn_timer");
+    expect(compiled.wat).toContain("call_ref $fn_map");
+    expect(compiled.wat).toContain("call_ref $fn_sink");
+    expect(compiled.wat).toContain("memory.atomic.wait32");
+    expect(compiled.wat).toContain('(export "run"');
+    expect(compiled.wat).not.toContain("setTimeout");
   });
 
   it("compile timer chain sines into scope", () => {
@@ -527,39 +524,29 @@ describe("blocks", () => {
     diagram.addLink(sinId, "out", scopeId, "in");
 
     const timerResolved = diagram.resolveNode(timerId)!;
-    expect(displayType(timerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
-      "fn<fn<fn<f64>>>",
-    );
+    expect(displayType(timerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("f64");
 
     const quantizerResolved = diagram.resolveNode(quantizerId)!;
     expect(quantizerResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(quantizerResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
-      "fn<fn<fn<f64>>>",
-    );
-    expect(displayType(quantizerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
-      "fn<fn<f64>>",
-    );
+    expect(displayType(quantizerResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
+    expect(displayType(quantizerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("f64");
 
     const sinResolved = diagram.resolveNode(sinId)!;
     expect(sinResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
-      "fn<fn<f64>>",
-    );
-    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("fn<f64>");
+    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
+    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("f64");
 
     const scopeResolved = diagram.resolveNode(scopeId)!;
     expect(scopeResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(scopeResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("fn<f64>");
+    expect(displayType(scopeResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
   });
 
   it("skipping a nested func layer is incompatible", () => {
     const diagram = new Diagram("cs", "Skip");
     associateBuiltinModels(diagram);
-    const timerId = diagram.addNode("timer");
+    const tableId = diagram.addNode("b_table_of");
     const sinId = diagram.addNode("sin");
-    const scopeId = diagram.addNode("oscilloscope");
-    diagram.addLink(timerId, "out", sinId, "in");
-    diagram.addLink(sinId, "out", scopeId, "in");
+    diagram.addLink(tableId, "result", sinId, "in");
 
     const sinResolved = diagram.resolveNode(sinId)!;
     expect(sinResolved.compatible.get("in")).toBe(false);
@@ -572,17 +559,16 @@ describe("blocks", () => {
     expect(Math.abs(out[0] - 1)).toBeLessThan(1e-9);
   });
 
-  it("spawn timer emits until stopped", async () => {
+  it("spawn timer emits until stopped", () => {
     const buf = new SampleBuf();
     const compiled = {
       emit: (value: number) => buf.push(value),
       delayMs: 1,
     };
     const running = { value: true };
-    spawnTimer(compiled, running);
-    await new Promise((resolve) => setTimeout(resolve, 40));
+    const halt = spawnTimer(compiled, running);
+    halt();
     stop(running);
-    await new Promise((resolve) => setTimeout(resolve, 15));
     expect(buf.snapshot().length).toBeGreaterThan(0);
     buf.clear();
     expect(buf.snapshot().length).toBe(0);
@@ -590,9 +576,10 @@ describe("blocks", () => {
 
   it("generator wat uses typed func types even without stages", () => {
     const wat = generatorWat([]);
-    expect(wat).toContain("(type $fn_f64 (func (param f64)))");
-    expect(wat).toContain("(func $tick (type $fn_tick)");
-    expect(wat).toContain('(export "tick" (func $tick))');
-    expect(wat).not.toContain("call $sin");
+    expect(wat).toContain("(type $fn_timer (func (result f64)))");
+    expect(wat).toContain("(func $tick (export \"tick\")");
+    expect(wat).toContain("call_ref $fn_timer");
+    expect(wat).toContain("call_ref $fn_sink");
+    expect(wat).not.toContain("ref.func $sin");
   });
 });

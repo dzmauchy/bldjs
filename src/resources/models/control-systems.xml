@@ -4,67 +4,47 @@
   <namespace id="cs" name="Control Systems"/>
 
   <!--
-    Connected blocks are nested WASM typed functions, not an f64 sample bus:
+    Each block is a WASM function: <in> ports are params, <out> ports are results.
 
       oscilloscope(sin(quantizer(timer())))
 
-    timer()      : func<func<func<f64>>>   — (func (param (ref $fn_fn_f64)))
-    quantizer(_) : func<func<f64>>         — (func (param (ref $fn_f64)))
-    sin(_)       : func<f64>               — (func (param f64))
-    oscilloscope : func<f64> → void
+    timer()            : (result f64)
+    quantizer(f64)     : (param f64) (result f64)
+    sin(f64)           : (param f64) (result f64)
+    oscilloscope(f64)  : (param f64)
 
-    Compact display: fn<fn<fn<f64>>>
+    Typed function refs ($fn_timer, $fn_map, $fn_sink) are composed with call_ref.
   -->
 
   <block id="timer" name="Timer" ns="cs" icon="timer">
     <attribute name="kind">Start</attribute>
     <attribute name="runnable">true</attribute>
     <attribute name="generator">true</attribute>
-    <attribute name="description">Runnable time source. Returns func&lt;func&lt;func&lt;f64&gt;&gt;&gt; for quantizer(timer()).</attribute>
-    <out name="out" type="func">
-      <t type="func">
-        <t type="func">
-          <t type="f64"/>
-        </t>
-      </t>
-    </out>
+    <attribute name="description">Runnable time source. WASM (func (result f64)) — host now().</attribute>
+    <factory id="timer"/>
+    <out name="out" type="f64"/>
   </block>
 
   <block id="quantizer" name="Quantizer" ns="cs" icon="quantizer">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">func&lt;func&lt;func&lt;f64&gt;&gt;&gt; → func&lt;func&lt;f64&gt;&gt;. Parks 10 ms per sample.</attribute>
-    <in name="in" type="func">
-      <t type="func">
-        <t type="func">
-          <t type="f64"/>
-        </t>
-      </t>
-    </in>
-    <out name="out" type="func">
-      <t type="func">
-        <t type="f64"/>
-      </t>
-    </out>
+    <attribute name="description">WASM (func (param f64) (result f64)). Parks 10 ms per sample via memory.atomic.wait32.</attribute>
+    <factory id="quantizer"/>
+    <in name="in" type="f64"/>
+    <out name="out" type="f64"/>
   </block>
 
   <block id="sin" name="Sin" ns="cs" icon="sin">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">func&lt;func&lt;f64&gt;&gt; → func&lt;f64&gt;. Maps each sample through f64.sin (host).</attribute>
-    <in name="in" type="func">
-      <t type="func">
-        <t type="f64"/>
-      </t>
-    </in>
-    <out name="out" type="func">
-      <t type="f64"/>
-    </out>
+    <attribute name="description">WASM (func (param f64) (result f64)). Maps each sample through f64.sin (host).</attribute>
+    <factory id="f64.sin"/>
+    <in name="in" type="f64"/>
+    <out name="out" type="f64"/>
   </block>
 
   <block id="oscilloscope" name="Oscilloscope" ns="cs" icon="scope">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Consumes func&lt;f64&gt; and plots samples. After Run, click Chart for a live view.</attribute>
-    <in name="in" type="func">
-      <t type="f64"/>
-    </in>
+    <attribute name="description">WASM (func (param f64)). Pushes samples into the shared buffer. After Run, click Chart.</attribute>
+    <factory id="oscilloscope"/>
+    <in name="in" type="f64"/>
   </block>
 </blocks>

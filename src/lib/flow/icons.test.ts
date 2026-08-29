@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { associateBuiltinModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
-import { hasBlockIcon, iconKey, iconSvgInner, renderIconSvg } from "./icons";
+import { hasBlockIcon, iconKey, iconSvgInner, renderBrandSvg, renderIconSvg } from "./icons";
 
 describe("flow icons", () => {
   it("strips raster suffixes and falls back to process", () => {
@@ -11,6 +11,12 @@ describe("flow icons", () => {
     expect(renderIconSvg("f64")).toContain("viewBox");
     expect(renderIconSvg("f64")).toContain('xmlns="http://www.w3.org/2000/svg"');
     expect(renderIconSvg("f64")).toContain(iconSvgInner("f64"));
+  });
+
+  it("keeps the full-color bld mark for the site brand", () => {
+    expect(renderBrandSvg()).toContain("viewBox=\"0 0 512 512\"");
+    expect(renderBrandSvg()).toContain("aria-label=\"Bld\"");
+    expect(renderBrandSvg()).not.toContain("viewBox=\"0 0 16 16\"");
   });
 
   it("has an svg file for every catalog block", () => {

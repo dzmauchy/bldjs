@@ -13,7 +13,7 @@ export {
   type Point,
   type Rect,
 } from "./geometry";
-export { iconKey, iconSvgInner, renderIconSvg } from "./icons";
+export { iconKey, iconSvgInner, renderBrandSvg, renderIconSvg } from "./icons";
 export { measureHostLayout, portFromComposedPath, worldPort } from "./layout";
 export type {
   BldNodeState,

@@ -25,8 +25,12 @@ describe("BldToolbar", () => {
     const run = bar.shadowRoot?.querySelector('[data-testid="toolbar-run"]');
     const stop = bar.shadowRoot?.querySelector('[data-testid="toolbar-stop"]');
     const menu = bar.shadowRoot?.querySelector('[data-testid="toolbar-menu"]');
+    const brand = bar.shadowRoot?.querySelector('[data-testid="app-brand"] svg');
+    expect(brand?.getAttribute("viewBox")).toBe("0 0 512 512");
+    expect(brand?.getAttribute("aria-label")).toBe("Bld");
     expect(run?.textContent).toContain("Run");
     expect(stop?.textContent).toContain("Stop");
+    expect(run?.textContent).not.toContain("Bld");
     expect((stop as HTMLButtonElement | null)?.disabled).toBe(true);
 
     const runSvg = await glyph(run);

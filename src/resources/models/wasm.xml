@@ -14,8 +14,8 @@
   <type name="externref" ns="wasm"/>
 
   <!--
-    Typed function: func<T> is WASM (type (func (param T))).
-    A consumer of T, and a subtype of funcref.
+    Typed function: func<T> is WASM (type (func (param T))), a subtype of funcref.
+    Every <block> is a WASM function: <in> ports are params, <out> ports are results.
   -->
   <type name="func" ns="wasm">
     <param name="T"/>

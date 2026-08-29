@@ -26,14 +26,56 @@ describe("menus", () => {
     await driver?.quit();
   });
 
-  it("serves the page with a wasm-safe script CSP", async () => {
-    const csp = await driver.executeAsyncScript(`
+  it("serves the page with isolation headers and a wasm-safe script CSP", async () => {
+    const headers = (await driver.executeAsyncScript(`
       const done = arguments[arguments.length - 1];
       fetch(location.href, { method: "GET" })
-        .then((response) => done(response.headers.get("content-security-policy") ?? ""))
-        .catch((error) => done(String(error)));
-    `);
-    expect(csp).toBe("script-src 'self' 'wasm-unsafe-eval';");
+        .then((response) =>
+          done({
+            csp: response.headers.get("content-security-policy") ?? "",
+            coop: response.headers.get("cross-origin-opener-policy") ?? "",
+            coep: response.headers.get("cross-origin-embedder-policy") ?? "",
+          }),
+        )
+        .catch((error) => done({ csp: String(error), coop: "", coep: "" }));
+    `)) as { csp: string; coop: string; coep: string };
+    expect(headers.csp).toBe("script-src 'self' 'wasm-unsafe-eval';");
+    expect(headers.coop).toBe("same-origin");
+    expect(headers.coep).toBe("require-corp");
+    expect(await driver.executeScript("return self.crossOriginIsolated")).toBe(true);
+  });
+
+  it("uses the bld.svg mark as favicon and toolbar brand", async () => {
+    const favicon = (await driver.executeScript(`
+      const link = document.querySelector('link[rel="icon"]');
+      return {
+        type: link && link.getAttribute("type"),
+        href: link && link.getAttribute("href"),
+      };
+    `)) as { type: string | null; href: string | null };
+    expect(favicon.type).toBe("image/svg+xml");
+    expect(favicon.href).toMatch(/bld\.svg/);
+
+    const brand = await waitDeep(driver, '[data-testid="app-brand"]');
+    expect(await brand.getText()).not.toContain("Bld");
+    const viewBox = await driver.executeScript(
+      `
+      const walk = (root) => {
+        const match = root.querySelector('[data-testid="app-brand"] svg');
+        if (match) return match;
+        for (const node of root.querySelectorAll("*")) {
+          if (node.shadowRoot) {
+            const found = walk(node.shadowRoot);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      const svg = walk(document);
+      return svg && svg.getAttribute("viewBox");
+      `,
+    );
+    expect(viewBox).toBe("0 0 512 512");
   });
 
   it("shows Run and Stop on the toolbar with SVG icons", async () => {
