@@ -1,6 +1,7 @@
 import type { Link } from "./diagram";
-import { encodeLibrary } from "../runtime/encode";
+import { type Stage, assembleWat } from "../runtime/assemble";
 import { SAMPLE_CAP } from "../runtime/memory";
+import { compileWat } from "../runtime/wat";
 
 export const QUANTIZER_DELAY_MS = 10;
 
@@ -85,28 +86,25 @@ export function sinFunc(sink: F64Func): F64Func {
 /** @deprecated Use {@link sinFunc}. */
 export const sinConsumer = sinFunc;
 
-type Stage = "sin" | "quantizer";
-
 export interface NodeSpec {
   id: number;
   defId: string;
 }
 
-export interface CompiledGenerator {
+export interface GeneratorPlan {
   timerId: number;
   scopeId: number;
   delayMs: number;
   stages: Stage[];
+}
+
+export interface CompiledGenerator extends GeneratorPlan {
   wat: string;
   wasm: Uint8Array;
 }
 
-/** Walk Timer → … → Oscilloscope and emit the wasm-gc library for that generator. */
-export function compileGenerator(
-  timerId: number,
-  nodes: NodeSpec[],
-  links: Link[],
-): CompiledGenerator | undefined {
+/** Walk Timer → … → Oscilloscope. Does not compile WASM. */
+export function planGenerator(timerId: number, nodes: NodeSpec[], links: Link[]): GeneratorPlan | undefined {
   const defOf = (id: number): string | undefined => nodes.find((node) => node.id === id)?.defId;
   const outgoing = (from: number, port: string): Link | undefined =>
     links.find((link) => link.fromBlock === from && link.fromOut === port);
@@ -142,90 +140,34 @@ export function compileGenerator(
       delayMs += QUANTIZER_DELAY_MS;
     }
   }
-  return {
-    timerId,
-    scopeId,
-    delayMs,
-    stages,
-    wat: generatorWat(stages, delayMs),
-    wasm: encodeLibrary(stages, delayMs),
-  };
+  return { timerId, scopeId, delayMs, stages };
 }
 
-function composeTick(stages: readonly Stage[]): string {
-  let expr = `(call_ref $fn_timer (ref.func $timer))`;
-  for (const stage of stages) {
-    if (stage === "quantizer") {
-      expr = `(call_ref $fn_map ${expr} (ref.func $quantizer))`;
-    } else {
-      expr = `(call_ref $fn_map ${expr} (ref.func $sin))`;
-    }
-  }
-  return `(call_ref $fn_sink ${expr} (ref.func $oscilloscope))`;
+/** Concatenate block WAT files and emit tick/run for this pipeline. */
+export function assembleGenerator(plan: Pick<GeneratorPlan, "stages" | "delayMs">): string {
+  return assembleWat({ stages: plan.stages, delayMs: plan.delayMs });
 }
 
 /**
- * WASM library for the XML block catalog.
- * Each exported function matches the XML block: arguments are inputs, results are outputs.
- * Typed function references + call_ref (wasm-gc). Park uses memory.atomic.wait32 on shared memory.
+ * Walk Timer → … → Oscilloscope, assemble block WAT, then compile the module.
+ * `runDiagram` does the same assemble-then-compile step when the simulation starts.
  */
+export function compileGenerator(
+  timerId: number,
+  nodes: NodeSpec[],
+  links: Link[],
+): CompiledGenerator | undefined {
+  const plan = planGenerator(timerId, nodes, links);
+  if (!plan) {
+    return undefined;
+  }
+  const wat = assembleGenerator(plan);
+  return { ...plan, wat, wasm: compileWat(wat) };
+}
+
+/** Assemble the catalog block WAT files into one module. */
 export function generatorWat(stages: readonly Stage[], delayMs = 0): string {
-  const delayNs = BigInt(Math.max(delayMs, 1)) * 1_000_000n;
-  const tick = composeTick(stages);
-  return `(module
-  (import "env" "memory" (memory 1 1 shared))
-  (import "host" "now" (func $now (result f64)))
-  (import "host" "sin" (func $host_sin (param f64) (result f64)))
-
-  ;; Typed functions from the XML catalog (params = <in>, results = <out>).
-  (type $fn_timer (func (result f64)))
-  (type $fn_map (func (param f64) (result f64)))
-  (type $fn_sink (func (param f64)))
-
-  (func $push (param $v f64)
-    (local $i i32)
-    (local.set $i (i32.load (i32.const 4)))
-    (f64.store offset=16
-      (i32.mul (i32.rem_u (local.get $i) (i32.const ${SAMPLE_CAP})) (i32.const 8))
-      (local.get $v))
-    (i32.store (i32.const 4) (i32.add (local.get $i) (i32.const 1))))
-
-  (func $park (param $ns i64)
-    (if (i64.gt_s (local.get $ns) (i64.const 0))
-      (then
-        (drop (memory.atomic.wait32 (i32.const 8) (i32.const 0) (local.get $ns))))))
-
-  (func $stopped (result i32)
-    (i32.atomic.load (i32.const 0)))
-
-  ;; timer: () -> f64
-  (func $timer (export "timer") (type $fn_timer)
-    (call $now))
-
-  ;; quantizer: (f64) -> f64
-  (func $quantizer (export "quantizer") (type $fn_map)
-    (local.get 0))
-
-  ;; sin: (f64) -> f64
-  (func $sin (export "sin") (type $fn_map)
-    (call $host_sin (local.get 0)))
-
-  ;; oscilloscope: (f64) -> void
-  (func $oscilloscope (export "oscilloscope") (type $fn_sink)
-    (call $push (local.get 0)))
-
-  (elem declare func $timer $quantizer $sin $oscilloscope)
-
-  (func $tick (export "tick")
-    ${tick})
-
-  (func $run (export "run")
-    (loop $again
-      (call $tick)
-      (call $park (i64.const ${delayNs}))
-      (br_if $again (i32.eqz (call $stopped)))))
-)
-`;
+  return assembleWat({ stages, delayMs });
 }
 
 /** @deprecated Prefer {@link compileGenerator}; kept for in-process tests. */

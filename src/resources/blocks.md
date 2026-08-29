@@ -132,7 +132,7 @@ oscilloscope(f64)  : (param f64)
 </block>
 ```
 
-Run encodes the XML block library as wasm-gc (`$fn_timer` / `$fn_map` / `$fn_sink` + `call_ref`). Each Timer worker parks with `memory.atomic.wait32` on a SharedArrayBuffer.
+Run assembles each runtime block WAT file from `resources/wasm/blocks` (params = `<in>`, results = `<out>`, plus a runtime `$ctx`) into one module, then compiles it to wasm-gc (`call_ref`). Each Timer worker parks with `memory.atomic.wait32` on a SharedArrayBuffer.
 
 ### A. Varargs (`table.new`)
 Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.

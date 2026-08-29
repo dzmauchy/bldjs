@@ -465,16 +465,18 @@ describe("blocks", () => {
     const compiled = compileGenerator(4, nodes, links)!;
     expect(compiled.scopeId).toBe(1);
     expect(compiled.delayMs).toBe(QUANTIZER_DELAY_MS);
-    expect(compiled.wat).toContain("(type $fn_timer (func (result f64)))");
-    expect(compiled.wat).toContain("(type $fn_map (func (param f64) (result f64)))");
-    expect(compiled.wat).toContain("(type $fn_sink (func (param f64)))");
-    expect(compiled.wat).toContain('(func $timer (export "timer") (type $fn_timer)');
-    expect(compiled.wat).toContain('(func $quantizer (export "quantizer") (type $fn_map)');
-    expect(compiled.wat).toContain('(func $sin (export "sin") (type $fn_map)');
-    expect(compiled.wat).toContain('(func $oscilloscope (export "oscilloscope") (type $fn_sink)');
+    expect(compiled.wat).toContain("(type $fn_timer (func (param $ctx i32) (result $out f64)))");
+    expect(compiled.wat).toContain("(type $fn_quantizer (func (param $ctx i32) (param $in f64) (result $out f64)))");
+    expect(compiled.wat).toContain("(type $fn_sin (func (param $ctx i32) (param $in f64) (result $out f64)))");
+    expect(compiled.wat).toContain("(type $fn_oscilloscope (func (param $ctx i32) (param $in f64)))");
+    expect(compiled.wat).toContain('(func $timer (export "timer") (type $fn_timer) (param $ctx i32) (result $out f64)');
+    expect(compiled.wat).toContain('(func $quantizer (export "quantizer") (type $fn_quantizer) (param $ctx i32) (param $in f64) (result $out f64)');
+    expect(compiled.wat).toContain('(func $sin (export "sin") (type $fn_sin) (param $ctx i32) (param $in f64) (result $out f64)');
+    expect(compiled.wat).toContain('(func $oscilloscope (export "oscilloscope") (type $fn_oscilloscope) (param $ctx i32) (param $in f64)');
     expect(compiled.wat).toContain("call_ref $fn_timer");
-    expect(compiled.wat).toContain("call_ref $fn_map");
-    expect(compiled.wat).toContain("call_ref $fn_sink");
+    expect(compiled.wat).toContain("call_ref $fn_quantizer");
+    expect(compiled.wat).toContain("call_ref $fn_sin");
+    expect(compiled.wat).toContain("call_ref $fn_oscilloscope");
     expect(compiled.wat).toContain("memory.atomic.wait32");
     expect(compiled.wat).toContain('(export "run"');
     expect(compiled.wat).not.toContain("setTimeout");
@@ -576,10 +578,10 @@ describe("blocks", () => {
 
   it("generator wat uses typed func types even without stages", () => {
     const wat = generatorWat([]);
-    expect(wat).toContain("(type $fn_timer (func (result f64)))");
-    expect(wat).toContain("(func $tick (export \"tick\")");
+    expect(wat).toContain("(type $fn_timer (func (param $ctx i32) (result $out f64)))");
+    expect(wat).toContain('(func $tick (export "tick")');
     expect(wat).toContain("call_ref $fn_timer");
-    expect(wat).toContain("call_ref $fn_sink");
+    expect(wat).toContain("call_ref $fn_oscilloscope");
     expect(wat).not.toContain("ref.func $sin");
   });
 });

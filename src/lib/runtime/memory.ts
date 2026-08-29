@@ -1,12 +1,17 @@
 export const SAMPLE_CAP = 480;
 
-/** Shared memory layout used by the wasm-gc library. */
+/** Shared memory layout used by the assembled generator. */
 export const MEM = {
   stop: 0,
   count: 4,
   wait: 8,
   samples: 16,
 } as const;
+
+/** Runtime context pointer: `$ctx` → `{ time: f64, delay_ns: i64 }`. */
+export const CTX = MEM.samples + SAMPLE_CAP * 8;
+export const CTX_TIME = CTX;
+export const CTX_DELAY = CTX + 8;
 
 export const MEMORY_PAGES = 1;
 

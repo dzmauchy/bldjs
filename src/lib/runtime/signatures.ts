@@ -69,8 +69,14 @@ export function blockSignature(block: BlockDef): WasmSignature {
   };
 }
 
-export function signatureWat(sig: WasmSignature): string {
-  const params = sig.params.map((port) => `(param $${port.name} ${port.type})`).join(" ");
-  const results = sig.results.map((port) => `(result ${port.type})`).join(" ");
+/** Injected by the runtime; not an XML port. */
+export const CTX_PARAM = { name: "ctx", type: "i32" } as const;
+
+/** XML ports plus the optional runtime `$ctx` pointer. */
+export function signatureWat(sig: WasmSignature, withCtx = true): string {
+  const params = [...(withCtx ? [CTX_PARAM] : []), ...sig.params]
+    .map((port) => `(param $${port.name} ${port.type})`)
+    .join(" ");
+  const results = sig.results.map((port) => `(result $${port.name} ${port.type})`).join(" ");
   return [`(func $${sig.id}`, params, results].filter((part) => part.length > 0).join(" ");
 }
