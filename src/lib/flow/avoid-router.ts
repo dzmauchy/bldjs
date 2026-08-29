@@ -47,10 +47,13 @@ export function obstacleFromBlock(
   }
   const ports: RoutePort[] = [];
   for (const [name, anchor] of Object.entries(layout.ports.out)) {
-    ports.push({ side: "out", name, x: anchor.x, y: anchor.y });
+    ports.push({ side: "out", name, x: layout.width, y: anchor.y });
   }
   for (const [name, anchor] of Object.entries(layout.ports.in)) {
-    ports.push({ side: "in", name, x: anchor.x, y: anchor.y });
+    // Snap to the left edge. Avoid picks connectionDirection via
+    // sideNearestToPoint; an inset handle near the bottom of a short
+    // block is closer to the bottom than the left, so routes attach there.
+    ports.push({ side: "in", name, x: 0, y: anchor.y });
   }
   return { id: String(id), x, y, width: layout.width, height: layout.height, ports };
 }
