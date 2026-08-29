@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BLOCK_PLACE_HEIGHT, BLOCK_PLACE_WIDTH } from "./model";
-import { AppState } from "./state.svelte";
+import { AppState } from "./state";
 
 function wireCsPipeline(app: AppState): { timerId: number; scopeId: number } {
   const timerId = app.nextId;

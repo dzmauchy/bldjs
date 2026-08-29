@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { By, Key, until, type WebDriver } from "selenium-webdriver";
+import { Key, type WebDriver } from "selenium-webdriver";
 import {
   clickConnector,
   clickPortHandle,
@@ -11,7 +11,9 @@ import {
   openWorkspace,
   placeBlock,
   pressDelete,
+  queryDeepAll,
   statusLinks,
+  waitDeep,
   waitForLinks,
 } from "./actions";
 import { createDriver } from "./harness";
@@ -109,9 +111,9 @@ describe("wiring", () => {
     const scope = await nodeHost(driver, "oscilloscope");
     const chart = await (await scope.getShadowRoot()).findElement(By.css('[data-testid^="chart-"]'));
     await chart.click();
-    await driver.wait(until.elementLocated(By.css('[data-testid="oscilloscope-modal"]')), 5000);
+    await waitDeep(driver, '[data-testid="oscilloscope-modal"]');
     await driver.actions({ async: true }).sendKeys(Key.ESCAPE).perform();
-    await driver.wait(async () => (await driver.findElements(By.css('[data-testid="oscilloscope-modal"]'))).length === 0, 5000);
+    await driver.wait(async () => (await queryDeepAll(driver, '[data-testid="oscilloscope-modal"]')).length === 0, 5000);
   });
 
   it("moves the connector when a wired node is dragged", async () => {
