@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { BLOCK_HEIGHT, BLOCK_WIDTH, NONE_ID, screenToWorld } from "$lib/model";
   import { provideAppState } from "$lib/context";
   import { AppState } from "$lib/state.svelte";
@@ -16,7 +16,7 @@
   $effect(() => {
     void app.blocks;
     void app.links;
-    app.reconcileTimers();
+    untrack(() => app.reconcileTimers());
   });
 
   onMount(() => {
