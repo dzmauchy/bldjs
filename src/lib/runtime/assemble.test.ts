@@ -1,6 +1,7 @@
 import binaryen from "binaryen";
 import { describe, expect, it } from "vitest";
 import { BLOCK_SCRIPTS } from "../../resources/binaryen";
+import { localNames as functionLocalNames } from "../../resources/binaryen/util";
 import { associateBuiltinModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
 import { assembleModule, blockTypeWat } from "./assemble";
@@ -20,13 +21,7 @@ function functionText(id: string): string {
 function localNames(id: string): string[] {
   const module = new binaryen.Module();
   try {
-    const fn = BLOCK_SCRIPTS[id as keyof typeof BLOCK_SCRIPTS](module);
-    const count = binaryen.Function.getNumLocals(fn);
-    const names: string[] = [];
-    for (let i = 0; i < count; i += 1) {
-      names.push(binaryen.Function.getLocalName(fn, i));
-    }
-    return names;
+    return functionLocalNames(BLOCK_SCRIPTS[id as keyof typeof BLOCK_SCRIPTS](module));
   } finally {
     module.dispose();
   }

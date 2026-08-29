@@ -1,5 +1,6 @@
 import binaryen from "binaryen";
 import { BLOCK_SCRIPTS, RUNTIME_SCRIPTS } from "../../resources/binaryen";
+import { nameLocals } from "../../resources/binaryen/util";
 import { CTX, SAMPLE_CAP } from "./memory";
 import { CTX_PARAM, type WasmSignature } from "./signatures";
 
@@ -98,7 +99,7 @@ function addTick(module: binaryen.Module, stages: readonly Stage[], delayNs: big
       composeTick(module, stages),
     ]),
   );
-  binaryen.Function.setLocalName(fn, 0, "ctx");
+  nameLocals(fn, ["ctx"]);
   module.addFunctionExport("tick", "tick");
 }
 
