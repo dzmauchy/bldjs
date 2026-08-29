@@ -139,10 +139,14 @@ export class BldOscilloscopeChart extends LitElement {
     };
     const chart = new Chart(canvas, config);
     const tick = (): void => {
-      const samples = this.app.samples.get(id)?.snapshot() ?? [];
-      chart.data.labels = samples.map((_, index) => index);
-      chart.data.datasets[0].data = samples;
-      chart.update("none");
+      void this.app.snapshotScope(id).then((samples) => {
+        if (this.#openId !== id || !this.#chart) {
+          return;
+        }
+        chart.data.labels = samples.map((_, index) => index);
+        chart.data.datasets[0].data = samples;
+        chart.update("none");
+      });
     };
     tick();
     this.#chart = chart;
@@ -182,7 +186,7 @@ export class BldOscilloscopeChart extends LitElement {
               <div class="scope-chart">
                 <canvas ${ref(this.#canvas)}></canvas>
               </div>
-              <div class="small text-secondary mt-2">oscilloscope(sin(quantizer(timer())))</div>
+              <div class="small text-secondary mt-2">oscilloscope(sin(quantizer(timer()))) · worker</div>
             </div>
           </div>
         </div>

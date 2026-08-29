@@ -14,7 +14,6 @@ import "./workspace";
 export class BldApp extends LitElement {
   readonly app = new AppState();
   #ctrl = new AppController(this, this.app);
-  #lastTopology = "";
 
   static override styles = [
     bootstrapStyles,
@@ -45,25 +44,14 @@ export class BldApp extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-    this.#lastTopology = this.app.timerTopologyKey();
-    this.app.reconcileTimers();
-    this.#unsubTopology = this.app.subscribe(() => {
-      const topology = this.app.timerTopologyKey();
-      if (topology !== this.#lastTopology) {
-        this.#lastTopology = topology;
-        this.app.reconcileTimers();
-      }
-    });
     window.addEventListener("keydown", this.#onKey);
   }
 
   disconnectedCallback(): void {
-    this.#unsubTopology?.();
+    this.app.stopRun();
     window.removeEventListener("keydown", this.#onKey);
     super.disconnectedCallback();
   }
-
-  #unsubTopology?: () => void;
 
   #onKey = (event: KeyboardEvent): void => {
     const app = this.app;

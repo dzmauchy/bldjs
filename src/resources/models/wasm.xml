@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blocks id="wasm" name="WebAssembly">
+  <namespace id="wasm" name="WebAssembly"/>
+
+  <!-- Value types -->
+  <type name="i32" ns="wasm"/>
+  <type name="i64" ns="wasm"/>
+  <type name="f32" ns="wasm"/>
+  <type name="f64" ns="wasm"/>
+  <type name="v128" ns="wasm"/>
+
+  <!-- Reference types -->
+  <type name="funcref" ns="wasm"/>
+  <type name="externref" ns="wasm"/>
+
+  <!--
+    Typed function: func<T> is WASM (type (func (param T))).
+    A consumer of T, and a subtype of funcref.
+  -->
+  <type name="func" ns="wasm">
+    <param name="T"/>
+    <ancestor type="funcref"/>
+  </type>
+
+  <type name="table" ns="wasm">
+    <param name="T"/>
+  </type>
+
+  <type name="global" ns="wasm">
+    <param name="T"/>
+  </type>
+
+  <type name="map" ns="wasm">
+    <param name="K"/>
+    <param name="V"/>
+  </type>
+
+  <type name="memory" ns="wasm"/>
+
+  <block id="b_i32" name="i32" ns="wasm" icon="i32">
+    <attribute name="kind">Data</attribute>
+    <out name="value" type="i32"/>
+  </block>
+
+  <block id="b_i64" name="i64" ns="wasm" icon="i64">
+    <attribute name="kind">Data</attribute>
+    <out name="value" type="i64"/>
+  </block>
+
+  <block id="b_f32" name="f32" ns="wasm" icon="f32">
+    <attribute name="kind">Data</attribute>
+    <out name="value" type="f32"/>
+  </block>
+
+  <block id="b_f64" name="f64" ns="wasm" icon="f64">
+    <attribute name="kind">Data</attribute>
+    <out name="value" type="f64"/>
+  </block>
+
+  <block id="b_table_of" name="table" ns="wasm" icon="table">
+    <attribute name="kind">Process</attribute>
+    <attribute name="description">table.new — vararg elements become table&lt;T&gt;</attribute>
+    <param name="T"/>
+    <factory id="table#new">
+      <t type="T"/>
+    </factory>
+    <in name="elems" type="T" vararg="true"/>
+    <out name="result" type="table">
+      <t type="T"/>
+    </out>
+  </block>
+
+  <block id="b_table_get" name="table.get" ns="wasm" icon="table">
+    <attribute name="kind">Process</attribute>
+    <param name="T"/>
+    <factory id="table#get">
+      <t type="T"/>
+    </factory>
+    <in name="table" type="table">
+      <t type="T"/>
+    </in>
+    <in name="index" type="i32"/>
+    <out name="elem" type="T"/>
+  </block>
+
+  <block id="b_map_of" name="map" ns="wasm" icon="map">
+    <attribute name="kind">Process</attribute>
+    <param name="K"/>
+    <param name="V"/>
+    <factory id="map#of">
+      <t type="K"/>
+      <t type="V"/>
+    </factory>
+    <in name="key" type="K"/>
+    <in name="val" type="V"/>
+    <out name="result" type="map">
+      <t type="K"/>
+      <t type="V"/>
+    </out>
+  </block>
+
+  <block id="b_global_of" name="global" ns="wasm" icon="global">
+    <attribute name="kind">Process</attribute>
+    <param name="T"/>
+    <factory id="global#new">
+      <t type="T"/>
+    </factory>
+    <in name="value" type="T"/>
+    <out name="result" type="global">
+      <t type="T"/>
+    </out>
+  </block>
+
+  <block id="b_func" name="func" ns="wasm" icon="func">
+    <attribute name="kind">Process</attribute>
+    <attribute name="description">Pass a typed function through, unifying T</attribute>
+    <param name="T"/>
+    <factory id="func#id">
+      <t type="T"/>
+    </factory>
+    <in name="in" type="func">
+      <t type="T"/>
+    </in>
+    <out name="out" type="func">
+      <t type="T"/>
+    </out>
+  </block>
+</blocks>

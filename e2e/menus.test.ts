@@ -25,6 +25,16 @@ describe("menus", () => {
     await driver?.quit();
   });
 
+  it("serves the page with a wasm-safe script CSP", async () => {
+    const csp = await driver.executeAsyncScript(`
+      const done = arguments[arguments.length - 1];
+      fetch(location.href, { method: "GET" })
+        .then((response) => done(response.headers.get("content-security-policy") ?? ""))
+        .catch((error) => done(String(error)));
+    `);
+    expect(csp).toBe("script-src 'self' 'wasm-unsafe-eval';");
+  });
+
   it("opens About from the help menu", async () => {
     await (await waitDeep(driver, '[data-testid="menu-help"]')).click();
     await (await waitDeep(driver, '[data-testid="menu-about"]')).click();
@@ -32,6 +42,15 @@ describe("menus", () => {
     expect(await modal.getText()).toContain("About Bld");
     await (await waitDeep(driver, '[data-testid="about-modal"] .btn-close')).click();
     await driver.wait(async () => (await queryDeepAll(driver, '[data-testid="about-modal"]')).length === 0, 5000);
+  });
+
+  it("shows Run and Stop in the Run menu", async () => {
+    await (await waitDeep(driver, '[data-testid="menu-run"]')).click();
+    const runItem = await waitDeep(driver, '[data-testid="menu-run-diagram"]');
+    expect(await runItem.getText()).toBe("Run");
+    const stopItem = await waitDeep(driver, '[data-testid="menu-stop-diagram"]');
+    expect(await stopItem.getText()).toBe("Stop");
+    await (await waitDeep(driver, '[data-testid="menu-run"]')).click();
   });
 
   it("zooms from the View menu", async () => {
@@ -45,7 +64,7 @@ describe("menus", () => {
   });
 
   it("clears the canvas from File → New canvas", async () => {
-    await placeBlock(driver, "b_string");
+    await placeBlock(driver, "b_f64");
     expect(await statusBlocks(driver)).not.toBe("0 blocks");
     await newCanvas(driver);
     expect(await statusBlocks(driver)).toBe("0 blocks");
@@ -53,8 +72,8 @@ describe("menus", () => {
   });
 
   it("deletes the selection from the File menu", async () => {
-    await placeBlock(driver, "b_int");
-    await (await nodeHost(driver, "b_int")).click();
+    await placeBlock(driver, "b_i32");
+    await (await nodeHost(driver, "b_i32")).click();
     await (await waitDeep(driver, '[data-testid="menu-file"]')).click();
     await (await waitDeep(driver, '[data-testid="menu-delete-selected"]')).click();
     await driver.wait(async () => (await statusBlocks(driver)) === "0 blocks", 5000);

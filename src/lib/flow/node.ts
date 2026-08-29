@@ -109,6 +109,10 @@ export class BldNode extends LitElement {
       line-height: 1.4;
       cursor: pointer;
     }
+    .flow-node-chart:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
     .flow-node-params {
       padding: 0 8px 4px;
       color: var(--bs-info, #0dcaf0);
@@ -272,6 +276,9 @@ export class BldNode extends LitElement {
 
   #onChartClick = (event: MouseEvent): void => {
     event.stopPropagation();
+    if (!this.view?.chartEnabled) {
+      return;
+    }
     this.dispatchEvent(new CustomEvent("chartclick", { bubbles: true, composed: true }));
   };
 
@@ -335,7 +342,8 @@ export class BldNode extends LitElement {
                 <button
                   class="flow-node-chart"
                   type="button"
-                  title="Open live chart"
+                  title=${view.chartEnabled ? "Open live chart" : "Run the diagram to open the chart"}
+                  ?disabled=${!view.chartEnabled}
                   data-testid=${`chart-${view.blockId}`}
                   @pointerdown=${(event: PointerEvent) => event.stopPropagation()}
                   @click=${this.#onChartClick}

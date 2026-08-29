@@ -3,24 +3,24 @@ import type { Link } from "./diagram";
 export const QUANTIZER_DELAY_MS = 10;
 const SAMPLE_CAP = 480;
 
-/** Java `Consumer<T>`. */
-export type Consumer<T> = (value: T) => void;
-export type DoubleConsumer = Consumer<number>;
-/** Java `Consumer<Consumer<Double>>` — a push source. */
-export type DoubleSource = Consumer<DoubleConsumer>;
+/** WASM `func<T>` — a typed function that consumes `T`. */
+export type Func<T> = (value: T) => void;
+export type F64Func = Func<number>;
+/** WASM `func<func<f64>>` — a push source. */
+export type F64Source = Func<F64Func>;
 
 /**
- * Nested `Consumer` expression. Depth matches the catalog:
- *   Nested<3> = c<c<c<f64>>>  (Timer)       — Consumer<Consumer<Consumer<Double>>>
- *   Nested<2> = c<c<f64>>     (Quantizer)   — Consumer<Consumer<Double>>
- *   Nested<1> = c<f64>        (Sin / Scope) — Consumer<Double> / DoubleConsumer
+ * Nested typed functions. Depth matches the catalog:
+ *   Nested<3> = fn<fn<fn<f64>>>  (Timer)
+ *   Nested<2> = fn<fn<f64>>      (Quantizer)
+ *   Nested<1> = fn<f64>          (Sin / Scope)
  *
- * The payload is always a source; each function peels one Consumer layer
- * so `oscilloscope(sin(quantizer(timer())))` type-checks like Java.
+ * The payload is always a source; each function peels one func layer
+ * so `oscilloscope(sin(quantizer(timer())))` type-checks like WASM.
  */
 export interface Nested<D extends 1 | 2 | 3> {
   readonly depth: D;
-  readonly source: DoubleSource;
+  readonly source: F64Source;
 }
 
 export function timer(now: () => number = nowSecs): Nested<3> {
@@ -46,7 +46,7 @@ export function sin(input: Nested<2>): Nested<1> {
   };
 }
 
-export function oscilloscope(input: Nested<1>, sink: DoubleConsumer): void {
+export function oscilloscope(input: Nested<1>, sink: F64Func): void {
   input.source(sink);
 }
 
@@ -79,9 +79,12 @@ export function nowSecs(): number {
   return Date.now() / 1000;
 }
 
-export function sinConsumer(sink: DoubleConsumer): DoubleConsumer {
+export function sinFunc(sink: F64Func): F64Func {
   return (value) => sink(Math.sin(value));
 }
+
+/** @deprecated Use {@link sinFunc}. */
+export const sinConsumer = sinFunc;
 
 type Stage = "sin" | "quantizer";
 
@@ -90,17 +93,20 @@ export interface NodeSpec {
   defId: string;
 }
 
-export interface CompiledTimer {
-  emit: DoubleConsumer;
+export interface CompiledGenerator {
+  timerId: number;
+  scopeId: number;
   delayMs: number;
+  stages: Stage[];
+  wat: string;
 }
 
-export function compileTimer(
+/** Walk Timer → … → Oscilloscope and emit typed-function WAT for that generator. */
+export function compileGenerator(
   timerId: number,
   nodes: NodeSpec[],
   links: Link[],
-  buffers: Map<number, SampleBuf>,
-): CompiledTimer | undefined {
+): CompiledGenerator | undefined {
   const defOf = (id: number): string | undefined => nodes.find((node) => node.id === id)?.defId;
   const outgoing = (from: number, port: string): Link | undefined =>
     links.find((link) => link.fromBlock === from && link.fromOut === port);
@@ -130,20 +136,101 @@ export function compileTimer(
   if (scopeId === undefined) {
     return undefined;
   }
-  const buf = buffers.get(scopeId);
-  if (!buf) {
-    return undefined;
-  }
-  let emit: DoubleConsumer = (value) => buf.push(value);
   let delayMs = 0;
-  for (const stage of [...stages].reverse()) {
-    if (stage === "sin") {
-      emit = sinConsumer(emit);
-    } else {
+  for (const stage of stages) {
+    if (stage === "quantizer") {
       delayMs += QUANTIZER_DELAY_MS;
     }
   }
-  return { emit, delayMs };
+  return {
+    timerId,
+    scopeId,
+    delayMs,
+    stages,
+    wat: generatorWat(stages),
+  };
+}
+
+/**
+ * WASM text with a typed `func (param f64)` per pipeline stage.
+ * Host imports: `now`, `sin`, `park`, `push`. Export: `tick`.
+ */
+export function generatorWat(stages: readonly Stage[]): string {
+  const funcs: string[] = [
+    `  (type $fn_f64 (func (param f64)))`,
+    `  (type $fn_tick (func))`,
+    `  (import "host" "now" (func $now (result f64)))`,
+    `  (import "host" "sin" (func $sin (param f64) (result f64)))`,
+    `  (import "host" "park" (func $park))`,
+    `  (import "host" "push" (func $push (param f64)))`,
+  ];
+
+  const stageNames: string[] = [];
+  let next = "$consume";
+  funcs.push(
+    `  (func $consume (type $fn_f64) (param $x f64)`,
+    `    (call $push (local.get $x)))`,
+  );
+  stageNames.push("$consume");
+
+  for (const stage of [...stages].reverse()) {
+    if (stage === "sin") {
+      const name = `$apply_sin_${stageNames.length}`;
+      funcs.push(
+        `  (func ${name} (type $fn_f64) (param $x f64)`,
+        `    (call ${next} (call $sin (local.get $x))))`,
+      );
+      next = name;
+      stageNames.push(name);
+    } else {
+      const name = `$apply_quantizer_${stageNames.length}`;
+      funcs.push(
+        `  (func ${name} (type $fn_f64) (param $x f64)`,
+        `    (call $park)`,
+        `    (call ${next} (local.get $x)))`,
+      );
+      next = name;
+      stageNames.push(name);
+    }
+  }
+
+  funcs.push(
+    `  (table $fns ${stageNames.length} funcref)`,
+    `  (elem (i32.const 0) ${stageNames.join(" ")})`,
+    `  (func $tick (type $fn_tick) (export "tick")`,
+    `    (call ${next} (call $now)))`,
+  );
+
+  return `(module\n${funcs.join("\n")}\n)\n`;
+}
+
+/** @deprecated Prefer {@link compileGenerator}; kept for in-process tests. */
+export interface CompiledTimer {
+  emit: F64Func;
+  delayMs: number;
+}
+
+export function compileTimer(
+  timerId: number,
+  nodes: NodeSpec[],
+  links: Link[],
+  buffers: Map<number, SampleBuf>,
+): CompiledTimer | undefined {
+  const compiled = compileGenerator(timerId, nodes, links);
+  if (!compiled) {
+    return undefined;
+  }
+  const buf = buffers.get(compiled.scopeId);
+  if (!buf) {
+    return undefined;
+  }
+  let emit: F64Func = (value) => buf.push(value);
+  for (const stage of [...compiled.stages].reverse()) {
+    if (stage === "sin") {
+      emit = sinFunc(emit);
+    }
+  }
+  return { emit, delayMs: compiled.delayMs };
 }
 
 export function spawnTimer(compiled: CompiledTimer, running: { value: boolean }): () => void {

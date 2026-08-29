@@ -241,6 +241,7 @@ export class BldDiagram extends LitElement {
       selected: this.app.selected === block.id,
       paramsLine: this.#paramLine(resolved, block.id),
       showChart: block.defId === "oscilloscope",
+      chartEnabled: block.defId === "oscilloscope" && this.app.isScopeLive(block.id),
       inputs: def.inputs.map((port) => ({
         name: port.name,
         typeLabel: typeToString(resolvedBlock ? (resolvedInput(resolvedBlock, port.name) ?? port.ty) : port.ty),

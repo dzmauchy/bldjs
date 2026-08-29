@@ -2,11 +2,14 @@ export { type BlockDef, blockAttribute, blockInput, blockOutput, displayType, ty
 export { associateBuiltinModels } from "./builtin";
 export { Catalog } from "./catalog";
 export {
+  type CompiledGenerator,
   type Nested,
   type NodeSpec,
   QUANTIZER_DELAY_MS,
   SampleBuf,
+  compileGenerator,
   compileTimer,
+  generatorWat,
   oscilloscope,
   quantizer,
   sin,

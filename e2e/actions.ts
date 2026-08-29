@@ -52,7 +52,7 @@ export async function openWorkspace(driver: WebDriver): Promise<void> {
   await driver.get(BASE_URL);
   await waitDeep(driver, "bld-diagram");
   await waitDeep(driver, '[data-testid="diagram-canvas"]');
-  await waitDeep(driver, '[data-testid="palette-b_string"]');
+  await waitDeep(driver, '[data-testid="palette-b_f64"]');
 }
 
 export async function diagramRoot(driver: WebDriver) {
@@ -144,6 +144,15 @@ export async function pressDelete(driver: WebDriver): Promise<void> {
 export async function placeBlock(driver: WebDriver, defId: string): Promise<void> {
   await doubleClickPalette(driver, defId);
   await waitForBlock(driver, defId);
+}
+
+export async function runDiagram(driver: WebDriver): Promise<void> {
+  await (await waitDeep(driver, '[data-testid="menu-run"]')).click();
+  await (await waitDeep(driver, '[data-testid="menu-run-diagram"]')).click();
+  await driver.wait(async () => {
+    const status = await queryDeep(driver, '[data-testid="status-run"]');
+    return status !== null && (await status.getText()) === "Running";
+  }, 15000);
 }
 
 export async function dropOnDiagram(driver: WebDriver, defId: string): Promise<void> {

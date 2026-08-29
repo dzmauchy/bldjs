@@ -17,7 +17,8 @@
   "dependencies": {
     "bootstrap": "5.3.8",
     "chart.js": "^4.5.1",
-    "lit": "^3.3.3"
+    "lit": "^3.3.3",
+    "wabt": "^1.0.37"
   },
   "devDependencies": {
     "@types/selenium-webdriver": "^4.35.6",

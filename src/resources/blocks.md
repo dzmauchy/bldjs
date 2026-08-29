@@ -1,13 +1,13 @@
-# XML Schema Definition (XSD) Guide for AI Agents: Representing Java 21 Types and Blocks
+# XML Schema Definition (XSD) Guide for AI Agents: Representing Types and Blocks
 
-**Purpose:** This document provides rules, constraints, and structural examples for AI agents tasked with generating or parsing the recursive Abstract Syntax Tree (AST) XML schema for Java 21 models.
+**Purpose:** This document provides rules, constraints, and structural examples for AI agents tasked with generating or parsing the recursive Abstract Syntax Tree (AST) XML schema. The builtin catalog is WebAssembly (`wasm.xml`): value types, reference types, and typed functions (`func<T>`).
 
 ## 1. Core Architecture: The Recursive AST
-The schema represents Java 21 constructs through a strictly lowercase, recursive AST. Types are not flat strings; they are composed of nested XML elements.
+The schema represents type constructs through a strictly lowercase, recursive AST. Types are not flat strings; they are composed of nested XML elements.
 
 The base entity is the **Type Expression** (`t`, `in`, `out`, `extends`, `super`, `ancestor`).
 *   **Rule:** Any type expression can endlessly nest other type expressions.
-*   **Rule:** If a tag has a `type` attribute (e.g., `<in name="data" type="List">`), any nested `<t>` elements act as its generic parameters (e.g., `List<T>`).
+*   **Rule:** If a tag has a `type` attribute (e.g., `<in name="data" type="table">`), any nested `<t>` elements act as its generic parameters (e.g., `table<T>`).
 
 ---
 
@@ -15,8 +15,8 @@ The base entity is the **Type Expression** (`t`, `in`, `out`, `extends`, `super`
 The root element is `<blocks>`. It acts as the workspace and contains `<library>`, `<namespace>`, `<type>`, and `<block>` declarations.
 
 ```xml
-<blocks id="workspace_01" name="Data Processing" icon="workspace.png">
-  <namespace id="java.util" name="Java Utilities" icon="box.png"/>
+<blocks id="workspace_01" name="Signal Processing" icon="workspace.png">
+  <namespace id="wasm" name="WebAssembly" icon="box.png"/>
   
   <!-- Blocks and Types go here -->
 </blocks>
@@ -25,7 +25,7 @@ The root element is `<blocks>`. It acts as the workspace and contains `<library>
 ---
 
 ## 3. Modeling Blocks & Factories
-A `<block>` represents an executable node (e.g., a method call, constructor, or factory).
+A `<block>` represents an executable node (e.g., a constructor, table op, or typed function).
 
 ### Essential Attributes
 *   `id`: Unique identifier.
@@ -34,18 +34,18 @@ A `<block>` represents an executable node (e.g., a method call, constructor, or 
 *   `icon`: (Optional) Visual identifier. Built-in blocks use SVG files in `src/resources/icons/` (for example `icon="map.svg"`).
 
 ### Factory Binding
-The `<factory>` element binds the block to a specific Java method.
-*   **Rule:** The factory `id` MUST be relative to the block's `ns` attribute (e.g., if block `ns="java.util"`, factory `id="List#of"`).
+The `<factory>` element binds the block to a specific operation.
+*   **Rule:** The factory `id` MUST be relative to the block's `ns` attribute (e.g., if block `ns="wasm"`, factory `id="table#new"`).
 *   **Rule:** Pass block `<param>` variables down into the `<factory>` via `<t>` elements to enforce generic type unification.
 
 ```xml
-<block id="b_create_map" name="Create Map" ns="java.util" icon="map.png">
+<block id="b_create_map" name="Create Map" ns="wasm" icon="map.png">
   <!-- Block Generics -->
   <param name="K"/>
   <param name="V"/>
   
-  <!-- Factory binding relative to java.util -->
-  <factory id="Map#of">
+  <!-- Factory binding relative to wasm -->
+  <factory id="map#of">
     <t type="K"/>
     <t type="V"/>
   </factory>
@@ -53,7 +53,7 @@ The `<factory>` element binds the block to a specific Java method.
   <in name="key" type="K"/>
   <in name="val" type="V"/>
   
-  <out name="result" type="Map">
+  <out name="result" type="map">
     <t type="K"/>
     <t type="V"/>
   </out>
@@ -62,7 +62,7 @@ The `<factory>` element binds the block to a specific Java method.
 
 ---
 
-## 4. Modeling Java Types & Generics
+## 4. Modeling Types & Generics
 
 ### Variance and Wildcards
 Variance is handled via the `variance` attribute. Omission implies invariance (exact match).
@@ -71,18 +71,18 @@ Variance is handled via the `variance` attribute. Omission implies invariance (e
 *   **Unbounded (`?`):** `?` (Omit the `type` attribute entirely).
 
 ```xml
-<!-- List<? extends Number> -->
-<in name="covariantInput" type="List">
-  <t type="Number" variance="+"/>
+<!-- table<? extends i32> -->
+<in name="covariantInput" type="table">
+  <t type="i32" variance="+"/>
 </in>
 
-<!-- Consumer<? super String> -->
-<in name="contravariantInput" type="Consumer">
-  <t type="String" variance="-"/>
+<!-- func<? super f64> -->
+<in name="contravariantInput" type="func">
+  <t type="f64" variance="-"/>
 </in>
 
-<!-- Class<?> -->
-<in name="unboundedInput" type="Class">
+<!-- table<?> -->
+<in name="unboundedInput" type="table">
   <t variance="?"/>
 </in>
 ```
@@ -91,9 +91,9 @@ Variance is handled via the `variance` attribute. Omission implies invariance (e
 When defining a `<param>`, use `<extends>` and `<super>` to bound the generic variable.
 
 ```xml
-<!-- <T Comparable<T extends>> -->
+<!-- <T rec<T extends>> -->
 <param name="T">
-  <extends type="Comparable">
+  <extends type="rec">
     <t type="T"/>
   </extends>
 </param>
@@ -101,50 +101,72 @@ When defining a `<param>`, use `<extends>` and `<super>` to bound the generic va
 
 ---
 
-## 5. Modeling Complex Java Scenarios
+## 5. Modeling WASM typed functions
 
-### A. Varargs (`List.of(...)`)
-Java varargs (e.g., `E... elements`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.
+A typed function is `func<T>`: WASM `(type (func (param T)))`. Nested consumers are nested `func` types:
+
+```
+timer()      : func<func<func<f64>>>
+quantizer(_) : func<func<f64>>
+sin(_)       : func<f64>
+```
+
+Compact display uses `fn` for `func`, so Timer is `fn<fn<fn<f64>>>`.
 
 ```xml
-<block id="b_list_of" name="List.of" ns="java.util">
-  <param name="E"/>
-  
-  <factory id="List#of">
-    <t type="E"/>
-  </factory>
+<type name="func" ns="wasm">
+  <param name="T"/>
+  <ancestor type="funcref"/>
+</type>
 
-  <!-- Accepts E... -->
-  <in name="elements" type="E" vararg="true"/>
-  
-  <out name="resultList" type="List">
-    <t type="E"/>
+<block id="timer" name="Timer" ns="cs">
+  <out name="out" type="func">
+    <t type="func">
+      <t type="func">
+        <t type="f64"/>
+      </t>
+    </t>
   </out>
 </block>
 ```
 
-### B. Recursive Generics (`Enum.valueOf`)
-For complex recursive generics like `Enum.valueOf(Class<T> enumType, String name)` where `<T extends Enum<T>>`.
+Run compiles each generator pipeline to WAT with a `$fn_f64` type, `call` / table `funcref` entries, then `wat2wasm` (wabt). Each Timer is bound to a worker.
+
+### A. Varargs (`table.new`)
+Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.
 
 ```xml
-<block id="b_enum_valueof" name="Enum.valueOf" ns="java.lang">
-  <!-- T extends Enum<T> -->
+<block id="b_table_of" name="table" ns="wasm">
+  <param name="T"/>
+  
+  <factory id="table#new">
+    <t type="T"/>
+  </factory>
+
+  <in name="elems" type="T" vararg="true"/>
+  
+  <out name="result" type="table">
+    <t type="T"/>
+  </out>
+</block>
+```
+
+### B. Recursive Generics
+For F-bounded types such as `<T extends rec<T>>`.
+
+```xml
+<block id="b_rec_new" name="rec.new" ns="wasm">
   <param name="T">
-    <extends type="Enum">
+    <extends type="rec">
       <t type="T"/>
     </extends>
   </param>
   
-  <factory id="Enum#valueOf">
-    <t type="T"/>
-  </factory>
-
-  <in name="enumType" type="Class">
+  <in name="cls" type="func">
     <t type="T"/>
   </in>
-  <in name="name" type="String"/>
   
-  <out name="resultEnum" type="T"/>
+  <out name="value" type="T"/>
 </block>
 ```
 
@@ -152,19 +174,17 @@ For complex recursive generics like `Enum.valueOf(Class<T> enumType, String name
 Use `<union>` and `<intersection>` blocks as structural containers. They can replace standard `<t>` elements anywhere in the AST.
 
 ```xml
-<!-- Union: E.g., Java multi-catch or specialized return types -->
 <out name="result">
   <union>
-    <t type="String"/>
-    <t type="Integer"/>
+    <t type="i32"/>
+    <t type="i64"/>
   </union>
 </out>
 
-<!-- Intersection: E.g., (Serializable & Comparable<T>) -->
 <in name="complexPayload">
   <intersection>
-    <t type="Serializable"/>
-    <t type="Comparable">
+    <t type="funcref"/>
+    <t type="func">
       <t type="T"/>
     </t>
   </intersection>
@@ -175,10 +195,9 @@ Use `<union>` and `<intersection>` blocks as structural containers. They can rep
 Use the empty `<self/>` tag to represent the contextual type instance (e.g., `this` in a fluent builder method).
 
 ```xml
-<!-- public Builder path(String segment) { ... return this; } -->
-<block id="b_path" name="path" ns="java.net.http.HttpRequest.Builder">
-  <factory id="HttpRequest.Builder#path"/>
-  <in name="segment" type="String"/>
+<block id="b_path" name="path" ns="wasm.module.Builder">
+  <factory id="Builder#path"/>
+  <in name="segment" type="externref"/>
   
   <out name="this">
     <self/>
@@ -193,11 +212,9 @@ Any entity in the schema (`blocks`, `block`, `type`, `param`, `in`, `out`, `t`, 
 
 ```xml
 <block id="b_fetch" name="Fetch Data" ns="com.network">
-  <!-- Block-level metadata -->
   <attribute name="description">Executes HTTP GET</attribute>
   
-  <in name="url" type="String">
-    <!-- Port-level metadata -->
+  <in name="url" type="externref">
     <attribute name="tooltip">Must be an absolute URL</attribute>
   </in>
 </block>

@@ -151,12 +151,20 @@ export function isObject(expr: TypeExpr): boolean {
   return (
     expr.kind === "type" &&
     expr.args.length === 0 &&
-    (expr.name === "Object" || expr.name === "java.lang.Object")
+    (expr.name === "externref" ||
+      expr.name === "Object" ||
+      expr.name === "java.lang.Object" ||
+      expr.name === "wasm.externref")
   );
 }
 
 export function isPrimitive(name: string): boolean {
   return (
+    name === "i32" ||
+    name === "i64" ||
+    name === "f32" ||
+    name === "f64" ||
+    name === "v128" ||
     name === "byte" ||
     name === "short" ||
     name === "int" ||
