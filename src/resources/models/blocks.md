@@ -31,7 +31,7 @@ A `<block>` represents an executable node (e.g., a constructor, table op, or typ
 *   `id`: Unique identifier.
 *   `name`: Human-readable name.
 *   `ns`: The namespace ID.
-*   `icon`: (Optional) Visual identifier. Built-in blocks use SVG files in `src/resources/icons/` (for example `icon="map.svg"`).
+*   `icon`: (Optional) Visual identifier. Built-in blocks use SVG files in `../icons` (for example `icon="map.svg"`).
 
 ### Factory Binding
 The `<factory>` element binds the block to a specific operation.

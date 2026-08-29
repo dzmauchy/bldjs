@@ -2,7 +2,7 @@
 
 A client-side [Lit](https://lit.dev/) app. The workspace is custom elements: a toolbar (Run / Stop, plus a three-line menu), a left palette of block icons, and a `bld-diagram` canvas that owns pan, zoom, drop, and wiring. Nodes (`bld-node`) and connectors (`bld-connector`) are also custom elements with shadow trees; nodes size themselves with flex, and connectors are SVG cubic paths that follow each node's measured ports.
 
-Diagrams load multiple XML type/block models (`src/resources/models/*.xml`, described by `src/resources/blocks.xsd` and `src/resources/blocks.md`). Wiring an output into an input grounds that input and infers the block's generic types. The builtin type library is WebAssembly (`wasm.xml`): value types, `funcref` / `externref`, and typed `func<T>` functions.
+Diagrams load multiple XML type/block models (`src/resources/models/*.xml`, described by `src/resources/models/blocks.xsd` and `src/resources/models/blocks.md`). Wiring an output into an input grounds that input and infers the block's generic types. The builtin type library is WebAssembly (`wasm.xml`): value types, `funcref` / `externref`, and typed `func<T>` functions.
 
 This is a TypeScript port of the Rust/Leptos [bld](https://github.com/dzmauchy/bld) workspace.
 
