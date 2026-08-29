@@ -5,6 +5,9 @@ import "./node";
 export { FLOW_MIME } from "./mime";
 export {
   clientToWorld,
+  catmullRomPath,
+  connectorBounds,
+  connectorPath,
   connectorPolyline,
   cubicLink,
   cubicLinkBounds,
@@ -18,10 +21,12 @@ export {
   routesEqual,
   simplifyOrthogonal,
   splinePath,
+  translateConnector,
   translatePath,
   translatePolyline,
   translateRounded,
   translateSpline,
+  usefulWaypoints,
   type CubicLink,
   type Point,
   type Rect,
