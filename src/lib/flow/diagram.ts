@@ -14,7 +14,8 @@ import { AppController } from "$lib/context";
 import { GRID_SIZE, clampZoom, zoomToward } from "$lib/model";
 import { type AppState, type BlockInstance } from "$lib/state";
 import { FLOW_MIME } from "./mime";
-import { clientToWorld, linkKey, type Point } from "./geometry";
+import { clientToWorld, linkKey, orthogonalLink, routesEqual, type Point } from "./geometry";
+import { AvoidRouteEngine, connectorFromLink, obstacleFromBlock } from "./avoid-router";
 import { portFromComposedPath, worldPort } from "./layout";
 import type { BldNodeState, NodeLayout, PortPointerDetail } from "./types";
 import "./node";
@@ -39,6 +40,8 @@ export class BldDiagram extends LitElement {
   #previewTo: Point | null = null;
   #layouts = new Map<number, NodeLayout>();
   #resize: ResizeObserver | null = null;
+  #avoid = new AvoidRouteEngine();
+  #routes = new Map<string, Point[]>();
 
   static override styles = css`
     :host {
@@ -171,6 +174,7 @@ export class BldDiagram extends LitElement {
       this.#resize.observe(this);
     }
     void this.updateComplete.then(() => this.#syncHostSize());
+    void this.#startAvoidRouter();
   }
 
   disconnectedCallback(): void {
@@ -182,11 +186,13 @@ export class BldDiagram extends LitElement {
     window.removeEventListener("pointercancel", this.#onWinUp);
     this.#resize?.disconnect();
     this.#resize = null;
+    this.#avoid.destroy();
     super.disconnectedCallback();
   }
 
   protected override willUpdate(): void {
     this.#bindApp();
+    this.#syncRoutes();
   }
 
   #bindApp(): void {
@@ -194,6 +200,51 @@ export class BldDiagram extends LitElement {
       return;
     }
     this.#ctrl = new AppController(this, this.app);
+  }
+
+  async #startAvoidRouter(): Promise<void> {
+    try {
+      await this.#avoid.start();
+    } catch (error) {
+      console.warn("avoid router failed to load", error);
+      return;
+    }
+    this.dataset.router = "avoid";
+    this.#syncRoutes();
+    this.requestUpdate();
+  }
+
+  #syncRoutes(): void {
+    if (!this.app || !this.#avoid.ready) {
+      return;
+    }
+    const obstacles = [];
+    for (const block of this.app.blocks) {
+      const layout = this.#layouts.get(block.id);
+      if (!layout) {
+        continue;
+      }
+      const obstacle = obstacleFromBlock(block.id, block.x, block.y, layout);
+      if (obstacle) {
+        obstacles.push(obstacle);
+      }
+    }
+    const connectors = this.app.links
+      .filter((link) => this.#layouts.has(link.fromBlock) && this.#layouts.has(link.toBlock))
+      .map(connectorFromLink);
+    const next = this.#avoid.sync(obstacles, connectors);
+    let changed = this.#routes.size !== next.size;
+    if (!changed) {
+      for (const [key, points] of next) {
+        if (!routesEqual(this.#routes.get(key), points)) {
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (changed) {
+      this.#routes = next;
+    }
   }
 
   #viewportEl(): HTMLDivElement | null {
@@ -453,7 +504,7 @@ export class BldDiagram extends LitElement {
   };
 
   #connectors() {
-    const views: { key: string; link: Link; from: Point; to: Point; selected: boolean }[] = [];
+    const views: { key: string; link: Link; from: Point; to: Point; points: Point[]; selected: boolean }[] = [];
     for (const link of this.app.links) {
       const fromBlock = this.app.blocks.find((block) => block.id === link.fromBlock);
       const toBlock = this.app.blocks.find((block) => block.id === link.toBlock);
@@ -462,11 +513,13 @@ export class BldDiagram extends LitElement {
       if (!from || !to) {
         continue;
       }
+      const key = linkKey(link.fromBlock, link.fromOut, link.toBlock, link.toIn);
       views.push({
-        key: linkKey(link.fromBlock, link.fromOut, link.toBlock, link.toIn),
+        key,
         link,
         from,
         to,
+        points: this.#routes.get(key) ?? orthogonalLink(from, to),
         selected: this.app.isLinkSelected(link),
       });
     }
@@ -525,6 +578,7 @@ export class BldDiagram extends LitElement {
                 data-link=${item.key}
                 .from=${item.from}
                 .to=${item.to}
+                .points=${item.points}
                 .selected=${item.selected}
                 @linkpointerdown=${() => this.#onLinkPointerDown(item.link)}
               ></bld-connector>

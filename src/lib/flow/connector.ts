@@ -1,16 +1,18 @@
 import { LitElement, css, html } from "lit";
-import { cubicLink, cubicLinkBounds, translatePath, type Point } from "./geometry";
+import { orthogonalLink, polylineBounds, translatePolyline, type Point } from "./geometry";
 
 export class BldConnector extends LitElement {
   static override properties = {
     from: { attribute: false },
     to: { attribute: false },
+    points: { attribute: false },
     selected: { type: Boolean, reflect: true, attribute: "data-selected" },
     preview: { type: Boolean, reflect: true, attribute: "data-preview" },
   };
 
   declare from: Point;
   declare to: Point;
+  declare points: Point[];
   declare selected: boolean;
   declare preview: boolean;
 
@@ -36,6 +38,7 @@ export class BldConnector extends LitElement {
       stroke: transparent;
       stroke-width: 14;
       stroke-linecap: round;
+      stroke-linejoin: round;
       pointer-events: stroke;
       cursor: pointer;
     }
@@ -44,6 +47,7 @@ export class BldConnector extends LitElement {
       stroke: color-mix(in srgb, var(--bs-primary, #0d6efd) 80%, white);
       stroke-width: 2.2;
       stroke-linecap: round;
+      stroke-linejoin: round;
       pointer-events: none;
     }
     :host([data-selected]) .path-stroke {
@@ -62,6 +66,7 @@ export class BldConnector extends LitElement {
     super();
     this.from = { x: 0, y: 0 };
     this.to = { x: 0, y: 0 };
+    this.points = [];
     this.selected = false;
     this.preview = false;
   }
@@ -75,18 +80,18 @@ export class BldConnector extends LitElement {
     this.dataset.testid = this.preview ? "connector-preview" : "connector";
   }
 
-  #link() {
-    return cubicLink(this.from, this.to);
+  #route(): Point[] {
+    return this.points.length >= 2 ? this.points : orthogonalLink(this.from, this.to);
   }
 
   #box() {
-    return cubicLinkBounds(this.#link());
+    return polylineBounds(this.#route());
   }
 
   #d(): string {
-    const link = this.#link();
-    const box = cubicLinkBounds(link);
-    return translatePath(link, { x: box.left, y: box.top });
+    const route = this.#route();
+    const box = polylineBounds(route);
+    return translatePolyline(route, { x: box.left, y: box.top });
   }
 
   #onHitPointerDown = (event: PointerEvent): void => {
