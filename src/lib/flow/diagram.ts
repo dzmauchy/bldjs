@@ -15,7 +15,7 @@ import { GRID_SIZE, clampZoom, zoomToward } from "$lib/model";
 import { type AppState, type BlockInstance } from "$lib/state";
 import { FLOW_MIME } from "./mime";
 import { clientToWorld, linkKey, type Point } from "./geometry";
-import { AvoidRouteEngine, connectorFromLink, obstacleFromBlock } from "./avoid-router";
+import { ElkRouteEngine, connectorFromLink, obstacleFromBlock } from "./elk-router";
 import { portFromComposedPath, worldPort } from "./layout";
 import type { BldNodeState, NodeLayout, PortPointerDetail } from "./types";
 import "./node";
@@ -40,7 +40,7 @@ export class BldDiagram extends LitElement {
   #previewTo: Point | null = null;
   #layouts = new Map<number, NodeLayout>();
   #resize: ResizeObserver | null = null;
-  #avoid = new AvoidRouteEngine();
+  #elk = new ElkRouteEngine();
   #routes = new Map<string, Point[]>();
 
   static override styles = css`
@@ -174,7 +174,7 @@ export class BldDiagram extends LitElement {
       this.#resize.observe(this);
     }
     void this.updateComplete.then(() => this.#syncHostSize());
-    void this.#startAvoidRouter();
+    void this.#startElkRouter();
   }
 
   disconnectedCallback(): void {
@@ -186,7 +186,7 @@ export class BldDiagram extends LitElement {
     window.removeEventListener("pointercancel", this.#onWinUp);
     this.#resize?.disconnect();
     this.#resize = null;
-    this.#avoid.destroy();
+    this.#elk.destroy();
     super.disconnectedCallback();
   }
 
@@ -202,26 +202,25 @@ export class BldDiagram extends LitElement {
     this.#ctrl = new AppController(this, this.app);
   }
 
-  async #startAvoidRouter(): Promise<void> {
-    this.#avoid.onRoutesChanged(() => {
-      this.#routes = new Map(this.#avoid.routes);
+  async #startElkRouter(): Promise<void> {
+    this.#elk.onRoutesChanged(() => {
+      this.#routes = new Map(this.#elk.routes);
       this.requestUpdate();
     });
     try {
-      await this.#avoid.start({ worker: true });
+      await this.#elk.start();
     } catch (error) {
-      console.warn("avoid router failed to load", error);
+      console.warn("elk router failed to load", error);
       return;
     }
-    this.dataset.router = "avoid";
-    this.dataset.worker = this.#avoid.worker ? "true" : "false";
-    this.dataset.connector = "curve";
+    this.dataset.router = "elk";
+    this.dataset.connector = "orthogonal";
     this.#syncRoutes();
     this.requestUpdate();
   }
 
   #syncRoutes(): void {
-    if (!this.app || !this.#avoid.ready) {
+    if (!this.app || !this.#elk.ready) {
       return;
     }
     const obstacles = [];
@@ -238,7 +237,7 @@ export class BldDiagram extends LitElement {
     const connectors = this.app.links
       .filter((link) => this.#layouts.has(link.fromBlock) && this.#layouts.has(link.toBlock))
       .map(connectorFromLink);
-    this.#avoid.sync(obstacles, connectors);
+    void this.#elk.sync(obstacles, connectors);
   }
 
   #viewportEl(): HTMLDivElement | null {

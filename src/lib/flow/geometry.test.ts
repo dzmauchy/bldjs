@@ -1,18 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   clientToWorld,
+  connectorPolyline,
   cubicLink,
   cubicLinkBounds,
-  curvePath,
   linkKey,
   orthogonalLink,
   polylineBounds,
   polylinePath,
+  remapElkRoute,
+  roundedPolylinePath,
   routesEqual,
-  curveLinkPath,
-  translateCurve,
+  simplifyOrthogonal,
   translatePath,
   translatePolyline,
+  translateRounded,
 } from "./geometry";
 
 describe("flow geometry", () => {
@@ -82,28 +84,58 @@ describe("flow geometry", () => {
     expect(routesEqual([{ x: 1, y: 2 }], [{ x: 1, y: 3 }])).toBe(false);
   });
 
-  it("builds a JointJS curve cubic that leaves right and enters left", () => {
-    const from = { x: 0, y: 10 };
-    const to = { x: 200, y: 80 };
-    const empty = curveLinkPath(from, to, []);
-    expect(empty.startsWith("M 0 10")).toBe(true);
-    expect(empty).toContain("C ");
-    const routed = curveLinkPath(from, to, [
+  it("drops colinear orthogonal vertices", () => {
+    expect(
+      simplifyOrthogonal([
+        { x: 0, y: 10 },
+        { x: 40, y: 10 },
+        { x: 80, y: 10 },
+        { x: 80, y: 40 },
+      ]),
+    ).toEqual([
+      { x: 0, y: 10 },
       { x: 80, y: 10 },
-      { x: 80, y: 80 },
+      { x: 80, y: 40 },
     ]);
-    expect(routed).toContain("C ");
-    expect(routed).not.toBe(empty);
-    const local = translateCurve(from, to, [], { x: -16, y: -6 });
-    expect(local.startsWith("M 16 16")).toBe(true);
   });
 
-  it("keeps a short horizontal span from looping far past the ports", () => {
-    const from = { x: 0, y: 10 };
-    const to = { x: 80, y: 140 };
-    const box = curvePath(from, to, []).bbox();
-    expect(box).not.toBeNull();
-    expect(box!.x).toBeGreaterThanOrEqual(-8);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(88);
+  it("remaps an ELK route onto the actual ports and stays orthogonal", () => {
+    const from = { x: 80, y: 40 };
+    const to = { x: 240, y: 90 };
+    const points = remapElkRoute(
+      [
+        { x: 100, y: 50 },
+        { x: 160, y: 50 },
+        { x: 160, y: 100 },
+        { x: 260, y: 100 },
+      ],
+      from,
+      to,
+    );
+    expect(points[0]).toEqual(from);
+    expect(points.at(-1)).toEqual(to);
+    expect(points[1]?.y).toBe(from.y);
+    expect(points.at(-2)?.y).toBe(to.y);
+  });
+
+  it("falls back to an orthogonal stub when ELK has not routed yet", () => {
+    const points = connectorPolyline({ x: 0, y: 10 }, { x: 200, y: 80 });
+    expect(points[0]).toEqual({ x: 0, y: 10 });
+    expect(points.at(-1)).toEqual({ x: 200, y: 80 });
+  });
+
+  it("rounds orthogonal corners and translates into the connector box", () => {
+    const points = [
+      { x: 50, y: 80 },
+      { x: 90, y: 80 },
+      { x: 90, y: 20 },
+      { x: 150, y: 20 },
+    ];
+    const path = roundedPolylinePath(points, 8);
+    expect(path.startsWith("M 50 80")).toBe(true);
+    expect(path).toContain("Q 90 80");
+    expect(path).toContain("L 150 20");
+    const box = polylineBounds(points, 16);
+    expect(translateRounded(points, { x: box.left, y: box.top }, 8).startsWith("M 16 76")).toBe(true);
   });
 });
