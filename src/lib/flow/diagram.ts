@@ -215,7 +215,7 @@ export class BldDiagram extends LitElement {
     }
     this.dataset.router = "avoid";
     this.dataset.worker = this.#avoid.worker ? "true" : "false";
-    this.dataset.connector = "smooth";
+    this.dataset.connector = "curve";
     this.#syncRoutes();
     this.requestUpdate();
   }

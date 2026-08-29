@@ -1,9 +1,9 @@
 import { connectors } from "@joint/core";
 import { screenToWorld } from "$lib/model";
 
-type SmoothPath = {
+type CurvePath = {
   bbox: () => { x: number; y: number; width: number; height: number } | null;
-  translate: (tx: number, ty: number) => SmoothPath;
+  translate: (tx: number, ty: number) => CurvePath;
   serialize: () => string;
 };
 
@@ -121,16 +121,22 @@ export function translatePolyline(points: Point[], origin: Point): string {
   return polylinePath(points.map((point) => ({ x: point.x - origin.x, y: point.y - origin.y })));
 }
 
-export function smoothPath(from: Point, to: Point, route: Point[] = []): SmoothPath {
-  return connectors.smooth(from, to, route, { raw: true }) as SmoothPath;
+const CURVE_ARGS = {
+  direction: connectors.curve.Directions.HORIZONTAL,
+  sourceDirection: connectors.curve.TangentDirections.RIGHT,
+  targetDirection: connectors.curve.TangentDirections.LEFT,
+} as const;
+
+export function curvePath(from: Point, to: Point, route: Point[] = []): CurvePath {
+  return connectors.curve(from, to, route, { ...CURVE_ARGS, raw: true }) as CurvePath;
 }
 
-export function smoothLinkPath(from: Point, to: Point, route: Point[] = []): string {
-  return connectors.smooth(from, to, route) as string;
+export function curveLinkPath(from: Point, to: Point, route: Point[] = []): string {
+  return connectors.curve(from, to, route, CURVE_ARGS) as string;
 }
 
-export function smoothLinkBounds(from: Point, to: Point, route: Point[] = [], pad = 16): Rect {
-  const box = smoothPath(from, to, route).bbox();
+export function curveLinkBounds(from: Point, to: Point, route: Point[] = [], pad = 16): Rect {
+  const box = curvePath(from, to, route).bbox();
   if (!box) {
     return { left: 0, top: 0, width: 1, height: 1 };
   }
@@ -142,8 +148,8 @@ export function smoothLinkBounds(from: Point, to: Point, route: Point[] = [], pa
   };
 }
 
-export function translateSmooth(from: Point, to: Point, route: Point[], origin: Point): string {
-  return smoothPath(from, to, route).translate(-origin.x, -origin.y).serialize();
+export function translateCurve(from: Point, to: Point, route: Point[], origin: Point): string {
+  return curvePath(from, to, route).translate(-origin.x, -origin.y).serialize();
 }
 
 export function routesEqual(a: Point[] | undefined, b: Point[] | undefined): boolean {

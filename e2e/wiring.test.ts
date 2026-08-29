@@ -63,7 +63,7 @@ describe("wiring", () => {
     const tag = await (await diagramCss(driver, "bld-connector")).getTagName();
     expect(tag).toBe("bld-connector");
     const diagram = await waitDeep(driver, "bld-diagram");
-    expect(await diagram.getAttribute("data-connector")).toBe("smooth");
+    expect(await diagram.getAttribute("data-connector")).toBe("curve");
     expect(await diagram.getAttribute("data-worker")).toBe("true");
   });
 
