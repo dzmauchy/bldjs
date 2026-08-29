@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blocks id="cs" name="Control Systems">
+  <library id="java.lang" name="Java Lang"/>
+  <library id="java.util" name="Java Util"/>
+  <namespace id="cs" name="Control Systems"/>
+
+  <!-- Primitive double and boxed Double (java.lang.Double). -->
+  <type name="double" ns="java.lang"/>
+
+  <!--
+    Java notation used by these blocks:
+      DoubleConsumer              = Consumer<Double>
+      Consumer<DoubleConsumer>    = Consumer<Consumer<Double>>
+  -->
+  <type name="DoubleConsumer" ns="java.util.function">
+    <ancestor type="Consumer">
+      <t type="Double"/>
+    </ancestor>
+  </type>
+
+  <block id="timer" name="Timer" ns="cs" icon="timer">
+    <attribute name="kind">Start</attribute>
+    <attribute name="runnable">true</attribute>
+    <attribute name="description">Runnable time source. Accepts Consumer&lt;DoubleConsumer&gt; and runs on its own thread.</attribute>
+    <in name="consumer" type="Consumer">
+      <t type="Consumer">
+        <t type="Double"/>
+      </t>
+    </in>
+  </block>
+
+  <block id="quantizer" name="Quantizer" ns="cs" icon="quantizer">
+    <attribute name="kind">Process</attribute>
+    <attribute name="description">Holds each sample for 10 ms (LockSupport.parkNanos).</attribute>
+    <in name="consumer" type="Consumer">
+      <t type="Consumer">
+        <t type="Double"/>
+      </t>
+    </in>
+    <out name="out" type="Consumer">
+      <t type="Consumer">
+        <t type="Double"/>
+      </t>
+    </out>
+  </block>
+
+  <block id="sin" name="Sin" ns="cs" icon="sin">
+    <attribute name="kind">Process</attribute>
+    <attribute name="description">Maps each sample through Math.sin.</attribute>
+    <in name="in" type="Consumer">
+      <t type="Double"/>
+    </in>
+    <out name="out" type="Consumer">
+      <t type="Consumer">
+        <t type="Double"/>
+      </t>
+    </out>
+  </block>
+
+  <block id="oscilloscope" name="Oscilloscope" ns="cs" icon="scope">
+    <attribute name="kind">Output</attribute>
+    <attribute name="description">Plots doubles. Click the block to open a live chart.</attribute>
+    <out name="out" type="Consumer">
+      <t type="Double"/>
+    </out>
+  </block>
+</blocks>

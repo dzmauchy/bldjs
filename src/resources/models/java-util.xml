@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blocks id="java.util" name="Java Util">
+  <library id="java.lang" name="Java Lang"/>
+  <namespace id="java.util" name="Java Utilities"/>
+  <namespace id="java.util.function" name="Java Functions"/>
+
+  <type name="Collection" ns="java.util">
+    <param name="E"/>
+    <ancestor type="Iterable">
+      <t type="E"/>
+    </ancestor>
+  </type>
+
+  <type name="List" ns="java.util">
+    <param name="E"/>
+    <ancestor type="Collection">
+      <t type="E"/>
+    </ancestor>
+  </type>
+
+  <type name="AbstractList" ns="java.util">
+    <param name="E"/>
+    <ancestor type="List">
+      <t type="E"/>
+    </ancestor>
+  </type>
+
+  <type name="ArrayList" ns="java.util">
+    <param name="E"/>
+    <ancestor type="AbstractList">
+      <t type="E"/>
+    </ancestor>
+    <ancestor type="RandomAccess"/>
+    <ancestor type="Cloneable"/>
+    <ancestor type="Serializable"/>
+  </type>
+
+  <type name="Map" ns="java.util">
+    <param name="K"/>
+    <param name="V"/>
+    <ancestor type="Object"/>
+  </type>
+
+  <type name="Optional" ns="java.util">
+    <param name="T"/>
+    <ancestor type="Object"/>
+  </type>
+
+  <type name="Consumer" ns="java.util.function">
+    <param name="T"/>
+    <ancestor type="Object"/>
+  </type>
+
+  <block id="b_list_of" name="List.of" ns="java.util" icon="list">
+    <attribute name="kind">Process</attribute>
+    <param name="E"/>
+    <factory id="List#of">
+      <t type="E"/>
+    </factory>
+    <in name="elements" type="E" vararg="true"/>
+    <out name="resultList" type="List">
+      <t type="E"/>
+    </out>
+  </block>
+
+  <block id="b_map_of" name="Map.of" ns="java.util" icon="map">
+    <attribute name="kind">Process</attribute>
+    <param name="K"/>
+    <param name="V"/>
+    <factory id="Map#of">
+      <t type="K"/>
+      <t type="V"/>
+    </factory>
+    <in name="key" type="K"/>
+    <in name="val" type="V"/>
+    <out name="result" type="Map">
+      <t type="K"/>
+      <t type="V"/>
+    </out>
+  </block>
+
+  <block id="b_optional_of" name="Optional.of" ns="java.util" icon="optional">
+    <attribute name="kind">Process</attribute>
+    <param name="T"/>
+    <factory id="Optional#of">
+      <t type="T"/>
+    </factory>
+    <in name="value" type="T"/>
+    <out name="result" type="Optional">
+      <t type="T"/>
+    </out>
+  </block>
+
+  <block id="b_list_get" name="List.get" ns="java.util" icon="list">
+    <attribute name="kind">Process</attribute>
+    <param name="E"/>
+    <factory id="List#get">
+      <t type="E"/>
+    </factory>
+    <in name="list" type="List">
+      <t type="E"/>
+    </in>
+    <in name="index" type="int"/>
+    <out name="element" type="E"/>
+  </block>
+</blocks>
