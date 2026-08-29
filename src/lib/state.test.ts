@@ -51,6 +51,20 @@ describe("AppState wiring", () => {
     ]);
   });
 
+  it("deletes a selected connector without removing blocks", () => {
+    const app = new AppState();
+    const stringId = app.nextId;
+    app.addBlock("b_string", 0, 0);
+    const listId = app.nextId;
+    app.addBlock("b_list_of", 300, 0);
+    app.toggleLink(stringId, "value", listId, "elements");
+    app.selectLink({ fromBlock: stringId, fromOut: "value", toBlock: listId, toIn: "elements" });
+    app.deleteSelected();
+    expect(app.links).toEqual([]);
+    expect(app.blocks).toHaveLength(2);
+    expect(app.selectedLink).toBeNull();
+  });
+
   it("removes a block and its links", () => {
     const app = new AppState();
     const stringId = app.nextId;

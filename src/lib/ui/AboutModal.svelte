@@ -30,8 +30,8 @@
         </div>
         <div class="modal-body">
           <p class="mb-2">
-            A Svelte Flow diagram: drag block icons from the palette, then ground inputs by wiring
-            handles to infer types.
+            A block diagram: drag icons from the palette, then ground inputs by wiring handles to
+            infer types.
           </p>
           <ul class="small mb-0">
             <li>Scroll to zoom toward the cursor</li>

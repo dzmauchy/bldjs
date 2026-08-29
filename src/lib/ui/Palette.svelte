@@ -1,5 +1,6 @@
 <script lang="ts">
   import { type BlockDef } from "$lib/blocks";
+  import { FLOW_MIME } from "$lib/flow";
   import { getAppState } from "$lib/context";
   import BlockIcon from "./BlockIcon.svelte";
 
@@ -20,13 +21,8 @@
   });
 
   function toggleNs(ns: string): void {
-    const next = new Set(open);
-    if (next.has(ns)) {
-      next.delete(ns);
-    } else {
-      next.add(ns);
-    }
-    open = next;
+    const nsSet = new Set([ns]);
+    open = open.has(ns) ? open.difference(nsSet) : open.union(nsSet);
   }
 
   function onDragStart(event: DragEvent, defId: string): void {
@@ -34,7 +30,7 @@
     if (!event.dataTransfer) {
       return;
     }
-    event.dataTransfer.setData("application/svelteflow", defId);
+    event.dataTransfer.setData(FLOW_MIME, defId);
     event.dataTransfer.effectAllowed = "move";
   }
 
