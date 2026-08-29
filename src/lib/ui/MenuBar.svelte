@@ -33,7 +33,7 @@
   <span class="app-brand me-3">Bld</span>
 
   <div class="menu-item-wrap position-relative">
-    <button class="menu-item btn btn-sm" class:active={openMenu === "file"} type="button" onclick={() => toggle("file")}>
+    <button class="menu-item btn btn-sm" class:active={openMenu === "file"} type="button" data-testid="menu-file" onclick={() => toggle("file")}>
       File
     </button>
     <div class="dropdown-menu app-menu-dropdown" class:show={openMenu === "file"} class:d-block={openMenu === "file"}>
@@ -44,6 +44,7 @@
           app.clearCanvas();
           close();
         }}
+        data-testid="menu-new-canvas"
       >
         New canvas
       </button>
@@ -104,13 +105,14 @@
   </div>
 
   <div class="menu-item-wrap position-relative">
-    <button class="menu-item btn btn-sm" class:active={openMenu === "help"} type="button" onclick={() => toggle("help")}>
+    <button class="menu-item btn btn-sm" class:active={openMenu === "help"} type="button" data-testid="menu-help" onclick={() => toggle("help")}>
       Help
     </button>
     <div class="dropdown-menu app-menu-dropdown" class:show={openMenu === "help"} class:d-block={openMenu === "help"}>
       <button
         class="dropdown-item"
         type="button"
+        data-testid="menu-about"
         onclick={() => {
           app.aboutOpen = true;
           close();

@@ -1,6 +1,6 @@
 # Bld
 
-A client-side [Svelte](https://svelte.dev/) app. The first slice is a dark Bootstrap workspace: a menubar, a left palette of blocks, and a center canvas with zoom and pan.
+A client-side [Svelte](https://svelte.dev/) app. The first slice is a dark Bootstrap workspace: a menubar, a left palette of blocks, and a center canvas. [Svelte Flow](https://svelteflow.dev/) manages nodes, edges, pan, and zoom.
 
 Diagrams load multiple XML type/block models (`src/resources/models/*.xml`, described by `src/resources/blocks.xsd` and `src/resources/blocks.md`). Wiring an output into an input grounds that input and infers the block's generic types.
 
@@ -50,6 +50,7 @@ Serve that folder with any static file server.
 ## Stack
 
 - Svelte 5 (CSR)
+- [Svelte Flow](https://svelteflow.dev/) (`@xyflow/svelte`) for the diagram
 - Vite
 - TypeScript
 - Bootstrap 5.3.8, dark theme (`data-bs-theme="dark"`)

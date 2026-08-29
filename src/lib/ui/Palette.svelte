@@ -53,6 +53,7 @@
           class="palette-ns-toggle"
           class:open={open.has(ns)}
           type="button"
+          data-testid={`ns-${ns}`}
           onpointerdown={(event) => event.stopPropagation()}
           onclick={() => toggleNs(ns)}
         >
@@ -66,6 +67,7 @@
                 role="button"
                 tabindex="0"
                 class:is-drag-source={app.draggingDefId === def.id}
+                data-testid={`palette-${def.id}`}
                 title="Drag to the canvas, or double-click to drop at the center"
                 onpointerdown={(event) => startDrag(def.id, event)}
                 onkeydown={(event) => {

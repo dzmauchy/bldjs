@@ -16,7 +16,7 @@
       }
     }}
   ></div>
-  <div class="modal fade show d-block" tabindex="-1" role="dialog">
+  <div class="modal fade show d-block" tabindex="-1" role="dialog" data-testid="about-modal">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
@@ -30,8 +30,8 @@
         </div>
         <div class="modal-body">
           <p class="mb-2">
-            A Svelte TypeScript canvas. Associate XML type/block models, drag blocks onto the workspace, then
-            ground inputs by wiring ports to infer types.
+            A Svelte TypeScript canvas. Svelte Flow manages the diagram: associate XML type/block
+            models, drag blocks onto the workspace, then ground inputs by wiring ports to infer types.
           </p>
           <ul class="small mb-0">
             <li>Scroll to zoom toward the cursor</li>

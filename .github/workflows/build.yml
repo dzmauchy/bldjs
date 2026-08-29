@@ -39,6 +39,15 @@ jobs:
       - name: Build release site
         run: npm run build
 
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v2
+        id: chrome
+
+      - name: Selenium
+        run: npm run test:e2e
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+
       - name: Check site output
         run: |
           test -f dist/index.html

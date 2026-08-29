@@ -9,10 +9,10 @@
 </script>
 
 <footer class="app-statusbar border-top d-flex align-items-center px-3 small text-secondary">
-  <span class="me-3">{countLabel(app.blocks.length, "block", "blocks")}</span>
-  <span class="me-3">{countLabel(app.links.length, "link", "links")}</span>
+  <span class="me-3" data-testid="status-blocks">{countLabel(app.blocks.length, "block", "blocks")}</span>
+  <span class="me-3" data-testid="status-links">{countLabel(app.links.length, "link", "links")}</span>
   <span class="me-3">{countLabel(app.sources.length, "model", "models")}</span>
-  <span class="me-3">{app.zoomPercent()}%</span>
+  <span class="me-3" data-testid="status-zoom">{app.zoomPercent()}%</span>
   <span class="ms-auto">
     {#if app.linkingFrom}
       Click an input port to ground its type · Esc cancels
