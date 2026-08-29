@@ -35,18 +35,18 @@ describe("wiring", () => {
     await newCanvas(driver);
   });
 
-  it("wires f64 into table and infers table<f64>", async () => {
+  it("wires f64 into array and infers f64[]", async () => {
     await placeBlock(driver, "b_f64");
-    await placeBlock(driver, "b_table_of");
+    await placeBlock(driver, "b_array_of");
     await clickPortHandle(driver, "b_f64", "output-value");
-    await clickPortHandle(driver, "b_table_of", "input-elems");
+    await clickPortHandle(driver, "b_array_of", "input-elems");
     await waitForLinks(driver, "1 link");
 
-    const listHost = await nodeHost(driver, "b_table_of");
+    const listHost = await nodeHost(driver, "b_array_of");
     const listRoot = await listHost.getShadowRoot();
     const result = await listRoot.findElement(By.css('[data-testid="output-result"]'));
-    expect(await result.getText()).not.toContain("table<f64>");
-    expect(await result.getAttribute("title")).toBe("table<f64>");
+    expect(await result.getText()).not.toContain("f64[]");
+    expect(await result.getAttribute("title")).toBe("f64[]");
 
     const path = await connectorPath(driver);
     expect(path.startsWith("M ")).toBe(true);
@@ -57,20 +57,20 @@ describe("wiring", () => {
 
   it("toggles the same wire off", async () => {
     await placeBlock(driver, "b_f64");
-    await placeBlock(driver, "b_table_of");
+    await placeBlock(driver, "b_array_of");
     await clickPortHandle(driver, "b_f64", "output-value");
-    await clickPortHandle(driver, "b_table_of", "input-elems");
+    await clickPortHandle(driver, "b_array_of", "input-elems");
     await waitForLinks(driver, "1 link");
     await clickPortHandle(driver, "b_f64", "output-value");
-    await clickPortHandle(driver, "b_table_of", "input-elems");
+    await clickPortHandle(driver, "b_array_of", "input-elems");
     await waitForLinks(driver, "0 links");
   });
 
   it("deletes a selected connector", async () => {
     await placeBlock(driver, "b_f64");
-    await placeBlock(driver, "b_table_of");
+    await placeBlock(driver, "b_array_of");
     await clickPortHandle(driver, "b_f64", "output-value");
-    await clickPortHandle(driver, "b_table_of", "input-elems");
+    await clickPortHandle(driver, "b_array_of", "input-elems");
     await waitForLinks(driver, "1 link");
     await clickConnector(driver);
     await pressDelete(driver);
@@ -133,9 +133,9 @@ describe("wiring", () => {
 
   it("moves the connector when a wired node is dragged", async () => {
     await placeBlock(driver, "b_f64");
-    await placeBlock(driver, "b_table_of");
+    await placeBlock(driver, "b_array_of");
     await clickPortHandle(driver, "b_f64", "output-value");
-    await clickPortHandle(driver, "b_table_of", "input-elems");
+    await clickPortHandle(driver, "b_array_of", "input-elems");
     await waitForLinks(driver, "1 link");
     const before = await connectorPath(driver);
     const host = await nodeHost(driver, "b_f64");

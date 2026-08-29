@@ -23,7 +23,7 @@ describe("AppState placement", () => {
     app.viewportW = 800;
     app.viewportH = 600;
     app.addBlockAtViewCenter("b_f64");
-    app.addBlockAtViewCenter("b_table_of");
+    app.addBlockAtViewCenter("b_array_of");
     app.addBlockAtViewCenter("sin");
     app.addBlockAtViewCenter("timer");
     for (let i = 0; i < app.blocks.length; i++) {
@@ -39,12 +39,12 @@ describe("AppState placement", () => {
 });
 
 describe("AppState wiring", () => {
-  it("grounds table from f64", () => {
+  it("grounds array from f64", () => {
     const app = new AppState();
     const f64Id = app.nextId;
     app.addBlock("b_f64", 0, 0);
     const tableId = app.nextId;
-    app.addBlock("b_table_of", 300, 0);
+    app.addBlock("b_array_of", 300, 0);
     app.toggleLink(f64Id, "value", tableId, "elems");
     expect(app.links).toEqual([
       { fromBlock: f64Id, fromOut: "value", toBlock: tableId, toIn: "elems" },
@@ -56,7 +56,7 @@ describe("AppState wiring", () => {
     const f64Id = app.nextId;
     app.addBlock("b_f64", 0, 0);
     const tableId = app.nextId;
-    app.addBlock("b_table_of", 300, 0);
+    app.addBlock("b_array_of", 300, 0);
     app.toggleLink(f64Id, "value", tableId, "elems");
     app.selectLink({ fromBlock: f64Id, fromOut: "value", toBlock: tableId, toIn: "elems" });
     app.deleteSelected();
@@ -70,10 +70,10 @@ describe("AppState wiring", () => {
     const f64Id = app.nextId;
     app.addBlock("b_f64", 0, 0);
     const tableId = app.nextId;
-    app.addBlock("b_table_of", 300, 0);
+    app.addBlock("b_array_of", 300, 0);
     app.toggleLink(f64Id, "value", tableId, "elems");
     app.removeBlock(f64Id);
-    expect(app.blocks.map((block) => block.defId)).toEqual(["b_table_of"]);
+    expect(app.blocks.map((block) => block.defId)).toEqual(["b_array_of"]);
     expect(app.links).toEqual([]);
   });
 });

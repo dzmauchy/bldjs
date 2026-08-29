@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <blocks id="flow" name="Flow Blocks">
-  <library id="wasm" name="WebAssembly"/>
+  <library id="types" name="Types"/>
   <namespace id="flow" name="Flow"/>
 
   <block id="b_start" name="Start" ns="flow" icon="start">
     <attribute name="kind">Start</attribute>
     <attribute name="description">Entry point for a flow</attribute>
-    <out name="out" type="externref"/>
+    <param name="T"/>
+    <out name="out" type="T"/>
   </block>
 
   <block id="b_process" name="Process" ns="flow" icon="process">

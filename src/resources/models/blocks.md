@@ -1,13 +1,32 @@
 # XML Schema Definition (XSD) Guide for AI Agents: Representing Types and Blocks
 
-**Purpose:** This document provides rules, constraints, and structural examples for AI agents tasked with generating or parsing the recursive Abstract Syntax Tree (AST) XML schema. The builtin catalog is WebAssembly (`wasm.xml`): value types, reference types, and typed functions (`func<T>`).
+**Purpose:** This document provides rules, constraints, and structural examples for AI agents tasked with generating or parsing the recursive Abstract Syntax Tree (AST) XML schema. The builtin catalog (`types.xml`) is language-agnostic. WASM is a compilation target, not the type language.
+
+## Common types
+
+| Catalog | Meaning | WASM |
+| --- | --- | --- |
+| `f64` | 64-bit float | `f64` |
+| `f32` | 32-bit float | `f32` |
+| `i32` | 32-bit int | `i32` |
+| `i64` | 64-bit int | `i64` |
+| `str` | string | `js-string` (wasm 3.0) |
+| `bool` | boolean | `i32` |
+| `c1<T>` | consumer | `(func (param T))` |
+| `c2<T1, T2>` | consumer | `(func (param T1) (param T2))` |
+| `s<R>` | supplier | `(func (result R))` |
+| `f1<T, R>` | function | `(func (param T) (result R))` |
+| `f2<T1, T2, R>` | function | `(func (param T1) (param T2) (result R))` |
+| `T[]` | array | array of `T` |
+
+Display uses the same names (`c1<f64>`, `f1<i32, str>`, `f64[]`). `type="f64[]"` and `type="[]"` with a nested `<t>` are both arrays.
 
 ## 1. Core Architecture: The Recursive AST
 The schema represents type constructs through a strictly lowercase, recursive AST. Types are not flat strings; they are composed of nested XML elements.
 
 The base entity is the **Type Expression** (`t`, `in`, `out`, `extends`, `super`, `ancestor`).
 *   **Rule:** Any type expression can endlessly nest other type expressions.
-*   **Rule:** If a tag has a `type` attribute (e.g., `<in name="data" type="table">`), any nested `<t>` elements act as its generic parameters (e.g., `table<T>`).
+*   **Rule:** If a tag has a `type` attribute (e.g., `<in name="data" type="[]">`), any nested `<t>` elements act as its generic parameters (e.g., `T[]`).
 
 ---
 
@@ -16,7 +35,7 @@ The root element is `<blocks>`. It acts as the workspace and contains `<library>
 
 ```xml
 <blocks id="workspace_01" name="Signal Processing" icon="workspace.png">
-  <namespace id="wasm" name="WebAssembly" icon="box.png"/>
+  <namespace id="types" name="Types" icon="box.png"/>
   
   <!-- Blocks and Types go here -->
 </blocks>
@@ -25,38 +44,37 @@ The root element is `<blocks>`. It acts as the workspace and contains `<library>
 ---
 
 ## 3. Modeling Blocks & Factories
-A `<block>` represents an executable node (e.g., a constructor, table op, or typed function).
+A `<block>` represents an executable node (e.g., a constructor, array op, or typed function).
 
 ### Essential Attributes
 *   `id`: Unique identifier.
 *   `name`: Human-readable name.
 *   `ns`: The namespace ID.
-*   `icon`: (Optional) Visual identifier. Built-in blocks use SVG files in `../icons` (for example `icon="map.svg"`).
+*   `icon`: (Optional) Visual identifier. Built-in blocks use SVG files in `../icons` (for example `icon="list.svg"`).
 
 ### Factory Binding
 The `<factory>` element binds the block to a specific operation.
-*   **Rule:** The factory `id` MUST be relative to the block's `ns` attribute (e.g., if block `ns="wasm"`, factory `id="table#new"`).
+*   **Rule:** The factory `id` MUST be relative to the block's `ns` attribute (e.g., if block `ns="types"`, factory `id="array#of"`).
 *   **Rule:** Pass block `<param>` variables down into the `<factory>` via `<t>` elements to enforce generic type unification.
 
 ```xml
-<block id="b_create_map" name="Create Map" ns="wasm" icon="map.png">
+<block id="b_apply" name="Apply" ns="types" icon="func.png">
   <!-- Block Generics -->
-  <param name="K"/>
-  <param name="V"/>
+  <param name="T"/>
+  <param name="R"/>
   
-  <!-- Factory binding relative to wasm -->
-  <factory id="map#of">
-    <t type="K"/>
-    <t type="V"/>
+  <factory id="f1#apply">
+    <t type="T"/>
+    <t type="R"/>
   </factory>
 
-  <in name="key" type="K"/>
-  <in name="val" type="V"/>
+  <in name="fn" type="f1">
+    <t type="T"/>
+    <t type="R"/>
+  </in>
+  <in name="arg" type="T"/>
   
-  <out name="result" type="map">
-    <t type="K"/>
-    <t type="V"/>
-  </out>
+  <out name="result" type="R"/>
 </block>
 ```
 
@@ -71,18 +89,18 @@ Variance is handled via the `variance` attribute. Omission implies invariance (e
 *   **Unbounded (`?`):** `?` (Omit the `type` attribute entirely).
 
 ```xml
-<!-- table<? extends i32> -->
-<in name="covariantInput" type="table">
+<!-- (? extends i32)[] -->
+<in name="covariantInput" type="[]">
   <t type="i32" variance="+"/>
 </in>
 
-<!-- func<? super f64> -->
-<in name="contravariantInput" type="func">
+<!-- c1<? super f64> -->
+<in name="contravariantInput" type="c1">
   <t type="f64" variance="-"/>
 </in>
 
-<!-- table<?> -->
-<in name="unboundedInput" type="table">
+<!-- ?[] -->
+<in name="unboundedInput" type="[]">
   <t variance="?"/>
 </in>
 ```
@@ -101,23 +119,20 @@ When defining a `<param>`, use `<extends>` and `<super>` to bound the generic va
 
 ---
 
-## 5. Modeling WASM typed functions
+## 5. Modeling functions, consumers, and arrays
 
-A typed function is `func<T>`: WASM `(type (func (param T)))`. Compact display uses `fn` for `func`.
-
-Every `<block>` is a WASM function: `<in>` ports are parameters, `<out>` ports are results.
+`<in>` ports and `<out>` ports carry language-agnostic types. The WASM runtime maps a block's ports to params and results (`timer` is `s<f64>`, `sin` is `f1<f64, f64>`, `oscilloscope` is `c1<f64>`).
 
 ```
-timer()            : (result f64)
-quantizer(f64)     : (param f64) (result f64)
-sin(f64)           : (param f64) (result f64)
-oscilloscope(f64)  : (param f64)
+timer()            : s<f64>
+quantizer(f64)     : f1<f64, f64>
+sin(f64)           : f1<f64, f64>
+oscilloscope(f64)  : c1<f64>
 ```
 
 ```xml
-<type name="func" ns="wasm">
+<type name="c1">
   <param name="T"/>
-  <ancestor type="funcref"/>
 </type>
 
 <block id="timer" name="Timer" ns="cs">
@@ -134,37 +149,39 @@ oscilloscope(f64)  : (param f64)
 
 Run assembles each runtime block WAT file from `resources/wasm/blocks` (params = `<in>`, results = `<out>`, plus a runtime `$ctx`) into one module, then compiles it to wasm-gc (`call_ref`). Each Timer worker parks with `memory.atomic.wait32` on a SharedArrayBuffer.
 
-### A. Varargs (`table.new`)
+### A. Varargs (`array#of`)
 Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.
 
 ```xml
-<block id="b_table_of" name="table" ns="wasm">
+<block id="b_array_of" name="array" ns="types">
   <param name="T"/>
   
-  <factory id="table#new">
+  <factory id="array#of">
     <t type="T"/>
   </factory>
 
   <in name="elems" type="T" vararg="true"/>
   
-  <out name="result" type="table">
+  <out name="result" type="[]">
     <t type="T"/>
   </out>
 </block>
 ```
 
+`type="f64[]"` is sugar for the same array type.
+
 ### B. Recursive Generics
 For F-bounded types such as `<T extends rec<T>>`.
 
 ```xml
-<block id="b_rec_new" name="rec.new" ns="wasm">
+<block id="b_rec_new" name="rec.new" ns="example">
   <param name="T">
     <extends type="rec">
       <t type="T"/>
     </extends>
   </param>
   
-  <in name="cls" type="func">
+  <in name="cls" type="c1">
     <t type="T"/>
   </in>
   
@@ -185,8 +202,10 @@ Use `<union>` and `<intersection>` blocks as structural containers. They can rep
 
 <in name="complexPayload">
   <intersection>
-    <t type="funcref"/>
-    <t type="func">
+    <t type="c1">
+      <t type="T"/>
+    </t>
+    <t type="s">
       <t type="T"/>
     </t>
   </intersection>
@@ -197,9 +216,9 @@ Use `<union>` and `<intersection>` blocks as structural containers. They can rep
 Use the empty `<self/>` tag to represent the contextual type instance (e.g., `this` in a fluent builder method).
 
 ```xml
-<block id="b_path" name="path" ns="wasm.module.Builder">
+<block id="b_path" name="path" ns="example.Builder">
   <factory id="Builder#path"/>
-  <in name="segment" type="externref"/>
+  <in name="segment" type="str"/>
   
   <out name="this">
     <self/>
@@ -216,7 +235,7 @@ Any entity in the schema (`blocks`, `block`, `type`, `param`, `in`, `out`, `t`, 
 <block id="b_fetch" name="Fetch Data" ns="com.network">
   <attribute name="description">Executes HTTP GET</attribute>
   
-  <in name="url" type="externref">
+  <in name="url" type="str">
     <attribute name="tooltip">Must be an absolute URL</attribute>
   </in>
 </block>

@@ -5,18 +5,18 @@ import { compileWat } from "../runtime/wat";
 
 export const QUANTIZER_DELAY_MS = 10;
 
-/** WASM `func<T>` — a typed function that consumes `T`. */
+/** Language-agnostic consumer `c1<T>`. */
 export type Func<T> = (value: T) => void;
 export type F64Func = Func<number>;
-/** WASM `func<func<f64>>` — a push source. */
+/** Nested consumer `c1<c1<f64>>` — a push source. */
 export type F64Source = Func<F64Func>;
 
 /**
- * Nested typed functions kept for in-process tests.
- * The XML / wasm-gc library uses first-order signatures:
- *   timer() : (result f64)
- *   quantizer / sin : (param f64) (result f64)
- *   oscilloscope : (param f64)
+ * Nested consumers kept for in-process tests.
+ * XML ports are first-order values; WASM maps:
+ *   timer() : s<f64>          (result f64)
+ *   quantizer / sin : f1<f64, f64>
+ *   oscilloscope : c1<f64>
  */
 export interface Nested<D extends 1 | 2 | 3> {
   readonly depth: D;
