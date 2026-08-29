@@ -31,15 +31,15 @@ async function waitForBlock(driver: WebDriver, defId: string): Promise<void> {
 }
 
 async function clickPortHandle(driver: WebDriver, blockDef: string, testId: string): Promise<void> {
-  const port = await driver.wait(
-    until.elementLocated(By.css(`[data-block-def="${blockDef}"] [data-testid="${testId}"]`)),
+  const handle = await driver.wait(
+    until.elementLocated(
+      By.css(`[data-block-def="${blockDef}"] .svelte-flow__handle[data-testid="${testId}"]`),
+    ),
     10000,
   );
-  await driver.wait(until.elementIsVisible(port), 5000);
-  await driver.executeScript(
-    "arguments[0].scrollIntoView({block:'nearest', inline:'nearest'}); arguments[0].click();",
-    port,
-  );
+  await driver.wait(until.elementIsVisible(handle), 5000);
+  await driver.executeScript("arguments[0].scrollIntoView({block:'nearest', inline:'nearest'});", handle);
+  await driver.actions({ async: true }).move({ origin: handle }).click().perform();
 }
 
 async function linkCount(driver: WebDriver): Promise<string> {
@@ -85,11 +85,11 @@ describe("workspace UI", () => {
     expect(listCard).toContain("List<String>");
   });
 
-  it("zooms from the toolbar", async () => {
-    const before = await driver.findElement(By.css('[data-testid="zoom-percent"]')).getText();
-    await driver.findElement(By.css('[data-testid="zoom-in"]')).click();
+  it("zooms from Svelte Flow controls", async () => {
+    const before = await driver.findElement(By.css('[data-testid="status-zoom"]')).getText();
+    await driver.findElement(By.css(".svelte-flow__controls-zoomin")).click();
     await driver.wait(async () => {
-      const after = await driver.findElement(By.css('[data-testid="zoom-percent"]')).getText();
+      const after = await driver.findElement(By.css('[data-testid="status-zoom"]')).getText();
       return after !== before;
     }, 5000);
   });

@@ -38,27 +38,20 @@
       const viewport = fromTarget ?? fromPoint;
       if (!(viewport instanceof Element)) {
         app.draggingDefId = null;
-        app.draggingId = NONE_ID;
         return;
       }
       app.dropPaletteBlock(clientX, clientY, viewport.getBoundingClientRect());
     };
     const onCancel = () => {
       app.draggingDefId = null;
-      app.draggingId = NONE_ID;
     };
     const onKey = (event: KeyboardEvent) => {
       const meta = event.ctrlKey || event.metaKey;
       switch (event.key) {
-        case "Delete":
-        case "Backspace":
-          app.deleteSelected();
-          break;
         case "Escape":
           app.selected = NONE_ID;
           app.aboutOpen = false;
           app.draggingDefId = null;
-          app.draggingId = NONE_ID;
           app.linkingFrom = null;
           app.closeOscilloscope();
           break;

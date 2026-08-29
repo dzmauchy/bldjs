@@ -38,18 +38,29 @@ describe("AppState placement", () => {
   });
 });
 
-describe("AppState port clicks", () => {
+describe("AppState wiring", () => {
   it("grounds List.of from String", () => {
     const app = new AppState();
     const stringId = app.nextId;
     app.addBlock("b_string", 0, 0);
     const listId = app.nextId;
     app.addBlock("b_list_of", 300, 0);
-    app.onOutputPort(stringId, "value");
-    app.onInputPort(listId, "elements");
+    app.toggleLink(stringId, "value", listId, "elements");
     expect(app.links).toEqual([
       { fromBlock: stringId, fromOut: "value", toBlock: listId, toIn: "elements" },
     ]);
+  });
+
+  it("removes a block and its links", () => {
+    const app = new AppState();
+    const stringId = app.nextId;
+    app.addBlock("b_string", 0, 0);
+    const listId = app.nextId;
+    app.addBlock("b_list_of", 300, 0);
+    app.toggleLink(stringId, "value", listId, "elements");
+    app.removeBlock(stringId);
+    expect(app.blocks.map((block) => block.defId)).toEqual(["b_list_of"]);
+    expect(app.links).toEqual([]);
   });
 });
 
