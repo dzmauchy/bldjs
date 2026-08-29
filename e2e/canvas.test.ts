@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type WebDriver } from "selenium-webdriver";
+import { By, type WebDriver } from "selenium-webdriver";
 import {
   diagramCss,
   diagramRoot,

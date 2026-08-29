@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { Key, type WebDriver } from "selenium-webdriver";
+import { By, Key, type WebDriver } from "selenium-webdriver";
 import {
   clickConnector,
   clickPortHandle,
