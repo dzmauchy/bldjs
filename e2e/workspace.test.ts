@@ -31,13 +31,13 @@ async function waitForBlock(driver: WebDriver, defId: string): Promise<void> {
 }
 
 async function clickPortHandle(driver: WebDriver, blockDef: string, testId: string): Promise<void> {
-  const handle = await driver.wait(
-    until.elementLocated(By.css(`[data-block-def="${blockDef}"] [data-testid="${testId}"] .svelte-flow__handle`)),
+  const port = await driver.wait(
+    until.elementLocated(By.css(`[data-block-def="${blockDef}"] [data-testid="${testId}"]`)),
     10000,
   );
-  await driver.wait(until.elementIsVisible(handle), 5000);
-  await driver.executeScript("arguments[0].scrollIntoView({block:'center', inline:'center'})", handle);
-  await driver.actions({ async: true }).move({ origin: handle }).pause(80).click().perform();
+  await driver.wait(until.elementIsVisible(port), 5000);
+  await driver.executeScript("arguments[0].scrollIntoView({block:'center', inline:'center'})", port);
+  await driver.actions({ async: true }).move({ origin: port }).pause(80).click().perform();
 }
 
 describe("workspace UI", () => {

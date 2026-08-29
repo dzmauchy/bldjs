@@ -38,6 +38,21 @@ describe("AppState placement", () => {
   });
 });
 
+describe("AppState port clicks", () => {
+  it("grounds List.of from String", () => {
+    const app = new AppState();
+    const stringId = app.nextId;
+    app.addBlock("b_string", 0, 0);
+    const listId = app.nextId;
+    app.addBlock("b_list_of", 300, 0);
+    app.onOutputPort(stringId, "value");
+    app.onInputPort(listId, "elements");
+    expect(app.links).toEqual([
+      { fromBlock: stringId, fromOut: "value", toBlock: listId, toIn: "elements" },
+    ]);
+  });
+});
+
 describe("AppState timers", () => {
   it("keeps the same topology key when a block is only moved", () => {
     const app = new AppState();

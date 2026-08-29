@@ -170,7 +170,7 @@
       maxZoom={MAX_ZOOM}
       {defaultEdgeOptions}
       {isValidConnection}
-      clickConnect={true}
+      clickConnect={false}
       connectionMode={ConnectionMode.Strict}
       connectionRadius={16}
       connectionDragThreshold={8}

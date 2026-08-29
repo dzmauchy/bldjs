@@ -67,6 +67,26 @@
     event.stopPropagation();
     app.onInputPort(id, name);
   }
+
+  function onHandleClick(event: MouseEvent | KeyboardEvent, name: string, output: boolean): void {
+    if (isNoneId(id)) {
+      return;
+    }
+    event.stopPropagation();
+    if (output) {
+      app.onOutputPort(id, name);
+    } else {
+      app.onInputPort(id, name);
+    }
+  }
+
+  function onPortKeyDown(event: KeyboardEvent, name: string, output: boolean): void {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    onHandleClick(event, name, output);
+  }
 </script>
 
 <article class={`card block-card ${kind.className} ${compact ? "block-card-compact" : ""}`}>
@@ -112,11 +132,16 @@
             {@const grounded = app.inputIsGrounded(id, port.name)}
             {#if useHandles}
               <div
-                class="block-port-row is-in"
+                class="block-port-row is-in nodrag nopan"
                 class:is-bad={!ok}
                 class:is-grounded={grounded}
                 data-testid={`input-${port.name}`}
                 title={ty}
+                role="button"
+                tabindex="0"
+                onclick={(event) => onHandleClick(event, port.name, false)}
+                onkeydown={(event) => onPortKeyDown(event, port.name, false)}
+                onpointerdown={(event) => event.stopPropagation()}
               >
                 <Handle
                   type="target"
@@ -125,6 +150,7 @@
                   class="block-handle nodrag nopan"
                   isConnectable={true}
                   style="position: relative; top: auto; left: auto; right: auto; bottom: auto; transform: none; pointer-events: all;"
+                  onclick={(event: MouseEvent) => onHandleClick(event, port.name, false)}
                 />
                 <span class="block-port-meta">
                   <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
@@ -157,10 +183,15 @@
               app.linkingFrom?.blockId === id && app.linkingFrom.port === port.name}
             {#if useHandles}
               <div
-                class="block-port-row is-out"
+                class="block-port-row is-out nodrag nopan"
                 class:is-linking={linking}
                 data-testid={`output-${port.name}`}
                 title={ty}
+                role="button"
+                tabindex="0"
+                onclick={(event) => onHandleClick(event, port.name, true)}
+                onkeydown={(event) => onPortKeyDown(event, port.name, true)}
+                onpointerdown={(event) => event.stopPropagation()}
               >
                 <span class="block-port-meta">
                   <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
@@ -173,6 +204,7 @@
                   class="block-handle nodrag nopan"
                   isConnectable={true}
                   style="position: relative; top: auto; left: auto; right: auto; bottom: auto; transform: none; pointer-events: all;"
+                  onclick={(event: MouseEvent) => onHandleClick(event, port.name, true)}
                 />
               </div>
             {:else}
