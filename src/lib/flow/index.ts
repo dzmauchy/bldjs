@@ -21,6 +21,7 @@ export {
 export {
   AvoidRouteEngine,
   CONN_DIR,
+  LIBAVOID_WASM,
   connectorFromLink,
   loadRouterWasm,
   obstacleFromBlock,

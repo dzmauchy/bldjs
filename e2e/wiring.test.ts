@@ -15,6 +15,7 @@ import {
   statusLinks,
   waitDeep,
   runDiagram,
+  waitForAvoidRouter,
   waitForLinks,
 } from "./actions";
 import { createDriver } from "./harness";
@@ -41,6 +42,7 @@ describe("wiring", () => {
     await clickPortHandle(driver, "b_f64", "output-value");
     await clickPortHandle(driver, "b_array_of", "input-elems");
     await waitForLinks(driver, "1 link");
+    await waitForAvoidRouter(driver);
 
     const listHost = await nodeHost(driver, "b_array_of");
     const listRoot = await listHost.getShadowRoot();

@@ -9,7 +9,7 @@ import {
   pinIdFor,
 } from "./avoid-router";
 
-const wasmPath = new URL("../../../node_modules/libavoid-js/dist/libavoid.wasm", import.meta.url).pathname;
+const wasmPath = `${(globalThis as { process?: { cwd?: () => string } }).process?.cwd?.() ?? ""}/node_modules/libavoid-js/dist/libavoid.wasm`;
 
 const layout = (width: number, height: number, outY: number, inY: number): NodeLayout => ({
   width,

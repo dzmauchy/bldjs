@@ -209,6 +209,7 @@ export class BldDiagram extends LitElement {
       console.warn("avoid router failed to load", error);
       return;
     }
+    this.dataset.router = "avoid";
     this.#syncRoutes();
     this.requestUpdate();
   }

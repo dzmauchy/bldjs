@@ -105,6 +105,11 @@ export async function waitForLinks(driver: WebDriver, expected: string): Promise
   await driver.wait(async () => (await statusLinks(driver)) === expected, 8000);
 }
 
+export async function waitForAvoidRouter(driver: WebDriver): Promise<void> {
+  const host = await waitDeep(driver, "bld-diagram");
+  await driver.wait(async () => (await host.getAttribute("data-router")) === "avoid", 10000);
+}
+
 export async function doubleClickPalette(driver: WebDriver, defId: string): Promise<void> {
   const item = await waitDeep(driver, `[data-testid="palette-${defId}"]`);
   await driver.actions({ async: true }).doubleClick(item).perform();

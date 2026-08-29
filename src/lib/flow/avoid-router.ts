@@ -1,10 +1,12 @@
 import { loadAvoidRouter } from "@joint/router-avoid";
 import { AvoidLib } from "libavoid-js";
-import libavoidWasm from "libavoid-js/dist/libavoid.wasm?url";
 import type { Point } from "./geometry";
 import { linkKey } from "./geometry";
 import type { NodeLayout, PortSide } from "./types";
 import type { Link } from "$lib/blocks";
+
+/** Served separately so the LGPL libavoid binary is not inlined into the app bundle. */
+export const LIBAVOID_WASM = "/assets/libavoid.wasm";
 
 const SHAPE_BUFFER = 10;
 const IDEAL_NUDGE = 5;
@@ -97,7 +99,7 @@ export function connectorFromLink(link: Link): RouteConnector {
 }
 
 export function loadRouterWasm(filePath?: string): Promise<void> {
-  return loadAvoidRouter(filePath ?? libavoidWasm);
+  return loadAvoidRouter(filePath ?? LIBAVOID_WASM);
 }
 
 function snap(value: number): number {
