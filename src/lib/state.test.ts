@@ -3,17 +3,17 @@ import { BLOCK_HEIGHT, BLOCK_WIDTH } from "./model";
 import { AppState } from "./state.svelte";
 
 function wireCsPipeline(app: AppState): { timerId: number; scopeId: number } {
-  const scopeId = app.nextId;
-  app.addBlock("oscilloscope", 0, 0);
-  const sinId = app.nextId;
-  app.addBlock("sin", 180, 0);
-  const quantizerId = app.nextId;
-  app.addBlock("quantizer", 360, 0);
   const timerId = app.nextId;
-  app.addBlock("timer", 540, 0);
-  app.toggleLink(scopeId, "out", sinId, "in");
-  app.toggleLink(sinId, "out", quantizerId, "consumer");
-  app.toggleLink(quantizerId, "out", timerId, "consumer");
+  app.addBlock("timer", 0, 0);
+  const quantizerId = app.nextId;
+  app.addBlock("quantizer", 180, 0);
+  const sinId = app.nextId;
+  app.addBlock("sin", 360, 0);
+  const scopeId = app.nextId;
+  app.addBlock("oscilloscope", 540, 0);
+  app.toggleLink(timerId, "out", quantizerId, "in");
+  app.toggleLink(quantizerId, "out", sinId, "in");
+  app.toggleLink(sinId, "out", scopeId, "in");
   return { timerId, scopeId };
 }
 
@@ -90,12 +90,12 @@ describe("AppState timers", () => {
 
   it("restarts timers when the wiring changes", () => {
     const app = new AppState();
-    const { timerId, scopeId } = wireCsPipeline(app);
+    const { timerId } = wireCsPipeline(app);
     app.reconcileTimers();
     const running = app.runFlags.get(timerId);
     expect(running).toBeDefined();
 
-    app.toggleLink(scopeId, "out", app.blocks.find((block) => block.defId === "sin")!.id, "in");
+    app.toggleLink(timerId, "out", app.blocks.find((block) => block.defId === "quantizer")!.id, "in");
     app.reconcileTimers();
     expect(app.runFlags.get(timerId)).toBeUndefined();
     expect(running?.value).toBe(false);

@@ -115,7 +115,7 @@ describe("workspace UI", () => {
     await driver.findElement(By.css('[data-testid="about-modal"] .btn-close')).click();
   });
 
-  it("wires Oscilloscope → Sin → Quantizer → Timer and opens the chart", async () => {
+  it("wires Timer → Quantizer → Sin → Oscilloscope and opens the chart", async () => {
     await driver.findElement(By.css('[data-testid="menu-file"]')).click();
     await driver.findElement(By.css('[data-testid="menu-new-canvas"]')).click();
     await driver.wait(async () => {
@@ -123,7 +123,7 @@ describe("workspace UI", () => {
       return text === "0 blocks";
     }, 5000);
 
-    for (const id of ["oscilloscope", "sin", "quantizer", "timer"] as const) {
+    for (const id of ["timer", "quantizer", "sin", "oscilloscope"] as const) {
       await doubleClickPalette(driver, id);
       await waitForBlock(driver, id);
     }
@@ -140,9 +140,9 @@ describe("workspace UI", () => {
       await driver.wait(async () => (await linkCount(driver)) === expected, 5000);
     }
 
-    await wire("oscilloscope", "out", "sin", "in", "1 link");
-    await wire("sin", "out", "quantizer", "consumer", "2 links");
-    await wire("quantizer", "out", "timer", "consumer", "3 links");
+    await wire("timer", "out", "quantizer", "in", "1 link");
+    await wire("quantizer", "out", "sin", "in", "2 links");
+    await wire("sin", "out", "oscilloscope", "in", "3 links");
 
     await driver.findElement(By.css('[data-block-def="oscilloscope"] [data-testid^="chart-"]')).click();
     await driver.wait(until.elementLocated(By.css('[data-testid="oscilloscope-modal"]')), 5000);

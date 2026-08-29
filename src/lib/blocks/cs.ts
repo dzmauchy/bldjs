@@ -4,7 +4,6 @@ export const QUANTIZER_DELAY_MS = 10;
 const SAMPLE_CAP = 480;
 
 export type DoubleConsumer = (value: number) => void;
-export type DoubleSource = (dc: DoubleConsumer) => void;
 
 export class SampleBuf {
   private inner: number[] = [];
@@ -33,36 +32,6 @@ export function sinConsumer(sink: DoubleConsumer): DoubleConsumer {
   return (value) => sink(Math.sin(value));
 }
 
-/** Java `Consumer<DoubleConsumer> c(long delay, Consumer<DoubleConsumer> consumer)`. */
-export function quantizerSource(delayMs: number, consumer: DoubleSource): DoubleSource {
-  return (dc: DoubleConsumer) => {
-    consumer((value) => {
-      dc(value);
-      park(delayMs);
-    });
-  };
-}
-
-export function sinSource(consumer: DoubleSource): DoubleSource {
-  return (dc: DoubleConsumer) => {
-    consumer((value) => dc(Math.sin(value)));
-  };
-}
-
-export function timerSource(running: { value: boolean }): DoubleSource {
-  return (dc: DoubleConsumer) => {
-    while (running.value) {
-      dc(nowSecs());
-    }
-  };
-}
-
-function park(delayMs: number): void {
-  if (delayMs <= 0) {
-    return;
-  }
-}
-
 type Stage = "sin" | "quantizer";
 
 export interface NodeSpec {
@@ -82,32 +51,26 @@ export function compileTimer(
   buffers: Map<number, SampleBuf>,
 ): CompiledTimer | undefined {
   const defOf = (id: number): string | undefined => nodes.find((node) => node.id === id)?.defId;
-  const incoming = (to: number, port: string): Link | undefined =>
-    links.find((link) => link.toBlock === to && link.toIn === port);
+  const outgoing = (from: number, port: string): Link | undefined =>
+    links.find((link) => link.fromBlock === from && link.fromOut === port);
 
   const stages: Stage[] = [];
   let cursor = timerId;
-  let port = "consumer";
   let scopeId: number | undefined;
   for (let i = 0; i < 64; i += 1) {
-    const link = incoming(cursor, port);
+    const link = outgoing(cursor, "out");
     if (!link) {
       break;
     }
-    const fromDef = defOf(link.fromBlock);
-    if (!fromDef) {
+    const toDef = defOf(link.toBlock);
+    if (!toDef) {
       return undefined;
     }
-    if (fromDef === "quantizer") {
-      stages.push("quantizer");
-      cursor = link.fromBlock;
-      port = "consumer";
-    } else if (fromDef === "sin") {
-      stages.push("sin");
-      cursor = link.fromBlock;
-      port = "in";
-    } else if (fromDef === "oscilloscope") {
-      scopeId = link.fromBlock;
+    if (toDef === "quantizer" || toDef === "sin") {
+      stages.push(toDef);
+      cursor = link.toBlock;
+    } else if (toDef === "oscilloscope") {
+      scopeId = link.toBlock;
       break;
     } else {
       break;

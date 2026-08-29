@@ -8,9 +8,13 @@
   <type name="double" ns="java.lang"/>
 
   <!--
-    Java notation used by these blocks:
-      DoubleConsumer              = Consumer<Double>
-      Consumer<DoubleConsumer>    = Consumer<Consumer<Double>>
+    Push chain (source → sink):
+      Timer.out : Double
+      Quantizer / Sin : Double → Double
+      Oscilloscope.in : Double
+
+    The timer pushes timestamps downstream. Processors map each sample and
+    push to the next consumer. The oscilloscope is the terminal sink.
   -->
   <type name="DoubleConsumer" ns="java.util.function">
     <ancestor type="Consumer">
@@ -21,47 +25,27 @@
   <block id="timer" name="Timer" ns="cs" icon="timer">
     <attribute name="kind">Start</attribute>
     <attribute name="runnable">true</attribute>
-    <attribute name="description">Runnable time source. Accepts Consumer&lt;DoubleConsumer&gt; and runs on its own thread.</attribute>
-    <in name="consumer" type="Consumer">
-      <t type="Consumer">
-        <t type="Double"/>
-      </t>
-    </in>
+    <attribute name="description">Runnable time source. Pushes timestamps downstream on its own interval.</attribute>
+    <out name="out" type="Double"/>
   </block>
 
   <block id="quantizer" name="Quantizer" ns="cs" icon="quantizer">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">Holds each sample for 10 ms (LockSupport.parkNanos).</attribute>
-    <in name="consumer" type="Consumer">
-      <t type="Consumer">
-        <t type="Double"/>
-      </t>
-    </in>
-    <out name="out" type="Consumer">
-      <t type="Consumer">
-        <t type="Double"/>
-      </t>
-    </out>
+    <attribute name="description">Holds each pushed sample for 10 ms (LockSupport.parkNanos).</attribute>
+    <in name="in" type="Double"/>
+    <out name="out" type="Double"/>
   </block>
 
   <block id="sin" name="Sin" ns="cs" icon="sin">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">Maps each sample through Math.sin.</attribute>
-    <in name="in" type="Consumer">
-      <t type="Double"/>
-    </in>
-    <out name="out" type="Consumer">
-      <t type="Consumer">
-        <t type="Double"/>
-      </t>
-    </out>
+    <attribute name="description">Pushes Math.sin of each sample.</attribute>
+    <in name="in" type="Double"/>
+    <out name="out" type="Double"/>
   </block>
 
   <block id="oscilloscope" name="Oscilloscope" ns="cs" icon="scope">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Plots doubles. Click the block to open a live chart.</attribute>
-    <out name="out" type="Consumer">
-      <t type="Double"/>
-    </out>
+    <attribute name="description">Sink that plots pushed doubles. Click Chart for a live view.</attribute>
+    <in name="in" type="Double"/>
   </block>
 </blocks>

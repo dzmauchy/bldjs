@@ -9,6 +9,7 @@
     type ResolvedBlock,
   } from "$lib/blocks";
   import { getAppState } from "$lib/context";
+  import BlockIcon from "./BlockIcon.svelte";
 
   type BlockNode = Node<{ defId: string }, "block">;
 
@@ -50,7 +51,9 @@
     data-block-def={data.defId}
   >
     <div class="flow-node-header">
-      <span class="flow-node-icon" aria-hidden="true">{kind.glyph}</span>
+      <span class="flow-node-icon" aria-hidden="true">
+        <BlockIcon name={def.icon} />
+      </span>
       <span class="flow-node-title">{def.name}</span>
       {#if isScope}
         <button

@@ -1,76 +1,84 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
+  import { Chart, type ChartConfiguration } from "chart.js/auto";
   import { isNoneId } from "$lib/model";
   import { getAppState } from "$lib/context";
 
   const app = getAppState();
   let canvas: HTMLCanvasElement | undefined = $state();
-  let handle: ReturnType<typeof setInterval> | undefined;
+
+  const darkGrid = "rgba(255, 255, 255, 0.08)";
+  const darkTick = "#adb5bd";
 
   $effect(() => {
+    const canvasEl = canvas;
     const id = app.scopeOpen;
-    if (handle !== undefined) {
-      clearInterval(handle);
-      handle = undefined;
-    }
-    if (isNoneId(id)) {
+    if (!canvasEl || isNoneId(id)) {
       return;
     }
-    handle = setInterval(() => {
-      if (!canvas) {
-        return;
-      }
+
+    const config: ChartConfiguration<"line"> = {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "samples",
+            data: [],
+            borderColor: "#0dcaf0",
+            backgroundColor: "rgba(13, 202, 240, 0.16)",
+            fill: true,
+            pointRadius: 0,
+            borderWidth: 1.8,
+            tension: 0.25,
+            spanGaps: true,
+          },
+        ],
+      },
+      options: {
+        animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        color: darkTick,
+        font: { family: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            enabled: true,
+            backgroundColor: "#1c2125",
+            titleColor: "#f8f9fa",
+            bodyColor: "#0dcaf0",
+            borderColor: "rgba(255,255,255,0.12)",
+            borderWidth: 1,
+          },
+        },
+        scales: {
+          x: {
+            display: false,
+            grid: { color: darkGrid },
+          },
+          y: {
+            grid: { color: darkGrid },
+            border: { color: darkGrid },
+            ticks: { color: darkTick, maxTicksLimit: 6 },
+          },
+        },
+      },
+    };
+
+    const chart = new Chart(canvasEl, config);
+    const tick = () => {
       const samples = app.samples.get(id)?.snapshot() ?? [];
-      draw(canvas, samples);
-    }, 50);
-  });
-
-  onDestroy(() => {
-    if (handle !== undefined) {
+      chart.data.labels = samples.map((_, index) => index);
+      chart.data.datasets[0].data = samples;
+      chart.update("none");
+    };
+    tick();
+    const handle = setInterval(tick, 50);
+    return () => {
       clearInterval(handle);
-    }
+      chart.destroy();
+    };
   });
-
-  function draw(target: HTMLCanvasElement, samples: number[]): void {
-    const ctx = target.getContext("2d");
-    if (!ctx) {
-      return;
-    }
-    const width = target.width;
-    const height = target.height;
-    ctx.fillStyle = "#14171a";
-    ctx.fillRect(0, 0, width, height);
-    ctx.strokeStyle = "rgba(255,255,255,0.08)";
-    ctx.lineWidth = 1;
-    for (let y = 0; y <= height; y += 28) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-    if (samples.length < 2) {
-      ctx.fillStyle = "#6c757d";
-      ctx.fillText("Waiting for samples — wire Oscilloscope → Sin → Quantizer → Timer", 16, height / 2);
-      return;
-    }
-    const min = samples.reduce((a, b) => Math.min(a, b), Number.POSITIVE_INFINITY);
-    const max = samples.reduce((a, b) => Math.max(a, b), Number.NEGATIVE_INFINITY);
-    const span = Math.max(max - min, 1e-6);
-    ctx.strokeStyle = "#0dcaf0";
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    const last = samples.length - 1;
-    samples.forEach((value, index) => {
-      const x = (index / last) * (width - 8) + 4;
-      const y = height - 8 - ((value - min) / span) * (height - 16);
-      if (index === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
-      }
-    });
-    ctx.stroke();
-  }
 </script>
 
 {#if !isNoneId(app.scopeOpen)}
@@ -97,8 +105,13 @@
             onclick={() => app.closeOscilloscope()}
           ></button>
         </div>
-        <div class="modal-body p-2">
-          <canvas class="scope-canvas" bind:this={canvas} width="720" height="280"></canvas>
+        <div class="modal-body p-3">
+          <div class="scope-chart nowheel nopan nodrag">
+            <canvas bind:this={canvas}></canvas>
+          </div>
+          <div class="small text-secondary mt-2">
+            Push chain: Timer → Quantizer → Sin → Oscilloscope
+          </div>
         </div>
       </div>
     </div>
