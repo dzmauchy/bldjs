@@ -31,10 +31,12 @@ The base entity is the **Type Expression** (`t`, `in`, `out`, `extends`, `super`
 ---
 
 ## 2. Document Root & Namespaces
-The root element is `<blocks>`. It acts as the workspace and contains `<library>`, `<namespace>`, `<type>`, and `<block>` declarations.
+The root element is `<blocks>`. It acts as the workspace and contains `<library>`, `<namespace>`, `<type>`, and `<block>` declarations. Catalog XML files declare `blocks.xsd` with `xsi:noNamespaceSchemaLocation`.
 
 ```xml
-<blocks id="workspace_01" name="Signal Processing" icon="workspace.png">
+<blocks id="workspace_01" name="Signal Processing" icon="workspace.png"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="blocks.xsd">
   <namespace id="types" name="Types" icon="box.png"/>
   
   <!-- Blocks and Types go here -->

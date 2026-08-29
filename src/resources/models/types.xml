@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<blocks id="types" name="Types">
+<blocks id="types" name="Types" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
   <namespace id="types" name="Types"/>
 
   <!--

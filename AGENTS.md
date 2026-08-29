@@ -1,5 +1,9 @@
 # Agent notes
 
+## Git
+
+Always check the main branch.
+
 ## Models
 
 When launching subagents, keep the same model as this session. Do not switch to a different model.

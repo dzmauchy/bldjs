@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<blocks id="cs" name="Control Systems">
+<blocks id="cs" name="Control Systems" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
   <library id="types" name="Types"/>
   <namespace id="cs" name="Control Systems"/>
 
