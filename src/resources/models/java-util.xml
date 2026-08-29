@@ -51,7 +51,7 @@
     <ancestor type="Object"/>
   </type>
 
-  <block id="b_list_of" name="List.of" ns="java.util" icon="list">
+  <block id="b_list_of" name="List.of" ns="java.util" icon="list.svg">
     <attribute name="kind">Process</attribute>
     <param name="E"/>
     <factory id="List#of">
@@ -63,7 +63,7 @@
     </out>
   </block>
 
-  <block id="b_map_of" name="Map.of" ns="java.util" icon="map">
+  <block id="b_map_of" name="Map.of" ns="java.util" icon="map.svg">
     <attribute name="kind">Process</attribute>
     <param name="K"/>
     <param name="V"/>
@@ -79,7 +79,7 @@
     </out>
   </block>
 
-  <block id="b_optional_of" name="Optional.of" ns="java.util" icon="optional">
+  <block id="b_optional_of" name="Optional.of" ns="java.util" icon="optional.svg">
     <attribute name="kind">Process</attribute>
     <param name="T"/>
     <factory id="Optional#of">
@@ -91,7 +91,7 @@
     </out>
   </block>
 
-  <block id="b_list_get" name="List.get" ns="java.util" icon="list">
+  <block id="b_list_get" name="List.get" ns="java.util" icon="list.svg">
     <attribute name="kind">Process</attribute>
     <param name="E"/>
     <factory id="List#get">

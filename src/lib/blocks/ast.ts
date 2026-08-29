@@ -60,10 +60,42 @@ export function superBound(bound: TypeExpr): TypeExpr {
   return { kind: "wildcard", variance: "contravariant", bound };
 }
 
+/** Short display heads used when `compact` is true. */
+const COMPACT_HEADS: Record<string, string> = {
+  Consumer: "c",
+  Double: "f64",
+  double: "f64",
+};
+
+/** Zero-arg aliases that already encode their type argument. */
+const COMPACT_ALIASES: Record<string, string> = {
+  DoubleConsumer: "c<f64>",
+};
+
+function rawTypeName(name: string): string {
+  const parts = name.split(".");
+  return parts[parts.length - 1] ?? name;
+}
+
+function compactHead(name: string): string {
+  const raw = rawTypeName(name);
+  return COMPACT_HEADS[raw] ?? raw;
+}
+
+function compactAlias(name: string): string | undefined {
+  return COMPACT_ALIASES[rawTypeName(name)];
+}
+
 export function displayType(expr: TypeExpr, compact: boolean): string {
   switch (expr.kind) {
     case "type": {
-      const head = compact ? expr.name : expr.ns ? `${expr.ns}.${expr.name}` : expr.name;
+      if (compact) {
+        const alias = compactAlias(expr.name);
+        if (alias && expr.args.length === 0) {
+          return alias;
+        }
+      }
+      const head = compact ? compactHead(expr.name) : expr.ns ? `${expr.ns}.${expr.name}` : expr.name;
       if (expr.args.length === 0) {
         return head;
       }

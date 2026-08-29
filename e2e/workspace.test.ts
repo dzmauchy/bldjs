@@ -68,6 +68,8 @@ describe("workspace UI", () => {
     const paletteItem = await driver.findElement(By.css('[data-testid="palette-b_string"]')).getText();
     expect(paletteItem).toContain("String");
     expect(paletteItem).not.toContain("→");
+    const paletteIcon = await driver.findElement(By.css('[data-testid="palette-b_string"] svg'));
+    expect(await paletteIcon.isDisplayed()).toBe(true);
   });
 
   it("drops String and List.of, then wires them to infer List<String>", async () => {
@@ -127,6 +129,10 @@ describe("workspace UI", () => {
       await doubleClickPalette(driver, id);
       await waitForBlock(driver, id);
     }
+
+    const timerCard = await driver.findElement(By.css('[data-block-def="timer"]'));
+    expect(await timerCard.getText()).toContain("c<c<c<f64>>>");
+    expect(await timerCard.findElement(By.css("svg")).isDisplayed()).toBe(true);
 
     async function wire(
       fromDef: string,
