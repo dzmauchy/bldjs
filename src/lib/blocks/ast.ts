@@ -62,6 +62,7 @@ export function superBound(bound: TypeExpr): TypeExpr {
 
 /** Short display heads used when `compact` is true. */
 const COMPACT_HEADS: Record<string, string> = {
+  func: "fn",
   Consumer: "c",
   Double: "f64",
   double: "f64",

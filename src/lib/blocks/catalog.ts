@@ -232,5 +232,11 @@ export function sameRaw(
 }
 
 function isObjectName(name: string, ns: string | null): boolean {
-  return name === "Object" || name === "java.lang.Object" || (name === "Object" && ns === "java.lang");
+  return (
+    name === "externref" ||
+    name === "Object" ||
+    name === "java.lang.Object" ||
+    (name === "Object" && ns === "java.lang") ||
+    (name === "externref" && ns === "wasm")
+  );
 }

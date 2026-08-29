@@ -32,10 +32,10 @@ describe("canvas", () => {
     expect(await statusBlocks(driver)).toBe("0 blocks");
     const hint = await (await diagramCss(driver, ".hint-card")).getText();
     expect(hint).toContain("Drop blocks here");
-    const paletteItem = await waitDeep(driver, '[data-testid="palette-b_string"]');
-    expect(await paletteItem.getText()).toContain("String");
+    const paletteItem = await waitDeep(driver, '[data-testid="palette-b_f64"]');
+    expect(await paletteItem.getText()).toContain("f64");
     expect(await paletteItem.getText()).not.toContain("→");
-    const iconHost = await waitDeep(driver, '[data-testid="palette-b_string"] bld-block-icon');
+    const iconHost = await waitDeep(driver, '[data-testid="palette-b_f64"] bld-block-icon');
     const paletteIcon = await (await iconHost.getShadowRoot()).findElement(By.css("svg"));
     expect(await paletteIcon.isDisplayed()).toBe(true);
     const glyphNs = await driver.executeScript(
@@ -61,19 +61,19 @@ describe("canvas", () => {
   });
 
   it("places nodes as flex-sized custom elements", async () => {
-    await placeBlock(driver, "b_string");
+    await placeBlock(driver, "b_f64");
     await placeBlock(driver, "b_decision");
-    const stringBox = await (await nodeHost(driver, "b_string")).getRect();
+    const stringBox = await (await nodeHost(driver, "b_f64")).getRect();
     const decisionBox = await (await nodeHost(driver, "b_decision")).getRect();
     expect(stringBox.width).toBeGreaterThan(80);
     expect(stringBox.height).toBeGreaterThan(40);
     expect(decisionBox.height).toBeGreaterThan(stringBox.height);
-    const tag = await (await nodeHost(driver, "b_string")).getTagName();
+    const tag = await (await nodeHost(driver, "b_f64")).getTagName();
     expect(tag).toBe("bld-node");
   });
 
   it("pans the world when dragging empty canvas", async () => {
-    const host = await nodeHost(driver, "b_string");
+    const host = await nodeHost(driver, "b_f64");
     const before = await host.getRect();
     const canvas = await diagramCss(driver, '[data-testid="diagram-canvas"]');
     const box = await canvas.getRect();
@@ -93,7 +93,7 @@ describe("canvas", () => {
   });
 
   it("drags a node by its header", async () => {
-    const host = await nodeHost(driver, "b_string");
+    const host = await nodeHost(driver, "b_f64");
     const before = await host.getRect();
     const root = await host.getShadowRoot();
     const header = await root.findElement(By.css(".flow-node-header"));
@@ -116,8 +116,8 @@ describe("canvas", () => {
 
   it("drops a palette item onto the canvas", async () => {
     await newCanvas(driver);
-    await dropOnDiagram(driver, "b_integer");
-    await waitForBlock(driver, "b_integer");
+    await dropOnDiagram(driver, "b_i64");
+    await waitForBlock(driver, "b_i64");
     expect(await statusBlocks(driver)).toBe("1 block");
   });
 });

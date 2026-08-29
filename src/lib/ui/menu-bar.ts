@@ -217,6 +217,49 @@ export class BldMenuBar extends LitElement {
 
         <div class="menu-item-wrap position-relative">
           <button
+            class=${classMap({ "menu-item": true, btn: true, "btn-sm": true, active: this.#openMenu === "run" })}
+            type="button"
+            data-testid="menu-run"
+            @click=${() => this.#toggle("run")}
+          >
+            Run
+          </button>
+          <div
+            class=${classMap({
+              "dropdown-menu": true,
+              "app-menu-dropdown": true,
+              show: this.#openMenu === "run",
+              "d-block": this.#openMenu === "run",
+            })}
+          >
+            <button
+              class="dropdown-item"
+              type="button"
+              data-testid="menu-run-diagram"
+              @click=${() => {
+                void app.runDiagram();
+                this.#close();
+              }}
+            >
+              Run
+            </button>
+            <button
+              class="dropdown-item"
+              type="button"
+              data-testid="menu-stop-diagram"
+              ?disabled=${!app.running}
+              @click=${() => {
+                app.stopRun();
+                this.#close();
+              }}
+            >
+              Stop
+            </button>
+          </div>
+        </div>
+
+        <div class="menu-item-wrap position-relative">
+          <button
             class=${classMap({ "menu-item": true, btn: true, "btn-sm": true, active: this.#openMenu === "help" })}
             type="button"
             data-testid="menu-help"

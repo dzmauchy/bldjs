@@ -22,8 +22,8 @@ describe("AppState placement", () => {
     const app = new AppState();
     app.viewportW = 800;
     app.viewportH = 600;
-    app.addBlockAtViewCenter("b_string");
-    app.addBlockAtViewCenter("b_list_of");
+    app.addBlockAtViewCenter("b_f64");
+    app.addBlockAtViewCenter("b_table_of");
     app.addBlockAtViewCenter("sin");
     app.addBlockAtViewCenter("timer");
     for (let i = 0; i < app.blocks.length; i++) {
@@ -39,26 +39,26 @@ describe("AppState placement", () => {
 });
 
 describe("AppState wiring", () => {
-  it("grounds List.of from String", () => {
+  it("grounds table from f64", () => {
     const app = new AppState();
-    const stringId = app.nextId;
-    app.addBlock("b_string", 0, 0);
-    const listId = app.nextId;
-    app.addBlock("b_list_of", 300, 0);
-    app.toggleLink(stringId, "value", listId, "elements");
+    const f64Id = app.nextId;
+    app.addBlock("b_f64", 0, 0);
+    const tableId = app.nextId;
+    app.addBlock("b_table_of", 300, 0);
+    app.toggleLink(f64Id, "value", tableId, "elems");
     expect(app.links).toEqual([
-      { fromBlock: stringId, fromOut: "value", toBlock: listId, toIn: "elements" },
+      { fromBlock: f64Id, fromOut: "value", toBlock: tableId, toIn: "elems" },
     ]);
   });
 
   it("deletes a selected connector without removing blocks", () => {
     const app = new AppState();
-    const stringId = app.nextId;
-    app.addBlock("b_string", 0, 0);
-    const listId = app.nextId;
-    app.addBlock("b_list_of", 300, 0);
-    app.toggleLink(stringId, "value", listId, "elements");
-    app.selectLink({ fromBlock: stringId, fromOut: "value", toBlock: listId, toIn: "elements" });
+    const f64Id = app.nextId;
+    app.addBlock("b_f64", 0, 0);
+    const tableId = app.nextId;
+    app.addBlock("b_table_of", 300, 0);
+    app.toggleLink(f64Id, "value", tableId, "elems");
+    app.selectLink({ fromBlock: f64Id, fromOut: "value", toBlock: tableId, toIn: "elems" });
     app.deleteSelected();
     expect(app.links).toEqual([]);
     expect(app.blocks).toHaveLength(2);
@@ -67,18 +67,18 @@ describe("AppState wiring", () => {
 
   it("removes a block and its links", () => {
     const app = new AppState();
-    const stringId = app.nextId;
-    app.addBlock("b_string", 0, 0);
-    const listId = app.nextId;
-    app.addBlock("b_list_of", 300, 0);
-    app.toggleLink(stringId, "value", listId, "elements");
-    app.removeBlock(stringId);
-    expect(app.blocks.map((block) => block.defId)).toEqual(["b_list_of"]);
+    const f64Id = app.nextId;
+    app.addBlock("b_f64", 0, 0);
+    const tableId = app.nextId;
+    app.addBlock("b_table_of", 300, 0);
+    app.toggleLink(f64Id, "value", tableId, "elems");
+    app.removeBlock(f64Id);
+    expect(app.blocks.map((block) => block.defId)).toEqual(["b_table_of"]);
     expect(app.links).toEqual([]);
   });
 });
 
-describe("AppState timers", () => {
+describe("AppState run", () => {
   it("keeps the same topology key when a block is only moved", () => {
     const app = new AppState();
     const { timerId } = wireCsPipeline(app);
@@ -87,47 +87,46 @@ describe("AppState timers", () => {
     expect(app.timerTopologyKey()).toBe(before);
   });
 
-  it("does not restart a running timer when a block is only moved", () => {
+  it("does not start generators until Run", () => {
     const app = new AppState();
-    const { timerId } = wireCsPipeline(app);
-    app.reconcileTimers();
-    const running = app.runFlags.get(timerId);
-    expect(running?.value).toBe(true);
+    const { scopeId } = wireCsPipeline(app);
+    expect(app.running).toBe(false);
+    expect(app.canRun()).toBe(true);
+    expect(app.isScopeLive(scopeId)).toBe(false);
+    app.openOscilloscope(scopeId);
+    expect(app.scopeOpen).toBe(-1);
+  });
+
+  it("run compiles wasm and enables the oscilloscope chart", async () => {
+    const app = new AppState();
+    const { timerId, scopeId } = wireCsPipeline(app);
+    await app.runDiagram();
+    expect(app.running).toBe(true);
+    expect(app.runError).toBeNull();
+    expect(app.isScopeLive(scopeId)).toBe(true);
+    app.openOscilloscope(scopeId);
+    expect(app.scopeOpen).toBe(scopeId);
 
     app.moveBlockTo(timerId, 24, 16);
-    app.reconcileTimers();
-    expect(app.runFlags.get(timerId)).toBe(running);
-    expect(running?.value).toBe(true);
+    expect(app.running).toBe(true);
+    expect(app.isScopeLive(scopeId)).toBe(true);
 
-    app.stopAllTimers();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const samples = await app.snapshotScope(scopeId);
+    expect(samples.length).toBeGreaterThan(0);
+    app.stopRun();
+    expect(app.running).toBe(false);
+    expect(app.isScopeLive(scopeId)).toBe(false);
   });
 
-  it("does not reenter reconcileTimers when runFlags notify subscribers", () => {
-    const app = new AppState();
-    let n = 0;
-    app.subscribe(() => {
-      n += 1;
-      app.reconcileTimers();
-    });
-    wireCsPipeline(app);
-    app.reconcileTimers();
-    expect(n).toBeGreaterThan(0);
-    expect(app.runFlags.get(app.blocks.find((block) => block.defId === "timer")!.id)?.value).toBe(true);
-    app.stopAllTimers();
-  });
-
-  it("restarts timers when the wiring changes", () => {
+  it("stops the run when the wiring changes", async () => {
     const app = new AppState();
     const { timerId } = wireCsPipeline(app);
-    app.reconcileTimers();
-    const running = app.runFlags.get(timerId);
-    expect(running).toBeDefined();
+    await app.runDiagram();
+    expect(app.running).toBe(true);
 
     app.toggleLink(timerId, "out", app.blocks.find((block) => block.defId === "quantizer")!.id, "in");
-    app.reconcileTimers();
-    expect(app.runFlags.get(timerId)).toBeUndefined();
-    expect(running?.value).toBe(false);
-
-    app.stopAllTimers();
+    expect(app.running).toBe(false);
+    expect(app.canRun()).toBe(false);
   });
 });

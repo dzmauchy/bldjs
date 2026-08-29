@@ -8,9 +8,9 @@ describe("flow icons", () => {
     expect(iconKey("timer.png")).toBe("timer");
     expect(iconKey("enum.svg")).toBe("enum");
     expect(iconSvgInner("missing")).toBe(iconSvgInner("process"));
-    expect(renderIconSvg("string")).toContain("viewBox");
-    expect(renderIconSvg("string")).toContain('xmlns="http://www.w3.org/2000/svg"');
-    expect(renderIconSvg("string")).toContain(iconSvgInner("string"));
+    expect(renderIconSvg("f64")).toContain("viewBox");
+    expect(renderIconSvg("f64")).toContain('xmlns="http://www.w3.org/2000/svg"');
+    expect(renderIconSvg("f64")).toContain(iconSvgInner("f64"));
   });
 
   it("has an svg file for every catalog block", () => {

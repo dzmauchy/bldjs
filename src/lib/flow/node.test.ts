@@ -8,17 +8,18 @@ function sampleState(overrides: Partial<BldNodeState> = {}): BldNodeState {
   return {
     blockId: 7,
     defId: "b_map_of",
-    name: "Map.of",
+    name: "map",
     icon: "map",
     kindClass: "block-kind-process",
     selected: false,
-    paramsLine: "K = String · V = Integer",
+    paramsLine: "K = i32 · V = f64",
     showChart: false,
+    chartEnabled: false,
     inputs: [
-      { name: "key", typeLabel: "String", vararg: false, grounded: true, compatible: true },
-      { name: "val", typeLabel: "Integer", vararg: false, grounded: false, compatible: true },
+      { name: "key", typeLabel: "i32", vararg: false, grounded: true, compatible: true },
+      { name: "val", typeLabel: "f64", vararg: false, grounded: false, compatible: true },
     ],
-    outputs: [{ name: "result", typeLabel: "Map<String, Integer>", vararg: false }],
+    outputs: [{ name: "result", typeLabel: "map<i32, f64>", vararg: false }],
     ...overrides,
   };
 }
@@ -51,9 +52,9 @@ describe("BldNode", () => {
     expect(shadow!.querySelectorAll("[data-port]")).toHaveLength(3);
     expect(shadow!.querySelector('[data-testid="input-key"]')?.textContent).toContain("key");
     expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).toContain("result");
-    expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).not.toContain("Map<String, Integer>");
-    expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("Map<String, Integer>");
-    expect(shadow!.querySelector(".flow-node-params")?.textContent).toContain("K = String");
+    expect(shadow!.querySelector('[data-testid="output-result"]')?.textContent).not.toContain("map<i32, f64>");
+    expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("map<i32, f64>");
+    expect(shadow!.querySelector(".flow-node-params")?.textContent).toContain("K = i32");
     expect(node.dataset.blockDef).toBe("b_map_of");
     const glyph = shadow!.querySelector(".flow-node-icon path, .flow-node-icon rect, .flow-node-icon circle");
     expect(glyph).not.toBeNull();
@@ -87,6 +88,7 @@ describe("BldNode", () => {
         defId: "oscilloscope",
         name: "Oscilloscope",
         showChart: true,
+        chartEnabled: true,
         selected: true,
         inputs: [{ name: "in", typeLabel: "double", vararg: false }],
         outputs: [],
@@ -100,8 +102,31 @@ describe("BldNode", () => {
     node.addEventListener("chartclick", () => {
       opened = true;
     });
+    expect(chart.disabled).toBe(false);
     chart.click();
     expect(opened).toBe(true);
+  });
+
+  it("does not emit chartclick when the chart is disabled", async () => {
+    const node = await mountNode(
+      sampleState({
+        defId: "oscilloscope",
+        name: "Oscilloscope",
+        showChart: true,
+        chartEnabled: false,
+        inputs: [{ name: "in", typeLabel: "fn<f64>", vararg: false }],
+        outputs: [],
+        paramsLine: "",
+      }),
+    );
+    const chart = node.shadowRoot!.querySelector('[data-testid="chart-7"]') as HTMLButtonElement;
+    expect(chart.disabled).toBe(true);
+    let opened = false;
+    node.addEventListener("chartclick", () => {
+      opened = true;
+    });
+    chart.click();
+    expect(opened).toBe(false);
   });
 
   it("reports its measured size through noderesize", async () => {

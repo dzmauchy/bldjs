@@ -5,14 +5,11 @@ import {
   type Link,
   type NodeSpec,
   type ResolvedBlock,
-  SampleBuf,
   type XmlSource,
   associateBuiltinModels,
   blockAttribute,
-  compileTimer,
+  compileGenerator,
   infer,
-  spawnTimer,
-  stop,
 } from "./blocks";
 import { linksEqual } from "./blocks/diagram";
 import {
@@ -27,6 +24,8 @@ import {
   screenToWorld,
   zoomToward,
 } from "./model";
+import { type GeneratorHandle, startGenerator } from "./runtime/generator";
+import { wat2wasm } from "./runtime/wabt";
 
 export interface BlockInstance {
   id: number;
@@ -74,13 +73,14 @@ export class AppState extends EventTarget {
   declare aboutOpen: boolean;
   declare draggingDefId: string | null;
   declare linkingFrom: LinkingFrom | null;
-  declare samples: Map<number, SampleBuf>;
   declare scopeOpen: number;
-  declare runFlags: Map<number, { value: boolean }>;
+  declare running: boolean;
+  declare runError: string | null;
 
-  #timerStops = new Map<number, () => void>();
-  #lastTimerTopology = "";
-  #reconciling = false;
+  #generators = new Map<number, GeneratorHandle>();
+  #scopeToTimer = new Map<number, number>();
+  #runTopology = "";
+  #runningOp = 0;
 
   constructor() {
     super();
@@ -102,9 +102,9 @@ export class AppState extends EventTarget {
       aboutOpen: false,
       draggingDefId: null,
       linkingFrom: null,
-      samples: new Map(),
       scopeOpen: NONE_ID,
-      runFlags: new Map(),
+      running: false,
+      runError: null,
     });
   }
 
@@ -139,13 +139,9 @@ export class AppState extends EventTarget {
     }
     const id = this.nextId;
     this.nextId = id + 1;
-    if (defId === "oscilloscope") {
-      const next = new Map(this.samples);
-      next.set(id, new SampleBuf());
-      this.samples = next;
-    }
     this.blocks = [...this.blocks, { id, defId, x, y }];
     this.selectBlock(id);
+    this.#invalidateRun();
   }
 
   addBlockAtViewCenter(defId: string): void {
@@ -167,10 +163,9 @@ export class AppState extends EventTarget {
   }
 
   clearCanvas(): void {
-    this.stopAllTimers();
+    this.stopRun();
     this.blocks = [];
     this.links = [];
-    this.samples = new Map();
     this.scopeOpen = NONE_ID;
     this.selected = NONE_ID;
     this.selectedLink = null;
@@ -182,10 +177,6 @@ export class AppState extends EventTarget {
     if (!this.blocks.some((block) => block.id === id)) {
       return;
     }
-    this.stopTimer(id);
-    const samples = new Map(this.samples);
-    samples.delete(id);
-    this.samples = samples;
     if (this.scopeOpen === id) {
       this.scopeOpen = NONE_ID;
     }
@@ -200,6 +191,7 @@ export class AppState extends EventTarget {
     if (this.selectedLink && (this.selectedLink.fromBlock === id || this.selectedLink.toBlock === id)) {
       this.selectedLink = null;
     }
+    this.#invalidateRun();
   }
 
   deleteSelected(): void {
@@ -218,6 +210,7 @@ export class AppState extends EventTarget {
     if (this.selectedLink && linksEqual(this.selectedLink, link)) {
       this.selectedLink = null;
     }
+    this.#invalidateRun();
   }
 
   resolveAll(): Map<number, ResolvedBlock> {
@@ -225,7 +218,14 @@ export class AppState extends EventTarget {
     return infer(this.catalog, nodes, this.links);
   }
 
+  isScopeLive(id: number): boolean {
+    return this.running && this.#scopeToTimer.has(id);
+  }
+
   openOscilloscope(id: number): void {
+    if (!this.isScopeLive(id)) {
+      return;
+    }
     if (this.blocks.some((block) => block.id === id && block.defId === "oscilloscope")) {
       this.scopeOpen = id;
     }
@@ -235,31 +235,15 @@ export class AppState extends EventTarget {
     this.scopeOpen = NONE_ID;
   }
 
-  stopTimer(id: number): void {
-    const flags = new Map(this.runFlags);
-    const flag = flags.get(id);
-    if (flag) {
-      stop(flag);
-      flags.delete(id);
+  async snapshotScope(id: number): Promise<number[]> {
+    const timerId = this.#scopeToTimer.get(id);
+    if (timerId === undefined) {
+      return [];
     }
-    this.#timerStops.get(id)?.();
-    this.#timerStops.delete(id);
-    this.runFlags = flags;
+    return (await this.#generators.get(timerId)?.snapshot()) ?? [];
   }
 
-  stopAllTimers(): void {
-    for (const flag of this.runFlags.values()) {
-      stop(flag);
-    }
-    for (const cancel of this.#timerStops.values()) {
-      cancel();
-    }
-    this.#timerStops.clear();
-    this.runFlags = new Map();
-    this.#lastTimerTopology = "";
-  }
-
-  /** Block ids, definitions, and links — not positions — so moving a block does not restart timers. */
+  /** Block ids, definitions, and links — not positions — so moving a block does not restart generators. */
   timerTopologyKey(): string {
     const nodes = this.blocks.map((block) => `${block.id}:${block.defId}`).join(",");
     const links = this.links
@@ -268,39 +252,72 @@ export class AppState extends EventTarget {
     return `${nodes}|${links}`;
   }
 
-  reconcileTimers(): void {
-    if (this.#reconciling) {
-      return;
-    }
-    const topology = this.timerTopologyKey();
-    if (topology === this.#lastTimerTopology) {
-      return;
-    }
-    this.#reconciling = true;
-    try {
-      const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
-      const wanted = this.blocks
-        .filter((block) => block.defId === "timer")
-        .filter((block) => compileTimer(block.id, nodes, this.links, this.samples) !== undefined)
-        .map((block) => block.id);
+  compiledGenerators() {
+    const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
+    return this.blocks
+      .filter((block) => block.defId === "timer")
+      .map((block) => compileGenerator(block.id, nodes, this.links))
+      .filter((item): item is NonNullable<typeof item> => item !== undefined);
+  }
 
-      this.stopAllTimers();
-      const flags = new Map<number, { value: boolean }>();
-      for (const id of wanted) {
-        const compiled = compileTimer(id, nodes, this.links, this.samples);
-        if (!compiled) {
-          continue;
-        }
-        const running = { value: true };
-        const cancel = spawnTimer(compiled, running);
-        flags.set(id, running);
-        this.#timerStops.set(id, cancel);
-      }
-      this.runFlags = flags;
-      this.#lastTimerTopology = topology;
-    } finally {
-      this.#reconciling = false;
+  canRun(): boolean {
+    return this.compiledGenerators().length > 0;
+  }
+
+  stopRun(): void {
+    this.#runningOp += 1;
+    for (const handle of this.#generators.values()) {
+      handle.stop();
     }
+    this.#generators.clear();
+    this.#scopeToTimer.clear();
+    this.#runTopology = "";
+    this.running = false;
+    if (this.scopeOpen !== NONE_ID && !this.isScopeLive(this.scopeOpen)) {
+      this.scopeOpen = NONE_ID;
+    }
+  }
+
+  async runDiagram(): Promise<void> {
+    const topology = this.timerTopologyKey();
+    const compiled = this.compiledGenerators();
+    this.stopRun();
+    if (compiled.length === 0) {
+      this.runError = "Wire a Timer through to an Oscilloscope, then Run.";
+      return;
+    }
+    const op = this.#runningOp;
+    try {
+      for (const item of compiled) {
+        const wasm = await wat2wasm(item.wat);
+        if (op !== this.#runningOp) {
+          return;
+        }
+        const handle = await startGenerator({ wasm, delayMs: item.delayMs });
+        if (op !== this.#runningOp) {
+          handle.stop();
+          return;
+        }
+        this.#generators.set(item.timerId, handle);
+        this.#scopeToTimer.set(item.scopeId, item.timerId);
+      }
+      this.#runTopology = topology;
+      this.runError = null;
+      this.running = true;
+    } catch (error) {
+      this.stopRun();
+      this.runError = error instanceof Error ? error.message : "Run failed";
+    }
+  }
+
+  #invalidateRun(): void {
+    if (!this.running && this.#generators.size === 0) {
+      return;
+    }
+    if (this.timerTopologyKey() === this.#runTopology) {
+      return;
+    }
+    this.stopRun();
   }
 
   toggleLink(fromBlock: number, fromOut: string, toBlock: number, toIn: string): void {
@@ -313,6 +330,7 @@ export class AppState extends EventTarget {
       if (this.selectedLink && linksEqual(this.selectedLink, link)) {
         this.selectedLink = null;
       }
+      this.#invalidateRun();
       return;
     }
     let next = this.links;
@@ -320,6 +338,7 @@ export class AppState extends EventTarget {
       next = next.filter((item) => !(item.toBlock === link.toBlock && item.toIn === link.toIn));
     }
     this.links = [...next, link];
+    this.#invalidateRun();
   }
 
   inputIsGrounded(blockId: number, port: string): boolean {
