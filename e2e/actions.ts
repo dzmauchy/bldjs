@@ -22,6 +22,11 @@ export async function diagramCss(driver: WebDriver, selector: string) {
 }
 
 export async function newCanvas(driver: WebDriver): Promise<void> {
+  await driver.actions({ async: true }).sendKeys(Key.ESCAPE).perform();
+  await driver.wait(async () => {
+    const modals = await driver.findElements(By.css('[data-testid="oscilloscope-modal"], [data-testid="about-modal"]'));
+    return modals.length === 0;
+  }, 5000);
   await driver.findElement(By.css('[data-testid="menu-file"]')).click();
   await driver.findElement(By.css('[data-testid="menu-new-canvas"]')).click();
   await driver.wait(async () => (await statusBlocks(driver)) === "0 blocks", 5000);

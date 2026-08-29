@@ -110,6 +110,8 @@ describe("wiring", () => {
     const chart = await (await scope.getShadowRoot()).findElement(By.css('[data-testid^="chart-"]'));
     await chart.click();
     await driver.wait(until.elementLocated(By.css('[data-testid="oscilloscope-modal"]')), 5000);
+    await driver.actions({ async: true }).sendKeys(Key.ESCAPE).perform();
+    await driver.wait(async () => (await driver.findElements(By.css('[data-testid="oscilloscope-modal"]'))).length === 0, 5000);
   });
 
   it("moves the connector when a wired node is dragged", async () => {
