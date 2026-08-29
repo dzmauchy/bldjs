@@ -30,6 +30,16 @@ async function waitForBlock(driver: WebDriver, defId: string): Promise<void> {
   await driver.wait(until.elementLocated(By.css(`[data-block-def="${defId}"]`)), 10000);
 }
 
+async function clickPortHandle(driver: WebDriver, blockDef: string, testId: string): Promise<void> {
+  const handle = await driver.wait(
+    until.elementLocated(By.css(`[data-block-def="${blockDef}"] [data-testid="${testId}"] .svelte-flow__handle`)),
+    10000,
+  );
+  await driver.wait(until.elementIsVisible(handle), 5000);
+  await driver.executeScript("arguments[0].scrollIntoView({block:'center', inline:'center'})", handle);
+  await driver.actions({ async: true }).move({ origin: handle }).pause(80).click().perform();
+}
+
 describe("workspace UI", () => {
   let driver: WebDriver;
 
@@ -57,14 +67,8 @@ describe("workspace UI", () => {
     await doubleClickPalette(driver, "b_list_of");
     await waitForBlock(driver, "b_list_of");
 
-    const output = await driver.findElement(
-      By.css('[data-block-def="b_string"] [data-testid="output-value"] .svelte-flow__handle'),
-    );
-    const input = await driver.findElement(
-      By.css('[data-block-def="b_list_of"] [data-testid="input-elements"] .svelte-flow__handle'),
-    );
-    await output.click();
-    await input.click();
+    await clickPortHandle(driver, "b_string", "output-value");
+    await clickPortHandle(driver, "b_list_of", "input-elements");
 
     await driver.wait(async () => {
       const text = await driver.findElement(By.css('[data-testid="status-links"]')).getText();
@@ -116,14 +120,8 @@ describe("workspace UI", () => {
     }
 
     async function wire(fromDef: string, fromPort: string, toDef: string, toPort: string): Promise<void> {
-      const output = await driver.findElement(
-        By.css(`[data-block-def="${fromDef}"] [data-testid="output-${fromPort}"] .svelte-flow__handle`),
-      );
-      const input = await driver.findElement(
-        By.css(`[data-block-def="${toDef}"] [data-testid="input-${toPort}"] .svelte-flow__handle`),
-      );
-      await output.click();
-      await input.click();
+      await clickPortHandle(driver, fromDef, `output-${fromPort}`);
+      await clickPortHandle(driver, toDef, `input-${toPort}`);
     }
 
     await wire("oscilloscope", "out", "sin", "in");

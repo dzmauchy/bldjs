@@ -112,16 +112,21 @@ export class AppState {
   }
 
   addBlockAtViewCenter(defId: string): void {
-    const zoom = this.zoom;
-    const cascade = (this.blocks.length % 6) * 28;
+    const n = this.blocks.length;
+    const col = n % 2;
+    const row = Math.floor(n / 2);
     const [worldX, worldY] = screenToWorld(
       this.viewportW / 2,
       this.viewportH / 2,
       this.panX,
       this.panY,
-      zoom,
+      this.zoom,
     );
-    this.addBlock(defId, worldX - BLOCK_WIDTH / 2 + cascade, worldY - BLOCK_HEIGHT / 2 + cascade);
+    this.addBlock(
+      defId,
+      worldX - BLOCK_WIDTH - 24 + col * (BLOCK_WIDTH + 48),
+      worldY - BLOCK_HEIGHT + row * (BLOCK_HEIGHT + 48),
+    );
   }
 
   dropPaletteBlock(clientX: number, clientY: number, rect: DOMRect): void {

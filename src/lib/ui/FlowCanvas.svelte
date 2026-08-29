@@ -172,6 +172,8 @@
       {isValidConnection}
       clickConnect={true}
       connectionMode={ConnectionMode.Strict}
+      connectionRadius={16}
+      connectionDragThreshold={8}
       zoomOnDoubleClick={false}
       deleteKey={null}
       nodeDragThreshold={4}

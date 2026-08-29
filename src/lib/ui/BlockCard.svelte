@@ -122,8 +122,9 @@
                   type="target"
                   id={port.name}
                   position={Position.Left}
-                  class="block-handle"
+                  class="block-handle nodrag nopan"
                   isConnectable={true}
+                  style="position: relative; top: auto; left: auto; right: auto; bottom: auto; transform: none; pointer-events: all;"
                 />
                 <span class="block-port-meta">
                   <span class="block-port-name">{port.vararg ? `${port.name}…` : port.name}</span>
@@ -169,8 +170,9 @@
                   type="source"
                   id={port.name}
                   position={Position.Right}
-                  class="block-handle"
+                  class="block-handle nodrag nopan"
                   isConnectable={true}
+                  style="position: relative; top: auto; left: auto; right: auto; bottom: auto; transform: none; pointer-events: all;"
                 />
               </div>
             {:else}

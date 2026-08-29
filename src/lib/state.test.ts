@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BLOCK_HEIGHT, BLOCK_WIDTH } from "./model";
 import { AppState } from "./state.svelte";
 
 function wireCsPipeline(app: AppState): { timerId: number; scopeId: number } {
@@ -15,6 +16,27 @@ function wireCsPipeline(app: AppState): { timerId: number; scopeId: number } {
   app.toggleLink(quantizerId, "out", timerId, "consumer");
   return { timerId, scopeId };
 }
+
+describe("AppState placement", () => {
+  it("tiles double-clicked blocks so they do not overlap", () => {
+    const app = new AppState();
+    app.viewportW = 800;
+    app.viewportH = 600;
+    app.addBlockAtViewCenter("b_string");
+    app.addBlockAtViewCenter("b_list_of");
+    app.addBlockAtViewCenter("sin");
+    app.addBlockAtViewCenter("timer");
+    for (let i = 0; i < app.blocks.length; i++) {
+      for (let j = i + 1; j < app.blocks.length; j++) {
+        const a = app.blocks[i];
+        const b = app.blocks[j];
+        const overlapX = Math.abs(a.x - b.x) < BLOCK_WIDTH;
+        const overlapY = Math.abs(a.y - b.y) < BLOCK_HEIGHT;
+        expect(overlapX && overlapY).toBe(false);
+      }
+    }
+  });
+});
 
 describe("AppState timers", () => {
   it("keeps the same topology key when a block is only moved", () => {
