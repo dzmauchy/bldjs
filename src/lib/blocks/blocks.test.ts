@@ -477,7 +477,7 @@ describe("blocks", () => {
     expect(compiled.delayMs).toBe(QUANTIZER_DELAY_MS);
     expect(compiled.wat).toContain("(type $fn_f64 (func (param f64)))");
     expect(compiled.wat).toContain("(func $consume (type $fn_f64)");
-    expect(compiled.wat).toContain("(export \"tick\")");
+    expect(compiled.wat).toContain('(export "tick" (func $tick))');
     expect(compiled.wat).toContain("(table $fns");
     expect(compiled.wat).toContain("call $sin");
     expect(compiled.wat).toContain("call $park");
@@ -591,7 +591,8 @@ describe("blocks", () => {
   it("generator wat uses typed func types even without stages", () => {
     const wat = generatorWat([]);
     expect(wat).toContain("(type $fn_f64 (func (param f64)))");
-    expect(wat).toContain("(func $tick (type $fn_tick) (export \"tick\")");
+    expect(wat).toContain("(func $tick (type $fn_tick)");
+    expect(wat).toContain('(export "tick" (func $tick))');
     expect(wat).not.toContain("call $sin");
   });
 });

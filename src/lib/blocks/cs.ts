@@ -168,8 +168,8 @@ export function generatorWat(stages: readonly Stage[]): string {
   const stageNames: string[] = [];
   let next = "$consume";
   funcs.push(
-    `  (func $consume (type $fn_f64) (param $x f64)`,
-    `    (call $push (local.get $x)))`,
+    `  (func $consume (type $fn_f64)`,
+    `    (call $push (local.get 0)))`,
   );
   stageNames.push("$consume");
 
@@ -177,17 +177,17 @@ export function generatorWat(stages: readonly Stage[]): string {
     if (stage === "sin") {
       const name = `$apply_sin_${stageNames.length}`;
       funcs.push(
-        `  (func ${name} (type $fn_f64) (param $x f64)`,
-        `    (call ${next} (call $sin (local.get $x))))`,
+        `  (func ${name} (type $fn_f64)`,
+        `    (call ${next} (call $sin (local.get 0))))`,
       );
       next = name;
       stageNames.push(name);
     } else {
       const name = `$apply_quantizer_${stageNames.length}`;
       funcs.push(
-        `  (func ${name} (type $fn_f64) (param $x f64)`,
+        `  (func ${name} (type $fn_f64)`,
         `    (call $park)`,
-        `    (call ${next} (local.get $x)))`,
+        `    (call ${next} (local.get 0)))`,
       );
       next = name;
       stageNames.push(name);
@@ -197,8 +197,9 @@ export function generatorWat(stages: readonly Stage[]): string {
   funcs.push(
     `  (table $fns ${stageNames.length} funcref)`,
     `  (elem (i32.const 0) ${stageNames.join(" ")})`,
-    `  (func $tick (type $fn_tick) (export "tick")`,
+    `  (func $tick (type $fn_tick)`,
     `    (call ${next} (call $now)))`,
+    `  (export "tick" (func $tick))`,
   );
 
   return `(module\n${funcs.join("\n")}\n)\n`;

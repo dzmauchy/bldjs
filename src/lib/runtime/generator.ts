@@ -16,7 +16,8 @@ export async function instantiateGenerator(
   buffer: number[],
   now?: () => number,
 ): Promise<() => void> {
-  const { instance } = await WebAssembly.instantiate(wasm, createHost(buffer, now));
+  const module = await WebAssembly.compile(wasm.slice().buffer);
+  const instance = await WebAssembly.instantiate(module, createHost(buffer, now));
   const tick = instance.exports.tick;
   if (typeof tick !== "function") {
     throw new Error("generator wasm is missing exported tick");

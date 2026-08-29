@@ -15,7 +15,9 @@ function stopInner(): void {
 async function start(wasm: ArrayBuffer, delayMs: number): Promise<void> {
   stopInner();
   buffer = [];
-  const { instance } = await WebAssembly.instantiate(wasm, createHost(buffer));
+  const bytes = new Uint8Array(wasm);
+  const module = await WebAssembly.compile(bytes.buffer);
+  const instance = await WebAssembly.instantiate(module, createHost(buffer));
   const exported = instance.exports.tick;
   if (typeof exported !== "function") {
     throw new Error("generator wasm is missing exported tick");

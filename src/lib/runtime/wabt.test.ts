@@ -52,9 +52,10 @@ describe("wabt generators", () => {
 
   it("host push caps the sample buffer", () => {
     const buffer: number[] = [];
-    const host = createHost(buffer);
+    const imports = createHost(buffer);
+    const push = imports.host.push as (value: number) => void;
     for (let i = 0; i < 500; i += 1) {
-      host.host.push(i);
+      push(i);
     }
     expect(buffer.length).toBe(480);
     expect(buffer[0]).toBe(20);
