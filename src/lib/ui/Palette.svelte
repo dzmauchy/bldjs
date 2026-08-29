@@ -1,6 +1,7 @@
 <script lang="ts">
   import { type BlockDef } from "$lib/blocks";
   import { getAppState } from "$lib/context";
+  import BlockIcon from "./BlockIcon.svelte";
 
   const app = getAppState();
   let open = $state(new Set(["cs", "flow", "java.lang", "java.util"]));
@@ -86,7 +87,9 @@
                   app.addBlockAtViewCenter(def.id);
                 }}
               >
-                <span class="palette-item-icon" aria-hidden="true">{kind.glyph}</span>
+                <span class="palette-item-icon" aria-hidden="true">
+                  <BlockIcon name={def.icon} />
+                </span>
                 <span class="palette-item-label">{def.name}</span>
               </div>
             {/each}

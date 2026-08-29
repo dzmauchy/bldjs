@@ -42,7 +42,7 @@ Serve that folder with any static file server.
 
 - Drag a block icon from the left pane onto the canvas (or double-click a palette item to drop it in the center).
 - Click or drag from an output handle to an input handle to ground a type. Inferred parameters and port types update on the block.
-- Control Systems (`cs`): wire Oscilloscope → Sin → Quantizer → Timer. The timer runs on its own interval. Click Oscilloscope to open a live chart.
+- Control Systems (`cs`): wire Timer → Quantizer → Sin → Oscilloscope. The timer pushes samples on its own interval. Click Chart on Oscilloscope for a live Chart.js plot.
 - Scroll to zoom toward the cursor. Use Svelte Flow's zoom controls in the lower-right, or **View** in the menu.
 - Drag empty canvas space to pan. Drag a placed block to move it.
 - **Delete** / **Backspace** removes the selected block or edge. **Ctrl/Cmd+0** resets the view.
@@ -51,6 +51,7 @@ Serve that folder with any static file server.
 
 - Svelte 5 (CSR)
 - [Svelte Flow](https://svelteflow.dev/) (`@xyflow/svelte`) for the diagram
+- [Chart.js](https://www.chartjs.org/) for the oscilloscope (dark mode)
 - Vite
 - TypeScript
 - Bootstrap 5.3.8, dark theme (`data-bs-theme="dark"`)

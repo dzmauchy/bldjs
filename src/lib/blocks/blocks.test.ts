@@ -380,19 +380,16 @@ describe("blocks", () => {
   it("control systems model and types", () => {
     const cat = catalog();
     const timer = cat.block("timer")!;
-    expect(timer.outputs.length).toBe(0);
-    expect(displayType(timer.inputs.find((port) => port.name === "consumer")!.ty, true)).toBe(
-      "Consumer<Consumer<Double>>",
-    );
+    expect(timer.inputs.length).toBe(0);
+    expect(displayType(timer.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Double");
     expect(timer.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
     const scope = cat.block("oscilloscope")!;
-    expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Consumer<Double>");
+    expect(scope.outputs.length).toBe(0);
+    expect(displayType(scope.inputs.find((port) => port.name === "in")!.ty, true)).toBe("Double");
     expect(displayType(cat.block("quantizer")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
-      "Consumer<Consumer<Double>>",
+      "Double",
     );
-    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
-      "Consumer<Double>",
-    );
+    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("Double");
     expect(cat.namespaceLabel("cs")).toBe("Control Systems");
     expect(cat.findType("double", "java.lang")).toBeDefined();
     expect(cat.findType("DoubleConsumer", "java.util.function")).toBeDefined();
@@ -415,9 +412,9 @@ describe("blocks", () => {
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "consumer" },
-      { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "consumer" },
+      { fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
     ];
     const buffers = new Map<number, SampleBuf>([[1, new SampleBuf()]]);
     const compiled = compileTimer(4, nodes, links, buffers)!;
@@ -434,33 +431,32 @@ describe("blocks", () => {
       { id: 3, defId: "quantizer" },
       { id: 4, defId: "timer" },
     ];
-    const links: Link[] = [{ fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "consumer" }];
+    const links: Link[] = [{ fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in" }];
     expect(compileTimer(4, nodes, links, new Map())).toBeUndefined();
   });
 
-  it("control systems diagram grounds consumer chain", () => {
+  it("control systems diagram grounds Double push chain", () => {
     const diagram = new Diagram("cs", "Control Systems");
     associateBuiltinModels(diagram);
-    const scope = diagram.addNode("oscilloscope");
-    const sin = diagram.addNode("sin");
-    const quantizer = diagram.addNode("quantizer");
     const timer = diagram.addNode("timer");
-    diagram.addLink(scope, "out", sin, "in");
-    diagram.addLink(sin, "out", quantizer, "consumer");
-    diagram.addLink(quantizer, "out", timer, "consumer");
+    const quantizer = diagram.addNode("quantizer");
+    const sin = diagram.addNode("sin");
+    const scope = diagram.addNode("oscilloscope");
+    diagram.addLink(timer, "out", quantizer, "in");
+    diagram.addLink(quantizer, "out", sin, "in");
+    diagram.addLink(sin, "out", scope, "in");
 
     const timerResolved = diagram.resolveNode(timer)!;
-    expect(timerResolved.compatible.get("consumer") ?? true).toBe(true);
-    expect(displayType(timerResolved.inputs.find((port) => port.name === "consumer")!.ty, true)).toBe(
-      "Consumer<Consumer<Double>>",
-    );
+    expect(displayType(timerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Double");
 
     const sinResolved = diagram.resolveNode(sin)!;
     expect(sinResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("Consumer<Double>");
-    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe(
-      "Consumer<Consumer<Double>>",
-    );
+    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("Double");
+    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Double");
+
+    const scopeResolved = diagram.resolveNode(scope)!;
+    expect(scopeResolved.compatible.get("in") ?? true).toBe(true);
+    expect(displayType(scopeResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("Double");
   });
 
   it("spawn timer emits until stopped", async () => {
