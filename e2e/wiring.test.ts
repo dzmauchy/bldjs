@@ -57,7 +57,8 @@ describe("wiring", () => {
 
     const path = await connectorPath(driver);
     expect(path.startsWith("M ")).toBe(true);
-    expect(path).toContain("C ");
+    expect(path).toContain("L ");
+    expect(path).not.toContain("C ");
     const tag = await (await diagramCss(driver, "bld-connector")).getTagName();
     expect(tag).toBe("bld-connector");
   });

@@ -67,6 +67,63 @@ export function translatePath(link: CubicLink, origin: Point): string {
   return `M ${link.x1 - dx} ${link.y1 - dy} C ${link.c1x - dx} ${link.c1y - dy}, ${link.c2x - dx} ${link.c2y - dy}, ${link.x2 - dx} ${link.y2 - dy}`;
 }
 
+const ORTHO_STUB = 24;
+
+export function orthogonalLink(from: Point, to: Point, stub = ORTHO_STUB): Point[] {
+  const start = { x: from.x + stub, y: from.y };
+  const end = { x: to.x - stub, y: to.y };
+  if (Math.abs(from.y - to.y) < 0.5 && start.x <= end.x) {
+    return [from, to];
+  }
+  if (start.x <= end.x) {
+    const midX = (start.x + end.x) / 2;
+    return [from, start, { x: midX, y: from.y }, { x: midX, y: to.y }, end, to];
+  }
+  const midY = (from.y + to.y) / 2;
+  return [from, start, { x: start.x, y: midY }, { x: end.x, y: midY }, end, to];
+}
+
+export function polylinePath(points: Point[]): string {
+  if (points.length === 0) {
+    return "";
+  }
+  return points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
+}
+
+export function polylineBounds(points: Point[], pad = 16): Rect {
+  if (points.length === 0) {
+    return { left: 0, top: 0, width: 1, height: 1 };
+  }
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const left = Math.min(...xs) - pad;
+  const top = Math.min(...ys) - pad;
+  const right = Math.max(...xs) + pad;
+  const bottom = Math.max(...ys) + pad;
+  return {
+    left,
+    top,
+    width: Math.max(right - left, 1),
+    height: Math.max(bottom - top, 1),
+  };
+}
+
+export function translatePolyline(points: Point[], origin: Point): string {
+  return polylinePath(points.map((point) => ({ x: point.x - origin.x, y: point.y - origin.y })));
+}
+
+export function routesEqual(a: Point[] | undefined, b: Point[] | undefined): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (!a || !b || a.length !== b.length) {
+    return false;
+  }
+  return a.every((point, index) => point.x === b[index]!.x && point.y === b[index]!.y);
+}
+
 export function clientToWorld(
   clientX: number,
   clientY: number,

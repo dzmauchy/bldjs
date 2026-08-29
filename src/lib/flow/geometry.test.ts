@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { clientToWorld, cubicLink, cubicLinkBounds, linkKey, translatePath } from "./geometry";
+import {
+  clientToWorld,
+  cubicLink,
+  cubicLinkBounds,
+  linkKey,
+  orthogonalLink,
+  polylineBounds,
+  polylinePath,
+  routesEqual,
+  translatePath,
+  translatePolyline,
+} from "./geometry";
 
 describe("flow geometry", () => {
   it("builds a cubic bezier that starts and ends on the ports", () => {
@@ -40,5 +51,31 @@ describe("flow geometry", () => {
 
   it("formats a stable link key", () => {
     expect(linkKey(1, "out", 2, "in")).toBe("1:out->2:in");
+  });
+
+  it("builds an orthogonal polyline between ports", () => {
+    const points = orthogonalLink({ x: 0, y: 10 }, { x: 200, y: 80 });
+    expect(points[0]).toEqual({ x: 0, y: 10 });
+    expect(points.at(-1)).toEqual({ x: 200, y: 80 });
+    expect(polylinePath(points).startsWith("M 0 10")).toBe(true);
+    expect(polylinePath(points)).toContain("L ");
+  });
+
+  it("bounds and translates a routed polyline", () => {
+    const points = [
+      { x: 50, y: 80 },
+      { x: 90, y: 80 },
+      { x: 90, y: 20 },
+      { x: 150, y: 20 },
+    ];
+    const box = polylineBounds(points, 16);
+    expect(box.left).toBe(34);
+    expect(box.top).toBe(4);
+    expect(translatePolyline(points, { x: box.left, y: box.top })).toBe("M 16 76 L 56 76 L 56 16 L 116 16");
+  });
+
+  it("compares routed point lists", () => {
+    expect(routesEqual([{ x: 1, y: 2 }], [{ x: 1, y: 2 }])).toBe(true);
+    expect(routesEqual([{ x: 1, y: 2 }], [{ x: 1, y: 3 }])).toBe(false);
   });
 });

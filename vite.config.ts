@@ -29,6 +29,10 @@ export default defineConfig({
   worker: {
     format: "es",
   },
+  optimizeDeps: {
+    exclude: ["libavoid-js", "@joint/router-avoid"],
+  },
+  assetsInclude: ["**/*.wasm"],
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.ts"],
