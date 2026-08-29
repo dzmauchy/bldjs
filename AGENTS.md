@@ -1,5 +1,9 @@
 # Agent notes
 
+## Models
+
+Use Grok for this repo's agents **and** for every subagent (explore, computerUse, generalPurpose, and similar). Do not switch subagents to another model family.
+
 ## Testing
 
 Cover type resolution, XML parsing, catalog merge, compatibility, and input grounding with Vitest (`make test` / `npm test`). Put those tests next to the logic (for example `src/lib/blocks/blocks.test.ts`).

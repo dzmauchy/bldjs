@@ -64,6 +64,7 @@ export class AppState {
   scopeOpen = $state(NONE_ID);
   runFlags = $state<Map<number, { value: boolean }>>(new Map());
   private timerStops = new Map<number, () => void>();
+  private lastTimerTopology = "";
 
   constructor() {
     const diagram = new Diagram("workspace", "Workspace");
@@ -223,9 +224,24 @@ export class AppState {
     }
     this.timerStops.clear();
     this.runFlags = new Map();
+    this.lastTimerTopology = "";
+  }
+
+  /** Block ids, definitions, and links — not positions — so moving a block does not restart timers. */
+  timerTopologyKey(): string {
+    const nodes = this.blocks.map((block) => `${block.id}:${block.defId}`).join(",");
+    const links = this.links
+      .map((link) => `${link.fromBlock}:${link.fromOut}->${link.toBlock}:${link.toIn}`)
+      .join(",");
+    return `${nodes}|${links}`;
   }
 
   reconcileTimers(): void {
+    const topology = this.timerTopologyKey();
+    if (topology === this.lastTimerTopology) {
+      return;
+    }
+
     const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
     const wanted = this.blocks
       .filter((block) => block.defId === "timer")
@@ -245,6 +261,7 @@ export class AppState {
       this.timerStops.set(id, cancel);
     }
     this.runFlags = flags;
+    this.lastTimerTopology = topology;
   }
 
   toggleLink(fromBlock: number, fromOut: string, toBlock: number, toIn: string): void {
@@ -313,9 +330,12 @@ export class AppState {
   }
 
   moveBlock(id: number, dx: number, dy: number): void {
-    this.blocks = this.blocks.map((block) =>
-      block.id === id ? { ...block, x: block.x + dx, y: block.y + dy } : block,
-    );
+    const block = this.blocks.find((item) => item.id === id);
+    if (!block) {
+      return;
+    }
+    block.x += dx;
+    block.y += dy;
   }
 }
 

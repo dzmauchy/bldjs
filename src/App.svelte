@@ -14,8 +14,9 @@
   const app = provideAppState(new AppState());
 
   $effect(() => {
-    void app.blocks;
-    void app.links;
+    // Track block identity and wiring, not x/y. Replacing the blocks array
+    // on every drag would otherwise stop and respawn Control Systems timers.
+    void app.timerTopologyKey();
     untrack(() => app.reconcileTimers());
   });
 

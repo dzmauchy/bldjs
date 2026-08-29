@@ -18,7 +18,18 @@ import {
 } from "./builtin";
 import { Catalog } from "./catalog";
 import { isCompatible } from "./compat";
-import { QUANTIZER_DELAY_MS, SampleBuf, compileTimer, sinConsumer, spawnTimer, stop } from "./cs";
+import {
+  QUANTIZER_DELAY_MS,
+  SampleBuf,
+  type DoubleSource,
+  compileTimer,
+  quantizerSource,
+  sinConsumer,
+  sinSource,
+  spawnTimer,
+  stop,
+  timerSource,
+} from "./cs";
 import { type Link, Diagram } from "./diagram";
 import { parseBlocks } from "./parse";
 import { type Grounding, TypeResolver, resolvedOutput } from "./resolve";
@@ -477,5 +488,38 @@ describe("blocks", () => {
     expect(buf.snapshot().length).toBeGreaterThan(0);
     buf.clear();
     expect(buf.snapshot().length).toBe(0);
+  });
+
+  it("quantizer source forwards samples", () => {
+    const out: number[] = [];
+    const src: DoubleSource = (dc) => {
+      dc(1.5);
+      dc(2.5);
+    };
+    quantizerSource(0, src)((value) => out.push(value));
+    expect(out).toEqual([1.5, 2.5]);
+  });
+
+  it("sin source maps through consumer", () => {
+    const out: number[] = [];
+    const src: DoubleSource = (dc) => {
+      dc(0);
+      dc(Math.PI / 2);
+    };
+    sinSource(src)((value) => out.push(value));
+    expect(out[0]).toBeCloseTo(0);
+    expect(out[1]).toBeCloseTo(1);
+  });
+
+  it("timer source stops when flag clears", () => {
+    const running = { value: true };
+    let count = 0;
+    timerSource(running)(() => {
+      count += 1;
+      if (count >= 8) {
+        running.value = false;
+      }
+    });
+    expect(count).toBeGreaterThanOrEqual(8);
   });
 });
