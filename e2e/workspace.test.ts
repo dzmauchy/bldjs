@@ -65,6 +65,9 @@ describe("workspace UI", () => {
     expect(blocks).toBe("0 blocks");
     const hint = await driver.findElement(By.css(".canvas-hint-card")).getText();
     expect(hint).toContain("Drop blocks here");
+    const paletteItem = await driver.findElement(By.css('[data-testid="palette-b_string"]')).getText();
+    expect(paletteItem).toContain("String");
+    expect(paletteItem).not.toContain("→");
   });
 
   it("drops String and List.of, then wires them to infer List<String>", async () => {

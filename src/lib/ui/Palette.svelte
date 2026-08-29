@@ -1,7 +1,6 @@
 <script lang="ts">
   import { type BlockDef } from "$lib/blocks";
   import { getAppState } from "$lib/context";
-  import BlockCard from "./BlockCard.svelte";
 
   const app = getAppState();
   let open = $state(new Set(["cs", "flow", "java.lang", "java.util"]));
@@ -29,21 +28,24 @@
     open = next;
   }
 
-  function startDrag(defId: string, event: PointerEvent): void {
-    if (event.button !== 0) {
+  function onDragStart(event: DragEvent, defId: string): void {
+    app.draggingDefId = defId;
+    if (!event.dataTransfer) {
       return;
     }
-    event.preventDefault();
-    app.draggingDefId = defId;
-    app.dragX = event.clientX;
-    app.dragY = event.clientY;
+    event.dataTransfer.setData("application/svelteflow", defId);
+    event.dataTransfer.effectAllowed = "move";
+  }
+
+  function onDragEnd(): void {
+    app.draggingDefId = null;
   }
 </script>
 
 <aside class="palette border-end d-flex flex-column">
   <div class="palette-header px-3 py-2 border-bottom">
     <div class="small text-uppercase text-secondary fw-semibold">Blocks</div>
-    <div class="small text-secondary">Namespaces from associated XML models</div>
+    <div class="small text-secondary">Drag onto the canvas</div>
   </div>
   <div class="palette-list flex-grow-1 overflow-auto">
     {#each groups as [ns, blocks] (ns)}
@@ -59,16 +61,20 @@
           {app.catalog.namespaceLabel(ns)}
         </button>
         {#if open.has(ns)}
-          <div class="palette-ns-body d-flex flex-column gap-2 p-3 pt-2">
+          <div class="palette-ns-body">
             {#each blocks as def (def.id)}
+              {@const kind = app.kindOf(def)}
+              {@const hint = def.attributes.find((a) => a.name === "description")?.value ?? kind.hint}
               <div
-                class="palette-block"
+                class={`palette-item ${kind.className}`}
                 role="button"
                 tabindex="0"
+                draggable="true"
                 class:is-drag-source={app.draggingDefId === def.id}
                 data-testid={`palette-${def.id}`}
-                title="Drag to the canvas, or double-click to drop at the center"
-                onpointerdown={(event) => startDrag(def.id, event)}
+                title={`${hint} — drag onto the canvas, or double-click to drop at the center`}
+                ondragstart={(event) => onDragStart(event, def.id)}
+                ondragend={onDragEnd}
                 onkeydown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
@@ -80,7 +86,8 @@
                   app.addBlockAtViewCenter(def.id);
                 }}
               >
-                <BlockCard {def} compact={true} />
+                <span class="palette-item-icon" aria-hidden="true">{kind.glyph}</span>
+                <span class="palette-item-label">{def.name}</span>
               </div>
             {/each}
           </div>

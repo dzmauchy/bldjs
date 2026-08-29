@@ -63,8 +63,6 @@ export class AppState {
   viewportH = $state(600);
   aboutOpen = $state(false);
   draggingDefId = $state<string | null>(null);
-  dragX = $state(0);
-  dragY = $state(0);
   linkingFrom = $state<LinkingFrom | null>(null);
   samples = $state<Map<number, SampleBuf>>(new Map());
   scopeOpen = $state(NONE_ID);
@@ -124,27 +122,6 @@ export class AppState {
       worldX - BLOCK_WIDTH - 24 + col * (BLOCK_WIDTH + 48),
       worldY - BLOCK_HEIGHT + row * (BLOCK_HEIGHT + 48),
     );
-  }
-
-  dropPaletteBlock(clientX: number, clientY: number, rect: DOMRect): void {
-    const defId = this.draggingDefId;
-    this.draggingDefId = null;
-    if (!defId) {
-      return;
-    }
-    if (this.viewport) {
-      const point = this.viewport.screenToFlow(clientX, clientY);
-      this.addBlock(defId, point.x - BLOCK_WIDTH / 2, point.y - BLOCK_HEIGHT / 2);
-      return;
-    }
-    const [worldX, worldY] = screenToWorld(
-      clientX - rect.left,
-      clientY - rect.top,
-      this.panX,
-      this.panY,
-      this.zoom,
-    );
-    this.addBlock(defId, worldX - BLOCK_WIDTH / 2, worldY - BLOCK_HEIGHT / 2);
   }
 
   clearCanvas(): void {
