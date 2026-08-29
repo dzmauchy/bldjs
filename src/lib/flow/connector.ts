@@ -1,5 +1,5 @@
 import { LitElement, css, html } from "lit";
-import { smoothLinkBounds, translateSmooth, type Point } from "./geometry";
+import { curveLinkBounds, translateCurve, type Point } from "./geometry";
 
 export class BldConnector extends LitElement {
   static override properties = {
@@ -85,13 +85,13 @@ export class BldConnector extends LitElement {
   }
 
   #box() {
-    return smoothLinkBounds(this.from, this.to, this.#vertices());
+    return curveLinkBounds(this.from, this.to, this.#vertices());
   }
 
   #d(): string {
     const vertices = this.#vertices();
-    const box = smoothLinkBounds(this.from, this.to, vertices);
-    return translateSmooth(this.from, this.to, vertices, { x: box.left, y: box.top });
+    const box = curveLinkBounds(this.from, this.to, vertices);
+    return translateCurve(this.from, this.to, vertices, { x: box.left, y: box.top });
   }
 
   #onHitPointerDown = (event: PointerEvent): void => {
