@@ -301,8 +301,10 @@ export class BldNode extends HTMLElement {
 
   connectedCallback(): void {
     this.#resize?.disconnect();
-    this.#resize = new ResizeObserver(() => this.#emitResize());
-    this.#resize.observe(this);
+    if (typeof ResizeObserver === "function") {
+      this.#resize = new ResizeObserver(() => this.#emitResize());
+      this.#resize.observe(this);
+    }
     this.#emitResize();
   }
 

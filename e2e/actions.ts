@@ -68,7 +68,8 @@ export async function clickConnector(driver: WebDriver): Promise<void> {
 export async function connectorPath(driver: WebDriver): Promise<string> {
   const host = await driver.wait(until.elementLocated(By.css("bld-connector")), 10000);
   const root = await host.getShadowRoot();
-  return root.findElement(By.css(".path-stroke")).getAttribute("d");
+  const stroke = await root.findElement(By.css(".path-stroke"));
+  return (await stroke.getAttribute("d")) ?? "";
 }
 
 export async function pressDelete(driver: WebDriver): Promise<void> {

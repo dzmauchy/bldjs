@@ -13,17 +13,19 @@ declare module "*.md?raw" {
 
 declare namespace svelteHTML {
   interface IntrinsicElements {
-    "bld-node": svelteHTML.HTMLAttributes<import("./lib/flow").BldNode> & {
+    "bld-node": svelteHTML.HTMLAttributes<HTMLElement> & {
       state?: import("./lib/flow").BldNodeState | null;
+      style?: string;
       onportpointerdown?: (event: CustomEvent<import("./lib/flow").PortPointerDetail>) => void;
       onportpointerup?: (event: CustomEvent<import("./lib/flow").PortPointerDetail>) => void;
       onchartclick?: (event: CustomEvent<void>) => void;
       onnoderesize?: (event: CustomEvent<{ blockId: number; width: number; height: number }>) => void;
     };
-    "bld-connector": svelteHTML.HTMLAttributes<import("./lib/flow").BldConnector> & {
+    "bld-connector": svelteHTML.HTMLAttributes<HTMLElement> & {
       endpoints?: import("./lib/flow").ConnectorEndpoints;
       selected?: boolean;
       preview?: boolean;
+      style?: string;
       onlinkpointerdown?: (event: CustomEvent<{ clientX: number; clientY: number }>) => void;
     };
   }
