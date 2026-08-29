@@ -5,7 +5,7 @@ import { isNoneId } from "$lib/model";
 import { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
 import "./about-modal";
-import "./menu-bar";
+import "./toolbar";
 import "./oscilloscope-chart";
 import "./palette";
 import "./status-bar";
@@ -103,7 +103,7 @@ export class BldApp extends LitElement {
     const app = this.app;
     return html`
       <div class=${classMap({ "app-shell": true, "is-dragging": app.isDragging() })}>
-        <bld-menu-bar .app=${app}></bld-menu-bar>
+        <bld-toolbar .app=${app}></bld-toolbar>
         <div class="app-body">
           <bld-palette .app=${app}></bld-palette>
           <bld-workspace .app=${app}></bld-workspace>

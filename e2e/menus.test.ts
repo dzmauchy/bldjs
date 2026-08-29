@@ -4,6 +4,7 @@ import {
   diagramRoot,
   newCanvas,
   nodeHost,
+  openAppMenu,
   openWorkspace,
   placeBlock,
   queryDeepAll,
@@ -35,8 +36,45 @@ describe("menus", () => {
     expect(csp).toBe("script-src 'self' 'wasm-unsafe-eval';");
   });
 
-  it("opens About from the help menu", async () => {
-    await (await waitDeep(driver, '[data-testid="menu-help"]')).click();
+  it("shows Run and Stop on the toolbar with SVG icons", async () => {
+    const run = await waitDeep(driver, '[data-testid="toolbar-run"]');
+    const stop = await waitDeep(driver, '[data-testid="toolbar-stop"]');
+    expect(await run.getText()).toContain("Run");
+    expect(await stop.getText()).toContain("Stop");
+    expect(await stop.getAttribute("disabled")).toBe("true");
+
+    async function svgNs(buttonTestId: string): Promise<string | null> {
+      return driver.executeScript(
+        `
+        const selector = arguments[0];
+        const walk = (root) => {
+          const match = root.querySelector(selector);
+          if (match) return match;
+          for (const node of root.querySelectorAll("*")) {
+            if (node.shadowRoot) {
+              const found = walk(node.shadowRoot);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        const button = walk(document);
+        const icon = button && button.querySelector("bld-block-icon");
+        const svg = icon && icon.shadowRoot && icon.shadowRoot.querySelector("svg");
+        const glyph = svg && svg.querySelector("path, rect, circle, ellipse");
+        return glyph && glyph.namespaceURI;
+        `,
+        `[data-testid="${buttonTestId}"]`,
+      ) as Promise<string | null>;
+    }
+
+    expect(await svgNs("toolbar-run")).toBe("http://www.w3.org/2000/svg");
+    expect(await svgNs("toolbar-stop")).toBe("http://www.w3.org/2000/svg");
+    expect(await svgNs("toolbar-menu")).toBe("http://www.w3.org/2000/svg");
+  });
+
+  it("opens About from the three-line menu", async () => {
+    await openAppMenu(driver);
     await (await waitDeep(driver, '[data-testid="menu-about"]')).click();
     const modal = await waitDeep(driver, '[data-testid="about-modal"]');
     expect(await modal.getText()).toContain("About Bld");
@@ -44,21 +82,12 @@ describe("menus", () => {
     await driver.wait(async () => (await queryDeepAll(driver, '[data-testid="about-modal"]')).length === 0, 5000);
   });
 
-  it("shows Run and Stop in the Run menu", async () => {
-    await (await waitDeep(driver, '[data-testid="menu-run"]')).click();
-    const runItem = await waitDeep(driver, '[data-testid="menu-run-diagram"]');
-    expect(await runItem.getText()).toBe("Run");
-    const stopItem = await waitDeep(driver, '[data-testid="menu-stop-diagram"]');
-    expect(await stopItem.getText()).toBe("Stop");
-    await (await waitDeep(driver, '[data-testid="menu-run"]')).click();
-  });
-
   it("zooms from the View menu", async () => {
     const before = await statusZoom(driver);
-    await (await waitDeep(driver, '[data-testid="menu-view"]')).click();
+    await openAppMenu(driver);
     await (await waitDeep(driver, '[data-testid="menu-zoom-in"]')).click();
     await driver.wait(async () => (await statusZoom(driver)) !== before, 5000);
-    await (await waitDeep(driver, '[data-testid="menu-view"]')).click();
+    await openAppMenu(driver);
     await (await waitDeep(driver, '[data-testid="menu-reset-view"]')).click();
     await driver.wait(async () => (await statusZoom(driver)) === "100%", 5000);
   });
@@ -74,7 +103,7 @@ describe("menus", () => {
   it("deletes the selection from the File menu", async () => {
     await placeBlock(driver, "b_i32");
     await (await nodeHost(driver, "b_i32")).click();
-    await (await waitDeep(driver, '[data-testid="menu-file"]')).click();
+    await openAppMenu(driver);
     await (await waitDeep(driver, '[data-testid="menu-delete-selected"]')).click();
     await driver.wait(async () => (await statusBlocks(driver)) === "0 blocks", 5000);
   });
