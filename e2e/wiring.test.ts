@@ -43,7 +43,7 @@ describe("wiring", () => {
 
     const listHost = await nodeHost(driver, "b_list_of");
     const listRoot = await listHost.getShadowRoot();
-    const result = await listRoot.findElement(By.css('[data-testid="output-result"]'));
+    const result = await listRoot.findElement(By.css('[data-testid="output-resultList"]'));
     expect(await result.getText()).not.toContain("List<String>");
     expect(await result.getAttribute("title")).toBe("List<String>");
 
