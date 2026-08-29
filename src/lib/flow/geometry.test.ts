@@ -8,8 +8,8 @@ import {
   polylineBounds,
   polylinePath,
   routesEqual,
-  jumpoverLinkPath,
-  translateJumpover,
+  curveLinkPath,
+  translateCurve,
   translatePath,
   translatePolyline,
 } from "./geometry";
@@ -81,32 +81,19 @@ describe("flow geometry", () => {
     expect(routesEqual([{ x: 1, y: 2 }], [{ x: 1, y: 3 }])).toBe(false);
   });
 
-  it("builds a JointJS jumpover path with rounded orthogonal corners", () => {
+  it("builds a JointJS curve cubic that leaves right and enters left", () => {
     const from = { x: 0, y: 10 };
     const to = { x: 200, y: 80 };
-    const straight = jumpoverLinkPath(from, to, []);
-    expect(straight.startsWith("M 0 10")).toBe(true);
-    expect(straight).toContain("L ");
-    const routed = jumpoverLinkPath(from, to, [
+    const empty = curveLinkPath(from, to, []);
+    expect(empty.startsWith("M 0 10")).toBe(true);
+    expect(empty).toContain("C ");
+    const routed = curveLinkPath(from, to, [
       { x: 80, y: 10 },
       { x: 80, y: 80 },
     ]);
-    expect(routed).toContain("L ");
     expect(routed).toContain("C ");
-    expect(routed).not.toBe(straight);
-    const local = translateJumpover(from, to, [], { x: -16, y: -6 });
+    expect(routed).not.toBe(empty);
+    const local = translateCurve(from, to, [], { x: -16, y: -6 });
     expect(local.startsWith("M 16 16")).toBe(true);
-  });
-
-  it("inserts an arc jump where two routes cross", () => {
-    const from = { x: 0, y: 50 };
-    const to = { x: 200, y: 50 };
-    const plain = jumpoverLinkPath(from, to, []);
-    expect(plain).not.toContain("C ");
-    const jumped = jumpoverLinkPath(from, to, [], [
-      { from: { x: 100, y: 0 }, to: { x: 100, y: 100 }, route: [] },
-    ]);
-    expect(jumped).toContain("C ");
-    expect(jumped).not.toBe(plain);
   });
 });

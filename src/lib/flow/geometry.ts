@@ -1,9 +1,9 @@
-import { connectors, g } from "@joint/core";
+import { connectors } from "@joint/core";
 import { screenToWorld } from "$lib/model";
 
-type JointPath = {
+type CurvePath = {
   bbox: () => { x: number; y: number; width: number; height: number } | null;
-  translate: (tx: number, ty: number) => JointPath;
+  translate: (tx: number, ty: number) => CurvePath;
   serialize: () => string;
 };
 
@@ -121,113 +121,22 @@ export function translatePolyline(points: Point[], origin: Point): string {
   return polylinePath(points.map((point) => ({ x: point.x - origin.x, y: point.y - origin.y })));
 }
 
-export interface RoutedLink {
-  from: Point;
-  to: Point;
-  route?: Point[];
-}
-
-const JUMP_ARGS = {
-  size: 10,
-  radius: 10,
-  jump: "arc",
+const CURVE_ARGS = {
+  direction: connectors.curve.Directions.HORIZONTAL,
+  sourceDirection: connectors.curve.TangentDirections.RIGHT,
+  targetDirection: connectors.curve.TangentDirections.LEFT,
 } as const;
 
-type FakeLink = {
-  id: string;
-  get: (key: string) => { name: string } | undefined;
-};
-
-type FakeLinkView = {
-  paper: FakePaper;
-  model: FakeLink;
-  sourcePoint: Point;
-  targetPoint: Point;
-  route: Point[];
-  listenToOnce: () => void;
-};
-
-type FakePaper = {
-  options: Record<string, never>;
-  model: { on: () => void; getLinks: () => FakeLink[] };
-  findViewByModel: (link: FakeLink) => FakeLinkView | undefined;
-};
-
-function jumpoverView(from: Point, to: Point, route: Point[], others: RoutedLink[]): FakeLinkView {
-  const thisLink: FakeLink = { id: "this", get: () => ({ name: "jumpover" }) };
-  const otherLinks = others.map((_, index): FakeLink => ({
-    id: `other-${index}`,
-    get: () => ({ name: "jumpover" }),
-  }));
-  const allLinks = [...otherLinks, thisLink];
-  const views = new Map<FakeLink, FakeLinkView>();
-  const paper: FakePaper = {
-    options: {},
-    model: {
-      on() {},
-      getLinks: () => allLinks,
-    },
-    findViewByModel(link) {
-      return views.get(link);
-    },
-  };
-  const thisView: FakeLinkView = {
-    paper,
-    model: thisLink,
-    sourcePoint: from,
-    targetPoint: to,
-    route,
-    listenToOnce() {},
-  };
-  views.set(thisLink, thisView);
-  others.forEach((item, index) => {
-    const model = otherLinks[index]!;
-    views.set(model, {
-      paper,
-      model,
-      sourcePoint: item.from,
-      targetPoint: item.to,
-      route: item.route ?? [],
-      listenToOnce() {},
-    });
-  });
-  return thisView;
+export function curvePath(from: Point, to: Point, route: Point[] = []): CurvePath {
+  return connectors.curve(from, to, route, { ...CURVE_ARGS, raw: true }) as CurvePath;
 }
 
-function asPath(result: unknown): JointPath {
-  if (typeof result === "string") {
-    return new g.Path(result);
-  }
-  return result as JointPath;
+export function curveLinkPath(from: Point, to: Point, route: Point[] = []): string {
+  return connectors.curve(from, to, route, CURVE_ARGS) as string;
 }
 
-export function jumpoverPath(
-  from: Point,
-  to: Point,
-  route: Point[] = [],
-  others: RoutedLink[] = [],
-): JointPath {
-  const view = jumpoverView(from, to, route, others);
-  return asPath(connectors.jumpover(from, to, route, { ...JUMP_ARGS, raw: true }, view as never));
-}
-
-export function jumpoverLinkPath(
-  from: Point,
-  to: Point,
-  route: Point[] = [],
-  others: RoutedLink[] = [],
-): string {
-  return jumpoverPath(from, to, route, others).serialize();
-}
-
-export function jumpoverLinkBounds(
-  from: Point,
-  to: Point,
-  route: Point[] = [],
-  others: RoutedLink[] = [],
-  pad = 16,
-): Rect {
-  const box = jumpoverPath(from, to, route, others).bbox();
+export function curveLinkBounds(from: Point, to: Point, route: Point[] = [], pad = 16): Rect {
+  const box = curvePath(from, to, route).bbox();
   if (!box) {
     return { left: 0, top: 0, width: 1, height: 1 };
   }
@@ -239,14 +148,8 @@ export function jumpoverLinkBounds(
   };
 }
 
-export function translateJumpover(
-  from: Point,
-  to: Point,
-  route: Point[],
-  origin: Point,
-  others: RoutedLink[] = [],
-): string {
-  return jumpoverPath(from, to, route, others).translate(-origin.x, -origin.y).serialize();
+export function translateCurve(from: Point, to: Point, route: Point[], origin: Point): string {
+  return curvePath(from, to, route).translate(-origin.x, -origin.y).serialize();
 }
 
 export function routesEqual(a: Point[] | undefined, b: Point[] | undefined): boolean {

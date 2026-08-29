@@ -215,7 +215,7 @@ export class BldDiagram extends LitElement {
     }
     this.dataset.router = "avoid";
     this.dataset.worker = this.#avoid.worker ? "true" : "false";
-    this.dataset.connector = "jumpover";
+    this.dataset.connector = "curve";
     this.#syncRoutes();
     this.requestUpdate();
   }
@@ -498,15 +498,7 @@ export class BldDiagram extends LitElement {
   };
 
   #connectors() {
-    const views: {
-      key: string;
-      link: Link;
-      from: Point;
-      to: Point;
-      points: Point[];
-      crossings: { from: Point; to: Point; route: Point[] }[];
-      selected: boolean;
-    }[] = [];
+    const views: { key: string; link: Link; from: Point; to: Point; points: Point[]; selected: boolean }[] = [];
     for (const link of this.app.links) {
       const fromBlock = this.app.blocks.find((block) => block.id === link.fromBlock);
       const toBlock = this.app.blocks.find((block) => block.id === link.toBlock);
@@ -522,14 +514,8 @@ export class BldDiagram extends LitElement {
         from,
         to,
         points: this.#routes.get(key) ?? [],
-        crossings: [],
         selected: this.app.isLinkSelected(link),
       });
-    }
-    for (const item of views) {
-      item.crossings = views
-        .filter((other) => other.key !== item.key)
-        .map((other) => ({ from: other.from, to: other.to, route: other.points }));
     }
     return views;
   }
@@ -550,7 +536,6 @@ export class BldDiagram extends LitElement {
     }
     const resolved = app.resolveAll();
     const previewFrom = this.#previewFrom();
-    const connectors = this.#connectors();
     const grid = GRID_SIZE * app.zoom;
     return html`
       <div
@@ -580,7 +565,7 @@ export class BldDiagram extends LitElement {
           })}
         >
           ${repeat(
-            connectors,
+            this.#connectors(),
             (item) => item.key,
             (item) => html`
               <bld-connector
@@ -588,23 +573,13 @@ export class BldDiagram extends LitElement {
                 .from=${item.from}
                 .to=${item.to}
                 .points=${item.points}
-                .crossings=${item.crossings}
                 .selected=${item.selected}
                 @linkpointerdown=${() => this.#onLinkPointerDown(item.link)}
               ></bld-connector>
             `,
           )}
           ${previewFrom && this.#previewTo
-            ? html`<bld-connector
-                .from=${previewFrom}
-                .to=${this.#previewTo}
-                .crossings=${connectors.map((item) => ({
-                  from: item.from,
-                  to: item.to,
-                  route: item.points,
-                }))}
-                .preview=${true}
-              ></bld-connector>`
+            ? html`<bld-connector .from=${previewFrom} .to=${this.#previewTo} .preview=${true}></bld-connector>`
             : nothing}
           ${repeat(
             app.blocks,
