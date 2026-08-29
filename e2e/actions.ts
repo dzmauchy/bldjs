@@ -65,6 +65,16 @@ export async function diagramCss(driver: WebDriver, selector: string) {
   return root.findElement(By.css(selector));
 }
 
+export async function openAppMenu(driver: WebDriver): Promise<void> {
+  const dropdown = await queryDeep(driver, '[data-testid="toolbar-menu-dropdown"]');
+  const open = dropdown !== null && (await dropdown.getAttribute("class")).includes("show");
+  if (open) {
+    return;
+  }
+  await (await waitDeep(driver, '[data-testid="toolbar-menu"]')).click();
+  await waitDeep(driver, '[data-testid="toolbar-menu-dropdown"].show');
+}
+
 export async function newCanvas(driver: WebDriver): Promise<void> {
   await driver.actions({ async: true }).sendKeys(Key.ESCAPE).perform();
   await driver.wait(async () => {
@@ -74,7 +84,7 @@ export async function newCanvas(driver: WebDriver): Promise<void> {
     );
     return modals.length === 0;
   }, 5000);
-  await (await waitDeep(driver, '[data-testid="menu-file"]')).click();
+  await openAppMenu(driver);
   await (await waitDeep(driver, '[data-testid="menu-new-canvas"]')).click();
   await driver.wait(async () => (await statusBlocks(driver)) === "0 blocks", 5000);
 }
@@ -147,8 +157,7 @@ export async function placeBlock(driver: WebDriver, defId: string): Promise<void
 }
 
 export async function runDiagram(driver: WebDriver): Promise<void> {
-  await (await waitDeep(driver, '[data-testid="menu-run"]')).click();
-  await (await waitDeep(driver, '[data-testid="menu-run-diagram"]')).click();
+  await (await waitDeep(driver, '[data-testid="toolbar-run"]')).click();
   await driver.wait(async () => {
     const status = await queryDeep(driver, '[data-testid="status-run"]');
     return status !== null && (await status.getText()) === "Running";

@@ -5,7 +5,7 @@ import { BldBlockIcon } from "./block-icon";
 describe("custom elements", () => {
   it("registers a Lit custom element for each UI surface", () => {
     expect(customElements.get("bld-app")).toBeDefined();
-    expect(customElements.get("bld-menu-bar")).toBeDefined();
+    expect(customElements.get("bld-toolbar")).toBeDefined();
     expect(customElements.get("bld-palette")).toBeDefined();
     expect(customElements.get("bld-block-icon")).toBeDefined();
     expect(customElements.get("bld-workspace")).toBeDefined();

@@ -3,8 +3,9 @@ import { classMap } from "lit/directives/class-map.js";
 import { AppController } from "$lib/context";
 import type { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
+import "./block-icon";
 
-export class BldMenuBar extends LitElement {
+export class BldToolbar extends LitElement {
   static override properties = {
     app: { attribute: false },
   };
@@ -12,7 +13,7 @@ export class BldMenuBar extends LitElement {
   declare app: AppState;
 
   #ctrl?: AppController;
-  #openMenu: string | null = null;
+  #menuOpen = false;
 
   static override styles = [
     bootstrapStyles,
@@ -22,32 +23,46 @@ export class BldMenuBar extends LitElement {
         height: 40px;
         flex: 0 0 40px;
       }
-      .app-menubar {
+      .app-toolbar {
         height: 40px;
         background: #1b1f22;
-        gap: 0.15rem;
+        gap: 0.35rem;
       }
       .app-brand {
         font-weight: 700;
         letter-spacing: 0.04em;
         color: var(--bs-primary);
       }
-      .menu-item {
+      .toolbar-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
         color: var(--bs-body-color);
         border: 0;
         background: transparent;
-        padding: 0.15rem 0.6rem;
+        padding: 0.15rem 0.55rem;
+        line-height: 1;
       }
-      .menu-item:hover,
-      .menu-item.active {
+      .toolbar-btn bld-block-icon {
+        font-size: 1rem;
+      }
+      .toolbar-btn:hover:not(:disabled),
+      .toolbar-btn.active {
         background: var(--bs-tertiary-bg);
         color: var(--bs-body-color);
+      }
+      .toolbar-btn:disabled {
+        opacity: 0.45;
+      }
+      .toolbar-menu-btn {
+        padding: 0.2rem 0.45rem;
       }
       .app-menu-dropdown {
         display: none;
         position: absolute;
         top: calc(100% + 2px);
-        left: 0;
+        right: 0;
+        left: auto;
         min-width: 180px;
         z-index: 20;
       }
@@ -85,24 +100,24 @@ export class BldMenuBar extends LitElement {
   }
 
   #close(): void {
-    this.#openMenu = null;
+    this.#menuOpen = false;
     this.requestUpdate();
   }
 
-  #toggle(name: string): void {
-    this.#openMenu = this.#openMenu === name ? null : name;
+  #toggleMenu(): void {
+    this.#menuOpen = !this.#menuOpen;
     this.requestUpdate();
   }
 
   #onWindowPointerDown = (event: PointerEvent): void => {
-    if (this.#openMenu === null) {
+    if (!this.#menuOpen) {
       return;
     }
     const path = event.composedPath();
     if (path.includes(this)) {
       return;
     }
-    this.#openMenu = null;
+    this.#menuOpen = false;
     this.requestUpdate();
   };
 
@@ -112,26 +127,64 @@ export class BldMenuBar extends LitElement {
       return nothing;
     }
     return html`
-      <nav class="app-menubar border-bottom d-flex align-items-center px-2">
-        <span class="app-brand me-3">Bld</span>
+      <nav class="app-toolbar border-bottom d-flex align-items-center px-2" data-testid="app-toolbar">
+        <span class="app-brand me-2">Bld</span>
 
-        <div class="menu-item-wrap position-relative">
+        <button
+          class="toolbar-btn btn btn-sm"
+          type="button"
+          title="Run"
+          data-testid="toolbar-run"
+          @click=${() => {
+            void app.runDiagram();
+          }}
+        >
+          <bld-block-icon name="run"></bld-block-icon>
+          <span>Run</span>
+        </button>
+        <button
+          class="toolbar-btn btn btn-sm"
+          type="button"
+          title="Stop"
+          data-testid="toolbar-stop"
+          ?disabled=${!app.running}
+          @click=${() => app.stopRun()}
+        >
+          <bld-block-icon name="stop"></bld-block-icon>
+          <span>Stop</span>
+        </button>
+
+        <div class="ms-auto position-relative">
           <button
-            class=${classMap({ "menu-item": true, btn: true, "btn-sm": true, active: this.#openMenu === "file" })}
+            class=${classMap({
+              "toolbar-btn": true,
+              "toolbar-menu-btn": true,
+              btn: true,
+              "btn-sm": true,
+              active: this.#menuOpen,
+            })}
             type="button"
-            data-testid="menu-file"
-            @click=${() => this.#toggle("file")}
+            title="Menu"
+            aria-label="Menu"
+            aria-haspopup="menu"
+            aria-expanded=${this.#menuOpen ? "true" : "false"}
+            data-testid="toolbar-menu"
+            @click=${() => this.#toggleMenu()}
           >
-            File
+            <bld-block-icon name="menu"></bld-block-icon>
           </button>
           <div
             class=${classMap({
               "dropdown-menu": true,
+              "dropdown-menu-end": true,
               "app-menu-dropdown": true,
-              show: this.#openMenu === "file",
-              "d-block": this.#openMenu === "file",
+              show: this.#menuOpen,
+              "d-block": this.#menuOpen,
             })}
+            role="menu"
+            data-testid="toolbar-menu-dropdown"
           >
+            <div class="dropdown-header" data-testid="menu-file">File</div>
             <button
               class="dropdown-item"
               type="button"
@@ -159,26 +212,9 @@ export class BldMenuBar extends LitElement {
             ${app.sources.map(
               (source) => html`<div class="dropdown-item-text small font-monospace">${source.name}</div>`,
             )}
-          </div>
-        </div>
 
-        <div class="menu-item-wrap position-relative">
-          <button
-            class=${classMap({ "menu-item": true, btn: true, "btn-sm": true, active: this.#openMenu === "view" })}
-            type="button"
-            data-testid="menu-view"
-            @click=${() => this.#toggle("view")}
-          >
-            View
-          </button>
-          <div
-            class=${classMap({
-              "dropdown-menu": true,
-              "app-menu-dropdown": true,
-              show: this.#openMenu === "view",
-              "d-block": this.#openMenu === "view",
-            })}
-          >
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-header" data-testid="menu-view">View</div>
             <button
               class="dropdown-item"
               type="button"
@@ -212,69 +248,9 @@ export class BldMenuBar extends LitElement {
             >
               Reset view
             </button>
-          </div>
-        </div>
 
-        <div class="menu-item-wrap position-relative">
-          <button
-            class=${classMap({ "menu-item": true, btn: true, "btn-sm": true, active: this.#openMenu === "run" })}
-            type="button"
-            data-testid="menu-run"
-            @click=${() => this.#toggle("run")}
-          >
-            Run
-          </button>
-          <div
-            class=${classMap({
-              "dropdown-menu": true,
-              "app-menu-dropdown": true,
-              show: this.#openMenu === "run",
-              "d-block": this.#openMenu === "run",
-            })}
-          >
-            <button
-              class="dropdown-item"
-              type="button"
-              data-testid="menu-run-diagram"
-              @click=${() => {
-                void app.runDiagram();
-                this.#close();
-              }}
-            >
-              Run
-            </button>
-            <button
-              class="dropdown-item"
-              type="button"
-              data-testid="menu-stop-diagram"
-              ?disabled=${!app.running}
-              @click=${() => {
-                app.stopRun();
-                this.#close();
-              }}
-            >
-              Stop
-            </button>
-          </div>
-        </div>
-
-        <div class="menu-item-wrap position-relative">
-          <button
-            class=${classMap({ "menu-item": true, btn: true, "btn-sm": true, active: this.#openMenu === "help" })}
-            type="button"
-            data-testid="menu-help"
-            @click=${() => this.#toggle("help")}
-          >
-            Help
-          </button>
-          <div
-            class=${classMap({
-              "dropdown-menu": true,
-              "app-menu-dropdown": true,
-              show: this.#openMenu === "help",
-              "d-block": this.#openMenu === "help",
-            })}
-          >
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-header" data-testid="menu-help">Help</div>
             <button
               class="dropdown-item"
               type="button"
@@ -293,10 +269,10 @@ export class BldMenuBar extends LitElement {
   }
 }
 
-customElements.define("bld-menu-bar", BldMenuBar);
+customElements.define("bld-toolbar", BldToolbar);
 
 declare global {
   interface HTMLElementTagNameMap {
-    "bld-menu-bar": BldMenuBar;
+    "bld-toolbar": BldToolbar;
   }
 }
