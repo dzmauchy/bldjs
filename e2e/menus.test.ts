@@ -54,7 +54,7 @@ describe("menus", () => {
       };
     `)) as { type: string | null; href: string | null };
     expect(favicon.type).toBe("image/svg+xml");
-    expect(favicon.href).toMatch(/bld\.svg/);
+    expect(favicon.href).toMatch(/bld[^/]*\.svg/);
 
     const brand = await waitDeep(driver, '[data-testid="app-brand"]');
     expect(await brand.getText()).not.toContain("Bld");
