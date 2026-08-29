@@ -73,7 +73,7 @@ function displayArrayElem(elem: TypeExpr, compact: boolean): string {
   return text;
 }
 
-export function isArrayType(expr: TypeExpr): expr is Extract<TypeExpr, { kind: "type" }> {
+export function isArrayType(expr: TypeExpr): boolean {
   return expr.kind === "type" && (expr.name === "[]" || rawTypeName(expr.name) === "array");
 }
 
