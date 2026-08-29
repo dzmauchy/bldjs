@@ -8,8 +8,10 @@ import {
   polylineBounds,
   polylinePath,
   routesEqual,
+  smoothLinkPath,
   translatePath,
   translatePolyline,
+  translateSmooth,
 } from "./geometry";
 
 describe("flow geometry", () => {
@@ -77,5 +79,21 @@ describe("flow geometry", () => {
   it("compares routed point lists", () => {
     expect(routesEqual([{ x: 1, y: 2 }], [{ x: 1, y: 2 }])).toBe(true);
     expect(routesEqual([{ x: 1, y: 2 }], [{ x: 1, y: 3 }])).toBe(false);
+  });
+
+  it("builds a JointJS smooth cubic through route points", () => {
+    const from = { x: 0, y: 10 };
+    const to = { x: 200, y: 80 };
+    const empty = smoothLinkPath(from, to, []);
+    expect(empty.startsWith("M 0 10")).toBe(true);
+    expect(empty).toContain("C ");
+    const routed = smoothLinkPath(from, to, [
+      { x: 80, y: 10 },
+      { x: 80, y: 80 },
+    ]);
+    expect(routed).toContain("C ");
+    expect(routed).not.toBe(empty);
+    const local = translateSmooth(from, to, [], { x: -16, y: -6 });
+    expect(local.startsWith("M 16 16")).toBe(true);
   });
 });

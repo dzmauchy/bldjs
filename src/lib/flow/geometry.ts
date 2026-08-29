@@ -1,4 +1,11 @@
+import { connectors } from "@joint/core";
 import { screenToWorld } from "$lib/model";
+
+type SmoothPath = {
+  bbox: () => { x: number; y: number; width: number; height: number } | null;
+  translate: (tx: number, ty: number) => SmoothPath;
+  serialize: () => string;
+};
 
 export interface Point {
   x: number;
@@ -112,6 +119,31 @@ export function polylineBounds(points: Point[], pad = 16): Rect {
 
 export function translatePolyline(points: Point[], origin: Point): string {
   return polylinePath(points.map((point) => ({ x: point.x - origin.x, y: point.y - origin.y })));
+}
+
+export function smoothPath(from: Point, to: Point, route: Point[] = []): SmoothPath {
+  return connectors.smooth(from, to, route, { raw: true }) as SmoothPath;
+}
+
+export function smoothLinkPath(from: Point, to: Point, route: Point[] = []): string {
+  return connectors.smooth(from, to, route) as string;
+}
+
+export function smoothLinkBounds(from: Point, to: Point, route: Point[] = [], pad = 16): Rect {
+  const box = smoothPath(from, to, route).bbox();
+  if (!box) {
+    return { left: 0, top: 0, width: 1, height: 1 };
+  }
+  return {
+    left: box.x - pad,
+    top: box.y - pad,
+    width: Math.max(box.width + pad * 2, 1),
+    height: Math.max(box.height + pad * 2, 1),
+  };
+}
+
+export function translateSmooth(from: Point, to: Point, route: Point[], origin: Point): string {
+  return smoothPath(from, to, route).translate(-origin.x, -origin.y).serialize();
 }
 
 export function routesEqual(a: Point[] | undefined, b: Point[] | undefined): boolean {
