@@ -9,7 +9,6 @@ import {
   associateBuiltinModels,
   blockAttribute,
   assembleGenerator,
-  compileWat,
   infer,
   planGenerator,
 } from "./blocks";
@@ -290,8 +289,7 @@ export class AppState extends EventTarget {
     const op = this.#runningOp;
     try {
       for (const plan of plans) {
-        const wat = assembleGenerator(plan);
-        const wasm = compileWat(wat);
+        const wasm = await assembleGenerator(plan);
         const handle = await startGenerator({ wasm, delayMs: plan.delayMs });
         if (op !== this.#runningOp) {
           handle.stop();

@@ -1,43 +1,21 @@
-import importsWat from "../../resources/wasm/imports.wat?raw";
-import parkWat from "../../resources/wasm/park.wat?raw";
-import pushWat from "../../resources/wasm/push.wat?raw";
-import stoppedWat from "../../resources/wasm/stopped.wat?raw";
-import oscilloscopeWat from "../../resources/wasm/blocks/oscilloscope.wat?raw";
-import quantizerWat from "../../resources/wasm/blocks/quantizer.wat?raw";
-import sinWat from "../../resources/wasm/blocks/sin.wat?raw";
-import timerWat from "../../resources/wasm/blocks/timer.wat?raw";
 import { CTX, SAMPLE_CAP } from "./memory";
 import { CTX_PARAM, type WasmSignature } from "./signatures";
 
 export type Stage = "sin" | "quantizer";
 
-/** One WAT function per runtime block, keyed by XML block id. */
-export const BLOCK_WAT: Record<string, string> = {
-  timer: timerWat,
-  quantizer: quantizerWat,
-  sin: sinWat,
-  oscilloscope: oscilloscopeWat,
-};
-
-export const RUNTIME_WAT = {
-  imports: importsWat,
-  push: pushWat,
-  park: parkWat,
-  stopped: stoppedWat,
-} as const;
+export type { BlockScriptId } from "../../resources/binaryen";
 
 export interface AssembleOptions {
   stages: readonly Stage[];
   delayMs: number;
 }
 
-function indent(text: string): string {
-  return text
-    .trim()
-    .split("\n")
-    .map((line) => (line.length ? `  ${line}` : line))
-    .join("\n");
+export interface AssembledModule {
+  wasm: Uint8Array;
+  text: string;
 }
+
+type Binaryen = typeof import("binaryen").default;
 
 function typeDecl(id: string, params: { name: string; type: string }[], results: { name: string; type: string }[]): string {
   const inner = [
@@ -47,7 +25,7 @@ function typeDecl(id: string, params: { name: string; type: string }[], results:
   return `  (type $${id} (func${inner ? ` ${inner}` : ""}))`;
 }
 
-/** Types whose names are referenced from block WAT (`$fn_timer`, …). */
+/** Types whose names are referenced from block composition (`$fn_timer`, …). */
 export function runtimeTypeWat(): string {
   return [
     typeDecl("fn_now", [], [{ name: "out", type: "f64" }]),
@@ -67,55 +45,140 @@ export function blockTypeWat(sig: WasmSignature): string {
   return typeDecl(`fn_${sig.id}`, [CTX_PARAM, ...sig.params], sig.results);
 }
 
-function composeTick(stages: readonly Stage[]): string {
-  let expr = `(call_ref $fn_timer (local.get $ctx) (ref.func $timer))`;
-  for (const stage of stages) {
-    expr = `(call_ref $fn_${stage} (local.get $ctx) ${expr} (ref.func $${stage}))`;
+function nameFuncType(
+  bin: Binaryen,
+  module: InstanceType<Binaryen["Module"]>,
+  seen: Set<number>,
+  name: string,
+  typeName: string,
+): void {
+  const fn = module.getFunction(name);
+  const heap = bin.getHeapType(bin.getFunctionInfo(fn).type);
+  if (seen.has(heap)) {
+    return;
   }
-  return `(call_ref $fn_oscilloscope (local.get $ctx) ${expr} (ref.func $oscilloscope))`;
+  seen.add(heap);
+  module.setTypeName(heap, typeName);
 }
 
-function tickWat(stages: readonly Stage[], delayNs: bigint): string {
-  return `  (func $tick (export "tick") (type $fn_void)
-    (local $ctx i32)
-    (local.set $ctx (i32.const ${CTX}))
-    (f64.store (local.get $ctx) (call $now))
-    (i64.store offset=8 (local.get $ctx) (i64.const ${delayNs}))
-    ${composeTick(stages)})`;
+function funcRefType(bin: Binaryen, module: InstanceType<Binaryen["Module"]>, name: string): number {
+  const fn = module.getFunction(name);
+  return bin.getTypeFromHeapType(bin.getHeapType(bin.getFunctionInfo(fn).type), false);
 }
 
-function runWat(delayNs: bigint): string {
-  return `  (func $run (export "run") (type $fn_void)
-    (loop $again
-      (call $tick)
-      (call $park (i64.const ${delayNs}))
-      (br_if $again (i32.eqz (call $stopped)))))`;
+function callBlock(
+  bin: Binaryen,
+  module: InstanceType<Binaryen["Module"]>,
+  name: string,
+  operands: readonly number[],
+  results: number,
+): number {
+  return module.call_ref(module.ref.func(name, funcRefType(bin, module, name)), [...operands], results);
+}
+
+function composeTick(
+  bin: Binaryen,
+  module: InstanceType<Binaryen["Module"]>,
+  stages: readonly Stage[],
+): number {
+  const ctx = (): number => module.local.get(0, bin.i32);
+  let expr = callBlock(bin, module, "timer", [ctx()], bin.f64);
+  for (const stage of stages) {
+    expr = callBlock(bin, module, stage, [ctx(), expr], bin.f64);
+  }
+  return callBlock(bin, module, "oscilloscope", [ctx(), expr], bin.none);
 }
 
 /**
- * Assemble catalog block WAT files, runtime helpers, and a tick/run composition
- * into one module. The app compiles this text when the simulation starts.
+ * Assemble catalog block scripts, runtime helpers, and a tick/run composition
+ * into one binaryen module, then emit wasm-gc + threads.
+ *
+ * binaryen.js is loaded on demand so the compiler is not in the first paint chunk.
  */
-export function assembleWat(options: AssembleOptions): string {
-  if (!pushWat.includes(`i32.const ${SAMPLE_CAP}`)) {
-    throw new Error(`push.wat must use SAMPLE_CAP=${SAMPLE_CAP}`);
-  }
+export async function assembleModule(options: AssembleOptions): Promise<AssembledModule> {
+  const [{ default: binaryen }, { BLOCK_SCRIPTS, RUNTIME_SCRIPTS }, { nameLocals }] = await Promise.all([
+    import("binaryen"),
+    import("../../resources/binaryen"),
+    import("../../resources/binaryen/util"),
+  ]);
   const delayNs = BigInt(Math.max(options.delayMs, 1)) * 1_000_000n;
-  const blocks = Object.values(BLOCK_WAT).map(indent).join("\n\n");
-  return `(module
-${runtimeTypeWat()}
-${indent(importsWat)}
-${indent(pushWat)}
-${indent(parkWat)}
-${indent(stoppedWat)}
+  const module = new binaryen.Module();
+  try {
+    module.setFeatures(
+      binaryen.Features.Atomics |
+        binaryen.Features.ReferenceTypes |
+        binaryen.Features.GC |
+        binaryen.Features.BulkMemory |
+        binaryen.Features.Multivalue,
+    );
+    RUNTIME_SCRIPTS.imports(module);
+    RUNTIME_SCRIPTS.push(module, SAMPLE_CAP);
+    RUNTIME_SCRIPTS.park(module);
+    RUNTIME_SCRIPTS.stopped(module);
+    for (const add of Object.values(BLOCK_SCRIPTS)) {
+      add(module);
+    }
 
-${blocks}
+    const seen = new Set<number>();
+    nameFuncType(binaryen, module, seen, "now", "fn_now");
+    nameFuncType(binaryen, module, seen, "host_sin", "fn_host_sin");
+    nameFuncType(binaryen, module, seen, "push", "fn_push");
+    nameFuncType(binaryen, module, seen, "park", "fn_park");
+    nameFuncType(binaryen, module, seen, "stopped", "fn_stopped");
+    for (const id of Object.keys(BLOCK_SCRIPTS)) {
+      nameFuncType(binaryen, module, seen, id, `fn_${id}`);
+    }
 
-  (elem declare func $timer $quantizer $sin $oscilloscope)
+    const tick = module.addFunction(
+      "tick",
+      binaryen.none,
+      binaryen.none,
+      [binaryen.i32],
+      module.block(null, [
+        module.local.set(0, module.i32.const(CTX)),
+        module.f64.store(0, 8, module.local.get(0, binaryen.i32), module.call("now", [], binaryen.f64)),
+        module.i64.store(8, 8, module.local.get(0, binaryen.i32), module.i64.const(delayNs)),
+        composeTick(binaryen, module, options.stages),
+      ]),
+    );
+    nameLocals(tick, ["ctx"]);
+    module.addFunctionExport("tick", "tick");
 
-${tickWat(options.stages, delayNs)}
+    module.addFunction(
+      "run",
+      binaryen.none,
+      binaryen.none,
+      [],
+      module.loop(
+        "again",
+        module.block(null, [
+          module.call("tick", [], binaryen.none),
+          module.call("park", [module.i64.const(delayNs)], binaryen.none),
+          module.br("again", module.i32.eqz(module.call("stopped", [], binaryen.i32))),
+        ]),
+      ),
+    );
+    module.addFunctionExport("run", "run");
+    nameFuncType(binaryen, module, seen, "tick", "fn_void");
 
-${runWat(delayNs)}
-)
-`;
+    if (!module.validate()) {
+      throw new Error("binaryen rejected the assembled generator module");
+    }
+    const text = module.emitText();
+    if (!text.includes(`i32.const ${SAMPLE_CAP}`)) {
+      throw new Error(`push script must use SAMPLE_CAP=${SAMPLE_CAP}`);
+    }
+    return { wasm: module.emitBinary().slice(), text };
+  } finally {
+    module.dispose();
+  }
+}
+
+export async function assembleWasm(options: AssembleOptions): Promise<Uint8Array> {
+  return (await assembleModule(options)).wasm;
+}
+
+/** @deprecated Prefer {@link assembleModule}; emitText of the assembled module. */
+export async function assembleWat(options: AssembleOptions): Promise<string> {
+  return (await assembleModule(options)).text;
 }

@@ -12,8 +12,8 @@
       sin(f64)           : f1<f64, f64>    (param f64) (result f64)
       oscilloscope(f64)  : c1<f64>         (param f64)
 
-    Each block is a WAT function in resources/wasm/blocks.
-    Run assembles those files and compiles the module.
+    Each block is a binaryen.js script in resources/binaryen/blocks.
+    Run assembles those scripts and emits the module.
     Every function receives runtime $ctx (i32 pointer: time, delay_ns).
   -->
 

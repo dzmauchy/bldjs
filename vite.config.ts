@@ -44,6 +44,10 @@ export default defineConfig({
       $lib: fileURLToPath(new URL("./src/lib", import.meta.url)),
     },
   },
+  optimizeDeps: {
+    include: ["binaryen"],
+    exclude: ["libavoid-js", "@joint/router-avoid"],
+  },
   server: {
     port: 8080,
     host: true,
@@ -56,9 +60,6 @@ export default defineConfig({
   },
   worker: {
     format: "es",
-  },
-  optimizeDeps: {
-    exclude: ["libavoid-js", "@joint/router-avoid"],
   },
   test: {
     environment: "jsdom",

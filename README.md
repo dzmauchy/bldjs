@@ -53,7 +53,7 @@ Serve that folder with any static file server that sets the same CSP and isolati
 - Drag a block icon from the left pane onto the canvas (or double-click a palette item to drop it in the center).
 - Click or drag from an output handle to an input handle to ground a type. Inferred parameters and port types update on the block.
 - Control Systems (`cs`): wire Timer → Quantizer → Sin → Oscilloscope. Ports are `f64`; the WASM backend treats those blocks as `s<f64>`, `f1<f64, f64>`, and `c1<f64>`, composed as `oscilloscope(sin(quantizer(timer())))`.
-- **Run** assembles those block WAT files into one module, compiles it to wasm-gc (typed `call_ref`), starts one worker per generator, and parks with `memory.atomic.wait32` on a shared sample buffer. After Run, click Chart on Oscilloscope; the chart reads that buffer.
+- **Run** runs each block's [binaryen.js](https://github.com/AssemblyScript/binaryen.js) script from `src/resources/binaryen/blocks` into one module, emits wasm-gc (typed `call_ref`), starts one worker per generator, and parks with `memory.atomic.wait32` on a shared sample buffer. After Run, click Chart on Oscilloscope; the chart reads that buffer.
 - Scroll to zoom toward the cursor. Use the zoom controls in the lower-right, or **View** in the three-line menu.
 - Drag empty canvas space to pan. Drag a placed block to move it.
 - **Delete** / **Backspace** removes the selected block or edge. **Ctrl/Cmd+0** resets the view.
@@ -63,7 +63,7 @@ Serve that folder with any static file server that sets the same CSP and isolati
 - [Lit](https://lit.dev/) custom elements (CSR)
 - [JointJS avoid router](https://docs.jointjs.com/api/avoid-router/) (`loadAvoidRouter` + libavoid WASM) for orthogonal connector routing
 - [Chart.js](https://www.chartjs.org/) for the oscilloscope (dark mode)
-- wasm-gc typed functions (`call_ref`) and `memory.atomic.wait32` on a SharedArrayBuffer
+- [binaryen.js](https://www.npmjs.com/package/binaryen) generates wasm-gc (`call_ref`) and `memory.atomic.wait32` on a SharedArrayBuffer
 - Vite
 - TypeScript 7
 - Bootstrap 5.3.8, dark theme (`data-bs-theme="dark"`)
