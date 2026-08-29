@@ -5,6 +5,7 @@
     BackgroundVariant,
     ConnectionMode,
     Controls,
+    MiniMap,
     Panel,
     SvelteFlow,
     useSvelteFlow,
@@ -167,6 +168,41 @@
       });
     }
   };
+
+  function ondragover(event: DragEvent): void {
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "move";
+    }
+  }
+
+  function ondrop(event: DragEvent): void {
+    event.preventDefault();
+    const defId = app.draggingDefId ?? event.dataTransfer?.getData("application/svelteflow") ?? null;
+    app.draggingDefId = null;
+    if (!defId || !app.blockDef(defId)) {
+      return;
+    }
+    const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    app.addBlock(defId, position.x, position.y);
+  }
+
+  const KIND_MINIMAP: Record<string, string> = {
+    Start: "#198754",
+    Process: "#0d6efd",
+    Decision: "#ffc107",
+    Data: "#0dcaf0",
+    Output: "#dc3545",
+  };
+
+  function miniMapNodeColor(node: Node): string {
+    const defId = (node.data as { defId?: string } | undefined)?.defId;
+    const def = defId ? app.blockDef(defId) : undefined;
+    if (!def) {
+      return "#6c757d";
+    }
+    return KIND_MINIMAP[app.kindOf(def).name] ?? "#0d6efd";
+  }
 </script>
 
 <main class="workspace d-flex flex-column flex-grow-1 min-h-0">
@@ -196,8 +232,10 @@
       zoomOnDoubleClick={false}
       deleteKey={["Backspace", "Delete"]}
       nodeDragThreshold={4}
-      attributionPosition="bottom-left"
+      attributionPosition="top-right"
       class="bld-flow"
+      ondragover={ondragover}
+      ondrop={ondrop}
       onconnect={onconnect}
       onconnectstart={onConnectStart}
       onclickconnectstart={onConnectStart}
@@ -216,6 +254,14 @@
         bgColor="#14171a"
       />
       <Controls position="bottom-right" showLock={false} />
+      <MiniMap
+        position="bottom-left"
+        pannable
+        zoomable
+        bgColor="#14171a"
+        maskColor="rgba(20, 23, 26, 0.7)"
+        nodeColor={miniMapNodeColor}
+      />
       {#if app.blocks.length === 0}
         <Panel position="top-center" class="canvas-hint-panel">
           <div class="canvas-hint-card">

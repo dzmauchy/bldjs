@@ -4,7 +4,6 @@
   import { provideAppState } from "$lib/context";
   import { AppState } from "$lib/state.svelte";
   import AboutModal from "$lib/ui/AboutModal.svelte";
-  import DragGhost from "$lib/ui/DragGhost.svelte";
   import MenuBar from "$lib/ui/MenuBar.svelte";
   import OscilloscopeChart from "$lib/ui/OscilloscopeChart.svelte";
   import Palette from "$lib/ui/Palette.svelte";
@@ -19,32 +18,6 @@
   });
 
   onMount(() => {
-    const onMove = (event: PointerEvent) => {
-      if (app.draggingDefId === null) {
-        return;
-      }
-      app.dragX = event.clientX;
-      app.dragY = event.clientY;
-    };
-    const onUp = (event: PointerEvent) => {
-      if (app.draggingDefId === null) {
-        return;
-      }
-      const clientX = event.clientX;
-      const clientY = event.clientY;
-      const fromTarget =
-        event.target instanceof Element ? event.target.closest(".canvas-viewport") : null;
-      const fromPoint = document.elementFromPoint(clientX, clientY)?.closest(".canvas-viewport") ?? null;
-      const viewport = fromTarget ?? fromPoint;
-      if (!(viewport instanceof Element)) {
-        app.draggingDefId = null;
-        return;
-      }
-      app.dropPaletteBlock(clientX, clientY, viewport.getBoundingClientRect());
-    };
-    const onCancel = () => {
-      app.draggingDefId = null;
-    };
     const onKey = (event: KeyboardEvent) => {
       const meta = event.ctrlKey || event.metaKey;
       switch (event.key) {
@@ -78,16 +51,8 @@
           break;
       }
     };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onCancel);
     window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onCancel);
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener("keydown", onKey);
   });
 </script>
 
@@ -101,4 +66,3 @@
 </div>
 <AboutModal />
 <OscilloscopeChart />
-<DragGhost />

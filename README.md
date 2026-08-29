@@ -1,6 +1,6 @@
 # Bld
 
-A client-side [Svelte](https://svelte.dev/) app. The first slice is a dark Bootstrap workspace: a menubar, a left palette of blocks, and a center canvas. [Svelte Flow](https://svelteflow.dev/) manages nodes, edges, pan, and zoom.
+A client-side [Svelte](https://svelte.dev/) app. The workspace is a menubar, a left palette of block icons, and a [Svelte Flow](https://svelteflow.dev/) canvas with custom nodes, handles, controls, and a minimap.
 
 Diagrams load multiple XML type/block models (`src/resources/models/*.xml`, described by `src/resources/blocks.xsd` and `src/resources/blocks.md`). Wiring an output into an input grounds that input and infers the block's generic types.
 
@@ -40,7 +40,7 @@ Serve that folder with any static file server.
 
 ## Using the canvas
 
-- Drag a block from the left pane onto the canvas (or double-click a palette item to drop it in the center).
+- Drag a block icon from the left pane onto the canvas (or double-click a palette item to drop it in the center).
 - Click or drag from an output handle to an input handle to ground a type. Inferred parameters and port types update on the block.
 - Control Systems (`cs`): wire Oscilloscope → Sin → Quantizer → Timer. The timer runs on its own interval. Click Oscilloscope to open a live chart.
 - Scroll to zoom toward the cursor. Use Svelte Flow's zoom controls in the lower-right, or **View** in the menu.

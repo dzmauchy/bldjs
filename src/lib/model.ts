@@ -1,8 +1,8 @@
 export const MIN_ZOOM = 0.25;
 export const MAX_ZOOM = 3.0;
 export const GRID_SIZE = 24.0;
-export const BLOCK_WIDTH = 248.0;
-export const BLOCK_HEIGHT = 118.0;
+export const BLOCK_WIDTH = 180.0;
+export const BLOCK_HEIGHT = 88.0;
 export const PORT_HEADER = 34.0;
 export const PORT_PARAM = 18.0;
 export const PORT_ROW = 24.0;
