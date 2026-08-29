@@ -1,0 +1,53 @@
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  site:
+    name: HTML and resources
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Check
+        run: npm run check
+
+      - name: Build release site
+        run: npm run build
+
+      - name: Check site output
+        run: |
+          test -f dist/index.html
+          ls -la dist
+
+      - name: Upload site
+        uses: actions/upload-artifact@v4
+        with:
+          name: bld-site
+          path: dist
+          if-no-files-found: error
+          retention-days: 14

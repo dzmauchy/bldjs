@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+    <xs:simpleType name="VarianceType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="+"/>
+            <xs:enumeration value="-"/>
+            <xs:enumeration value="?"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Custom Attribute Definition -->
+    <xs:complexType name="AttributeDef" mixed="true">
+        <xs:sequence>
+            <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+    </xs:complexType>
+
+    <!-- Abstract Type Expression (AST) -->
+    <xs:complexType name="TExpr">
+        <xs:sequence>
+            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element name="t" type="TExpr"/>
+                <xs:element name="self">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="union" type="TExpr"/>
+                <xs:element name="intersection" type="TExpr"/>
+            </xs:choice>
+        </xs:sequence>
+        <xs:attribute name="type" type="xs:string"/>
+        <xs:attribute name="variance" type="VarianceType"/>
+    </xs:complexType>
+
+    <xs:complexType name="ParamDef">
+        <xs:sequence>
+            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="extends" type="TExpr" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="super" type="TExpr" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="variance" type="VarianceType"/>
+    </xs:complexType>
+
+    <!-- Port Definition -->
+    <xs:complexType name="PortDef">
+        <xs:complexContent>
+            <xs:extension base="TExpr">
+                <xs:attribute name="name" type="xs:string" use="required"/>
+                <xs:attribute name="vararg" type="xs:boolean" default="false"/>
+                <xs:attribute name="icon" type="xs:string"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- ROOT ELEMENT: blocks -->
+    <xs:element name="blocks">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+
+                    <xs:element name="library">
+                        <xs:complexType>
+                            <xs:sequence>
+                                <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+                            </xs:sequence>
+                            <xs:attribute name="id" type="xs:string" use="required"/>
+                            <xs:attribute name="name" type="xs:string" use="required"/>
+                            <xs:attribute name="version" type="xs:string"/>
+                        </xs:complexType>
+                    </xs:element>
+
+                    <xs:element name="namespace">
+                        <xs:complexType>
+                            <xs:sequence>
+                                <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+                            </xs:sequence>
+                            <xs:attribute name="id" type="xs:string" use="required"/>
+                            <xs:attribute name="name" type="xs:string" use="required"/>
+                            <xs:attribute name="parent" type="xs:string"/>
+                            <xs:attribute name="icon" type="xs:string"/>
+                        </xs:complexType>
+                    </xs:element>
+
+                    <xs:element name="type">
+                        <xs:complexType>
+                            <xs:sequence>
+                                <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+                                <xs:element name="param" type="ParamDef" minOccurs="0" maxOccurs="unbounded"/>
+                                <xs:element name="ancestor" type="TExpr" minOccurs="0" maxOccurs="unbounded"/>
+                                <xs:choice minOccurs="0">
+                                    <xs:element name="union" type="TExpr"/>
+                                    <xs:element name="intersection" type="TExpr"/>
+                                </xs:choice>
+                            </xs:sequence>
+                            <xs:attribute name="name" type="xs:string" use="required"/>
+                            <xs:attribute name="ns" type="xs:string"/>
+                        </xs:complexType>
+                    </xs:element>
+
+                    <xs:element name="block">
+                        <xs:complexType>
+                            <xs:sequence>
+                                <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+                                <xs:element name="param" type="ParamDef" minOccurs="0" maxOccurs="unbounded"/>
+
+                                <xs:element name="factory" minOccurs="0">
+                                    <xs:complexType>
+                                        <xs:sequence>
+                                            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+                                            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                                                <xs:element name="t" type="TExpr"/>
+                                                <xs:element name="self">
+                                                    <xs:complexType>
+                                                        <xs:sequence>
+                                                            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+                                                        </xs:sequence>
+                                                    </xs:complexType>
+                                                </xs:element>
+                                                <xs:element name="union" type="TExpr"/>
+                                                <xs:element name="intersection" type="TExpr"/>
+                                            </xs:choice>
+                                        </xs:sequence>
+                                        <xs:attribute name="id" type="xs:string" use="required"/>
+                                    </xs:complexType>
+                                </xs:element>
+
+                                <xs:element name="in" type="PortDef" minOccurs="0" maxOccurs="unbounded"/>
+                                <xs:element name="out" type="PortDef" minOccurs="0" maxOccurs="unbounded"/>
+                            </xs:sequence>
+                            <xs:attribute name="id" type="xs:string" use="required"/>
+                            <xs:attribute name="name" type="xs:string" use="required"/>
+                            <xs:attribute name="ns" type="xs:string" use="required"/>
+                            <xs:attribute name="icon" type="xs:string"/>
+                        </xs:complexType>
+                    </xs:element>
+
+                </xs:choice>
+            </xs:sequence>
+
+            <xs:attribute name="id" type="xs:string" use="required"/>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="icon" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

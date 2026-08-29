@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blocks id="java.lang" name="Java Lang">
+  <namespace id="java.lang" name="Java Lang"/>
+
+  <type name="Object" ns="java.lang"/>
+  <type name="Serializable" ns="java.io"/>
+  <type name="Cloneable" ns="java.lang"/>
+  <type name="RandomAccess" ns="java.util"/>
+
+  <type name="CharSequence" ns="java.lang">
+    <ancestor type="Object"/>
+  </type>
+
+  <type name="Comparable" ns="java.lang">
+    <param name="T"/>
+    <ancestor type="Object"/>
+  </type>
+
+  <type name="Number" ns="java.lang">
+    <ancestor type="Object"/>
+    <ancestor type="Serializable"/>
+  </type>
+
+  <type name="String" ns="java.lang">
+    <ancestor type="Object"/>
+    <ancestor type="CharSequence"/>
+    <ancestor type="Serializable"/>
+    <ancestor type="Comparable">
+      <t type="String"/>
+    </ancestor>
+  </type>
+
+  <type name="Integer" ns="java.lang">
+    <ancestor type="Number"/>
+    <ancestor type="Comparable">
+      <t type="Integer"/>
+    </ancestor>
+  </type>
+
+  <type name="Long" ns="java.lang">
+    <ancestor type="Number"/>
+    <ancestor type="Comparable">
+      <t type="Long"/>
+    </ancestor>
+  </type>
+
+  <type name="Double" ns="java.lang">
+    <ancestor type="Number"/>
+    <ancestor type="Comparable">
+      <t type="Double"/>
+    </ancestor>
+  </type>
+
+  <type name="Class" ns="java.lang">
+    <param name="T"/>
+    <ancestor type="Object"/>
+  </type>
+
+  <type name="Enum" ns="java.lang">
+    <param name="E">
+      <extends type="Enum">
+        <t type="E"/>
+      </extends>
+    </param>
+    <ancestor type="Object"/>
+    <ancestor type="Serializable"/>
+    <ancestor type="Comparable">
+      <t type="E"/>
+    </ancestor>
+  </type>
+
+  <type name="Iterable" ns="java.lang">
+    <param name="T"/>
+    <ancestor type="Object"/>
+  </type>
+
+  <block id="b_string" name="String" ns="java.lang" icon="string">
+    <attribute name="kind">Data</attribute>
+    <out name="value" type="String"/>
+  </block>
+
+  <block id="b_integer" name="Integer" ns="java.lang" icon="integer">
+    <attribute name="kind">Data</attribute>
+    <out name="value" type="Integer"/>
+  </block>
+
+  <block id="b_int" name="int" ns="java.lang" icon="int">
+    <attribute name="kind">Data</attribute>
+    <out name="value" type="int"/>
+  </block>
+
+  <block id="b_enum_valueof" name="Enum.valueOf" ns="java.lang">
+    <attribute name="kind">Process</attribute>
+    <param name="T">
+      <extends type="Enum">
+        <t type="T"/>
+      </extends>
+    </param>
+    <factory id="Enum#valueOf">
+      <t type="T"/>
+    </factory>
+    <in name="enumType" type="Class">
+      <t type="T"/>
+    </in>
+    <in name="name" type="String"/>
+    <out name="resultEnum" type="T"/>
+  </block>
+</blocks>
