@@ -10,24 +10,21 @@
     "build": "vite build",
     "preview": "vite preview",
     "preview:e2e": "vite preview --port 8080 --strictPort --host 127.0.0.1",
-    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "check": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "start-server-and-test preview:e2e http://127.0.0.1:8080 \"vitest run --config vitest.e2e.config.ts\""
   },
   "dependencies": {
-    "@xyflow/svelte": "^1.6.5",
     "bootstrap": "5.3.8",
-    "chart.js": "^4.5.1"
+    "chart.js": "^4.5.1",
+    "lit": "^3.3.3"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^7.3.0",
     "@types/selenium-webdriver": "^4.35.6",
     "jsdom": "^30.0.1",
     "selenium-webdriver": "^4.48.0",
     "start-server-and-test": "^3.0.12",
-    "svelte": "^5.57.0",
-    "svelte-check": "^4.7.6",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"
   },

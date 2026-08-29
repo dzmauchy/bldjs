@@ -1,4 +1,3 @@
-/// <reference types="svelte" />
 /// <reference types="vite/client" />
 
 declare module "*.xml?raw" {
@@ -14,4 +13,9 @@ declare module "*.md?raw" {
 declare module "*.svg?raw" {
   const content: string;
   export default content;
+}
+
+declare module "*.css?inline" {
+  const css: string;
+  export default css;
 }
