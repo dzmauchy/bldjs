@@ -109,12 +109,12 @@ describe("canvas", () => {
     }, 5000);
   });
 
-  it("drags a node by its header", async () => {
+  it("drags a node by its icon", async () => {
     const host = await nodeHost(driver, "timer");
     const before = await host.getRect();
     const root = await host.getShadowRoot();
-    const header = await root.findElement(By.css(".flow-node-header"));
-    await driver.actions({ async: true }).dragAndDrop(header, { x: 70, y: 40 }).perform();
+    const icon = await root.findElement(By.css(".flow-node-icon"));
+    await driver.actions({ async: true }).dragAndDrop(icon, { x: 70, y: 40 }).perform();
     await driver.wait(async () => {
       const after = await host.getRect();
       return Math.abs(after.x - before.x) > 8 || Math.abs(after.y - before.y) > 8;
@@ -136,5 +136,29 @@ describe("canvas", () => {
     await dropOnDiagram(driver, "cos");
     await waitForBlock(driver, "cos");
     expect(await statusBlocks(driver)).toBe("1 block");
+  });
+
+  it("renders a nameless block with a 32px icon and edge circles", async () => {
+    await newCanvas(driver);
+    await placeBlock(driver, "sin");
+    const host = await nodeHost(driver, "sin");
+    const root = await host.getShadowRoot();
+    expect(await root.findElements(By.css(".flow-node-title"))).toHaveLength(0);
+    expect((await host.getText()).toLowerCase()).not.toContain("sin");
+    const icon = await root.findElement(By.css(".flow-node-icon svg"));
+    const iconBox = await icon.getRect();
+    expect(iconBox.width).toBeGreaterThanOrEqual(30);
+    expect(iconBox.width).toBeLessThanOrEqual(34);
+    expect(iconBox.height).toBeGreaterThanOrEqual(30);
+    expect(iconBox.height).toBeLessThanOrEqual(34);
+    const nodeBox = await host.getRect();
+    const input = await root.findElement(By.css('[data-testid="input-in"] [data-handle]'));
+    const output = await root.findElement(By.css('[data-testid="output-out"] [data-handle]'));
+    const inBox = await input.getRect();
+    const outBox = await output.getRect();
+    const inCenter = inBox.x + inBox.width / 2;
+    const outCenter = outBox.x + outBox.width / 2;
+    expect(Math.abs(inCenter - nodeBox.x)).toBeLessThan(4);
+    expect(Math.abs(outCenter - (nodeBox.x + nodeBox.width))).toBeLessThan(4);
   });
 });
