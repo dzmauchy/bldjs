@@ -28,4 +28,9 @@ describe("shouldShowPortType", () => {
   it("hides incompatible inputs", () => {
     expect(shouldShowPortType(linking, 2, "in", "in", consumer, named("f64"), catalog, [])).toBe(false);
   });
+
+  it("shows c<f64> inputs when the source is a consumer vector", () => {
+    const vector = generic("[]", [consumer]);
+    expect(shouldShowPortType({ blockId: 1, port: "out" }, 2, "in", "in", vector, consumer, catalog, [])).toBe(true);
+  });
 });

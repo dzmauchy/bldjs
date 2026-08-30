@@ -96,8 +96,8 @@ describe("BldNode", () => {
         showChart: true,
         chartEnabled: true,
         selected: true,
-        inputs: [{ name: "in", typeLabel: "c<f64>", vararg: true }],
-        outputs: [],
+        inputs: [],
+        outputs: [{ name: "out", typeLabel: "c<f64>[]", vararg: false }],
         paramsLine: "",
       }),
     );
@@ -120,8 +120,8 @@ describe("BldNode", () => {
         name: "Oscilloscope",
         showChart: true,
         chartEnabled: false,
-        inputs: [{ name: "in", typeLabel: "c<f64>", vararg: true }],
-        outputs: [],
+        inputs: [],
+        outputs: [{ name: "out", typeLabel: "c<f64>[]", vararg: false }],
         paramsLine: "",
       }),
     );
@@ -133,10 +133,10 @@ describe("BldNode", () => {
     });
     chart.click();
     expect(opened).toBe(false);
-    expect(node.shadowRoot!.querySelector('[data-testid="input-in-type"]')).toBeNull();
-    expect(node.shadowRoot!.querySelector('[data-testid="input-in"] .block-port-type')).toBeNull();
-    expect(node.shadowRoot!.querySelector('[data-testid="input-in"] .block-port-name')?.textContent).toBe("in…");
-    expect(node.shadowRoot!.querySelector('[data-testid="input-in"]')?.getAttribute("title")).toBe("c<f64>");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out-type"]')).toBeNull();
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-type')).toBeNull();
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-name')?.textContent).toBe("out");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("c<f64>[]");
   });
 
   it("prints the type under a port only when showType is set", async () => {

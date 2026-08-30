@@ -28,8 +28,8 @@ describe("XML ↔ WASM signatures", () => {
     expect(blockSignature(cat.block("timer")!)).toEqual({
       id: "timer",
       name: "Timer",
-      params: [],
-      results: [{ name: "out", type: "f64" }],
+      params: [{ name: "in", type: "f64" }],
+      results: [],
     });
     expect(blockSignature(cat.block("quantizer")!)).toEqual({
       id: "quantizer",
@@ -52,15 +52,14 @@ describe("XML ↔ WASM signatures", () => {
     expect(blockSignature(cat.block("oscilloscope")!)).toEqual({
       id: "oscilloscope",
       name: "Oscilloscope",
-      params: [{ name: "in", type: "f64" }],
-      results: [],
+      params: [],
+      results: [{ name: "out", type: "f64" }],
     });
-    expect(displayType(cat.block("timer")!.outputs[0].ty, true)).toBe("c<f64>");
+    expect(displayType(cat.block("timer")!.inputs[0].ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("quantizer")!.outputs[0].ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("sin")!.outputs[0].ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("cos")!.outputs[0].ty, true)).toBe("c<f64>");
-    expect(displayType(cat.block("oscilloscope")!.inputs[0].ty, true)).toBe("c<f64>");
-    expect(cat.block("oscilloscope")!.inputs[0].vararg).toBe(true);
+    expect(displayType(cat.block("oscilloscope")!.outputs[0].ty, true)).toBe("c<f64>[]");
   });
 
   it("fixture type blocks use arguments as inputs and results as outputs", () => {
@@ -102,7 +101,7 @@ describe("XML ↔ WASM signatures", () => {
     associateFixtureModels(diagram);
     const cat = diagram.catalog();
     expect(signatureWat(blockSignature(cat.block("timer")!))).toBe(
-      "(func $timer (param $ctx i32) (result $out f64)",
+      "(func $timer (param $ctx i32) (param $in f64)",
     );
     expect(signatureWat(blockSignature(cat.block("sin")!))).toBe(
       "(func $sin (param $ctx i32) (param $in f64) (result $out f64)",
