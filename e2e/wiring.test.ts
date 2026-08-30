@@ -321,12 +321,22 @@ test.describe("wiring", () => {
     expect(periodMs).toBeGreaterThanOrEqual(200);
     expect(periodMs).toBeLessThanOrEqual(2500);
     const flow = page.locator("bld-connector:not([data-preview])[data-flow]");
-    await expect(flow).toHaveAttribute("data-push");
-    const direction = await flow.first().evaluate((el) => {
-      const seg = el.shadowRoot?.querySelector(".seg");
-      return seg ? getComputedStyle(seg).animationDirection : "";
-    });
-    expect(direction).toBe("reverse");
+    await expect(flow).toHaveCount(3);
+    const directions = await flow.evaluateAll((els) =>
+      els.map((el) => {
+        const push = el.hasAttribute("data-push");
+        const seg = el.shadowRoot?.querySelector(".seg");
+        return {
+          push,
+          direction: seg ? getComputedStyle(seg).animationDirection : "",
+        };
+      }),
+    );
+    expect(directions).toEqual([
+      { push: true, direction: "reverse" },
+      { push: true, direction: "reverse" },
+      { push: true, direction: "reverse" },
+    ]);
     await page.locator('[data-testid="toolbar-stop"]').click();
     await expect(run).toBeEnabled();
     await expect(page.locator("bld-connector:not([data-preview])[data-flow]")).toHaveCount(0);
