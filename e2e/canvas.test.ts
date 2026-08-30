@@ -161,7 +161,6 @@ test.describe("canvas", () => {
     await placeBlock(page, "sin");
     const host = nodeHost(page, "sin");
     await expect(host.locator(".flow-node-title")).toHaveText("Sin");
-    expect((await host.innerText()).toLowerCase()).toContain("sin");
     const titleSize = await host.locator(".flow-node-title").evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     expect(titleSize).toBeGreaterThan(0);
     expect(titleSize).toBeLessThanOrEqual(11);
