@@ -47,8 +47,6 @@ function collinearOverlap(left: { x: number; y: number }[], right: { x: number; 
   return longest;
 }
 
-test.describe.configure({ mode: "serial" });
-
 test.describe("wiring", () => {
   let page: Page;
 

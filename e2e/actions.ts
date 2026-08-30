@@ -115,17 +115,17 @@ export async function connectorPaths(page: Page): Promise<string[]> {
 }
 
 export async function connectorWorldPolylines(page: Page): Promise<{ x: number; y: number }[][]> {
-  return page.evaluate(`
-    const parse = (d) => {
-      const points = [];
-      const tokens = d.match(/[MLC]|-?\\d*\\.?\\d+(?:e[-+]?\\d+)?/gi) || [];
+  return page.evaluate(() => {
+    const parse = (d: string) => {
+      const points: { x: number; y: number }[] = [];
+      const tokens = d.match(/[MLC]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi) || [];
       let command = "";
-      const nums = [];
+      const nums: number[] = [];
       const flush = () => {
         if ((command === "M" || command === "L") && nums.length >= 2) {
-          points.push({ x: nums[nums.length - 2], y: nums[nums.length - 1] });
+          points.push({ x: nums[nums.length - 2]!, y: nums[nums.length - 1]! });
         } else if (command === "C" && nums.length >= 6) {
-          points.push({ x: nums[nums.length - 2], y: nums[nums.length - 1] });
+          points.push({ x: nums[nums.length - 2]!, y: nums[nums.length - 1]! });
         }
       };
       for (const token of tokens) {
@@ -140,26 +140,30 @@ export async function connectorWorldPolylines(page: Page): Promise<{ x: number; 
       flush();
       return points;
     };
-    const walk = (root, selector) => {
+    const walk = (root: ParentNode, selector: string): Element | null => {
       const match = root.querySelector(selector);
-      if (match) return match;
+      if (match) {
+        return match;
+      }
       for (const node of root.querySelectorAll("*")) {
         if (node.shadowRoot) {
           const found = walk(node.shadowRoot, selector);
-          if (found) return found;
+          if (found) {
+            return found;
+          }
         }
       }
       return null;
     };
     const diagram = walk(document, "bld-diagram");
-    const hosts = [...diagram.shadowRoot.querySelectorAll("bld-connector:not([data-preview])")];
+    const hosts = [...(diagram?.shadowRoot?.querySelectorAll("bld-connector:not([data-preview])") ?? [])];
     return hosts.map((host) => {
-      const d = host.shadowRoot.querySelector(".path-stroke")?.getAttribute("d") ?? "";
-      const left = Number.parseFloat(host.style.left) || 0;
-      const top = Number.parseFloat(host.style.top) || 0;
+      const d = host.shadowRoot?.querySelector(".path-stroke")?.getAttribute("d") ?? "";
+      const left = Number.parseFloat((host as HTMLElement).style.left) || 0;
+      const top = Number.parseFloat((host as HTMLElement).style.top) || 0;
       return parse(d).map((point) => ({ x: point.x + left, y: point.y + top }));
     });
-  `) as Promise<{ x: number; y: number }[][]>;
+  });
 }
 
 export async function dragNodeBy(page: Page, defId: string, dx: number, dy: number): Promise<void> {

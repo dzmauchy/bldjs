@@ -11,8 +11,6 @@ import {
   diagramRoot,
 } from "./actions";
 
-test.describe.configure({ mode: "serial" });
-
 test.describe("menus", () => {
   let page: Page;
 
