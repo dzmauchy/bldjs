@@ -6,11 +6,22 @@ Always check the main branch.
 
 ## Models
 
-Always use **Grok 4.6 High** at standard (non-Fast) speed for chats, agents, and subagents.
+Keep the model selected at the start of this session. Do not switch models mid-chat, mid-run, or when launching subagents.
 
-- Do not use Grok 4.6 Fast, `cursor-grok-4.6-high-fast`, or any other Fast variant.
-- When launching subagents, inherit this session's model. Do not switch models.
-- If a tool requires an explicit model slug and Grok 4.6 High (non-Fast) is not listed, use `inherit`. Do not substitute Fast or another model family.
+This project expects **Grok 4.6 High** at standard (non-Fast) speed. If that is what the user selected, stay on it for chats, agents, and subagents.
+
+- Do not switch to Grok 4.6 Fast, `cursor-grok-4.6-high-fast`, Auto, or any other Fast variant.
+- Do not switch to another model family.
+- When launching subagents, inherit this session's model (`inherit`). Do not pass a different slug.
+- If a tool requires an explicit model slug and the selected model is not listed, use `inherit`. Do not substitute Fast or another family.
+
+`AGENTS.md` is an instruction to agents. It does not lock the Cursor model picker. To keep the initially selected model in the product:
+
+1. Pick a named model, not Auto.
+2. Turn Fast off (Grok 4.6 Fast is the default speed on Pro and higher).
+3. Set Cursor Settings → Models and Cloud Agents → Default model to that same choice.
+4. For custom subagents, set `model: inherit` (or pin with `[fast=false]`).
+5. Set Explore to Inherit from parent under Settings → Agents → Subagents.
 
 ## Testing
 
