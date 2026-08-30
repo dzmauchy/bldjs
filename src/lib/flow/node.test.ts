@@ -54,18 +54,12 @@ describe("BldNode", () => {
     expect(shadow!.querySelector('[data-testid="output-result"] .block-port-name')?.textContent).not.toContain("f64[]");
     expect(shadow!.querySelector('[data-testid="output-result"] .block-port-type')).toBeNull();
     expect(shadow!.querySelector('[data-testid="input-elems"] .block-port-type')).toBeNull();
+    expect(shadow!.querySelector('[data-testid="output-result-type"]')).toBeNull();
+    expect(shadow!.querySelector('[data-testid="input-elems-type"]')).toBeNull();
     expect(shadow!.querySelector('[data-testid="output-result"] .block-port-name')?.textContent).toBe("result");
     expect(shadow!.querySelector('[data-testid="input-elems"] .block-port-name')?.textContent).toBe("elems…");
     expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("f64[]");
     expect(shadow!.querySelector('[data-testid="input-elems"]')?.getAttribute("title")).toBe("f64");
-    const outputHint = shadow!.querySelector('[data-testid="output-result-type"]') as HTMLElement | null;
-    const inputHint = shadow!.querySelector('[data-testid="input-elems-type"]') as HTMLElement | null;
-    expect(outputHint?.textContent).toBe("f64[]");
-    expect(inputHint?.textContent).toBe("f64");
-    expect(outputHint?.getAttribute("role")).toBe("tooltip");
-    expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("aria-describedby")).toBe(
-      "port-type-out-result",
-    );
     expect(shadow!.querySelector(".flow-node-params")?.textContent).toContain("T = f64");
     expect(node.dataset.blockDef).toBe("b_array_of");
     const glyph = shadow!.querySelector(".flow-node-icon path, .flow-node-icon rect, .flow-node-icon circle");
@@ -139,23 +133,22 @@ describe("BldNode", () => {
     });
     chart.click();
     expect(opened).toBe(false);
-    const hint = node.shadowRoot!.querySelector('[data-testid="output-out-type"]');
-    expect(hint?.textContent).toBe("c<f64>");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out-type"]')).toBeNull();
     expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-type')).toBeNull();
     expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-name')?.textContent).toBe("out");
     expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("c<f64>");
   });
 
-  it("shows the port type hint on click", async () => {
-    const node = await mountNode(sampleState());
-    const output = node.shadowRoot!.querySelector('[data-testid="output-result"]') as HTMLButtonElement;
-    const hint = node.shadowRoot!.querySelector('[data-testid="output-result-type"]') as HTMLElement;
-    expect(output.classList.contains("is-hint")).toBe(false);
-    output.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, clientX: 4, clientY: 8 }));
-    await node.updateComplete;
-    expect(output.classList.contains("is-hint")).toBe(true);
-    expect(hint.textContent).toBe("f64[]");
-    expect(hint.getAttribute("role")).toBe("tooltip");
+  it("prints the type under a port only when showType is set", async () => {
+    const node = await mountNode(
+      sampleState({
+        outputs: [{ name: "result", typeLabel: "f64[]", vararg: false, showType: true }],
+        inputs: [{ name: "elems", typeLabel: "f64", vararg: true, showType: true }],
+      }),
+    );
+    expect(node.shadowRoot!.querySelector('[data-testid="output-result-type"]')?.textContent).toBe("f64[]");
+    expect(node.shadowRoot!.querySelector('[data-testid="input-elems-type"]')?.textContent).toBe("f64");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-result"]')?.classList.contains("is-typed")).toBe(true);
   });
 
   it("reports its measured size through noderesize", async () => {

@@ -1,10 +1,11 @@
-import { LitElement, css, html, nothing } from "lit";
+import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { type BlockDef } from "$lib/blocks";
 import { AppController } from "$lib/context";
 import { FLOW_MIME } from "$lib/flow";
 import type { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
+import { type PaletteGroup, buildPaletteTree, paletteGroupIds } from "./palette-tree";
 import "./block-icon";
 
 export class BldPalette extends LitElement {
@@ -35,6 +36,17 @@ export class BldPalette extends LitElement {
       }
       .palette-ns {
         border-bottom: 1px solid var(--bs-border-color);
+      }
+      .palette-ns.is-child {
+        border-bottom: 0;
+      }
+      .palette-ns.is-child .palette-ns-toggle {
+        padding-left: 1.35rem;
+        background: #15191c;
+        font-size: 0.68rem;
+      }
+      .palette-ns-body.is-nested {
+        padding-left: 0.35rem;
       }
       .palette-ns-toggle {
         width: 100%;
@@ -148,31 +160,85 @@ export class BldPalette extends LitElement {
     this.#ctrl = new AppController(this, this.app);
   }
 
-  #groups(): [string, BlockDef[]][] {
-    const map = new Map<string, BlockDef[]>();
-    for (const block of this.app.catalog.blocks()) {
-      const list = map.get(block.ns) ?? [];
-      list.push(block);
-      map.set(block.ns, list);
-    }
-    for (const blocks of map.values()) {
-      blocks.sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
-    }
-    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+  #tree(): PaletteGroup[] {
+    return buildPaletteTree(this.app.catalog);
   }
 
-  #opened(groups: [string, BlockDef[]][]): Set<string> {
+  #opened(groups: PaletteGroup[]): Set<string> {
     if (this.#open === null) {
-      this.#open = new Set(groups.map(([ns]) => ns));
+      this.#open = new Set(paletteGroupIds(groups));
     }
     return this.#open;
   }
 
-  #toggleNs(ns: string, groups: [string, BlockDef[]][]): void {
+  #toggleNs(ns: string, groups: PaletteGroup[]): void {
     const open = this.#opened(groups);
     const nsSet = new Set([ns]);
     this.#open = open.has(ns) ? open.difference(nsSet) : open.union(nsSet);
     this.requestUpdate();
+  }
+
+  #renderBlock(def: BlockDef) {
+    const app = this.app;
+    const kind = app.kindOf(def);
+    const hint = def.attributes.find((a) => a.name === "description")?.value ?? kind.hint;
+    return html`
+      <div
+        class=${classMap({
+          "palette-item": true,
+          [kind.className]: true,
+          "is-drag-source": app.draggingDefId === def.id,
+        })}
+        role="button"
+        tabindex="0"
+        draggable="true"
+        data-testid=${`palette-${def.id}`}
+        title=${`${hint} — drag onto the canvas, or double-click to drop at the center`}
+        @dragstart=${(event: DragEvent) => this.#onDragStart(event, def.id)}
+        @dragend=${() => this.#onDragEnd()}
+        @keydown=${(event: KeyboardEvent) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            app.addBlockAtViewCenter(def.id);
+          }
+        }}
+        @dblclick=${() => {
+          app.draggingDefId = null;
+          app.addBlockAtViewCenter(def.id);
+        }}
+      >
+        <span class="palette-item-icon" aria-hidden="true">
+          <bld-block-icon .name=${def.icon}></bld-block-icon>
+        </span>
+        <span class="palette-item-label">${def.name}</span>
+      </div>
+    `;
+  }
+
+  #renderGroup(group: PaletteGroup, groups: PaletteGroup[], nested: boolean): TemplateResult {
+    const open = this.#opened(groups);
+    const isOpen = open.has(group.id);
+    return html`
+      <div class=${classMap({ "palette-ns": true, "is-child": nested })}>
+        <button
+          class=${classMap({ "palette-ns-toggle": true, open: isOpen })}
+          type="button"
+          data-testid=${`ns-${group.id}`}
+          @pointerdown=${(event: PointerEvent) => event.stopPropagation()}
+          @click=${() => this.#toggleNs(group.id, groups)}
+        >
+          ${group.label}
+        </button>
+        ${isOpen
+          ? html`
+              <div class=${classMap({ "palette-ns-body": true, "is-nested": nested })}>
+                ${group.blocks.map((def) => this.#renderBlock(def))}
+                ${group.children.map((child) => this.#renderGroup(child, groups, true))}
+              </div>
+            `
+          : nothing}
+      </div>
+    `;
   }
 
   #onDragStart(event: DragEvent, defId: string): void {
@@ -193,8 +259,7 @@ export class BldPalette extends LitElement {
     if (!app) {
       return nothing;
     }
-    const groups = this.#groups();
-    const open = this.#opened(groups);
+    const groups = this.#tree();
     return html`
       <aside class="palette border-end d-flex flex-column">
         <div class="palette-header px-3 py-2 border-bottom">
@@ -202,62 +267,7 @@ export class BldPalette extends LitElement {
           <div class="small text-secondary">Drag onto the canvas</div>
         </div>
         <div class="palette-list flex-grow-1 overflow-auto">
-          ${groups.map(
-            ([ns, blocks]) => html`
-              <div class="palette-ns">
-                <button
-                  class=${classMap({ "palette-ns-toggle": true, open: open.has(ns) })}
-                  type="button"
-                  data-testid=${`ns-${ns}`}
-                  @pointerdown=${(event: PointerEvent) => event.stopPropagation()}
-                  @click=${() => this.#toggleNs(ns, groups)}
-                >
-                  ${app.catalog.namespaceLabel(ns)}
-                </button>
-                ${open.has(ns)
-                  ? html`
-                      <div class="palette-ns-body">
-                        ${blocks.map((def) => {
-                          const kind = app.kindOf(def);
-                          const hint = def.attributes.find((a) => a.name === "description")?.value ?? kind.hint;
-                          return html`
-                            <div
-                              class=${classMap({
-                                "palette-item": true,
-                                [kind.className]: true,
-                                "is-drag-source": app.draggingDefId === def.id,
-                              })}
-                              role="button"
-                              tabindex="0"
-                              draggable="true"
-                              data-testid=${`palette-${def.id}`}
-                              title=${`${hint} — drag onto the canvas, or double-click to drop at the center`}
-                              @dragstart=${(event: DragEvent) => this.#onDragStart(event, def.id)}
-                              @dragend=${() => this.#onDragEnd()}
-                              @keydown=${(event: KeyboardEvent) => {
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  app.addBlockAtViewCenter(def.id);
-                                }
-                              }}
-                              @dblclick=${() => {
-                                app.draggingDefId = null;
-                                app.addBlockAtViewCenter(def.id);
-                              }}
-                            >
-                              <span class="palette-item-icon" aria-hidden="true">
-                                <bld-block-icon .name=${def.icon}></bld-block-icon>
-                              </span>
-                              <span class="palette-item-label">${def.name}</span>
-                            </div>
-                          `;
-                        })}
-                      </div>
-                    `
-                  : nothing}
-              </div>
-            `,
-          )}
+          ${groups.map((group) => this.#renderGroup(group, groups, false))}
         </div>
       </aside>
     `;

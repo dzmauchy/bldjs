@@ -17,6 +17,7 @@ import {
   runDiagram,
   waitForAvoidRouter,
   waitForLinks,
+  portTypeText,
 } from "./actions";
 import { createDriver } from "./harness";
 
@@ -36,38 +37,27 @@ describe("wiring", () => {
     await newCanvas(driver);
   });
 
-  it("wires oscilloscope into quantizer and shows port types only as hints", async () => {
+  it("shows port types only on the source output and compatible inputs while linking", async () => {
     await placeBlock(driver, "oscilloscope");
     await placeBlock(driver, "quantizer");
+    await placeBlock(driver, "timer");
+    expect(await portTypeText(driver, "oscilloscope", "output-out")).toBeNull();
+    expect(await portTypeText(driver, "quantizer", "input-in")).toBeNull();
+    expect(await portTypeText(driver, "quantizer", "output-out")).toBeNull();
+    expect(await portTypeText(driver, "timer", "input-in")).toBeNull();
+
     await clickPortHandle(driver, "oscilloscope", "output-out");
+    await driver.wait(async () => (await portTypeText(driver, "oscilloscope", "output-out")) === "c<f64>", 5000);
+    expect(await portTypeText(driver, "quantizer", "input-in")).toBe("c<f64>");
+    expect(await portTypeText(driver, "timer", "input-in")).toBe("c<f64>");
+    expect(await portTypeText(driver, "quantizer", "output-out")).toBeNull();
+
     await clickPortHandle(driver, "quantizer", "input-in");
     await waitForLinks(driver, "1 link");
     await waitForAvoidRouter(driver);
-
-    const quantizerHost = await nodeHost(driver, "quantizer");
-    const quantizerRoot = await quantizerHost.getShadowRoot();
-    await (await quantizerRoot.findElement(By.css(".flow-node-header"))).click();
-    const out = await quantizerRoot.findElement(By.css('[data-testid="output-out"]'));
-    const inn = await quantizerRoot.findElement(By.css('[data-testid="input-in"]'));
-    expect(await (await out.findElement(By.css(".block-port-name"))).getText()).toBe("out");
-    expect(await (await inn.findElement(By.css(".block-port-name"))).getText()).toBe("in");
-    expect(await out.getText()).not.toContain("c<f64>");
-    expect(await inn.getText()).not.toContain("c<f64>");
-    expect(await out.getAttribute("title")).toBe("c<f64>");
-    expect(await inn.getAttribute("title")).toBe("c<f64>");
-    const outHint = await quantizerRoot.findElement(By.css('[data-testid="output-out-type"]'));
-    const inHint = await quantizerRoot.findElement(By.css('[data-testid="input-in-type"]'));
-    expect(await outHint.getCssValue("visibility")).toBe("hidden");
-    expect(await inHint.getCssValue("visibility")).toBe("hidden");
-    await driver.actions({ async: true }).move({ origin: out }).perform();
-    await driver.wait(async () => (await outHint.getCssValue("visibility")) === "visible", 5000);
-    expect(await outHint.getText()).toBe("c<f64>");
-    await (await quantizerRoot.findElement(By.css(".flow-node-header"))).click();
-    await driver.wait(async () => (await outHint.getCssValue("visibility")) === "hidden", 5000);
-    await inn.click();
-    await driver.wait(async () => (await inn.getAttribute("class")).includes("is-hint"), 5000);
-    expect(await inHint.getText()).toBe("c<f64>");
-    expect(await inHint.getCssValue("visibility")).toBe("visible");
+    expect(await portTypeText(driver, "oscilloscope", "output-out")).toBeNull();
+    expect(await portTypeText(driver, "quantizer", "input-in")).toBeNull();
+    expect(await portTypeText(driver, "timer", "input-in")).toBeNull();
 
     const path = await connectorPath(driver);
     expect(path.startsWith("M ")).toBe(true);
@@ -140,10 +130,7 @@ describe("wiring", () => {
     const cosOut = await cosRoot.findElement(By.css('[data-testid="output-out"]'));
     expect(await cosIn.getText()).not.toContain("c<f64>");
     expect(await cosOut.getText()).not.toContain("c<f64>");
-    const timerHint = await timerRoot.findElement(By.css('[data-testid="input-in-type"]'));
-    await driver.actions({ async: true }).move({ origin: timerIn }).perform();
-    await driver.wait(async () => (await timerHint.getCssValue("visibility")) === "visible", 5000);
-    expect(await timerHint.getText()).toBe("c<f64>");
+    expect(await portTypeText(driver, "timer", "input-in")).toBeNull();
     const timerIcon = await timerRoot.findElement(By.css(".flow-node-icon svg"));
     expect(await timerIcon.isDisplayed()).toBe(true);
     const glyphNs = await driver.executeScript(

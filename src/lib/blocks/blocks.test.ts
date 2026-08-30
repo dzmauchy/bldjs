@@ -544,6 +544,10 @@ describe("blocks", () => {
     expect(cat.namespaces.get("com.dauch.cs.gen")?.parent).toBe("com.dauch.cs");
     expect(cat.namespaces.get("com.dauch.cs.transform")?.parent).toBe("com.dauch.cs");
     expect(cat.namespaces.get("com.dauch.cs.sink")?.parent).toBe("com.dauch.cs");
+    expect(cat.namespaceParent("com.dauch.cs.gen")).toBe("com.dauch.cs");
+    expect(cat.namespaceParent("com.dauch.cs.transform")).toBe("com.dauch.cs");
+    expect(cat.namespaceParent("com.dauch.cs.sink")).toBe("com.dauch.cs");
+    expect(cat.namespaceParent("com.dauch.cs")).toBeNull();
     expect(cat.findType("f64")).toBeDefined();
     expect(cat.findType("c1")).toBeDefined();
     expect(cat.findType("s")).toBeDefined();

@@ -10,6 +10,7 @@ import {
   type Link,
   type ResolvedBlock,
 } from "$lib/blocks";
+import { shouldShowPortType } from "./link-types";
 import { AppController } from "$lib/context";
 import { GRID_SIZE, clampZoom, zoomToward } from "$lib/model";
 import { type AppState, type BlockInstance } from "$lib/state";
@@ -277,6 +278,9 @@ export class BldDiagram extends LitElement {
     }
     const kind = this.app.kindOf(def);
     const resolvedBlock = resolved.get(block.id);
+    const linking = this.app.linkingFrom;
+    const sourceResolved = linking ? resolved.get(linking.blockId) : undefined;
+    const sourceOut = linking && sourceResolved ? resolvedOutput(sourceResolved, linking.port) : undefined;
     return {
       blockId: block.id,
       defId: block.defId,
@@ -287,19 +291,45 @@ export class BldDiagram extends LitElement {
       paramsLine: this.#paramLine(resolved, block.id),
       showChart: block.defId === "oscilloscope",
       chartEnabled: block.defId === "oscilloscope" && this.app.isScopeLive(block.id),
-      inputs: def.inputs.map((port) => ({
-        name: port.name,
-        typeLabel: typeToString(resolvedBlock ? (resolvedInput(resolvedBlock, port.name) ?? port.ty) : port.ty),
-        vararg: port.vararg,
-        grounded: this.app.inputIsGrounded(block.id, port.name),
-        compatible: resolvedBlock ? isResolvedCompatible(resolvedBlock, port.name) : true,
-      })),
-      outputs: def.outputs.map((port) => ({
-        name: port.name,
-        typeLabel: typeToString(resolvedBlock ? (resolvedOutput(resolvedBlock, port.name) ?? port.ty) : port.ty),
-        vararg: port.vararg,
-        linking: this.app.linkingFrom?.blockId === block.id && this.app.linkingFrom.port === port.name,
-      })),
+      inputs: def.inputs.map((port) => {
+        const ty = resolvedBlock ? (resolvedInput(resolvedBlock, port.name) ?? port.ty) : port.ty;
+        return {
+          name: port.name,
+          typeLabel: typeToString(ty),
+          vararg: port.vararg,
+          grounded: this.app.inputIsGrounded(block.id, port.name),
+          compatible: resolvedBlock ? isResolvedCompatible(resolvedBlock, port.name) : true,
+          showType: shouldShowPortType(
+            linking,
+            block.id,
+            "in",
+            port.name,
+            sourceOut,
+            ty,
+            this.app.catalog,
+            def.params,
+          ),
+        };
+      }),
+      outputs: def.outputs.map((port) => {
+        const ty = resolvedBlock ? (resolvedOutput(resolvedBlock, port.name) ?? port.ty) : port.ty;
+        return {
+          name: port.name,
+          typeLabel: typeToString(ty),
+          vararg: port.vararg,
+          linking: linking?.blockId === block.id && linking.port === port.name,
+          showType: shouldShowPortType(
+            linking,
+            block.id,
+            "out",
+            port.name,
+            sourceOut,
+            ty,
+            this.app.catalog,
+            def.params,
+          ),
+        };
+      }),
     };
   }
 

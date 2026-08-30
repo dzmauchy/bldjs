@@ -126,6 +126,20 @@ export async function nodeHost(driver: WebDriver, defId: string) {
   return waitDeep(driver, `bld-node[data-block-def="${defId}"]`);
 }
 
+export async function portTypeText(
+  driver: WebDriver,
+  blockDef: string,
+  testId: string,
+): Promise<string | null> {
+  const host = await nodeHost(driver, blockDef);
+  const nodeShadow = await host.getShadowRoot();
+  const hints = await nodeShadow.findElements(By.css(`[data-testid="${testId}-type"]`));
+  if (hints.length === 0) {
+    return null;
+  }
+  return hints[0].getText();
+}
+
 export async function clickPortHandle(driver: WebDriver, blockDef: string, testId: string): Promise<void> {
   const host = await nodeHost(driver, blockDef);
   const nodeShadow = await host.getShadowRoot();

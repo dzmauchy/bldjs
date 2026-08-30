@@ -19,7 +19,6 @@ export class BldNode extends LitElement {
 
   #kindClass = "";
   #resize: ResizeObserver | null = null;
-  #hintPort: string | null = null;
 
   static override styles = css`
     :host {
@@ -163,35 +162,6 @@ export class BldNode extends LitElement {
       text-align: right;
       justify-content: flex-end;
     }
-    .block-port-hint {
-      position: absolute;
-      top: calc(100% + 2px);
-      left: 0;
-      z-index: 6;
-      padding: 0.12rem 0.4rem;
-      border-radius: 0.25rem;
-      background: #14171a;
-      border: 1px solid var(--bs-border-color, #495057);
-      color: var(--bs-info, #0dcaf0);
-      font-family: var(--bs-font-monospace, ui-monospace, monospace);
-      font-size: 0.62rem;
-      line-height: 1.2;
-      white-space: nowrap;
-      pointer-events: none;
-      visibility: hidden;
-      opacity: 0;
-    }
-    .block-port-row.is-out .block-port-hint {
-      left: auto;
-      right: 0;
-    }
-    .block-port-row:hover .block-port-hint,
-    .block-port-row:focus .block-port-hint,
-    .block-port-row:focus-visible .block-port-hint,
-    .block-port-row.is-hint .block-port-hint {
-      visibility: visible;
-      opacity: 1;
-    }
     .block-port-meta {
       display: flex;
       flex-direction: column;
@@ -204,6 +174,12 @@ export class BldNode extends LitElement {
     .block-port-name {
       font-size: 0.7rem;
       color: var(--bs-secondary-color, #adb5bd);
+    }
+    .block-port-type {
+      font-size: 0.62rem;
+      color: var(--bs-info, #0dcaf0);
+      font-family: var(--bs-font-monospace, ui-monospace, monospace);
+      white-space: nowrap;
     }
     .block-port {
       display: inline-block;
@@ -223,7 +199,7 @@ export class BldNode extends LitElement {
     .block-port-row.is-linking .block-port {
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--block-accent, #0d6efd) 55%, transparent);
     }
-    .block-port-row.is-bad .block-port-hint {
+    .block-port-row.is-bad .block-port-type {
       color: var(--bs-danger, #dc3545);
     }
     .block-port-row.is-bad .block-port {
@@ -285,39 +261,14 @@ export class BldNode extends LitElement {
     );
   }
 
-  #hintKey(side: PortSide, name: string): string {
-    return `${side}:${name}`;
-  }
-
-  #setHint(side: PortSide, name: string): void {
-    const next = this.#hintKey(side, name);
-    if (this.#hintPort === next) {
-      return;
-    }
-    this.#hintPort = next;
-    this.requestUpdate();
-  }
-
-  #clearHint(): void {
-    if (this.#hintPort === null) {
-      return;
-    }
-    this.#hintPort = null;
-    this.requestUpdate();
-  }
-
   #onPortPointer(event: PointerEvent, phase: "pointerdown" | "pointerup"): void {
     const hit = portFromComposedPath(event);
     if (!hit || hit.host !== this) {
-      if (phase === "pointerdown") {
-        this.#clearHint();
-      }
       return;
     }
     event.stopPropagation();
     if (phase === "pointerdown") {
       event.preventDefault();
-      this.#setHint(hit.side, hit.port);
     }
     const name = phase === "pointerdown" ? "portpointerdown" : "portpointerup";
     this.dispatchEvent(
@@ -355,23 +306,21 @@ export class BldNode extends LitElement {
       port.grounded ? "is-grounded" : "",
       port.linking ? "is-linking" : "",
       port.compatible === false ? "is-bad" : "",
-      this.#hintPort === this.#hintKey(side, port.name) ? "is-hint" : "",
+      port.showType ? "is-typed" : "",
     ]
       .filter(Boolean)
       .join(" ");
   }
 
-  #portHintId(side: PortSide, name: string): string {
-    return `port-type-${side}-${name}`;
-  }
-
   #renderPort(port: PortView, side: PortSide) {
     const testId = this.#portTestId(side, port.name);
-    const hintId = this.#portHintId(side, port.name);
     const handle = html`<span class="block-port" data-handle></span>`;
     const meta = html`
       <span class="block-port-meta">
         <span class="block-port-name">${port.vararg ? `${port.name}…` : port.name}</span>
+        ${port.showType
+          ? html`<span class="block-port-type" data-testid=${`${testId}-type`}>${port.typeLabel}</span>`
+          : nothing}
       </span>
     `;
     return html`
@@ -383,15 +332,8 @@ export class BldNode extends LitElement {
         data-name=${port.name}
         data-testid=${testId}
         title=${port.typeLabel}
-        aria-describedby=${hintId}
       >
         ${side === "in" ? handle : meta} ${side === "in" ? meta : handle}
-        <span
-          id=${hintId}
-          class="block-port-hint"
-          role="tooltip"
-          data-testid=${`${testId}-type`}
-        >${port.typeLabel}</span>
       </button>
     `;
   }

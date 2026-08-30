@@ -9,6 +9,7 @@ export interface PortView {
   grounded?: boolean;
   compatible?: boolean;
   linking?: boolean;
+  showType?: boolean;
 }
 
 export interface BldNodeState {
