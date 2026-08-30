@@ -40,9 +40,9 @@ describe("binaryen generator", () => {
         { id: 4, defId: "timer" },
       ],
       [
-        { fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in" },
+        { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" },
         { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
-        { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
       ],
     ))!;
     const handle = await startLocalGenerator({

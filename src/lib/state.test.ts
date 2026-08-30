@@ -11,9 +11,9 @@ function wireCsPipeline(app: AppState): { timerId: number; scopeId: number } {
   app.addBlock("sin", 360, 0);
   const scopeId = app.nextId;
   app.addBlock("oscilloscope", 540, 0);
-  app.toggleLink(timerId, "out", quantizerId, "in");
+  app.toggleLink(scopeId, "out", quantizerId, "in");
   app.toggleLink(quantizerId, "out", sinId, "in");
-  app.toggleLink(sinId, "out", scopeId, "in");
+  app.toggleLink(sinId, "out", timerId, "in");
   return { timerId, scopeId };
 }
 
@@ -39,26 +39,37 @@ describe("AppState placement", () => {
 });
 
 describe("AppState wiring", () => {
-  it("keeps multiple c<f64> wires on the oscilloscope vararg input", () => {
+  it("keeps multiple c<f64> wires into one input", () => {
     const app = new AppState();
+    const scopeA = app.nextId;
+    app.addBlock("oscilloscope", 0, 0);
+    const scopeB = app.nextId;
+    app.addBlock("oscilloscope", 0, 120);
     const timerId = app.nextId;
-    app.addBlock("timer", 0, 0);
+    app.addBlock("timer", 300, 0);
+    app.toggleLink(scopeA, "out", timerId, "in");
+    app.toggleLink(scopeB, "out", timerId, "in");
+    expect(app.links).toEqual([
+      { fromBlock: scopeA, fromOut: "out", toBlock: timerId, toIn: "in" },
+      { fromBlock: scopeB, fromOut: "out", toBlock: timerId, toIn: "in" },
+    ]);
+    expect(app.canRun()).toBe(true);
+  });
+
+  it("keeps two vector channels from one oscilloscope", () => {
+    const app = new AppState();
+    const scopeId = app.nextId;
+    app.addBlock("oscilloscope", 0, 0);
     const sinId = app.nextId;
     app.addBlock("sin", 180, 0);
     const cosId = app.nextId;
     app.addBlock("cos", 180, 120);
-    const scopeId = app.nextId;
-    app.addBlock("oscilloscope", 360, 0);
-    app.toggleLink(timerId, "out", sinId, "in");
-    app.toggleLink(timerId, "out", cosId, "in");
-    app.toggleLink(sinId, "out", scopeId, "in");
-    app.toggleLink(cosId, "out", scopeId, "in");
-    expect(app.links).toEqual([
-      { fromBlock: timerId, fromOut: "out", toBlock: sinId, toIn: "in" },
-      { fromBlock: timerId, fromOut: "out", toBlock: cosId, toIn: "in" },
-      { fromBlock: sinId, fromOut: "out", toBlock: scopeId, toIn: "in" },
-      { fromBlock: cosId, fromOut: "out", toBlock: scopeId, toIn: "in" },
-    ]);
+    const timerId = app.nextId;
+    app.addBlock("timer", 360, 0);
+    app.toggleLink(scopeId, "out", sinId, "in");
+    app.toggleLink(scopeId, "out", cosId, "in");
+    app.toggleLink(sinId, "out", timerId, "in");
+    app.toggleLink(cosId, "out", timerId, "in");
     expect(app.canRun()).toBe(true);
     expect(app.plannedGenerators()[0].channels).toEqual([
       { scopeId, label: "sin" },
@@ -66,26 +77,26 @@ describe("AppState wiring", () => {
     ]);
   });
 
-  it("grounds timer into quantizer", () => {
+  it("grounds oscilloscope into quantizer", () => {
     const app = new AppState();
-    const timerId = app.nextId;
-    app.addBlock("timer", 0, 0);
+    const scopeId = app.nextId;
+    app.addBlock("oscilloscope", 0, 0);
     const quantizerId = app.nextId;
     app.addBlock("quantizer", 300, 0);
-    app.toggleLink(timerId, "out", quantizerId, "in");
+    app.toggleLink(scopeId, "out", quantizerId, "in");
     expect(app.links).toEqual([
-      { fromBlock: timerId, fromOut: "out", toBlock: quantizerId, toIn: "in" },
+      { fromBlock: scopeId, fromOut: "out", toBlock: quantizerId, toIn: "in" },
     ]);
   });
 
   it("deletes a selected connector without removing blocks", () => {
     const app = new AppState();
-    const timerId = app.nextId;
-    app.addBlock("timer", 0, 0);
+    const scopeId = app.nextId;
+    app.addBlock("oscilloscope", 0, 0);
     const quantizerId = app.nextId;
     app.addBlock("quantizer", 300, 0);
-    app.toggleLink(timerId, "out", quantizerId, "in");
-    app.selectLink({ fromBlock: timerId, fromOut: "out", toBlock: quantizerId, toIn: "in" });
+    app.toggleLink(scopeId, "out", quantizerId, "in");
+    app.selectLink({ fromBlock: scopeId, fromOut: "out", toBlock: quantizerId, toIn: "in" });
     app.deleteSelected();
     expect(app.links).toEqual([]);
     expect(app.blocks).toHaveLength(2);
@@ -94,12 +105,12 @@ describe("AppState wiring", () => {
 
   it("removes a block and its links", () => {
     const app = new AppState();
-    const timerId = app.nextId;
-    app.addBlock("timer", 0, 0);
+    const scopeId = app.nextId;
+    app.addBlock("oscilloscope", 0, 0);
     const quantizerId = app.nextId;
     app.addBlock("quantizer", 300, 0);
-    app.toggleLink(timerId, "out", quantizerId, "in");
-    app.removeBlock(timerId);
+    app.toggleLink(scopeId, "out", quantizerId, "in");
+    app.removeBlock(scopeId);
     expect(app.blocks.map((block) => block.defId)).toEqual(["quantizer"]);
     expect(app.links).toEqual([]);
   });
@@ -141,27 +152,27 @@ describe("AppState run", () => {
     await new Promise((resolve) => setTimeout(resolve, 30));
     const series = await app.snapshotScope(scopeId);
     expect(series).toHaveLength(1);
-    expect(series[0].label).toBe("quantizer → sin");
+    expect(series[0].label).toBe("sin → quantizer");
     expect(series[0].samples.length).toBeGreaterThan(0);
     app.stopRun();
     expect(app.running).toBe(false);
     expect(app.isScopeLive(scopeId)).toBe(false);
   });
 
-  it("run snapshots two series for a vararg oscilloscope", async () => {
+  it("run snapshots two series for an oscilloscope vector", async () => {
     const app = new AppState();
-    const timerId = app.nextId;
-    app.addBlock("timer", 0, 0);
+    const scopeId = app.nextId;
+    app.addBlock("oscilloscope", 0, 0);
     const sinId = app.nextId;
     app.addBlock("sin", 180, 0);
     const cosId = app.nextId;
     app.addBlock("cos", 180, 120);
-    const scopeId = app.nextId;
-    app.addBlock("oscilloscope", 360, 0);
-    app.toggleLink(timerId, "out", sinId, "in");
-    app.toggleLink(timerId, "out", cosId, "in");
-    app.toggleLink(sinId, "out", scopeId, "in");
-    app.toggleLink(cosId, "out", scopeId, "in");
+    const timerId = app.nextId;
+    app.addBlock("timer", 360, 0);
+    app.toggleLink(scopeId, "out", sinId, "in");
+    app.toggleLink(scopeId, "out", cosId, "in");
+    app.toggleLink(sinId, "out", timerId, "in");
+    app.toggleLink(cosId, "out", timerId, "in");
     await app.runDiagram();
     expect(app.running).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 30));
@@ -174,13 +185,12 @@ describe("AppState run", () => {
 
   it("stops the run when the wiring changes", async () => {
     const app = new AppState();
-    const { timerId, scopeId } = wireCsPipeline(app);
+    const { timerId } = wireCsPipeline(app);
     await app.runDiagram();
     expect(app.running).toBe(true);
 
-    app.toggleLink(app.blocks.find((block) => block.defId === "sin")!.id, "out", scopeId, "in");
+    app.toggleLink(app.blocks.find((block) => block.defId === "sin")!.id, "out", timerId, "in");
     expect(app.running).toBe(false);
     expect(app.canRun()).toBe(false);
-    expect(timerId).toBeGreaterThan(0);
   });
 });

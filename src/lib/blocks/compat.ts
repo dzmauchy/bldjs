@@ -1,4 +1,4 @@
-import { type ParamDef, type TypeExpr, type Variance, unbounded } from "./ast";
+import { type ParamDef, type TypeExpr, type Variance, isArrayType, isConsumerType, unbounded } from "./ast";
 import { type Catalog, sameRaw } from "./catalog";
 import { asParam, isPrimitive } from "./types";
 
@@ -43,6 +43,11 @@ function visit(
       onMatch(param.name, to);
     }
     return true;
+  }
+
+  // A vector of consumers `c<T>[]` may ground a `c<T>` input (one channel per wire).
+  if (to.kind === "type" && isArrayType(to) && to.args[0] && isConsumerType(to.args[0])) {
+    return visit(catalog, params, from, to.args[0], visited, covariant, depth + 1, onMatch);
   }
 
   switch (to.kind) {

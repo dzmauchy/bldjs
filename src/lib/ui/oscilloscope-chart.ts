@@ -161,7 +161,7 @@ export class BldOscilloscopeChart extends LitElement {
                 <canvas ${ref(this.#canvas)}></canvas>
               </div>
               <div class="small text-secondary mt-2">
-                oscilloscope(sin(quantizer(timer())), cos(timer())) · multi-axis
+                timer(fork(sin(plot[0]), cos(plot[1]))) · multi-axis
               </div>
             </div>
           </div>

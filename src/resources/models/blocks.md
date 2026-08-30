@@ -126,13 +126,13 @@ When defining a `<param>`, use `<extends>` and `<super>` to bound the generic va
 `<in>` ports and `<out>` ports carry language-agnostic types. Control Systems uses a pure push model: every consumer is `DoubleConsumer` (`c<f64>`). Compact display writes `c1` as `c`. The WASM runtime still lowers each sample port to first-order f64.
 
 ```
-timer()            : c<f64>
+timer(c)           : c<f64> → void
 quantizer(c)       : c<f64> → c<f64>
 sin(c) / cos(c)    : c<f64> → c<f64>
-oscilloscope(c...) : void              (vararg plot sink)
+oscilloscope()     : c<f64>[]          (vector of plot sinks)
 ```
 
-Composition is `oscilloscope(sin(quantizer(timer())), cos(timer()))`. Wire Timer → Quantizer → Sin (or Cos) → Oscilloscope. Oscilloscope `in` is `vararg="true"`. Several `c<f64>` outputs may share one input; the runtime inserts a hidden `fork`:
+Composition is `timer(sin(quantizer(plot[0])))`. Wire Oscilloscope → Quantizer → Sin (or Cos) → Timer. Oscilloscope `out` is a vector of `c<f64>`; each outgoing wire is one channel. Several `c<f64>` outputs may share one input; the runtime inserts a hidden `fork`:
 
 ```
 c<f64> fork(c<f64>... downstreams) {
@@ -140,7 +140,7 @@ c<f64> fork(c<f64>... downstreams) {
 }
 ```
 
-So two channels on one oscilloscope compile as `oscilloscope(sin(timer()), cos(timer()))`. After Run the chart is a [Chart.js multi-axis line](https://www.chartjs.org/docs/latest/samples/line/multi-axis.html).
+So two channels from one oscilloscope compile as `timer(fork(sin(plot[0]), cos(plot[1])))`. After Run the chart is a [Chart.js multi-axis line](https://www.chartjs.org/docs/latest/samples/line/multi-axis.html).
 
 ```xml
 <type name="c1">
@@ -149,10 +149,10 @@ So two channels on one oscilloscope compile as `oscilloscope(sin(timer()), cos(t
 
 <block id="timer" name="Timer" ns="com.dauch.cs.gen">
   <factory id="timer"/>
-  <out name="out" type="c1">
+  <in name="in" type="c1">
     <attribute name="wasm">f64</attribute>
     <t type="f64"/>
-  </out>
+  </in>
 </block>
 
 <block id="sin" name="Sin" ns="com.dauch.cs.transform">
