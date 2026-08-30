@@ -1,6 +1,6 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { By, Key, type WebDriver } from "selenium-webdriver";
+import { expect, test, type Page } from "@playwright/test";
 import {
+  boxOf,
   clickConnector,
   clickPortHandle,
   connectorPath,
@@ -13,7 +13,6 @@ import {
   openWorkspace,
   placeBlock,
   pressDelete,
-  queryDeepAll,
   statusLinks,
   waitDeep,
   runDiagram,
@@ -21,7 +20,6 @@ import {
   waitForLinks,
   portTypeText,
 } from "./actions";
-import { createDriver } from "./harness";
 
 function collinearOverlap(left: { x: number; y: number }[], right: { x: number; y: number }[]): number {
   const segments = (pts: { x: number; y: number }[]) => {
@@ -49,296 +47,278 @@ function collinearOverlap(left: { x: number; y: number }[], right: { x: number; 
   return longest;
 }
 
-describe("wiring", () => {
-  let driver: WebDriver;
+test.describe("wiring", () => {
+  let page: Page;
 
-  beforeAll(async () => {
-    driver = await createDriver();
-    await openWorkspace(driver);
+  test.beforeAll(async ({ browser }) => {
+    page = await browser.newPage();
+    await openWorkspace(page);
   });
 
-  afterAll(async () => {
-    await driver?.quit();
+  test.afterAll(async () => {
+    await page?.close();
   });
 
-  beforeEach(async () => {
-    await newCanvas(driver);
+  test.beforeEach(async () => {
+    await newCanvas(page);
   });
 
-  it("shows port types only on the source output and compatible inputs while linking", async () => {
-    await placeBlock(driver, "oscilloscope");
-    await placeBlock(driver, "quantizer");
-    await placeBlock(driver, "timer");
-    expect(await portTypeText(driver, "oscilloscope", "output-out")).toBeNull();
-    expect(await portTypeText(driver, "quantizer", "input-in")).toBeNull();
-    expect(await portTypeText(driver, "quantizer", "output-out")).toBeNull();
-    expect(await portTypeText(driver, "timer", "input-in")).toBeNull();
+  test("shows port types only on the source output and compatible inputs while linking", async () => {
+    await placeBlock(page, "oscilloscope");
+    await placeBlock(page, "quantizer");
+    await placeBlock(page, "timer");
+    expect(await portTypeText(page, "oscilloscope", "output-out")).toBeNull();
+    expect(await portTypeText(page, "quantizer", "input-in")).toBeNull();
+    expect(await portTypeText(page, "quantizer", "output-out")).toBeNull();
+    expect(await portTypeText(page, "timer", "input-in")).toBeNull();
 
-    await clickPortHandle(driver, "oscilloscope", "output-out");
-    await driver.wait(async () => (await portTypeText(driver, "oscilloscope", "output-out")) === "c<f64>[]", 5000);
-    expect(await portTypeText(driver, "quantizer", "input-in")).toBe("c<f64>");
-    expect(await portTypeText(driver, "timer", "input-in")).toBe("c<f64>");
-    expect(await portTypeText(driver, "quantizer", "output-out")).toBeNull();
+    await clickPortHandle(page, "oscilloscope", "output-out");
+    await expect
+      .poll(async () => portTypeText(page, "oscilloscope", "output-out"))
+      .toBe("c<f64>[]");
+    expect(await portTypeText(page, "quantizer", "input-in")).toBe("c<f64>");
+    expect(await portTypeText(page, "timer", "input-in")).toBe("c<f64>");
+    expect(await portTypeText(page, "quantizer", "output-out")).toBeNull();
 
-    await clickPortHandle(driver, "quantizer", "input-in");
-    await waitForLinks(driver, "1 link");
-    await waitForAvoidRouter(driver);
-    expect(await portTypeText(driver, "oscilloscope", "output-out")).toBeNull();
-    expect(await portTypeText(driver, "quantizer", "input-in")).toBeNull();
-    expect(await portTypeText(driver, "timer", "input-in")).toBeNull();
+    await clickPortHandle(page, "quantizer", "input-in");
+    await waitForLinks(page, "1 link");
+    await waitForAvoidRouter(page);
+    expect(await portTypeText(page, "oscilloscope", "output-out")).toBeNull();
+    expect(await portTypeText(page, "quantizer", "input-in")).toBeNull();
+    expect(await portTypeText(page, "timer", "input-in")).toBeNull();
 
-    const path = await connectorPath(driver);
+    const path = await connectorPath(page);
     expect(path.startsWith("M ")).toBe(true);
     expect(path.includes("L ") || path.includes("C ")).toBe(true);
-    const tag = await (await diagramCss(driver, "bld-connector")).getTagName();
-    expect(tag).toBe("bld-connector");
-    const diagram = await waitDeep(driver, "bld-diagram");
-    expect(await diagram.getAttribute("data-connector")).toBe("jumpover");
-    expect(await diagram.getAttribute("data-worker")).toBe("true");
+    expect((await diagramCss(page, "bld-connector").evaluate((el) => el.tagName)).toLowerCase()).toBe("bld-connector");
+    const diagram = await waitDeep(page, "bld-diagram");
+    await expect(diagram).toHaveAttribute("data-connector", "jumpover");
+    await expect(diagram).toHaveAttribute("data-worker", "true");
   });
 
-  it("keeps a second c<f64> wire on the same input", async () => {
-    await placeBlock(driver, "oscilloscope");
-    await placeBlock(driver, "oscilloscope");
-    await placeBlock(driver, "timer");
-    await clickPortHandle(driver, "oscilloscope", "output-out", 0);
-    await clickPortHandle(driver, "timer", "input-in");
-    await waitForLinks(driver, "1 link");
-    await clickPortHandle(driver, "oscilloscope", "output-out", 1);
-    await clickPortHandle(driver, "timer", "input-in");
-    await waitForLinks(driver, "2 links");
+  test("keeps a second c<f64> wire on the same input", async () => {
+    await placeBlock(page, "oscilloscope");
+    await placeBlock(page, "oscilloscope");
+    await placeBlock(page, "timer");
+    await clickPortHandle(page, "oscilloscope", "output-out", 0);
+    await clickPortHandle(page, "timer", "input-in");
+    await waitForLinks(page, "1 link");
+    await clickPortHandle(page, "oscilloscope", "output-out", 1);
+    await clickPortHandle(page, "timer", "input-in");
+    await waitForLinks(page, "2 links");
   });
 
-  it("adds extra ports for a second wire and removes them with the connector", async () => {
-    await placeBlock(driver, "oscilloscope");
-    await placeBlock(driver, "sin");
-    await placeBlock(driver, "cos");
-    await placeBlock(driver, "timer");
+  test("adds extra ports for a second wire and removes them with the connector", async () => {
+    await placeBlock(page, "oscilloscope");
+    await placeBlock(page, "sin");
+    await placeBlock(page, "cos");
+    await placeBlock(page, "timer");
 
     async function portNames(defId: string, side: "in" | "out"): Promise<string[]> {
-      const host = await nodeHost(driver, defId);
-      const root = await host.getShadowRoot();
-      const ports = await root.findElements(By.css(`[data-port][data-side="${side}"]`));
-      return Promise.all(ports.map((port) => port.getAttribute("data-name")));
+      return nodeHost(page, defId)
+        .locator(`[data-port][data-side="${side}"]`)
+        .evaluateAll((ports) => ports.map((port) => port.getAttribute("data-name") ?? ""));
     }
 
-    await clickPortHandle(driver, "oscilloscope", "output-out");
-    await clickPortHandle(driver, "sin", "input-in");
-    await waitForLinks(driver, "1 link");
+    await clickPortHandle(page, "oscilloscope", "output-out");
+    await clickPortHandle(page, "sin", "input-in");
+    await waitForLinks(page, "1 link");
     expect(await portNames("oscilloscope", "out")).toEqual(["out"]);
     expect(await portNames("sin", "in")).toEqual(["in"]);
-    const scopeRoot = await (await nodeHost(driver, "oscilloscope")).getShadowRoot();
-    expect(await scopeRoot.findElements(By.css('[data-vector="out"] .block-port-vector-rail'))).toHaveLength(1);
-    expect(await scopeRoot.findElements(By.css('[data-vector="out"] .block-port-name'))).toHaveLength(0);
+    const scope = nodeHost(page, "oscilloscope");
+    await expect(scope.locator('[data-vector="out"] .block-port-vector-rail')).toHaveCount(1);
+    await expect(scope.locator('[data-vector="out"] .block-port-name')).toHaveCount(0);
 
-    await clickPortHandle(driver, "oscilloscope", "output-out");
-    await clickPortHandle(driver, "cos", "input-in");
-    await waitForLinks(driver, "2 links");
+    await clickPortHandle(page, "oscilloscope", "output-out");
+    await clickPortHandle(page, "cos", "input-in");
+    await waitForLinks(page, "2 links");
     expect(await portNames("oscilloscope", "out")).toEqual(["out", "out[1]"]);
     expect(await portNames("cos", "in")).toEqual(["in"]);
-    expect(await scopeRoot.findElements(By.css('[data-vector="out"] [data-handle]'))).toHaveLength(2);
-    expect(await scopeRoot.findElements(By.css('[data-vector="out"] .block-port-name'))).toHaveLength(0);
+    await expect(scope.locator('[data-vector="out"] [data-handle]')).toHaveCount(2);
+    await expect(scope.locator('[data-vector="out"] .block-port-name')).toHaveCount(0);
 
-    await clickPortHandle(driver, "sin", "output-out");
-    await clickPortHandle(driver, "timer", "input-in");
-    await waitForLinks(driver, "3 links");
+    await clickPortHandle(page, "sin", "output-out");
+    await clickPortHandle(page, "timer", "input-in");
+    await waitForLinks(page, "3 links");
     expect(await portNames("timer", "in")).toEqual(["in"]);
 
-    await clickPortHandle(driver, "cos", "output-out");
-    await clickPortHandle(driver, "timer", "input-in");
-    await waitForLinks(driver, "4 links");
+    await clickPortHandle(page, "cos", "output-out");
+    await clickPortHandle(page, "timer", "input-in");
+    await waitForLinks(page, "4 links");
     expect(await portNames("timer", "in")).toEqual(["in", "in[1]"]);
-    const timerRoot = await (await nodeHost(driver, "timer")).getShadowRoot();
-    expect(await timerRoot.findElements(By.css('[data-vector="in"] .block-port-vector-rail'))).toHaveLength(1);
-    expect(await timerRoot.findElements(By.css('[data-vector="in"] [data-handle]'))).toHaveLength(2);
-    expect(await timerRoot.findElements(By.css('[data-vector="in"] .block-port-name'))).toHaveLength(0);
+    const timer = nodeHost(page, "timer");
+    await expect(timer.locator('[data-vector="in"] .block-port-vector-rail')).toHaveCount(1);
+    await expect(timer.locator('[data-vector="in"] [data-handle]')).toHaveCount(2);
+    await expect(timer.locator('[data-vector="in"] .block-port-name')).toHaveCount(0);
 
-    await clickPortHandle(driver, "oscilloscope", "output-out[1]");
-    await clickPortHandle(driver, "cos", "input-in");
-    await waitForLinks(driver, "3 links");
+    await clickPortHandle(page, "oscilloscope", "output-out[1]");
+    await clickPortHandle(page, "cos", "input-in");
+    await waitForLinks(page, "3 links");
     expect(await portNames("oscilloscope", "out")).toEqual(["out"]);
 
-    await clickPortHandle(driver, "cos", "output-out");
-    await clickPortHandle(driver, "timer", "input-in[1]");
-    await waitForLinks(driver, "2 links");
+    await clickPortHandle(page, "cos", "output-out");
+    await clickPortHandle(page, "timer", "input-in[1]");
+    await waitForLinks(page, "2 links");
     expect(await portNames("timer", "in")).toEqual(["in"]);
   });
 
-  it("keeps two inputs on distinct connector approaches", async () => {
-    await placeBlock(driver, "cos");
-    await placeBlock(driver, "sin");
-    await placeBlock(driver, "quantizer");
+  test("keeps two inputs on distinct connector approaches", async () => {
+    await placeBlock(page, "cos");
+    await placeBlock(page, "sin");
+    await placeBlock(page, "quantizer");
 
-    const cosBox = await (await nodeHost(driver, "cos")).getRect();
-    const sinBox = await (await nodeHost(driver, "sin")).getRect();
-    const quantizerBox = await (await nodeHost(driver, "quantizer")).getRect();
-    await dragNodeBy(driver, "sin", cosBox.x - sinBox.x, cosBox.y + cosBox.height + 36 - sinBox.y);
+    const cosBox = await boxOf(nodeHost(page, "cos"));
+    const sinBox = await boxOf(nodeHost(page, "sin"));
+    const quantizerBox = await boxOf(nodeHost(page, "quantizer"));
+    await dragNodeBy(page, "sin", cosBox.x - sinBox.x, cosBox.y + cosBox.height + 36 - sinBox.y);
     await dragNodeBy(
-      driver,
+      page,
       "quantizer",
       cosBox.x + cosBox.width + 96 - quantizerBox.x,
       cosBox.y - quantizerBox.y,
     );
 
-    await clickPortHandle(driver, "cos", "output-out");
-    await clickPortHandle(driver, "quantizer", "input-in");
-    await waitForLinks(driver, "1 link");
-    await clickPortHandle(driver, "sin", "output-out");
-    await clickPortHandle(driver, "quantizer", "input-in");
-    await waitForLinks(driver, "2 links");
-    await waitForAvoidRouter(driver);
-    await driver.wait(async () => {
-      const polylines = await connectorWorldPolylines(driver);
-      return polylines.length === 2 && polylines.every((pts) => pts.length >= 2);
-    }, 10000);
-    await driver.wait(async () => {
-      const polylines = await connectorWorldPolylines(driver);
-      return polylines.length === 2 && collinearOverlap(polylines[0]!, polylines[1]!) < 16;
-    }, 10000);
-    const polylines = await connectorWorldPolylines(driver);
+    await clickPortHandle(page, "cos", "output-out");
+    await clickPortHandle(page, "quantizer", "input-in");
+    await waitForLinks(page, "1 link");
+    await clickPortHandle(page, "sin", "output-out");
+    await clickPortHandle(page, "quantizer", "input-in");
+    await waitForLinks(page, "2 links");
+    await waitForAvoidRouter(page);
+    await expect
+      .poll(async () => {
+        const polylines = await connectorWorldPolylines(page);
+        return polylines.length === 2 && polylines.every((pts) => pts.length >= 2);
+      })
+      .toBe(true);
+    await expect
+      .poll(async () => {
+        const polylines = await connectorWorldPolylines(page);
+        return polylines.length === 2 && collinearOverlap(polylines[0]!, polylines[1]!) < 16;
+      })
+      .toBe(true);
+    const polylines = await connectorWorldPolylines(page);
     expect(polylines).toHaveLength(2);
     expect(collinearOverlap(polylines[0]!, polylines[1]!)).toBeLessThan(16);
   });
 
-  it("toggles the same wire off", async () => {
-    await placeBlock(driver, "oscilloscope");
-    await placeBlock(driver, "quantizer");
-    await clickPortHandle(driver, "oscilloscope", "output-out");
-    await clickPortHandle(driver, "quantizer", "input-in");
-    await waitForLinks(driver, "1 link");
-    await clickPortHandle(driver, "oscilloscope", "output-out");
-    await clickPortHandle(driver, "quantizer", "input-in");
-    await waitForLinks(driver, "0 links");
+  test("toggles the same wire off", async () => {
+    await placeBlock(page, "oscilloscope");
+    await placeBlock(page, "quantizer");
+    await clickPortHandle(page, "oscilloscope", "output-out");
+    await clickPortHandle(page, "quantizer", "input-in");
+    await waitForLinks(page, "1 link");
+    await clickPortHandle(page, "oscilloscope", "output-out");
+    await clickPortHandle(page, "quantizer", "input-in");
+    await waitForLinks(page, "0 links");
   });
 
-  it("deletes a selected connector", async () => {
-    await placeBlock(driver, "oscilloscope");
-    await placeBlock(driver, "quantizer");
-    await clickPortHandle(driver, "oscilloscope", "output-out");
-    await clickPortHandle(driver, "quantizer", "input-in");
-    await waitForLinks(driver, "1 link");
-    await clickConnector(driver);
-    await pressDelete(driver);
-    await waitForLinks(driver, "0 links");
-    expect(await (await diagramRoot(driver)).findElements(By.css("bld-connector"))).toHaveLength(0);
+  test("deletes a selected connector", async () => {
+    await placeBlock(page, "oscilloscope");
+    await placeBlock(page, "quantizer");
+    await clickPortHandle(page, "oscilloscope", "output-out");
+    await clickPortHandle(page, "quantizer", "input-in");
+    await waitForLinks(page, "1 link");
+    await clickConnector(page);
+    await pressDelete(page);
+    await waitForLinks(page, "0 links");
+    await expect(diagramRoot(page).locator("bld-connector")).toHaveCount(0);
   });
 
-  it("cancels an in-progress link with Escape", async () => {
-    await placeBlock(driver, "oscilloscope");
-    await clickPortHandle(driver, "oscilloscope", "output-out");
-    await driver.wait(async () => {
-      const preview = await (await diagramRoot(driver)).findElements(By.css('[data-testid="connector-preview"]'));
-      return preview.length === 1;
-    }, 5000);
-    await driver.actions({ async: true }).sendKeys(Key.ESCAPE).perform();
-    await driver.wait(async () => {
-      const preview = await (await diagramRoot(driver)).findElements(By.css('[data-testid="connector-preview"]'));
-      return preview.length === 0;
-    }, 5000);
-    expect(await statusLinks(driver)).toBe("0 links");
+  test("cancels an in-progress link with Escape", async () => {
+    await placeBlock(page, "oscilloscope");
+    await clickPortHandle(page, "oscilloscope", "output-out");
+    await expect(diagramRoot(page).locator('[data-testid="connector-preview"]')).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(diagramRoot(page).locator('[data-testid="connector-preview"]')).toHaveCount(0);
+    expect(await statusLinks(page)).toBe("0 links");
   });
 
-  it("wires Oscilloscope → Quantizer → Sin → Timer and opens the chart", async () => {
+  test("wires Oscilloscope → Quantizer → Sin → Timer and opens the chart", async () => {
     for (const id of ["timer", "quantizer", "sin", "cos", "oscilloscope"] as const) {
-      await placeBlock(driver, id);
+      await placeBlock(page, id);
     }
 
-    const timerHost = await nodeHost(driver, "timer");
-    const timerRoot = await timerHost.getShadowRoot();
-    const timerIn = await timerRoot.findElement(By.css('[data-testid="input-in"]'));
-    expect(await timerIn.getAttribute("title")).toBe("c<f64>");
-    expect(await timerIn.getText()).not.toContain("c<f64>");
-    const sinHost = await nodeHost(driver, "sin");
-    const sinRoot = await sinHost.getShadowRoot();
-    const sinIn = await sinRoot.findElement(By.css('[data-testid="input-in"]'));
-    const sinOut = await sinRoot.findElement(By.css('[data-testid="output-out"]'));
-    expect(await sinIn.getText()).not.toContain("c<f64>");
-    expect(await sinOut.getText()).not.toContain("c<f64>");
-    expect(await sinOut.getAttribute("title")).toBe("c<f64>");
-    const cosHost = await nodeHost(driver, "cos");
-    const cosRoot = await cosHost.getShadowRoot();
-    const cosIn = await cosRoot.findElement(By.css('[data-testid="input-in"]'));
-    const cosOut = await cosRoot.findElement(By.css('[data-testid="output-out"]'));
-    expect(await cosIn.getText()).not.toContain("c<f64>");
-    expect(await cosOut.getText()).not.toContain("c<f64>");
-    expect(await portTypeText(driver, "timer", "input-in")).toBeNull();
-    const timerIcon = await timerRoot.findElement(By.css(".flow-node-icon svg"));
-    expect(await timerIcon.isDisplayed()).toBe(true);
-    const glyphNs = await driver.executeScript(
-      "const g = arguments[0].querySelector('path, rect, circle, ellipse'); return g && g.namespaceURI;",
-      timerIcon,
-    );
+    const timerIn = nodeHost(page, "timer").locator('[data-testid="input-in"]');
+    await expect(timerIn).toHaveAttribute("title", "c<f64>");
+    expect(await timerIn.innerText()).not.toContain("c<f64>");
+    const sinIn = nodeHost(page, "sin").locator('[data-testid="input-in"]');
+    const sinOut = nodeHost(page, "sin").locator('[data-testid="output-out"]');
+    expect(await sinIn.innerText()).not.toContain("c<f64>");
+    expect(await sinOut.innerText()).not.toContain("c<f64>");
+    await expect(sinOut).toHaveAttribute("title", "c<f64>");
+    const cosIn = nodeHost(page, "cos").locator('[data-testid="input-in"]');
+    const cosOut = nodeHost(page, "cos").locator('[data-testid="output-out"]');
+    expect(await cosIn.innerText()).not.toContain("c<f64>");
+    expect(await cosOut.innerText()).not.toContain("c<f64>");
+    expect(await portTypeText(page, "timer", "input-in")).toBeNull();
+    const timerIcon = nodeHost(page, "timer").locator(".flow-node-icon svg");
+    await expect(timerIcon).toBeVisible();
+    const glyphNs = await timerIcon.evaluate((svg) => {
+      const g = svg.querySelector("path, rect, circle, ellipse");
+      return g && g.namespaceURI;
+    });
     expect(glyphNs).toBe("http://www.w3.org/2000/svg");
 
     async function wire(fromDef: string, fromPort: string, toDef: string, toPort: string, expected: string): Promise<void> {
-      await clickPortHandle(driver, fromDef, `output-${fromPort}`);
-      await clickPortHandle(driver, toDef, `input-${toPort}`);
-      await waitForLinks(driver, expected);
+      await clickPortHandle(page, fromDef, `output-${fromPort}`);
+      await clickPortHandle(page, toDef, `input-${toPort}`);
+      await waitForLinks(page, expected);
     }
 
     await wire("oscilloscope", "out", "quantizer", "in", "1 link");
     await wire("quantizer", "out", "sin", "in", "2 links");
     await wire("sin", "out", "timer", "in", "3 links");
 
-    const scope = await nodeHost(driver, "oscilloscope");
-    const chart = await (await scope.getShadowRoot()).findElement(By.css('[data-testid^="chart-"]'));
-    expect(await chart.getAttribute("disabled")).toBe("true");
-    await runDiagram(driver);
-    const run = await waitDeep(driver, '[data-testid="toolbar-run"]');
-    expect(await run.getAttribute("disabled")).toBe("true");
-    await driver.wait(async () => (await chart.getAttribute("disabled")) === null, 10000);
+    const chart = nodeHost(page, "oscilloscope").locator('[data-testid^="chart-"]');
+    await expect(chart).toBeDisabled();
+    await runDiagram(page);
+    const run = page.locator('[data-testid="toolbar-run"]');
+    await expect(run).toBeDisabled();
+    await expect(chart).toBeEnabled();
     await chart.click();
-    await waitDeep(driver, '[data-testid="oscilloscope-modal"]');
-    await driver.wait(async () => {
-      const plot = await queryDeepAll(driver, '[data-testid="oscilloscope-chart"]');
-      return plot.length === 1 && (await plot[0].getAttribute("data-series-count")) === "1";
-    }, 5000);
-    await driver.actions({ async: true }).sendKeys(Key.ESCAPE).perform();
-    await driver.wait(async () => (await queryDeepAll(driver, '[data-testid="oscilloscope-modal"]')).length === 0, 5000);
-    await (await waitDeep(driver, '[data-testid="toolbar-stop"]')).click();
-    await driver.wait(async () => (await run.getAttribute("disabled")) === null, 5000);
+    await waitDeep(page, '[data-testid="oscilloscope-modal"]');
+    await expect(page.locator('[data-testid="oscilloscope-chart"]')).toHaveAttribute("data-series-count", "1");
+    await page.keyboard.press("Escape");
+    await expect(page.locator('[data-testid="oscilloscope-modal"]')).toHaveCount(0);
+    await page.locator('[data-testid="toolbar-stop"]').click();
+    await expect(run).toBeEnabled();
   });
 
-  it("opens a multi-axis chart after two vector channels run", async () => {
-    await placeBlock(driver, "oscilloscope");
-    await placeBlock(driver, "sin");
-    await placeBlock(driver, "cos");
-    await placeBlock(driver, "timer");
-    await clickPortHandle(driver, "oscilloscope", "output-out");
-    await clickPortHandle(driver, "sin", "input-in");
-    await waitForLinks(driver, "1 link");
-    await clickPortHandle(driver, "oscilloscope", "output-out");
-    await clickPortHandle(driver, "cos", "input-in");
-    await waitForLinks(driver, "2 links");
-    await clickPortHandle(driver, "sin", "output-out");
-    await clickPortHandle(driver, "timer", "input-in");
-    await waitForLinks(driver, "3 links");
-    await clickPortHandle(driver, "cos", "output-out");
-    await clickPortHandle(driver, "timer", "input-in");
-    await waitForLinks(driver, "4 links");
+  test("opens a multi-axis chart after two vector channels run", async () => {
+    await placeBlock(page, "oscilloscope");
+    await placeBlock(page, "sin");
+    await placeBlock(page, "cos");
+    await placeBlock(page, "timer");
+    await clickPortHandle(page, "oscilloscope", "output-out");
+    await clickPortHandle(page, "sin", "input-in");
+    await waitForLinks(page, "1 link");
+    await clickPortHandle(page, "oscilloscope", "output-out");
+    await clickPortHandle(page, "cos", "input-in");
+    await waitForLinks(page, "2 links");
+    await clickPortHandle(page, "sin", "output-out");
+    await clickPortHandle(page, "timer", "input-in");
+    await waitForLinks(page, "3 links");
+    await clickPortHandle(page, "cos", "output-out");
+    await clickPortHandle(page, "timer", "input-in");
+    await waitForLinks(page, "4 links");
 
-    const scope = await nodeHost(driver, "oscilloscope");
-    const chart = await (await scope.getShadowRoot()).findElement(By.css('[data-testid^="chart-"]'));
-    await runDiagram(driver);
-    await driver.wait(async () => (await chart.getAttribute("disabled")) === null, 10000);
+    const chart = nodeHost(page, "oscilloscope").locator('[data-testid^="chart-"]');
+    await runDiagram(page);
+    await expect(chart).toBeEnabled();
     await chart.click();
-    await waitDeep(driver, '[data-testid="oscilloscope-modal"]');
-    await driver.wait(async () => {
-      const plot = await queryDeepAll(driver, '[data-testid="oscilloscope-chart"]');
-      return plot.length === 1 && (await plot[0].getAttribute("data-series-count")) === "2";
-    }, 5000);
+    await waitDeep(page, '[data-testid="oscilloscope-modal"]');
+    await expect(page.locator('[data-testid="oscilloscope-chart"]')).toHaveAttribute("data-series-count", "2");
   });
 
-  it("moves the connector when a wired node is dragged", async () => {
-    await placeBlock(driver, "oscilloscope");
-    await placeBlock(driver, "quantizer");
-    await clickPortHandle(driver, "oscilloscope", "output-out");
-    await clickPortHandle(driver, "quantizer", "input-in");
-    await waitForLinks(driver, "1 link");
-    const before = await connectorPath(driver);
-    const host = await nodeHost(driver, "oscilloscope");
-    const icon = await (await host.getShadowRoot()).findElement(By.css(".flow-node-icon"));
-    await driver.actions({ async: true }).dragAndDrop(icon, { x: 90, y: 30 }).perform();
-    await driver.wait(async () => (await connectorPath(driver)) !== before, 5000);
+  test("moves the connector when a wired node is dragged", async () => {
+    await placeBlock(page, "oscilloscope");
+    await placeBlock(page, "quantizer");
+    await clickPortHandle(page, "oscilloscope", "output-out");
+    await clickPortHandle(page, "quantizer", "input-in");
+    await waitForLinks(page, "1 link");
+    const before = await connectorPath(page);
+    await dragNodeBy(page, "oscilloscope", 90, 30);
+    await expect.poll(async () => connectorPath(page)).not.toBe(before);
   });
 });

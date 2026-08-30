@@ -12,7 +12,7 @@
     "preview:e2e": "vite preview --port 8080 --strictPort --host 127.0.0.1",
     "check": "tsc --noEmit && node scripts/check-xsd.mjs",
     "test": "vitest run",
-    "test:e2e": "start-server-and-test preview:e2e http://127.0.0.1:8080 \"vitest run --config vitest.e2e.config.ts\""
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@joint/router-avoid": "^4.3.2",
@@ -22,10 +22,8 @@
     "lit": "^3.3.3"
   },
   "devDependencies": {
-    "@types/selenium-webdriver": "^4.35.6",
+    "@playwright/test": "^1.62.1",
     "jsdom": "^30.0.1",
-    "selenium-webdriver": "^4.48.0",
-    "start-server-and-test": "^3.0.12",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"

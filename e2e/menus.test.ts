@@ -1,105 +1,102 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type WebDriver } from "selenium-webdriver";
+import { expect, test, type Page } from "@playwright/test";
 import {
-  diagramRoot,
   newCanvas,
   nodeHost,
   openAppMenu,
   openWorkspace,
   placeBlock,
-  queryDeepAll,
   statusBlocks,
   statusZoom,
   waitDeep,
+  diagramRoot,
 } from "./actions";
-import { createDriver } from "./harness";
 
-describe("menus", () => {
-  let driver: WebDriver;
+test.describe("menus", () => {
+  let page: Page;
 
-  beforeAll(async () => {
-    driver = await createDriver();
-    await openWorkspace(driver);
+  test.beforeAll(async ({ browser }) => {
+    page = await browser.newPage();
+    await openWorkspace(page);
   });
 
-  afterAll(async () => {
-    await driver?.quit();
+  test.afterAll(async () => {
+    await page?.close();
   });
 
-  it("serves the page with isolation headers and a wasm-safe script CSP", async () => {
-    const headers = (await driver.executeAsyncScript(`
-      const done = arguments[arguments.length - 1];
-      fetch(location.href, { method: "GET" })
-        .then((response) =>
-          done({
-            csp: response.headers.get("content-security-policy") ?? "",
-            coop: response.headers.get("cross-origin-opener-policy") ?? "",
-            coep: response.headers.get("cross-origin-embedder-policy") ?? "",
-          }),
-        )
-        .catch((error) => done({ csp: String(error), coop: "", coep: "" }));
-    `)) as { csp: string; coop: string; coep: string };
+  test("serves the page with isolation headers and a wasm-safe script CSP", async () => {
+    const headers = await page.evaluate(async () => {
+      const response = await fetch(location.href, { method: "GET" });
+      return {
+        csp: response.headers.get("content-security-policy") ?? "",
+        coop: response.headers.get("cross-origin-opener-policy") ?? "",
+        coep: response.headers.get("cross-origin-embedder-policy") ?? "",
+      };
+    });
     expect(headers.csp).toBe("script-src 'self' 'wasm-unsafe-eval';");
     expect(headers.coop).toBe("same-origin");
     expect(headers.coep).toBe("require-corp");
-    expect(await driver.executeScript("return self.crossOriginIsolated")).toBe(true);
+    expect(await page.evaluate(() => self.crossOriginIsolated)).toBe(true);
   });
 
-  it("uses the bld.svg mark as favicon and toolbar brand", async () => {
-    const favicon = (await driver.executeScript(`
+  test("uses the bld.svg mark as favicon and toolbar brand", async () => {
+    const favicon = await page.evaluate(() => {
       const link = document.querySelector('link[rel="icon"]');
       return {
         type: link && link.getAttribute("type"),
         href: link && link.getAttribute("href"),
       };
-    `)) as { type: string | null; href: string | null };
+    });
     expect(favicon.type).toBe("image/svg+xml");
     expect(favicon.href).toMatch(/bld[^/]*\.svg/);
 
-    const brand = await waitDeep(driver, '[data-testid="app-brand"]');
-    expect(await brand.getText()).not.toContain("Bld");
-    const viewBox = await driver.executeScript(
-      `
-      const walk = (root) => {
+    const brand = await waitDeep(page, '[data-testid="app-brand"]');
+    expect(await brand.innerText()).not.toContain("Bld");
+    const viewBox = await page.evaluate(() => {
+      const walk = (root: ParentNode): SVGSVGElement | null => {
         const match = root.querySelector('[data-testid="app-brand"] svg');
-        if (match) return match;
+        if (match) {
+          return match as SVGSVGElement;
+        }
         for (const node of root.querySelectorAll("*")) {
           if (node.shadowRoot) {
             const found = walk(node.shadowRoot);
-            if (found) return found;
+            if (found) {
+              return found;
+            }
           }
         }
         return null;
       };
       const svg = walk(document);
       return svg && svg.getAttribute("viewBox");
-      `,
-    );
+    });
     expect(viewBox).toBe("0 0 512 512");
   });
 
-  it("shows Run and Stop on the toolbar with SVG icons", async () => {
-    const run = await waitDeep(driver, '[data-testid="toolbar-run"]');
-    const stop = await waitDeep(driver, '[data-testid="toolbar-stop"]');
-    expect(await run.getText()).not.toContain("Run");
-    expect(await stop.getText()).not.toContain("Stop");
-    expect(await run.getAttribute("title")).toBe("Run");
-    expect(await stop.getAttribute("title")).toBe("Stop");
-    expect(await run.getAttribute("aria-label")).toBe("Run");
-    expect(await stop.getAttribute("aria-label")).toBe("Stop");
-    expect(await stop.getAttribute("disabled")).toBe("true");
+  test("shows Run and Stop on the toolbar with SVG icons", async () => {
+    const run = await waitDeep(page, '[data-testid="toolbar-run"]');
+    const stop = await waitDeep(page, '[data-testid="toolbar-stop"]');
+    expect(await run.innerText()).not.toContain("Run");
+    expect(await stop.innerText()).not.toContain("Stop");
+    await expect(run).toHaveAttribute("title", "Run");
+    await expect(stop).toHaveAttribute("title", "Stop");
+    await expect(run).toHaveAttribute("aria-label", "Run");
+    await expect(stop).toHaveAttribute("aria-label", "Stop");
+    await expect(stop).toBeDisabled();
 
     async function svgNs(buttonTestId: string): Promise<string | null> {
-      return driver.executeScript(
-        `
-        const selector = arguments[0];
-        const walk = (root) => {
+      return page.evaluate((selector) => {
+        const walk = (root: ParentNode): Element | null => {
           const match = root.querySelector(selector);
-          if (match) return match;
+          if (match) {
+            return match;
+          }
           for (const node of root.querySelectorAll("*")) {
             if (node.shadowRoot) {
               const found = walk(node.shadowRoot);
-              if (found) return found;
+              if (found) {
+                return found;
+              }
             }
           }
           return null;
@@ -109,9 +106,7 @@ describe("menus", () => {
         const svg = icon && icon.shadowRoot && icon.shadowRoot.querySelector("svg");
         const glyph = svg && svg.querySelector("path, rect, circle, ellipse");
         return glyph && glyph.namespaceURI;
-        `,
-        `[data-testid="${buttonTestId}"]`,
-      ) as Promise<string | null>;
+      }, `[data-testid="${buttonTestId}"]`);
     }
 
     expect(await svgNs("toolbar-run")).toBe("http://www.w3.org/2000/svg");
@@ -119,38 +114,38 @@ describe("menus", () => {
     expect(await svgNs("toolbar-menu")).toBe("http://www.w3.org/2000/svg");
   });
 
-  it("opens About from the three-line menu", async () => {
-    await openAppMenu(driver);
-    await (await waitDeep(driver, '[data-testid="menu-about"]')).click();
-    const modal = await waitDeep(driver, '[data-testid="about-modal"]');
-    expect(await modal.getText()).toContain("About Bld");
-    await (await waitDeep(driver, '[data-testid="about-modal"] .btn-close')).click();
-    await driver.wait(async () => (await queryDeepAll(driver, '[data-testid="about-modal"]')).length === 0, 5000);
+  test("opens About from the three-line menu", async () => {
+    await openAppMenu(page);
+    await page.locator('[data-testid="menu-about"]').click();
+    const modal = await waitDeep(page, '[data-testid="about-modal"]');
+    await expect(modal).toContainText("About Bld");
+    await page.locator('[data-testid="about-modal"] .btn-close').click();
+    await expect(page.locator('[data-testid="about-modal"]')).toHaveCount(0);
   });
 
-  it("zooms from the View menu", async () => {
-    const before = await statusZoom(driver);
-    await openAppMenu(driver);
-    await (await waitDeep(driver, '[data-testid="menu-zoom-in"]')).click();
-    await driver.wait(async () => (await statusZoom(driver)) !== before, 5000);
-    await openAppMenu(driver);
-    await (await waitDeep(driver, '[data-testid="menu-reset-view"]')).click();
-    await driver.wait(async () => (await statusZoom(driver)) === "100%", 5000);
+  test("zooms from the View menu", async () => {
+    const before = await statusZoom(page);
+    await openAppMenu(page);
+    await page.locator('[data-testid="menu-zoom-in"]').click();
+    await expect(page.locator('[data-testid="status-zoom"]')).not.toHaveText(before);
+    await openAppMenu(page);
+    await page.locator('[data-testid="menu-reset-view"]').click();
+    await expect(page.locator('[data-testid="status-zoom"]')).toHaveText("100%");
   });
 
-  it("clears the canvas from File → New canvas", async () => {
-    await placeBlock(driver, "timer");
-    expect(await statusBlocks(driver)).not.toBe("0 blocks");
-    await newCanvas(driver);
-    expect(await statusBlocks(driver)).toBe("0 blocks");
-    expect(await (await diagramRoot(driver)).findElements({ css: "bld-node" })).toHaveLength(0);
+  test("clears the canvas from File → New canvas", async () => {
+    await placeBlock(page, "timer");
+    expect(await statusBlocks(page)).not.toBe("0 blocks");
+    await newCanvas(page);
+    expect(await statusBlocks(page)).toBe("0 blocks");
+    await expect(diagramRoot(page).locator("bld-node")).toHaveCount(0);
   });
 
-  it("deletes the selection from the File menu", async () => {
-    await placeBlock(driver, "sin");
-    await (await nodeHost(driver, "sin")).click();
-    await openAppMenu(driver);
-    await (await waitDeep(driver, '[data-testid="menu-delete-selected"]')).click();
-    await driver.wait(async () => (await statusBlocks(driver)) === "0 blocks", 5000);
+  test("deletes the selection from the File menu", async () => {
+    await placeBlock(page, "sin");
+    await nodeHost(page, "sin").click();
+    await openAppMenu(page);
+    await page.locator('[data-testid="menu-delete-selected"]').click();
+    await expect(page.locator('[data-testid="status-blocks"]')).toHaveText("0 blocks");
   });
 });

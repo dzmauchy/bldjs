@@ -1,6 +1,6 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { By, type WebDriver } from "selenium-webdriver";
+import { expect, test, type Page } from "@playwright/test";
 import {
+  boxOf,
   diagramCss,
   diagramRoot,
   dropOnDiagram,
@@ -15,154 +15,161 @@ import {
   waitForAvoidRouter,
   waitForBlock,
 } from "./actions";
-import { createDriver } from "./harness";
 
-describe("canvas", () => {
-  let driver: WebDriver;
+test.describe.configure({ mode: "serial" });
 
-  beforeAll(async () => {
-    driver = await createDriver();
-    await openWorkspace(driver);
+test.describe("canvas", () => {
+  let page: Page;
+
+  test.beforeAll(async ({ browser }) => {
+    page = await browser.newPage();
+    await openWorkspace(page);
   });
 
-  afterAll(async () => {
-    await driver?.quit();
+  test.afterAll(async () => {
+    await page?.close();
   });
 
-  it("loads the palette and an empty canvas of custom elements", async () => {
-    expect(await statusBlocks(driver)).toBe("0 blocks");
-    const hint = await (await diagramCss(driver, ".hint-card")).getText();
-    expect(hint).toContain("Drop blocks here");
-    const parentNs = await waitDeep(driver, '[data-testid="ns-com.dauch.cs"]');
-    expect((await parentNs.getText()).toLowerCase()).toContain("control systems");
-    const genNs = await waitDeep(driver, '[data-testid="ns-com.dauch.cs.gen"]');
-    expect((await genNs.getText()).toLowerCase()).toContain("gen");
-    const nested = await driver.executeScript(
-      `
-      const parent = arguments[0];
-      const child = arguments[1];
-      return parent.parentElement.contains(child);
-      `,
-      parentNs,
-      genNs,
-    );
+  test("loads the palette and an empty canvas of custom elements", async () => {
+    expect(await statusBlocks(page)).toBe("0 blocks");
+    await expect(diagramCss(page, ".hint-card")).toContainText("Drop blocks here");
+    const parentNs = await waitDeep(page, '[data-testid="ns-com.dauch.cs"]');
+    expect((await parentNs.innerText()).toLowerCase()).toContain("control systems");
+    const genNs = await waitDeep(page, '[data-testid="ns-com.dauch.cs.gen"]');
+    expect((await genNs.innerText()).toLowerCase()).toContain("gen");
+    const nested = await page.evaluate(() => {
+      const walk = (root: ParentNode, selector: string): Element | null => {
+        const match = (root as ParentNode & { querySelector: Document["querySelector"] }).querySelector(selector);
+        if (match) {
+          return match;
+        }
+        for (const node of root.querySelectorAll("*")) {
+          if (node.shadowRoot) {
+            const found = walk(node.shadowRoot, selector);
+            if (found) {
+              return found;
+            }
+          }
+        }
+        return null;
+      };
+      const parent = walk(document, '[data-testid="ns-com.dauch.cs"]');
+      const child = walk(document, '[data-testid="ns-com.dauch.cs.gen"]');
+      return Boolean(parent?.parentElement?.contains(child));
+    });
     expect(nested).toBe(true);
-    const paletteItem = await waitDeep(driver, '[data-testid="palette-timer"]');
-    expect(await paletteItem.getText()).toContain("Timer");
-    expect(await paletteItem.getText()).not.toContain("→");
-    const iconHost = await waitDeep(driver, '[data-testid="palette-timer"] bld-block-icon');
-    const paletteIcon = await (await iconHost.getShadowRoot()).findElement(By.css("svg"));
-    expect(await paletteIcon.isDisplayed()).toBe(true);
-    const glyphNs = await driver.executeScript(
-      "const g = arguments[0].querySelector('path, rect, circle, ellipse'); return g && g.namespaceURI;",
-      paletteIcon,
-    );
+    const paletteItem = await waitDeep(page, '[data-testid="palette-timer"]');
+    expect(await paletteItem.innerText()).toContain("Timer");
+    expect(await paletteItem.innerText()).not.toContain("→");
+    const paletteIcon = page.locator('[data-testid="palette-timer"] bld-block-icon svg');
+    await expect(paletteIcon).toBeVisible();
+    const glyphNs = await paletteIcon.evaluate((svg) => {
+      const g = svg.querySelector("path, rect, circle, ellipse");
+      return g && g.namespaceURI;
+    });
     expect(glyphNs).toBe("http://www.w3.org/2000/svg");
-    const defined = await driver.executeScript(
-      "return [!!customElements.get('bld-app'), !!customElements.get('bld-diagram'), !!customElements.get('bld-node'), !!customElements.get('bld-connector')]",
-    );
+    const defined = await page.evaluate(() => [
+      !!customElements.get("bld-app"),
+      !!customElements.get("bld-diagram"),
+      !!customElements.get("bld-node"),
+      !!customElements.get("bld-connector"),
+    ]);
     expect(defined).toEqual([true, true, true, true]);
-    await waitForAvoidRouter(driver);
+    await waitForAvoidRouter(page);
   });
 
-  it("zooms from the canvas toolbar", async () => {
-    const before = await statusZoom(driver);
-    await waitDeep(driver, "bld-diagram");
-    const zoomIn = await diagramCss(driver, '[data-testid="zoom-in"]');
-    await zoomIn.click();
-    await driver.wait(async () => (await statusZoom(driver)) !== before, 5000);
-    const reset = await diagramCss(driver, '[data-testid="zoom-reset"]');
-    await reset.click();
-    await driver.wait(async () => (await statusZoom(driver)) === "100%", 5000);
+  test("zooms from the canvas toolbar", async () => {
+    const before = await statusZoom(page);
+    await waitDeep(page, "bld-diagram");
+    await diagramCss(page, '[data-testid="zoom-in"]').click();
+    await expect(page.locator('[data-testid="status-zoom"]')).not.toHaveText(before);
+    await diagramCss(page, '[data-testid="zoom-reset"]').click();
+    await expect(page.locator('[data-testid="status-zoom"]')).toHaveText("100%");
   });
 
-  it("places nodes as flex-sized custom elements", async () => {
-    await placeBlock(driver, "timer");
-    await placeBlock(driver, "quantizer");
-    const timerBox = await (await nodeHost(driver, "timer")).getRect();
-    const quantizerBox = await (await nodeHost(driver, "quantizer")).getRect();
+  test("places nodes as flex-sized custom elements", async () => {
+    await placeBlock(page, "timer");
+    await placeBlock(page, "quantizer");
+    const timerBox = await boxOf(nodeHost(page, "timer"));
+    const quantizerBox = await boxOf(nodeHost(page, "quantizer"));
     expect(timerBox.width).toBeGreaterThan(80);
     expect(timerBox.height).toBeGreaterThan(40);
     expect(quantizerBox.width).toBeGreaterThan(80);
     expect(quantizerBox.height).toBeGreaterThan(40);
-    const tag = await (await nodeHost(driver, "timer")).getTagName();
-    expect(tag).toBe("bld-node");
+    expect((await nodeHost(page, "timer").evaluate((el) => el.tagName)).toLowerCase()).toBe("bld-node");
   });
 
-  it("pans the world when dragging empty canvas", async () => {
-    const host = await nodeHost(driver, "timer");
-    const before = await host.getRect();
-    const canvas = await diagramCss(driver, '[data-testid="diagram-canvas"]');
-    const box = await canvas.getRect();
-    const fromX = Math.ceil(-box.width / 2 + 24);
-    const fromY = Math.ceil(-box.height / 2 + 24);
-    await driver
-      .actions({ async: true })
-      .move({ origin: canvas, x: fromX, y: fromY })
-      .press()
-      .move({ origin: canvas, x: fromX + 90, y: fromY })
-      .release()
-      .perform();
-    await driver.wait(async () => {
-      const after = await host.getRect();
-      return Math.abs(after.x - before.x) > 10;
-    }, 5000);
+  test("pans the world when dragging empty canvas", async () => {
+    const host = nodeHost(page, "timer");
+    const before = await boxOf(host);
+    const canvas = diagramCss(page, '[data-testid="diagram-canvas"]');
+    const box = await boxOf(canvas);
+    await canvas.hover({ position: { x: 24, y: 24 } });
+    await page.mouse.down();
+    await page.mouse.move(box.x + 114, box.y + 24);
+    await page.mouse.up();
+    await expect
+      .poll(async () => {
+        const after = await boxOf(host);
+        return Math.abs(after.x - before.x) > 10;
+      })
+      .toBe(true);
   });
 
-  it("drags a node by its icon", async () => {
-    const host = await nodeHost(driver, "timer");
-    const before = await host.getRect();
-    const root = await host.getShadowRoot();
-    const icon = await root.findElement(By.css(".flow-node-icon"));
-    await driver.actions({ async: true }).dragAndDrop(icon, { x: 70, y: 40 }).perform();
-    await driver.wait(async () => {
-      const after = await host.getRect();
-      return Math.abs(after.x - before.x) > 8 || Math.abs(after.y - before.y) > 8;
-    }, 5000);
+  test("drags a node by its icon", async () => {
+    const host = nodeHost(page, "timer");
+    const before = await boxOf(host);
+    const icon = host.locator(".flow-node-icon");
+    const iconBox = await boxOf(icon);
+    await page.mouse.move(iconBox.x + iconBox.width / 2, iconBox.y + iconBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(iconBox.x + iconBox.width / 2 + 70, iconBox.y + iconBox.height / 2 + 40);
+    await page.mouse.up();
+    await expect
+      .poll(async () => {
+        const after = await boxOf(host);
+        return Math.abs(after.x - before.x) > 8 || Math.abs(after.y - before.y) > 8;
+      })
+      .toBe(true);
   });
 
-  it("deletes the selected block with Delete", async () => {
-    const before = await statusBlocks(driver);
+  test("deletes the selected block with Delete", async () => {
+    const before = await statusBlocks(page);
     expect(before).not.toBe("0 blocks");
-    await (await nodeHost(driver, "quantizer")).click();
-    await pressDelete(driver);
-    await driver.wait(async () => (await statusBlocks(driver)) !== before, 5000);
-    const leftover = await (await diagramRoot(driver)).findElements(By.css('bld-node[data-block-def="quantizer"]'));
-    expect(leftover).toHaveLength(0);
+    await nodeHost(page, "quantizer").click();
+    await pressDelete(page);
+    await expect(page.locator('[data-testid="status-blocks"]')).not.toHaveText(before);
+    await expect(diagramRoot(page).locator('bld-node[data-block-def="quantizer"]')).toHaveCount(0);
   });
 
-  it("drops a palette item onto the canvas", async () => {
-    await newCanvas(driver);
-    await dropOnDiagram(driver, "cos");
-    await waitForBlock(driver, "cos");
-    expect(await statusBlocks(driver)).toBe("1 block");
+  test("drops a palette item onto the canvas", async () => {
+    await newCanvas(page);
+    await dropOnDiagram(page, "cos");
+    await waitForBlock(page, "cos");
+    expect(await statusBlocks(page)).toBe("1 block");
   });
 
-  it("renders a nameless block with a 32px icon and edge circles", async () => {
-    await newCanvas(driver);
-    await placeBlock(driver, "sin");
-    const host = await nodeHost(driver, "sin");
-    const root = await host.getShadowRoot();
-    expect(await root.findElements(By.css(".flow-node-title"))).toHaveLength(0);
-    expect((await host.getText()).toLowerCase()).not.toContain("sin");
-    const body = await root.findElement(By.css(".flow-node"));
-    expect(await body.getAttribute("title")).toBe("Sin");
-    const icon = await root.findElement(By.css(".flow-node-icon svg"));
-    const iconBox = await icon.getRect();
+  test("renders a nameless block with a 32px icon and edge circles", async () => {
+    await newCanvas(page);
+    await placeBlock(page, "sin");
+    const host = nodeHost(page, "sin");
+    await expect(host.locator(".flow-node-title")).toHaveCount(0);
+    expect((await host.innerText()).toLowerCase()).not.toContain("sin");
+    await expect(host.locator(".flow-node")).toHaveAttribute("title", "Sin");
+    const icon = host.locator(".flow-node-icon svg");
+    const iconBox = await boxOf(icon);
     expect(iconBox.width).toBeGreaterThanOrEqual(30);
     expect(iconBox.width).toBeLessThanOrEqual(34);
     expect(iconBox.height).toBeGreaterThanOrEqual(30);
     expect(iconBox.height).toBeLessThanOrEqual(34);
-    const nodeBox = await host.getRect();
-    const input = await root.findElement(By.css('[data-testid="input-in"] [data-handle]'));
-    const output = await root.findElement(By.css('[data-testid="output-out"] [data-handle]'));
-    const inBox = await input.getRect();
-    const outBox = await output.getRect();
+    const nodeBox = await boxOf(host);
+    const inBox = await boxOf(host.locator('[data-testid="input-in"] [data-handle]'));
+    const outBox = await boxOf(host.locator('[data-testid="output-out"] [data-handle]'));
     const inCenter = inBox.x + inBox.width / 2;
     const outCenter = outBox.x + outBox.width / 2;
     expect(Math.abs(inCenter - nodeBox.x)).toBeLessThan(4);
     expect(Math.abs(outCenter - (nodeBox.x + nodeBox.width))).toBeLessThan(4);
-    expect(await root.findElements(By.css(".block-port-name"))).toHaveLength(0);
-    expect(await (await root.findElement(By.css('[data-testid="input-in"]'))).getAttribute("title")).toBe("c<f64>");
+    await expect(host.locator(".block-port-name")).toHaveCount(0);
+    await expect(host.locator('[data-testid="input-in"]')).toHaveAttribute("title", "c<f64>");
   });
 });
