@@ -209,16 +209,8 @@ export class AvoidRouteEngine {
     return this.#routes;
   }
 
-  #updateElement(element: dia.Element, obstacle: RouteObstacle): void {
-    const position = element.position();
-    if (position.x !== obstacle.x || position.y !== obstacle.y) {
-      element.position(obstacle.x, obstacle.y);
-    }
-    const size = element.size();
-    if (size.width !== obstacle.width || size.height !== obstacle.height) {
-      element.resize(obstacle.width, obstacle.height);
-    }
-    const current: RoutePort[] = element.getPorts().map((port) => {
+  #elementPorts(element: dia.Element): RoutePort[] {
+    return element.getPorts().map((port) => {
       const [side, name] = String(port.id).split(":");
       return {
         side: side === "in" ? "in" : "out",
@@ -227,16 +219,26 @@ export class AvoidRouteEngine {
         y: Number(port.args?.y ?? 0),
       };
     });
-    if (portsEqual(current, obstacle.ports)) {
+  }
+
+  #updateElement(element: dia.Element, obstacle: RouteObstacle): void {
+    const graph = this.#graph;
+    if (!graph) {
       return;
     }
-    element.removePorts();
-    for (const port of obstacle.ports) {
-      element.addPort({
-        id: jointPortId(port.side, port.name),
-        group: "pin",
-        args: { x: port.x, y: port.y },
-      });
+    const size = element.size();
+    const sizeChanged = size.width !== obstacle.width || size.height !== obstacle.height;
+    // Libavoid pins are created only when a shape is first inserted. Resize
+    // keeps proportional pin fractions, and extra ports (in[1], …) never get a
+    // pin, so two inputs share one approach. Recreate the shape instead.
+    if (sizeChanged || !portsEqual(this.#elementPorts(element), obstacle.ports)) {
+      element.remove();
+      graph.addCell(elementFromObstacle(obstacle));
+      return;
+    }
+    const position = element.position();
+    if (position.x !== obstacle.x || position.y !== obstacle.y) {
+      element.position(obstacle.x, obstacle.y);
     }
   }
 

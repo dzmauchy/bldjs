@@ -179,6 +179,74 @@ export async function connectorPath(driver: WebDriver): Promise<string> {
   return (await stroke.getAttribute("d")) ?? "";
 }
 
+export async function connectorPaths(driver: WebDriver): Promise<string[]> {
+  const root = await diagramRoot(driver);
+  const hosts = await root.findElements(By.css("bld-connector:not([data-preview])"));
+  const paths: string[] = [];
+  for (const host of hosts) {
+    const stroke = await (await host.getShadowRoot()).findElement(By.css(".path-stroke"));
+    paths.push((await stroke.getAttribute("d")) ?? "");
+  }
+  return paths;
+}
+
+export async function connectorWorldPolylines(driver: WebDriver): Promise<{ x: number; y: number }[][]> {
+  return (await driver.executeScript(`
+    const parse = (d) => {
+      const points = [];
+      const tokens = d.match(/[MLC]|-?\\d*\\.?\\d+(?:e[-+]?\\d+)?/gi) || [];
+      let command = "";
+      const nums = [];
+      const flush = () => {
+        if ((command === "M" || command === "L") && nums.length >= 2) {
+          points.push({ x: nums[nums.length - 2], y: nums[nums.length - 1] });
+        } else if (command === "C" && nums.length >= 6) {
+          points.push({ x: nums[nums.length - 2], y: nums[nums.length - 1] });
+        }
+      };
+      for (const token of tokens) {
+        if (/^[MLCmlc]$/.test(token)) {
+          flush();
+          command = token.toUpperCase();
+          nums.length = 0;
+          continue;
+        }
+        nums.push(Number(token));
+      }
+      flush();
+      return points;
+    };
+    const walk = (root, selector) => {
+      const match = root.querySelector(selector);
+      if (match) return match;
+      for (const node of root.querySelectorAll("*")) {
+        if (node.shadowRoot) {
+          const found = walk(node.shadowRoot, selector);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    const diagram = walk(document, "bld-diagram");
+    const hosts = [...diagram.shadowRoot.querySelectorAll("bld-connector:not([data-preview])")];
+    return hosts.map((host) => {
+      const d = host.shadowRoot.querySelector(".path-stroke")?.getAttribute("d") ?? "";
+      const left = Number.parseFloat(host.style.left) || 0;
+      const top = Number.parseFloat(host.style.top) || 0;
+      return parse(d).map((point) => ({ x: point.x + left, y: point.y + top }));
+    });
+  `)) as { x: number; y: number }[][];
+}
+
+export async function dragNodeBy(driver: WebDriver, defId: string, dx: number, dy: number): Promise<void> {
+  const host = await nodeHost(driver, defId);
+  const header = await (await host.getShadowRoot()).findElement(By.css(".flow-node-header"));
+  await driver
+    .actions({ async: true })
+    .dragAndDrop(header, { x: Math.round(dx), y: Math.round(dy) })
+    .perform();
+}
+
 export async function pressDelete(driver: WebDriver): Promise<void> {
   await driver.actions({ async: true }).sendKeys(Key.DELETE).perform();
 }
