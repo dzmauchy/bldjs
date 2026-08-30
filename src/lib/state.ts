@@ -8,8 +8,10 @@ import {
   type XmlSource,
   associateBuiltinModels,
   blockAttribute,
+  blockInput,
   assembleGenerator,
   infer,
+  isConsumerType,
   planGenerator,
 } from "./blocks";
 import { linksEqual } from "./blocks/diagram";
@@ -79,6 +81,7 @@ export class AppState extends EventTarget {
 
   #generators = new Map<number, GeneratorHandle>();
   #scopeToTimer = new Map<number, number>();
+  #scopeIndex = new Map<number, number>();
   #runTopology = "";
   #runningOp = 0;
 
@@ -240,7 +243,7 @@ export class AppState extends EventTarget {
     if (timerId === undefined) {
       return [];
     }
-    return (await this.#generators.get(timerId)?.snapshot()) ?? [];
+    return (await this.#generators.get(timerId)?.snapshot(this.#scopeIndex.get(id) ?? 0)) ?? [];
   }
 
   /** Block ids, definitions, and links — not positions — so moving a block does not restart generators. */
@@ -271,6 +274,7 @@ export class AppState extends EventTarget {
     }
     this.#generators.clear();
     this.#scopeToTimer.clear();
+    this.#scopeIndex.clear();
     this.#runTopology = "";
     this.running = false;
     if (this.scopeOpen !== NONE_ID && !this.isScopeLive(this.scopeOpen)) {
@@ -296,7 +300,10 @@ export class AppState extends EventTarget {
           return;
         }
         this.#generators.set(plan.timerId, handle);
-        this.#scopeToTimer.set(plan.scopeId, plan.timerId);
+        plan.scopeIds.forEach((scopeId, index) => {
+          this.#scopeToTimer.set(scopeId, plan.timerId);
+          this.#scopeIndex.set(scopeId, index);
+        });
       }
       this.#runTopology = topology;
       this.runError = null;
@@ -321,7 +328,8 @@ export class AppState extends EventTarget {
     const link: Link = { fromBlock, fromOut, toBlock, toIn };
     const target = this.blocks.find((block) => block.id === toBlock);
     const def = target ? this.blockDef(target.defId) : undefined;
-    const vararg = def?.inputs.find((port) => port.name === toIn)?.vararg ?? false;
+    const targetPort = def ? blockInput(def, toIn) : undefined;
+    const many = (targetPort?.vararg ?? false) || (targetPort ? isConsumerType(targetPort.ty) : false);
     if (this.links.some((item) => linksEqual(item, link))) {
       this.links = this.links.filter((item) => !linksEqual(item, link));
       if (this.selectedLink && linksEqual(this.selectedLink, link)) {
@@ -331,7 +339,7 @@ export class AppState extends EventTarget {
       return;
     }
     let next = this.links;
-    if (!vararg) {
+    if (!many) {
       next = next.filter((item) => !(item.toBlock === link.toBlock && item.toIn === link.toIn));
     }
     this.links = [...next, link];

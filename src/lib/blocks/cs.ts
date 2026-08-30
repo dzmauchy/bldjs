@@ -1,5 +1,5 @@
 import type { Link } from "./diagram";
-import { type Stage, assembleModule, assembleWasm } from "../runtime/assemble";
+import { type ComposeTree, type Stage, assembleModule, assembleWasm } from "../runtime/assemble";
 import { SAMPLE_CAP } from "../runtime/memory";
 
 export const QUANTIZER_DELAY_MS = 10;
@@ -58,6 +58,18 @@ export function oscilloscope(plot: DoubleConsumer): DoubleConsumer {
   return plot;
 }
 
+/** Hidden runtime fan-out: one `c<f64>` that forwards each sample to every downstream. */
+export function fork(...downstreams: DoubleConsumer[]): DoubleConsumer {
+  if (downstreams.length === 1) {
+    return downstreams[0];
+  }
+  return (v) => {
+    for (const downstream of downstreams) {
+      downstream(v);
+    }
+  };
+}
+
 function parkNanos(periodNs: number): void {
   if (periodNs <= 0) {
     return;
@@ -99,11 +111,19 @@ export interface NodeSpec {
   defId: string;
 }
 
+/** Push-model consumer tree: `timer(sin(fork(plot1, quantizer(plot2))))`. */
+export type ConsumerTree =
+  | { kind: "scope"; id: number }
+  | { kind: "stage"; stage: Stage; inner: ConsumerTree }
+  | { kind: "fork"; inner: ConsumerTree[] };
+
 export interface GeneratorPlan {
   timerId: number;
   scopeId: number;
+  scopeIds: number[];
   delayMs: number;
   stages: Stage[];
+  tree: ConsumerTree;
 }
 
 export interface CompiledGenerator extends GeneratorPlan {
@@ -113,49 +133,110 @@ export interface CompiledGenerator extends GeneratorPlan {
 
 const PUSH_STAGES = new Set<Stage>(["quantizer", "sin", "cos"]);
 
-/** Walk Oscilloscope → … → Timer (sink flow). Does not compile WASM. */
-export function planGenerator(timerId: number, nodes: NodeSpec[], links: Link[]): GeneratorPlan | undefined {
-  const defOf = (id: number): string | undefined => nodes.find((node) => node.id === id)?.defId;
-  const incoming = (to: number, port: string): Link | undefined =>
-    links.find((link) => link.toBlock === to && link.toIn === port);
+function incomingTo(links: Link[], to: number, port: string): Link[] {
+  return links
+    .filter((link) => link.toBlock === to && link.toIn === port)
+    .toSorted((left, right) => left.fromBlock - right.fromBlock || left.fromOut.localeCompare(right.fromOut));
+}
 
-  const stages: Stage[] = [];
-  let cursor = timerId;
-  let scopeId: number | undefined;
-  for (let i = 0; i < 64; i += 1) {
-    const link = incoming(cursor, "in");
-    if (!link) {
-      break;
-    }
-    const fromDef = defOf(link.fromBlock);
-    if (!fromDef) {
-      return undefined;
-    }
-    if (PUSH_STAGES.has(fromDef as Stage)) {
-      stages.unshift(fromDef as Stage);
-      cursor = link.fromBlock;
-    } else if (fromDef === "oscilloscope") {
-      scopeId = link.fromBlock;
-      break;
-    } else {
-      break;
-    }
-  }
-  if (scopeId === undefined) {
+function walkConsumer(id: number, defOf: (id: number) => string | undefined, links: Link[], depth: number): ConsumerTree | undefined {
+  if (depth > 64) {
     return undefined;
   }
+  const parts: ConsumerTree[] = [];
+  for (const link of incomingTo(links, id, "in")) {
+    const fromDef = defOf(link.fromBlock);
+    if (!fromDef) {
+      continue;
+    }
+    if (fromDef === "oscilloscope") {
+      parts.push({ kind: "scope", id: link.fromBlock });
+    } else if (PUSH_STAGES.has(fromDef as Stage)) {
+      const inner = walkConsumer(link.fromBlock, defOf, links, depth + 1);
+      if (inner) {
+        parts.push({ kind: "stage", stage: fromDef as Stage, inner });
+      }
+    }
+  }
+  if (parts.length === 0) {
+    return undefined;
+  }
+  if (parts.length === 1) {
+    return parts[0];
+  }
+  return { kind: "fork", inner: parts };
+}
+
+export function flattenStages(tree: ConsumerTree): Stage[] {
+  if (tree.kind === "stage") {
+    return [tree.stage, ...flattenStages(tree.inner)];
+  }
+  if (tree.kind === "fork") {
+    return tree.inner.flatMap(flattenStages);
+  }
+  return [];
+}
+
+export function collectScopeIds(tree: ConsumerTree): number[] {
+  if (tree.kind === "scope") {
+    return [tree.id];
+  }
+  if (tree.kind === "stage") {
+    return collectScopeIds(tree.inner);
+  }
+  return tree.inner.flatMap(collectScopeIds);
+}
+
+function applyStages(tree: ConsumerTree): Stage[] {
+  if (tree.kind === "stage") {
+    return [...applyStages(tree.inner), tree.stage];
+  }
+  if (tree.kind === "fork") {
+    return tree.inner.flatMap(applyStages);
+  }
+  return [];
+}
+
+/** Walk Oscilloscope → … → Timer (sink flow), inserting a hidden fork when an input has many sources. */
+export function planGenerator(timerId: number, nodes: NodeSpec[], links: Link[]): GeneratorPlan | undefined {
+  const defOf = (id: number): string | undefined => nodes.find((node) => node.id === id)?.defId;
+  const tree = walkConsumer(timerId, defOf, links, 0);
+  if (!tree) {
+    return undefined;
+  }
+  const scopeIds = collectScopeIds(tree);
+  if (scopeIds.length === 0) {
+    return undefined;
+  }
+  const stages = applyStages(tree);
   let delayMs = 0;
-  for (const stage of stages) {
+  for (const stage of flattenStages(tree)) {
     if (stage === "quantizer") {
       delayMs += QUANTIZER_DELAY_MS;
     }
   }
-  return { timerId, scopeId, delayMs, stages };
+  return { timerId, scopeId: scopeIds[0], scopeIds, delayMs, stages, tree };
+}
+
+export function toComposeTree(tree: ConsumerTree, scopeIds: number[]): ComposeTree {
+  if (tree.kind === "scope") {
+    return { kind: "scope", index: Math.max(0, scopeIds.indexOf(tree.id)) };
+  }
+  if (tree.kind === "stage") {
+    return { kind: "stage", stage: tree.stage, inner: toComposeTree(tree.inner, scopeIds) };
+  }
+  return { kind: "fork", inner: tree.inner.map((child) => toComposeTree(child, scopeIds)) };
 }
 
 /** Run each block's binaryen.js script and emit wasm for this pipeline. */
-export async function assembleGenerator(plan: Pick<GeneratorPlan, "stages" | "delayMs">): Promise<Uint8Array> {
-  return assembleWasm({ stages: plan.stages, delayMs: plan.delayMs });
+export async function assembleGenerator(
+  plan: Pick<GeneratorPlan, "stages" | "delayMs" | "tree" | "scopeIds">,
+): Promise<Uint8Array> {
+  return assembleWasm({
+    stages: plan.stages,
+    delayMs: plan.delayMs,
+    tree: plan.tree ? toComposeTree(plan.tree, plan.scopeIds) : undefined,
+  });
 }
 
 /**
@@ -171,7 +252,11 @@ export async function compileGenerator(
   if (!plan) {
     return undefined;
   }
-  const assembled = await assembleModule(plan);
+  const assembled = await assembleModule({
+    stages: plan.stages,
+    delayMs: plan.delayMs,
+    tree: toComposeTree(plan.tree, plan.scopeIds),
+  });
   return { ...plan, text: assembled.text, wasm: assembled.wasm };
 }
 
@@ -201,18 +286,27 @@ export async function compileTimer(
   if (!compiled) {
     return undefined;
   }
-  const buf = buffers.get(compiled.scopeId);
-  if (!buf) {
+  if (compiled.scopeIds.some((id) => !buffers.has(id))) {
     return undefined;
   }
-  let emit: F64Func = (value) => buf.push(value);
-  for (const stage of [...compiled.stages].reverse()) {
-    if (stage === "sin") {
-      emit = sin(emit);
-    } else if (stage === "cos") {
-      emit = cos(emit);
+  const emitFor = (tree: ConsumerTree): F64Func => {
+    if (tree.kind === "scope") {
+      const leaf = buffers.get(tree.id);
+      return (value) => leaf?.push(value);
     }
-  }
+    if (tree.kind === "fork") {
+      return fork(...tree.inner.map(emitFor));
+    }
+    const inner = emitFor(tree.inner);
+    if (tree.stage === "sin") {
+      return sin(inner);
+    }
+    if (tree.stage === "cos") {
+      return cos(inner);
+    }
+    return inner;
+  };
+  const emit = emitFor(compiled.tree);
   return { emit, delayMs: compiled.delayMs };
 }
 
