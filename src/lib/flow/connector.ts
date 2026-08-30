@@ -2,14 +2,15 @@ import { LitElement, css, html } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { styleMap } from "lit/directives/style-map.js";
 import {
-  axisAlignedSegments,
+  connectorWorldBounds,
   connectorWorldPolyline,
   cssPolygon,
   formatPolyline,
-  polylineBounds,
   strokePolygon,
+  strokeRuns,
   translatePolyline,
   type Point,
+  type RoutedLink,
 } from "./geometry";
 import { flowPeriodMs } from "$lib/runtime/flow";
 
@@ -35,7 +36,7 @@ export class BldConnector extends LitElement {
   declare from: Point;
   declare to: Point;
   declare points: Point[];
-  declare crossings: Point[][];
+  declare crossings: RoutedLink[];
   declare selected: boolean;
   declare preview: boolean;
   declare hz: number;
@@ -78,12 +79,8 @@ export class BldConnector extends LitElement {
       position: absolute;
       pointer-events: none;
       background-repeat: repeat;
-    }
-    .seg.is-h {
-      animation-name: bld-flow-dash-h;
-    }
-    .seg.is-v {
-      animation-name: bld-flow-dash-v;
+      transform-origin: 0 50%;
+      animation-name: bld-flow-dash;
     }
     :host([data-flow]) .seg {
       animation-timing-function: linear;
@@ -93,14 +90,9 @@ export class BldConnector extends LitElement {
     :host(:not([data-flow])) .seg {
       animation-name: none;
     }
-    @keyframes bld-flow-dash-h {
+    @keyframes bld-flow-dash {
       to {
         background-position: 14px 0;
-      }
-    }
-    @keyframes bld-flow-dash-v {
-      to {
-        background-position: 0 14px;
       }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -125,9 +117,13 @@ export class BldConnector extends LitElement {
     return connectorWorldPolyline(this.from, this.to, this.points, this.crossings);
   }
 
+  #box() {
+    return connectorWorldBounds(this.from, this.to, this.points, this.crossings, PAD);
+  }
+
   protected override willUpdate(): void {
     const world = this.#polyline();
-    const box = polylineBounds(world, PAD);
+    const box = this.#box();
     this.style.left = `${box.left}px`;
     this.style.top = `${box.top}px`;
     this.style.width = `${box.width}px`;
@@ -160,12 +156,12 @@ export class BldConnector extends LitElement {
 
   protected override render() {
     const world = this.#polyline();
-    const box = polylineBounds(world, PAD);
+    const box = this.#box();
     const local = translatePolyline(world, { x: box.left, y: box.top });
     const strokeW = this.selected ? SELECTED_WIDTH : STROKE_WIDTH;
     const period = !this.preview ? flowPeriodMs(this.hz) : null;
     const dashed = period !== null || this.preview;
-    const segs = dashed ? axisAlignedSegments(local) : [];
+    const segs = dashed ? strokeRuns(local) : [];
     let traveled = 0;
     return html`
       <div
@@ -180,23 +176,19 @@ export class BldConnector extends LitElement {
         style=${styleMap({ clipPath: cssPolygon(strokePolygon(local, strokeW)) })}
       >
         ${segs.map((seg) => {
-          const length = seg.axis === "h" ? seg.x2 - seg.x1 : seg.y2 - seg.y1;
           const start = -(traveled % DASH_CYCLE);
-          traveled += length;
-          const horizontal = seg.axis === "h";
-          const gradient = horizontal
-            ? `repeating-linear-gradient(90deg, var(--stroke) 0 ${DASH}px, transparent ${DASH}px ${DASH_CYCLE}px)`
-            : `repeating-linear-gradient(180deg, var(--stroke) 0 ${DASH}px, transparent ${DASH}px ${DASH_CYCLE}px)`;
+          traveled += seg.length;
           return html`
             <div
-              class=${classMap({ seg: true, "is-h": horizontal, "is-v": !horizontal })}
+              class="seg"
               style=${styleMap({
-                left: `${horizontal ? seg.x1 : seg.x1 - strokeW / 2}px`,
-                top: `${horizontal ? seg.y1 - strokeW / 2 : seg.y1}px`,
-                width: `${horizontal ? length : strokeW}px`,
-                height: `${horizontal ? strokeW : length}px`,
-                backgroundImage: gradient,
-                backgroundPosition: horizontal ? `${start}px 0` : `0 ${start}px`,
+                left: `${seg.x}px`,
+                top: `${seg.y - strokeW / 2}px`,
+                width: `${seg.length}px`,
+                height: `${strokeW}px`,
+                transform: `rotate(${seg.angleDeg}deg)`,
+                backgroundImage: `repeating-linear-gradient(90deg, var(--stroke) 0 ${DASH}px, transparent ${DASH}px ${DASH_CYCLE}px)`,
+                backgroundPosition: `${start}px 0`,
               })}
             ></div>
           `;

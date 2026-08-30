@@ -1,4 +1,12 @@
+import { connectors, g } from "@joint/core";
 import { screenToWorld } from "$lib/model";
+
+type JointPath = {
+  bbox: () => { x: number; y: number; width: number; height: number } | null;
+  translate: (tx: number, ty: number) => JointPath;
+  serialize: () => string;
+  toPoints: (opt?: { precision?: number }) => { x: number; y: number }[][] | null;
+};
 
 export interface Point {
   x: number;
@@ -14,7 +22,12 @@ export interface Rect {
 
 const ORTHO_STUB = 24;
 const ORTHO_EPS = 0.5;
-const JUMP_SIZE = 10;
+
+export const JUMPOVER = {
+  size: 5,
+  radius: 5,
+  jump: "cubic",
+} as const;
 
 export function snapCoord(value: number): number {
   return Math.round(value * 10) / 10;
@@ -110,7 +123,9 @@ export function ensureHorizontalStubs(points: Point[], from: Point, to: Point, s
  * Rebuild an orthogonal polyline from port handles through avoid vertices.
  *
  * Libavoid's vertices are interior corners relative to shape-edge pins, not
- * the inset handles we draw from. Empty routes fall back to {@link orthogonalLink}.
+ * the inset handles we draw from. Jumpover then connects `from` → vertices →
+ * `to` with straight segments, so a missing corner or a 2-point pin route
+ * becomes a diagonal. Empty routes fall back to {@link orthogonalLink}.
  */
 export function connectorPolyline(from: Point, to: Point, route: Point[] = []): Point[] {
   if (route.length === 0) {
@@ -120,6 +135,14 @@ export function connectorPolyline(from: Point, to: Point, route: Point[] = []): 
     return orthogonalLink(from, to);
   }
   return insertOrthogonalCorners(ensureHorizontalStubs([from, ...route, to], from, to));
+}
+
+export function jumpoverRoute(from: Point, to: Point, route: Point[] = []): Point[] {
+  const points = connectorPolyline(from, to, route);
+  if (points.length <= 2) {
+    return [];
+  }
+  return points.slice(1, -1);
 }
 
 export function polylinePath(points: Point[]): string {
@@ -208,125 +231,178 @@ export function collinearOverlapLength(left: Point[], right: Point[], eps = 1): 
   return longest;
 }
 
-function dist(a: Point, b: Point): number {
-  return Math.hypot(a.x - b.x, a.y - b.y);
+export interface RoutedLink {
+  from: Point;
+  to: Point;
+  route?: Point[];
 }
 
-function segmentCross(
-  a: Point,
-  b: Point,
-  other: AxisSegment,
-): { t: number; x: number; y: number } | null {
-  const horizontal = nearlyEqual(a.y, b.y) && !nearlyEqual(a.x, b.x);
-  const vertical = nearlyEqual(a.x, b.x) && !nearlyEqual(a.y, b.y);
-  if (horizontal && other.axis === "v") {
-    const x = other.x1;
-    const y = a.y;
-    const minX = Math.min(a.x, b.x);
-    const maxX = Math.max(a.x, b.x);
-    if (x <= minX + 1 || x >= maxX - 1 || y <= other.y1 + 1 || y >= other.y2 - 1) {
-      return null;
-    }
-    return { t: (x - a.x) / (b.x - a.x), x, y };
-  }
-  if (vertical && other.axis === "h") {
-    const x = a.x;
-    const y = other.y1;
-    const minY = Math.min(a.y, b.y);
-    const maxY = Math.max(a.y, b.y);
-    if (y <= minY + 1 || y >= maxY - 1 || x <= other.x1 + 1 || x >= other.x2 - 1) {
-      return null;
-    }
-    return { t: (y - a.y) / (b.y - a.y), x, y };
-  }
-  return null;
+type FakeLink = {
+  id: string;
+  get: (key: string) => { name: string } | undefined;
+};
+
+type FakeLinkView = {
+  paper: FakePaper;
+  model: FakeLink;
+  sourcePoint: Point;
+  targetPoint: Point;
+  route: Point[];
+  listenToOnce: () => void;
+};
+
+type FakePaper = {
+  options: Record<string, never>;
+  model: { on: () => void; getLinks: () => FakeLink[] };
+  findViewByModel: (link: FakeLink) => FakeLinkView | undefined;
+};
+
+function jumpoverView(from: Point, to: Point, route: Point[], others: RoutedLink[]): FakeLinkView {
+  const thisLink: FakeLink = { id: "this", get: () => ({ name: "jumpover" }) };
+  const otherLinks = others.map((_, index): FakeLink => ({
+    id: `other-${index}`,
+    get: () => ({ name: "jumpover" }),
+  }));
+  const allLinks = [...otherLinks, thisLink];
+  const views = new Map<FakeLink, FakeLinkView>();
+  const paper: FakePaper = {
+    options: {},
+    model: {
+      on() {},
+      getLinks: () => allLinks,
+    },
+    findViewByModel(link) {
+      return views.get(link);
+    },
+  };
+  const thisView: FakeLinkView = {
+    paper,
+    model: thisLink,
+    sourcePoint: from,
+    targetPoint: to,
+    route,
+    listenToOnce() {},
+  };
+  views.set(thisLink, thisView);
+  others.forEach((item, index) => {
+    const model = otherLinks[index]!;
+    views.set(model, {
+      paper,
+      model,
+      sourcePoint: item.from,
+      targetPoint: item.to,
+      route: item.route ?? [],
+      listenToOnce() {},
+    });
+  });
+  return thisView;
 }
 
-function hopAround(a: Point, b: Point, hit: Point, size: number): Point[] {
-  if (nearlyEqual(a.y, b.y)) {
-    const dir = Math.sign(b.x - a.x) || 1;
-    return [
-      { x: hit.x - dir * size, y: hit.y },
-      { x: hit.x - dir * size, y: hit.y - size },
-      { x: hit.x + dir * size, y: hit.y - size },
-      { x: hit.x + dir * size, y: hit.y },
-    ];
+function asPath(result: unknown): JointPath {
+  if (typeof result === "string") {
+    return new g.Path(result) as unknown as JointPath;
   }
-  const dir = Math.sign(b.y - a.y) || 1;
-  return [
-    { x: hit.x, y: hit.y - dir * size },
-    { x: hit.x - size, y: hit.y - dir * size },
-    { x: hit.x - size, y: hit.y + dir * size },
-    { x: hit.x, y: hit.y + dir * size },
-  ];
+  return result as JointPath;
 }
 
-/**
- * Raise later wires over earlier ones with an orthogonal hop so clip-path
- * connectors stay axis-aligned.
- */
-export function insertOrthogonalJumps(points: Point[], others: Point[][], size = JUMP_SIZE): Point[] {
-  if (points.length < 2 || others.length === 0) {
-    return simplifyOrthogonal(points);
-  }
-  const out: Point[] = [{ ...points[0]! }];
-  const minGap = size * 2;
-  for (let i = 1; i < points.length; i += 1) {
-    const a = points[i - 1]!;
-    const b = points[i]!;
-    const hits: { t: number; x: number; y: number }[] = [];
-    for (const other of others) {
-      for (const seg of axisAlignedSegments(other)) {
-        const hit = segmentCross(a, b, seg);
-        if (hit) {
-          hits.push(hit);
-        }
+export function jumpoverPath(
+  from: Point,
+  to: Point,
+  route: Point[] = [],
+  others: RoutedLink[] = [],
+): JointPath {
+  const vertices = jumpoverRoute(from, to, route);
+  const crossings = others.map((item) => ({
+    from: item.from,
+    to: item.to,
+    route: jumpoverRoute(item.from, item.to, item.route ?? []),
+  }));
+  const view = jumpoverView(from, to, vertices, crossings);
+  return asPath(connectors.jumpover(from, to, vertices, { ...JUMPOVER, raw: true }, view as never));
+}
+
+export function jumpoverLinkPath(
+  from: Point,
+  to: Point,
+  route: Point[] = [],
+  others: RoutedLink[] = [],
+): string {
+  return jumpoverPath(from, to, route, others).serialize();
+}
+
+function sampleJumpoverPath(path: JointPath): Point[] {
+  const groups = path.toPoints({ precision: 2 }) ?? [];
+  const points: Point[] = [];
+  for (const group of groups) {
+    for (const point of group) {
+      const next = { x: point.x, y: point.y };
+      const prev = points[points.length - 1];
+      if (prev && nearlyEqual(prev.x, next.x, 0.05) && nearlyEqual(prev.y, next.y, 0.05)) {
+        continue;
       }
+      points.push(next);
     }
-    hits.sort((left, right) => left.t - right.t);
-    let last: Point | null = null;
-    for (const hit of hits) {
-      const point = { x: hit.x, y: hit.y };
-      if (dist(point, a) < minGap || dist(point, b) < minGap) {
-        continue;
-      }
-      if (last && dist(point, last) < minGap) {
-        continue;
-      }
-      if (hits.some((other) => other !== hit && nearlyEqual(other.x, hit.x) && nearlyEqual(other.y, hit.y) && other.t < hit.t)) {
-        continue;
-      }
-      out.push(...hopAround(a, b, point, size));
-      last = point;
-    }
-    out.push({ ...b });
   }
-  return simplifyOrthogonal(out);
+  return points;
 }
 
 export function connectorWorldPolyline(
   from: Point,
   to: Point,
   route: Point[] = [],
-  crossings: Point[][] = [],
+  crossings: RoutedLink[] = [],
 ): Point[] {
-  return insertOrthogonalJumps(connectorPolyline(from, to, route), crossings);
+  return sampleJumpoverPath(jumpoverPath(from, to, route, crossings));
 }
 
-function tangent(from: Point, to: Point): Point {
+export function connectorWorldBounds(
+  from: Point,
+  to: Point,
+  route: Point[] = [],
+  crossings: RoutedLink[] = [],
+  pad = 16,
+): Rect {
+  const box = jumpoverPath(from, to, route, crossings).bbox();
+  if (!box) {
+    return polylineBounds(connectorWorldPolyline(from, to, route, crossings), pad);
+  }
   return {
-    x: nearlyEqual(from.x, to.x) ? 0 : Math.sign(to.x - from.x),
-    y: nearlyEqual(from.y, to.y) ? 0 : Math.sign(to.y - from.y),
+    left: box.x - pad,
+    top: box.y - pad,
+    width: Math.max(box.width + pad * 2, 1),
+    height: Math.max(box.height + pad * 2, 1),
   };
+}
+
+function unitTangent(from: Point, to: Point): Point {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) {
+    return { x: 1, y: 0 };
+  }
+  return { x: dx / len, y: dy / len };
 }
 
 function leftNormal(dir: Point): Point {
   return { x: -dir.y, y: dir.x };
 }
 
-/** Outline of an orthogonal polyline stroke, for CSS `clip-path: polygon(...)`. */
+function dedupePoints(points: Point[]): Point[] {
+  const out: Point[] = [];
+  for (const point of points) {
+    const prev = out[out.length - 1];
+    if (prev && nearlyEqual(prev.x, point.x, 0.05) && nearlyEqual(prev.y, point.y, 0.05)) {
+      continue;
+    }
+    out.push({ ...point });
+  }
+  return out;
+}
+
+/** Outline of a (possibly rounded) polyline stroke, for CSS `clip-path: polygon(...)`. */
 export function strokePolygon(points: Point[], width: number): Point[] {
-  const simplified = simplifyOrthogonal(points);
+  const simplified = dedupePoints(points);
   if (simplified.length < 2 || !(width > 0)) {
     return [];
   }
@@ -337,11 +413,11 @@ export function strokePolygon(points: Point[], width: number): Point[] {
     const curr = simplified[i]!;
     const prev = i > 0 ? simplified[i - 1]! : null;
     const next = i < simplified.length - 1 ? simplified[i + 1]! : null;
-    const tin = prev ? tangent(prev, curr) : next ? tangent(curr, next) : { x: 1, y: 0 };
-    const tout = next ? tangent(curr, next) : tin;
+    const tin = prev ? unitTangent(prev, curr) : next ? unitTangent(curr, next) : { x: 1, y: 0 };
+    const tout = next ? unitTangent(curr, next) : tin;
     const nIn = leftNormal(tin);
     const nOut = leftNormal(tout);
-    if (!prev || !next || (nIn.x === nOut.x && nIn.y === nOut.y)) {
+    if (!prev || !next || (Math.abs(nIn.x - nOut.x) < 1e-6 && Math.abs(nIn.y - nOut.y) < 1e-6)) {
       left.push({ x: curr.x + nOut.x * h, y: curr.y + nOut.y * h });
       right.push({ x: curr.x - nOut.x * h, y: curr.y - nOut.y * h });
       continue;
@@ -356,6 +432,35 @@ export function strokePolygon(points: Point[], width: number): Point[] {
   return [...left, ...right.reverse()];
 }
 
+export interface StrokeRun {
+  x: number;
+  y: number;
+  length: number;
+  angleDeg: number;
+}
+
+/** Consecutive samples as rotated stroke runs for dash animation along jumpover curves. */
+export function strokeRuns(points: Point[]): StrokeRun[] {
+  const runs: StrokeRun[] = [];
+  for (let index = 1; index < points.length; index += 1) {
+    const prev = points[index - 1]!;
+    const point = points[index]!;
+    const dx = point.x - prev.x;
+    const dy = point.y - prev.y;
+    const length = Math.hypot(dx, dy);
+    if (length < 0.05) {
+      continue;
+    }
+    runs.push({
+      x: prev.x,
+      y: prev.y,
+      length,
+      angleDeg: (Math.atan2(dy, dx) * 180) / Math.PI,
+    });
+  }
+  return runs;
+}
+
 export function cssPolygon(points: Point[]): string {
   if (points.length < 3) {
     return "none";
@@ -364,7 +469,9 @@ export function cssPolygon(points: Point[]): string {
 }
 
 /**
- * Earlier wires stay flat so only the later crossing wire hops.
+ * JointJS jumpover draws a hoop on every link that lists the other as a
+ * crossing. Only earlier wires should be passed in, or both lines get an
+ * overlap hoop at the same intersection.
  */
 export function jumpoverUnderlays<T>(items: readonly T[], index: number): T[] {
   if (index <= 0) {

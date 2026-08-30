@@ -118,7 +118,7 @@ test.describe("wiring", () => {
     expect(path.startsWith("polygon(")).toBe(true);
     expect((await diagramCss(page, "bld-connector").evaluate((el) => el.tagName)).toLowerCase()).toBe("bld-connector");
     const diagram = await waitDeep(page, "bld-diagram");
-    await expect(diagram).toHaveAttribute("data-connector", "clip-path");
+    await expect(diagram).toHaveAttribute("data-connector", "jumpover");
     await expect(diagram).toHaveAttribute("data-worker", "true");
   });
 
