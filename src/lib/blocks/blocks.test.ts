@@ -11,7 +11,13 @@ import {
   typesEqual,
   unbounded,
 } from "./ast";
-import { CONTROL_SYSTEMS_XML, FLOW_XML, TYPES_XML, associateBuiltinModels } from "./builtin";
+import {
+  CONTROL_SYSTEMS_XML,
+  FIXTURES_XML,
+  TYPES_XML,
+  associateBuiltinModels,
+  associateFixtureModels,
+} from "./builtin";
 import { Catalog } from "./catalog";
 import { isCompatible } from "./compat";
 import {
@@ -44,7 +50,7 @@ function g(name: string, args: TypeExpr[]): TypeExpr {
 function catalog(): Catalog {
   const next = new Catalog();
   next.addXml("types.xml", TYPES_XML);
-  next.addXml("flow.xml", FLOW_XML);
+  next.addXml("fixtures.xml", FIXTURES_XML);
   next.addXml("control-systems.xml", CONTROL_SYSTEMS_XML);
   return next;
 }
@@ -76,7 +82,7 @@ describe("blocks", () => {
   });
 
   it("builtin catalogs declare blocks.xsd", () => {
-    for (const xml of [TYPES_XML, FLOW_XML, CONTROL_SYSTEMS_XML]) {
+    for (const xml of [TYPES_XML, CONTROL_SYSTEMS_XML]) {
       expect(xml).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
       expect(xml).toContain('xsi:noNamespaceSchemaLocation="blocks.xsd"');
     }
@@ -189,10 +195,23 @@ describe("blocks", () => {
   });
 
   it("builtin models merge", () => {
-    const cat = catalog();
-    expect(cat.block("b_array_of")).toBeDefined();
-    expect(cat.block("b_start")).toBeDefined();
+    const cat = new Catalog();
+    cat.addXml("types.xml", TYPES_XML);
+    cat.addXml("control-systems.xml", CONTROL_SYSTEMS_XML);
     expect(cat.block("timer")).toBeDefined();
+    expect(cat.block("quantizer")).toBeDefined();
+    expect(cat.block("sin")).toBeDefined();
+    expect(cat.block("cos")).toBeDefined();
+    expect(cat.block("oscilloscope")).toBeDefined();
+    expect(cat.block("b_array_of")).toBeUndefined();
+    expect(cat.block("b_start")).toBeUndefined();
+    expect(cat.blocks().map((block) => block.id).sort()).toEqual([
+      "cos",
+      "oscilloscope",
+      "quantizer",
+      "sin",
+      "timer",
+    ]);
     expect(cat.findType("c1")).toBeDefined();
     expect(cat.findType("f64")).toBeDefined();
     expect(cat.findType("[]")).toBeDefined();
@@ -203,7 +222,7 @@ describe("blocks", () => {
     expect(cat.findType("c1")?.attributes.find((attribute) => attribute.name === "wasm")?.value).toBe(
       "(func (param T))",
     );
-    expect(cat.sources().length).toBe(3);
+    expect(cat.sources().length).toBe(2);
   });
 
   it("array of f64 is compatible with array wildcard", () => {
@@ -432,7 +451,7 @@ describe("blocks", () => {
 
   it("diagram associates multiple xml files and grounds inputs", () => {
     const diagram = new Diagram("d1", "Demo");
-    associateBuiltinModels(diagram);
+    associateFixtureModels(diagram);
     expect(diagram.sources().length).toBe(3);
 
     const f64Id = diagram.addNode("b_f64");
@@ -453,7 +472,7 @@ describe("blocks", () => {
 
   it("diagram chain grounds through identity", () => {
     const diagram = new Diagram("d2", "Chain");
-    associateBuiltinModels(diagram);
+    associateFixtureModels(diagram);
     const f64Id = diagram.addNode("b_f64");
     const identId = diagram.addNode("b_identity");
     const arrayId = diagram.addNode("b_array_of");
@@ -464,11 +483,11 @@ describe("blocks", () => {
 
   it("dissociate xml rebuilds catalog", () => {
     const diagram = new Diagram("d3", "Drop");
-    associateBuiltinModels(diagram);
+    associateFixtureModels(diagram);
     diagram.addNode("b_array_of");
-    diagram.dissociateXml("types.xml");
+    diagram.dissociateXml("fixtures.xml");
     expect(diagram.catalog().block("b_array_of")).toBeUndefined();
-    expect(diagram.catalog().block("b_start")).toBeDefined();
+    expect(diagram.catalog().block("timer")).toBeDefined();
     expect(diagram.nodes().length).toBe(0);
   });
 
@@ -513,7 +532,18 @@ describe("blocks", () => {
     expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("cos")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("cos")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
-    expect(cat.namespaceLabel("cs")).toBe("Control Systems");
+    expect(timerBlock.ns).toBe("com.dauch.cs.gen");
+    expect(cat.block("quantizer")!.ns).toBe("com.dauch.cs");
+    expect(cat.block("sin")!.ns).toBe("com.dauch.cs.transform");
+    expect(cat.block("cos")!.ns).toBe("com.dauch.cs.transform");
+    expect(scope.ns).toBe("com.dauch.cs.sink");
+    expect(cat.namespaceLabel("com.dauch.cs")).toBe("Control Systems");
+    expect(cat.namespaceLabel("com.dauch.cs.gen")).toBe("Gen");
+    expect(cat.namespaceLabel("com.dauch.cs.transform")).toBe("Transform");
+    expect(cat.namespaceLabel("com.dauch.cs.sink")).toBe("Sink");
+    expect(cat.namespaces.get("com.dauch.cs.gen")?.parent).toBe("com.dauch.cs");
+    expect(cat.namespaces.get("com.dauch.cs.transform")?.parent).toBe("com.dauch.cs");
+    expect(cat.namespaces.get("com.dauch.cs.sink")?.parent).toBe("com.dauch.cs");
     expect(cat.findType("f64")).toBeDefined();
     expect(cat.findType("c1")).toBeDefined();
     expect(cat.findType("s")).toBeDefined();
@@ -674,7 +704,7 @@ describe("blocks", () => {
 
   it("array is incompatible with an f64 sample port", () => {
     const diagram = new Diagram("cs", "Skip");
-    associateBuiltinModels(diagram);
+    associateFixtureModels(diagram);
     const tableId = diagram.addNode("b_array_of");
     const sinId = diagram.addNode("sin");
     diagram.addLink(tableId, "result", sinId, "in");

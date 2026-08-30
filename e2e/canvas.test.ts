@@ -33,10 +33,10 @@ describe("canvas", () => {
     expect(await statusBlocks(driver)).toBe("0 blocks");
     const hint = await (await diagramCss(driver, ".hint-card")).getText();
     expect(hint).toContain("Drop blocks here");
-    const paletteItem = await waitDeep(driver, '[data-testid="palette-b_f64"]');
-    expect(await paletteItem.getText()).toContain("f64");
+    const paletteItem = await waitDeep(driver, '[data-testid="palette-timer"]');
+    expect(await paletteItem.getText()).toContain("Timer");
     expect(await paletteItem.getText()).not.toContain("→");
-    const iconHost = await waitDeep(driver, '[data-testid="palette-b_f64"] bld-block-icon');
+    const iconHost = await waitDeep(driver, '[data-testid="palette-timer"] bld-block-icon');
     const paletteIcon = await (await iconHost.getShadowRoot()).findElement(By.css("svg"));
     expect(await paletteIcon.isDisplayed()).toBe(true);
     const glyphNs = await driver.executeScript(
@@ -63,19 +63,20 @@ describe("canvas", () => {
   });
 
   it("places nodes as flex-sized custom elements", async () => {
-    await placeBlock(driver, "b_f64");
-    await placeBlock(driver, "b_decision");
-    const stringBox = await (await nodeHost(driver, "b_f64")).getRect();
-    const decisionBox = await (await nodeHost(driver, "b_decision")).getRect();
-    expect(stringBox.width).toBeGreaterThan(80);
-    expect(stringBox.height).toBeGreaterThan(40);
-    expect(decisionBox.height).toBeGreaterThan(stringBox.height);
-    const tag = await (await nodeHost(driver, "b_f64")).getTagName();
+    await placeBlock(driver, "timer");
+    await placeBlock(driver, "quantizer");
+    const timerBox = await (await nodeHost(driver, "timer")).getRect();
+    const quantizerBox = await (await nodeHost(driver, "quantizer")).getRect();
+    expect(timerBox.width).toBeGreaterThan(80);
+    expect(timerBox.height).toBeGreaterThan(40);
+    expect(quantizerBox.width).toBeGreaterThan(80);
+    expect(quantizerBox.height).toBeGreaterThan(40);
+    const tag = await (await nodeHost(driver, "timer")).getTagName();
     expect(tag).toBe("bld-node");
   });
 
   it("pans the world when dragging empty canvas", async () => {
-    const host = await nodeHost(driver, "b_f64");
+    const host = await nodeHost(driver, "timer");
     const before = await host.getRect();
     const canvas = await diagramCss(driver, '[data-testid="diagram-canvas"]');
     const box = await canvas.getRect();
@@ -95,7 +96,7 @@ describe("canvas", () => {
   });
 
   it("drags a node by its header", async () => {
-    const host = await nodeHost(driver, "b_f64");
+    const host = await nodeHost(driver, "timer");
     const before = await host.getRect();
     const root = await host.getShadowRoot();
     const header = await root.findElement(By.css(".flow-node-header"));
@@ -109,17 +110,17 @@ describe("canvas", () => {
   it("deletes the selected block with Delete", async () => {
     const before = await statusBlocks(driver);
     expect(before).not.toBe("0 blocks");
-    await (await nodeHost(driver, "b_decision")).click();
+    await (await nodeHost(driver, "quantizer")).click();
     await pressDelete(driver);
     await driver.wait(async () => (await statusBlocks(driver)) !== before, 5000);
-    const leftover = await (await diagramRoot(driver)).findElements(By.css('bld-node[data-block-def="b_decision"]'));
+    const leftover = await (await diagramRoot(driver)).findElements(By.css('bld-node[data-block-def="quantizer"]'));
     expect(leftover).toHaveLength(0);
   });
 
   it("drops a palette item onto the canvas", async () => {
     await newCanvas(driver);
-    await dropOnDiagram(driver, "b_i64");
-    await waitForBlock(driver, "b_i64");
+    await dropOnDiagram(driver, "cos");
+    await waitForBlock(driver, "cos");
     expect(await statusBlocks(driver)).toBe("1 block");
   });
 });

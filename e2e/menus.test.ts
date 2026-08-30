@@ -135,7 +135,7 @@ describe("menus", () => {
   });
 
   it("clears the canvas from File → New canvas", async () => {
-    await placeBlock(driver, "b_f64");
+    await placeBlock(driver, "timer");
     expect(await statusBlocks(driver)).not.toBe("0 blocks");
     await newCanvas(driver);
     expect(await statusBlocks(driver)).toBe("0 blocks");
@@ -143,8 +143,8 @@ describe("menus", () => {
   });
 
   it("deletes the selection from the File menu", async () => {
-    await placeBlock(driver, "b_i32");
-    await (await nodeHost(driver, "b_i32")).click();
+    await placeBlock(driver, "sin");
+    await (await nodeHost(driver, "sin")).click();
     await openAppMenu(driver);
     await (await waitDeep(driver, '[data-testid="menu-delete-selected"]')).click();
     await driver.wait(async () => (await statusBlocks(driver)) === "0 blocks", 5000);

@@ -52,7 +52,7 @@ export async function openWorkspace(driver: WebDriver): Promise<void> {
   await driver.get(BASE_URL);
   await waitDeep(driver, "bld-diagram");
   await waitDeep(driver, '[data-testid="diagram-canvas"]');
-  await waitDeep(driver, '[data-testid="palette-b_f64"]');
+  await waitDeep(driver, '[data-testid="palette-timer"]');
 }
 
 export async function diagramRoot(driver: WebDriver) {

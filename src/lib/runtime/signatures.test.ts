@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { associateBuiltinModels } from "../blocks/builtin";
+import { associateBuiltinModels, associateFixtureModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
 import { blockSignature, signatureWat, wasmValType } from "./signatures";
 import { arrayOf, displayType, named, generic } from "../blocks/ast";
@@ -62,9 +62,9 @@ describe("XML ↔ WASM signatures", () => {
     expect(displayType(cat.block("oscilloscope")!.outputs[0].ty, true)).toBe("c<f64>");
   });
 
-  it("types.xml blocks use arguments as inputs and results as outputs", () => {
+  it("fixture type blocks use arguments as inputs and results as outputs", () => {
     const diagram = new Diagram("ws", "Workspace");
-    associateBuiltinModels(diagram);
+    associateFixtureModels(diagram);
     const cat = diagram.catalog();
 
     expect(blockSignature(cat.block("b_f64")!)).toEqual({
@@ -98,7 +98,7 @@ describe("XML ↔ WASM signatures", () => {
 
   it("emits named params, named results, and a runtime $ctx", () => {
     const diagram = new Diagram("ws", "Workspace");
-    associateBuiltinModels(diagram);
+    associateFixtureModels(diagram);
     const cat = diagram.catalog();
     expect(signatureWat(blockSignature(cat.block("timer")!))).toBe(
       "(func $timer (param $ctx i32) (param $in f64)",

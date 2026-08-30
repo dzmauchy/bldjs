@@ -15,7 +15,7 @@ export class BldPalette extends LitElement {
   declare app: AppState;
 
   #ctrl?: AppController;
-    #open = new Set(["cs", "flow", "types"]);
+  #open: Set<string> | null = null;
 
   static override styles = [
     bootstrapStyles,
@@ -161,9 +161,17 @@ export class BldPalette extends LitElement {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }
 
-  #toggleNs(ns: string): void {
+  #opened(groups: [string, BlockDef[]][]): Set<string> {
+    if (this.#open === null) {
+      this.#open = new Set(groups.map(([ns]) => ns));
+    }
+    return this.#open;
+  }
+
+  #toggleNs(ns: string, groups: [string, BlockDef[]][]): void {
+    const open = this.#opened(groups);
     const nsSet = new Set([ns]);
-    this.#open = this.#open.has(ns) ? this.#open.difference(nsSet) : this.#open.union(nsSet);
+    this.#open = open.has(ns) ? open.difference(nsSet) : open.union(nsSet);
     this.requestUpdate();
   }
 
@@ -185,6 +193,8 @@ export class BldPalette extends LitElement {
     if (!app) {
       return nothing;
     }
+    const groups = this.#groups();
+    const open = this.#opened(groups);
     return html`
       <aside class="palette border-end d-flex flex-column">
         <div class="palette-header px-3 py-2 border-bottom">
@@ -192,19 +202,19 @@ export class BldPalette extends LitElement {
           <div class="small text-secondary">Drag onto the canvas</div>
         </div>
         <div class="palette-list flex-grow-1 overflow-auto">
-          ${this.#groups().map(
+          ${groups.map(
             ([ns, blocks]) => html`
               <div class="palette-ns">
                 <button
-                  class=${classMap({ "palette-ns-toggle": true, open: this.#open.has(ns) })}
+                  class=${classMap({ "palette-ns-toggle": true, open: open.has(ns) })}
                   type="button"
                   data-testid=${`ns-${ns}`}
                   @pointerdown=${(event: PointerEvent) => event.stopPropagation()}
-                  @click=${() => this.#toggleNs(ns)}
+                  @click=${() => this.#toggleNs(ns, groups)}
                 >
                   ${app.catalog.namespaceLabel(ns)}
                 </button>
-                ${this.#open.has(ns)
+                ${open.has(ns)
                   ? html`
                       <div class="palette-ns-body">
                         ${blocks.map((def) => {

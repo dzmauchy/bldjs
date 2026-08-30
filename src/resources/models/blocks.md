@@ -139,7 +139,7 @@ Composition is `timer(sin(quantizer(plot)))`. Wire Oscilloscope â†’ Quantizer â†
   <param name="T"/>
 </type>
 
-<block id="timer" name="Timer" ns="cs">
+<block id="timer" name="Timer" ns="com.dauch.cs.gen">
   <factory id="timer"/>
   <in name="in" type="c1">
     <attribute name="wasm">f64</attribute>
@@ -147,7 +147,7 @@ Composition is `timer(sin(quantizer(plot)))`. Wire Oscilloscope â†’ Quantizer â†
   </in>
 </block>
 
-<block id="sin" name="Sin" ns="cs">
+<block id="sin" name="Sin" ns="com.dauch.cs.transform">
   <factory id="f64.sin"/>
   <in name="in" type="c1">
     <attribute name="wasm">f64</attribute>
