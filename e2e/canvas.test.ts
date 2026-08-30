@@ -12,7 +12,7 @@ import {
   statusBlocks,
   statusZoom,
   waitDeep,
-  waitForElkRouter,
+  waitForAvoidRouter,
   waitForBlock,
 } from "./actions";
 import { createDriver } from "./harness";
@@ -48,7 +48,7 @@ describe("canvas", () => {
       "return [!!customElements.get('bld-app'), !!customElements.get('bld-diagram'), !!customElements.get('bld-node'), !!customElements.get('bld-connector')]",
     );
     expect(defined).toEqual([true, true, true, true]);
-    await waitForElkRouter(driver);
+    await waitForAvoidRouter(driver);
   });
 
   it("zooms from the canvas toolbar", async () => {

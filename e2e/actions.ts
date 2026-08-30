@@ -105,9 +105,9 @@ export async function waitForLinks(driver: WebDriver, expected: string): Promise
   await driver.wait(async () => (await statusLinks(driver)) === expected, 8000);
 }
 
-export async function waitForElkRouter(driver: WebDriver): Promise<void> {
+export async function waitForAvoidRouter(driver: WebDriver): Promise<void> {
   const host = await waitDeep(driver, "bld-diagram");
-  await driver.wait(async () => (await host.getAttribute("data-router")) === "elk", 10000);
+  await driver.wait(async () => (await host.getAttribute("data-router")) === "avoid", 10000);
 }
 
 export async function doubleClickPalette(driver: WebDriver, defId: string): Promise<void> {

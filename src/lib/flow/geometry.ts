@@ -1,4 +1,11 @@
+import { connectors, g } from "@joint/core";
 import { screenToWorld } from "$lib/model";
+
+type JointPath = {
+  bbox: () => { x: number; y: number; width: number; height: number } | null;
+  translate: (tx: number, ty: number) => JointPath;
+  serialize: () => string;
+};
 
 export interface Point {
   x: number;
@@ -114,190 +121,144 @@ export function translatePolyline(points: Point[], origin: Point): string {
   return polylinePath(points.map((point) => ({ x: point.x - origin.x, y: point.y - origin.y })));
 }
 
-export const CORNER_RADIUS = 8;
-
-export function snapCoord(value: number): number {
-  return Math.round(value * 10) / 10;
+export interface RoutedLink {
+  from: Point;
+  to: Point;
+  route?: Point[];
 }
 
-export function simplifyOrthogonal(points: Point[]): Point[] {
-  if (points.length <= 1) {
-    return points.map((point) => ({ ...point }));
-  }
-  const out: Point[] = [{ ...points[0]! }];
-  for (let i = 1; i < points.length; i++) {
-    const curr = points[i]!;
-    const prev = out[out.length - 1]!;
-    if (Math.abs(curr.x - prev.x) < 0.05 && Math.abs(curr.y - prev.y) < 0.05) {
-      continue;
-    }
-    if (out.length >= 2) {
-      const before = out[out.length - 2]!;
-      const colinearX = Math.abs(before.x - prev.x) < 0.05 && Math.abs(prev.x - curr.x) < 0.05;
-      const colinearY = Math.abs(before.y - prev.y) < 0.05 && Math.abs(prev.y - curr.y) < 0.05;
-      if (colinearX || colinearY) {
-        out[out.length - 1] = { ...curr };
-        continue;
-      }
-    }
-    out.push({ ...curr });
-  }
-  return out;
+const JUMP_ARGS = {
+  size: 10,
+  radius: 10,
+  jump: "arc",
+} as const;
+
+type FakeLink = {
+  id: string;
+  get: (key: string) => { name: string } | undefined;
+};
+
+type FakeLinkView = {
+  paper: FakePaper;
+  model: FakeLink;
+  sourcePoint: Point;
+  targetPoint: Point;
+  route: Point[];
+  listenToOnce: () => void;
+};
+
+type FakePaper = {
+  options: Record<string, never>;
+  model: { on: () => void; getLinks: () => FakeLink[] };
+  findViewByModel: (link: FakeLink) => FakeLinkView | undefined;
+};
+
+function jumpoverView(from: Point, to: Point, route: Point[], others: RoutedLink[]): FakeLinkView {
+  const thisLink: FakeLink = { id: "this", get: () => ({ name: "jumpover" }) };
+  const otherLinks = others.map((_, index): FakeLink => ({
+    id: `other-${index}`,
+    get: () => ({ name: "jumpover" }),
+  }));
+  const allLinks = [...otherLinks, thisLink];
+  const views = new Map<FakeLink, FakeLinkView>();
+  const paper: FakePaper = {
+    options: {},
+    model: {
+      on() {},
+      getLinks: () => allLinks,
+    },
+    findViewByModel(link) {
+      return views.get(link);
+    },
+  };
+  const thisView: FakeLinkView = {
+    paper,
+    model: thisLink,
+    sourcePoint: from,
+    targetPoint: to,
+    route,
+    listenToOnce() {},
+  };
+  views.set(thisLink, thisView);
+  others.forEach((item, index) => {
+    const model = otherLinks[index]!;
+    views.set(model, {
+      paper,
+      model,
+      sourcePoint: item.from,
+      targetPoint: item.to,
+      route: item.route ?? [],
+      listenToOnce() {},
+    });
+  });
+  return thisView;
 }
 
-export const PORT_STUB = 24;
-
-function dedupeConsecutive(points: Point[]): Point[] {
-  const out: Point[] = [];
-  for (const point of points) {
-    const prev = out.at(-1);
-    if (prev && Math.abs(prev.x - point.x) < 0.05 && Math.abs(prev.y - point.y) < 0.05) {
-      continue;
-    }
-    out.push({ ...point });
+function asPath(result: unknown): JointPath {
+  if (typeof result === "string") {
+    return new g.Path(result);
   }
-  return out;
+  return result as JointPath;
 }
 
-export function ensureHorizontalStubs(points: Point[], from: Point, to: Point, stub = PORT_STUB): Point[] {
-  const out = (points.length >= 2 ? points : [from, to]).map((point) => ({ ...point }));
-  out[0] = { ...from };
-  out[out.length - 1] = { ...to };
-
-  const startStub = { x: snapCoord(from.x + stub), y: from.y };
-  const second = out[1]!;
-  if (Math.abs(second.y - from.y) < 0.5 && second.x > from.x + 1) {
-    out[1] = { x: Math.max(second.x, from.x + stub), y: from.y };
-  } else {
-    out.splice(1, 0, startStub);
-  }
-
-  const endStub = { x: snapCoord(to.x - stub), y: to.y };
-  const prev = out[out.length - 2]!;
-  if (Math.abs(prev.y - to.y) < 0.5 && prev.x < to.x - 1) {
-    out[out.length - 2] = { x: Math.min(prev.x, to.x - stub), y: to.y };
-  } else {
-    out.splice(out.length - 1, 0, endStub);
-  }
-
-  return dedupeConsecutive(out);
+export function jumpoverPath(
+  from: Point,
+  to: Point,
+  route: Point[] = [],
+  others: RoutedLink[] = [],
+): JointPath {
+  const view = jumpoverView(from, to, route, others);
+  return asPath(connectors.jumpover(from, to, route, { ...JUMP_ARGS, raw: true }, view as never));
 }
 
-export function remapElkRoute(raw: Point[], from: Point, to: Point): Point[] {
-  if (raw.length < 2) {
-    return ensureHorizontalStubs([], from, to);
-  }
-  const srcOff = { x: from.x - raw[0]!.x, y: from.y - raw[0]!.y };
-  const points = raw.map((point) => ({ x: snapCoord(point.x + srcOff.x), y: snapCoord(point.y + srcOff.y) }));
-  return ensureHorizontalStubs(points, from, to);
+export function jumpoverLinkPath(
+  from: Point,
+  to: Point,
+  route: Point[] = [],
+  others: RoutedLink[] = [],
+): string {
+  return jumpoverPath(from, to, route, others).serialize();
 }
 
-export function connectorPolyline(from: Point, to: Point, route: Point[] = []): Point[] {
-  if (route.length >= 2) {
-    return remapElkRoute(route, from, to);
+/**
+ * JointJS jumpover draws a hoop on every link that lists the other as a
+ * crossing. Only earlier wires should be passed in, or both lines get an
+ * overlap hoop at the same intersection.
+ */
+export function jumpoverUnderlays<T>(items: readonly T[], index: number): T[] {
+  if (index <= 0) {
+    return [];
   }
-  const link = cubicLink(from, to);
-  return [from, { x: link.c1x, y: link.c1y }, { x: link.c2x, y: link.c2y }, to];
+  return items.slice(0, index);
 }
 
-export function connectorPath(from: Point, to: Point, _route: Point[] = []): string {
-  return cubicLink(from, to).d;
+export function jumpoverLinkBounds(
+  from: Point,
+  to: Point,
+  route: Point[] = [],
+  others: RoutedLink[] = [],
+  pad = 16,
+): Rect {
+  const box = jumpoverPath(from, to, route, others).bbox();
+  if (!box) {
+    return { left: 0, top: 0, width: 1, height: 1 };
+  }
+  return {
+    left: box.x - pad,
+    top: box.y - pad,
+    width: Math.max(box.width + pad * 2, 1),
+    height: Math.max(box.height + pad * 2, 1),
+  };
 }
 
-export function connectorBounds(from: Point, to: Point, _route: Point[] = [], pad = 16): Rect {
-  return cubicLinkBounds(cubicLink(from, to), pad);
-}
-
-export function translateConnector(from: Point, to: Point, route: Point[], origin: Point): string {
-  const shift = (point: Point): Point => ({ x: point.x - origin.x, y: point.y - origin.y });
-  return connectorPath(shift(from), shift(to), route.map(shift));
-}
-
-function pt(point: Point): string {
-  return `${point.x} ${point.y}`;
-}
-
-export function splinePath(points: Point[]): string {
-  if (points.length === 0) {
-    return "";
-  }
-  if (points.length === 1) {
-    return `M ${pt(points[0]!)}`;
-  }
-  if (points.length === 2) {
-    return polylinePath(points);
-  }
-  const start = points[0]!;
-  const controls = points.slice(1);
-  if (controls.length % 3 === 0) {
-    const parts = [`M ${pt(start)}`];
-    for (let i = 0; i < controls.length; i += 3) {
-      parts.push(`C ${pt(controls[i]!)}, ${pt(controls[i + 1]!)}, ${pt(controls[i + 2]!)}`);
-    }
-    return parts.join(" ");
-  }
-  if (controls.length % 2 === 0) {
-    const parts = [`M ${pt(start)}`];
-    for (let i = 0; i < controls.length; i += 2) {
-      parts.push(`Q ${pt(controls[i]!)} ${pt(controls[i + 1]!)}`);
-    }
-    return parts.join(" ");
-  }
-  const filled = [...controls];
-  for (let i = filled.length - 3; i >= 2; i -= 2) {
-    const a = filled[i - 1]!;
-    const b = filled[i]!;
-    filled.splice(i, 0, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-  }
-  return splinePath([start, ...filled]);
-}
-
-export function translateSpline(points: Point[], origin: Point): string {
-  return splinePath(points.map((point) => ({ x: point.x - origin.x, y: point.y - origin.y })));
-}
-
-export function roundedPolylinePath(points: Point[], radius = CORNER_RADIUS): string {
-  if (points.length === 0) {
-    return "";
-  }
-  if (points.length === 1) {
-    return `M ${points[0]!.x} ${points[0]!.y}`;
-  }
-  if (points.length === 2) {
-    return polylinePath(points);
-  }
-  let d = `M ${points[0]!.x} ${points[0]!.y}`;
-  for (let i = 1; i < points.length - 1; i++) {
-    const prev = points[i - 1]!;
-    const curr = points[i]!;
-    const next = points[i + 1]!;
-    const inLen = Math.hypot(curr.x - prev.x, curr.y - prev.y);
-    const outLen = Math.hypot(next.x - curr.x, next.y - curr.y);
-    const r = Math.min(radius, inLen / 2, outLen / 2);
-    if (r < 0.5) {
-      d += ` L ${curr.x} ${curr.y}`;
-      continue;
-    }
-    const start = {
-      x: curr.x - ((curr.x - prev.x) / inLen) * r,
-      y: curr.y - ((curr.y - prev.y) / inLen) * r,
-    };
-    const end = {
-      x: curr.x + ((next.x - curr.x) / outLen) * r,
-      y: curr.y + ((next.y - curr.y) / outLen) * r,
-    };
-    d += ` L ${start.x} ${start.y} Q ${curr.x} ${curr.y} ${end.x} ${end.y}`;
-  }
-  const last = points[points.length - 1]!;
-  d += ` L ${last.x} ${last.y}`;
-  return d;
-}
-
-export function translateRounded(points: Point[], origin: Point, radius = CORNER_RADIUS): string {
-  return roundedPolylinePath(
-    points.map((point) => ({ x: point.x - origin.x, y: point.y - origin.y })),
-    radius,
-  );
+export function translateJumpover(
+  from: Point,
+  to: Point,
+  route: Point[],
+  origin: Point,
+  others: RoutedLink[] = [],
+): string {
+  return jumpoverPath(from, to, route, others).translate(-origin.x, -origin.y).serialize();
 }
 
 export function routesEqual(a: Point[] | undefined, b: Point[] | undefined): boolean {

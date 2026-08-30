@@ -15,7 +15,7 @@ import {
   statusLinks,
   waitDeep,
   runDiagram,
-  waitForElkRouter,
+  waitForAvoidRouter,
   waitForLinks,
 } from "./actions";
 import { createDriver } from "./harness";
@@ -42,7 +42,7 @@ describe("wiring", () => {
     await clickPortHandle(driver, "b_f64", "output-value");
     await clickPortHandle(driver, "b_array_of", "input-elems");
     await waitForLinks(driver, "1 link");
-    await waitForElkRouter(driver);
+    await waitForAvoidRouter(driver);
 
     const listHost = await nodeHost(driver, "b_array_of");
     const listRoot = await listHost.getShadowRoot();
@@ -59,12 +59,12 @@ describe("wiring", () => {
 
     const path = await connectorPath(driver);
     expect(path.startsWith("M ")).toBe(true);
-    expect(path).toContain("C ");
+    expect(path.includes("L ") || path.includes("C ")).toBe(true);
     const tag = await (await diagramCss(driver, "bld-connector")).getTagName();
     expect(tag).toBe("bld-connector");
     const diagram = await waitDeep(driver, "bld-diagram");
-    expect(await diagram.getAttribute("data-connector")).toBe("spline");
-    expect(await diagram.getAttribute("data-router")).toBe("elk");
+    expect(await diagram.getAttribute("data-connector")).toBe("jumpover");
+    expect(await diagram.getAttribute("data-worker")).toBe("true");
   });
 
   it("toggles the same wire off", async () => {

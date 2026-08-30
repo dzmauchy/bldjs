@@ -14,8 +14,8 @@ import { AppController } from "$lib/context";
 import { GRID_SIZE, clampZoom, zoomToward } from "$lib/model";
 import { type AppState, type BlockInstance } from "$lib/state";
 import { FLOW_MIME } from "./mime";
-import { clientToWorld, linkKey, type Point } from "./geometry";
-import { ElkRouteEngine, connectorFromLink, obstacleFromBlock } from "./elk-router";
+import { clientToWorld, jumpoverUnderlays, linkKey, type Point } from "./geometry";
+import { AvoidRouteEngine, connectorFromLink, obstacleFromBlock } from "./avoid-router";
 import { portFromComposedPath, worldPort } from "./layout";
 import type { BldNodeState, NodeLayout, PortPointerDetail } from "./types";
 import "./node";
@@ -40,7 +40,7 @@ export class BldDiagram extends LitElement {
   #previewTo: Point | null = null;
   #layouts = new Map<number, NodeLayout>();
   #resize: ResizeObserver | null = null;
-  #elk = new ElkRouteEngine();
+  #avoid = new AvoidRouteEngine();
   #routes = new Map<string, Point[]>();
 
   static override styles = css`
@@ -174,7 +174,7 @@ export class BldDiagram extends LitElement {
       this.#resize.observe(this);
     }
     void this.updateComplete.then(() => this.#syncHostSize());
-    void this.#startElkRouter();
+    void this.#startAvoidRouter();
   }
 
   disconnectedCallback(): void {
@@ -186,7 +186,7 @@ export class BldDiagram extends LitElement {
     window.removeEventListener("pointercancel", this.#onWinUp);
     this.#resize?.disconnect();
     this.#resize = null;
-    this.#elk.destroy();
+    this.#avoid.destroy();
     super.disconnectedCallback();
   }
 
@@ -202,25 +202,26 @@ export class BldDiagram extends LitElement {
     this.#ctrl = new AppController(this, this.app);
   }
 
-  async #startElkRouter(): Promise<void> {
-    this.#elk.onRoutesChanged(() => {
-      this.#routes = new Map(this.#elk.routes);
+  async #startAvoidRouter(): Promise<void> {
+    this.#avoid.onRoutesChanged(() => {
+      this.#routes = new Map(this.#avoid.routes);
       this.requestUpdate();
     });
     try {
-      await this.#elk.start();
+      await this.#avoid.start({ worker: true });
     } catch (error) {
-      console.warn("elk router failed to load", error);
+      console.warn("avoid router failed to load", error);
       return;
     }
-    this.dataset.router = "elk";
-    this.dataset.connector = "spline";
+    this.dataset.router = "avoid";
+    this.dataset.worker = this.#avoid.worker ? "true" : "false";
+    this.dataset.connector = "jumpover";
     this.#syncRoutes();
     this.requestUpdate();
   }
 
   #syncRoutes(): void {
-    if (!this.app || !this.#elk.ready) {
+    if (!this.app || !this.#avoid.ready) {
       return;
     }
     const obstacles = [];
@@ -237,7 +238,7 @@ export class BldDiagram extends LitElement {
     const connectors = this.app.links
       .filter((link) => this.#layouts.has(link.fromBlock) && this.#layouts.has(link.toBlock))
       .map(connectorFromLink);
-    void this.#elk.sync(obstacles, connectors);
+    this.#avoid.sync(obstacles, connectors);
   }
 
   #viewportEl(): HTMLDivElement | null {
@@ -497,7 +498,15 @@ export class BldDiagram extends LitElement {
   };
 
   #connectors() {
-    const views: { key: string; link: Link; from: Point; to: Point; points: Point[]; selected: boolean }[] = [];
+    const views: {
+      key: string;
+      link: Link;
+      from: Point;
+      to: Point;
+      points: Point[];
+      crossings: { from: Point; to: Point; route: Point[] }[];
+      selected: boolean;
+    }[] = [];
     for (const link of this.app.links) {
       const fromBlock = this.app.blocks.find((block) => block.id === link.fromBlock);
       const toBlock = this.app.blocks.find((block) => block.id === link.toBlock);
@@ -513,9 +522,17 @@ export class BldDiagram extends LitElement {
         from,
         to,
         points: this.#routes.get(key) ?? [],
+        crossings: [],
         selected: this.app.isLinkSelected(link),
       });
     }
+    views.forEach((item, index) => {
+      item.crossings = jumpoverUnderlays(views, index).map((other) => ({
+        from: other.from,
+        to: other.to,
+        route: other.points,
+      }));
+    });
     return views;
   }
 
@@ -535,6 +552,7 @@ export class BldDiagram extends LitElement {
     }
     const resolved = app.resolveAll();
     const previewFrom = this.#previewFrom();
+    const connectors = this.#connectors();
     const grid = GRID_SIZE * app.zoom;
     return html`
       <div
@@ -564,7 +582,7 @@ export class BldDiagram extends LitElement {
           })}
         >
           ${repeat(
-            this.#connectors(),
+            connectors,
             (item) => item.key,
             (item) => html`
               <bld-connector
@@ -572,13 +590,23 @@ export class BldDiagram extends LitElement {
                 .from=${item.from}
                 .to=${item.to}
                 .points=${item.points}
+                .crossings=${item.crossings}
                 .selected=${item.selected}
                 @linkpointerdown=${() => this.#onLinkPointerDown(item.link)}
               ></bld-connector>
             `,
           )}
           ${previewFrom && this.#previewTo
-            ? html`<bld-connector .from=${previewFrom} .to=${this.#previewTo} .preview=${true}></bld-connector>`
+            ? html`<bld-connector
+                .from=${previewFrom}
+                .to=${this.#previewTo}
+                .crossings=${connectors.map((item) => ({
+                  from: item.from,
+                  to: item.to,
+                  route: item.points,
+                }))}
+                .preview=${true}
+              ></bld-connector>`
             : nothing}
           ${repeat(
             app.blocks,

@@ -1,11 +1,12 @@
 import { LitElement, css, html } from "lit";
-import { connectorBounds, translateConnector, type Point } from "./geometry";
+import { jumpoverLinkBounds, translateJumpover, type Point, type RoutedLink } from "./geometry";
 
 export class BldConnector extends LitElement {
   static override properties = {
     from: { attribute: false },
     to: { attribute: false },
     points: { attribute: false },
+    crossings: { attribute: false },
     selected: { type: Boolean, reflect: true, attribute: "data-selected" },
     preview: { type: Boolean, reflect: true, attribute: "data-preview" },
   };
@@ -13,6 +14,7 @@ export class BldConnector extends LitElement {
   declare from: Point;
   declare to: Point;
   declare points: Point[];
+  declare crossings: RoutedLink[];
   declare selected: boolean;
   declare preview: boolean;
 
@@ -67,6 +69,7 @@ export class BldConnector extends LitElement {
     this.from = { x: 0, y: 0 };
     this.to = { x: 0, y: 0 };
     this.points = [];
+    this.crossings = [];
     this.selected = false;
     this.preview = false;
   }
@@ -80,13 +83,18 @@ export class BldConnector extends LitElement {
     this.dataset.testid = this.preview ? "connector-preview" : "connector";
   }
 
+  #vertices(): Point[] {
+    return this.points;
+  }
+
   #box() {
-    return connectorBounds(this.from, this.to, this.points);
+    return jumpoverLinkBounds(this.from, this.to, this.#vertices(), this.crossings);
   }
 
   #d(): string {
-    const box = this.#box();
-    return translateConnector(this.from, this.to, this.points, { x: box.left, y: box.top });
+    const vertices = this.#vertices();
+    const box = jumpoverLinkBounds(this.from, this.to, vertices, this.crossings);
+    return translateJumpover(this.from, this.to, vertices, { x: box.left, y: box.top }, this.crossings);
   }
 
   #onHitPointerDown = (event: PointerEvent): void => {

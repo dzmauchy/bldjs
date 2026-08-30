@@ -1,23 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   clientToWorld,
-  connectorPath,
-  connectorPolyline,
   cubicLink,
   cubicLinkBounds,
-  ensureHorizontalStubs,
   linkKey,
   orthogonalLink,
   polylineBounds,
   polylinePath,
-  remapElkRoute,
-  roundedPolylinePath,
   routesEqual,
-  simplifyOrthogonal,
-  splinePath,
+  jumpoverLinkPath,
+  jumpoverUnderlays,
+  translateJumpover,
   translatePath,
   translatePolyline,
-  translateRounded,
 } from "./geometry";
 
 describe("flow geometry", () => {
@@ -87,125 +82,54 @@ describe("flow geometry", () => {
     expect(routesEqual([{ x: 1, y: 2 }], [{ x: 1, y: 3 }])).toBe(false);
   });
 
-  it("drops colinear orthogonal vertices", () => {
-    expect(
-      simplifyOrthogonal([
-        { x: 0, y: 10 },
-        { x: 40, y: 10 },
-        { x: 80, y: 10 },
-        { x: 80, y: 40 },
-      ]),
-    ).toEqual([
-      { x: 0, y: 10 },
+  it("builds a JointJS jumpover path with rounded orthogonal corners", () => {
+    const from = { x: 0, y: 10 };
+    const to = { x: 200, y: 80 };
+    const straight = jumpoverLinkPath(from, to, []);
+    expect(straight.startsWith("M 0 10")).toBe(true);
+    expect(straight).toContain("L ");
+    const routed = jumpoverLinkPath(from, to, [
       { x: 80, y: 10 },
-      { x: 80, y: 40 },
+      { x: 80, y: 80 },
     ]);
+    expect(routed).toContain("L ");
+    expect(routed).toContain("C ");
+    expect(routed).not.toBe(straight);
+    const local = translateJumpover(from, to, [], { x: -16, y: -6 });
+    expect(local.startsWith("M 16 16")).toBe(true);
   });
 
-  it("remaps an ELK route onto the actual ports with horizontal stubs", () => {
-    const from = { x: 80, y: 40 };
-    const to = { x: 240, y: 90 };
-    const points = remapElkRoute(
-      [
-        { x: 100, y: 50 },
-        { x: 160, y: 50 },
-        { x: 160, y: 100 },
-        { x: 260, y: 100 },
-      ],
-      from,
-      to,
+  it("inserts an arc jump where two routes cross", () => {
+    const from = { x: 0, y: 50 };
+    const to = { x: 200, y: 50 };
+    const plain = jumpoverLinkPath(from, to, []);
+    expect(plain).not.toContain("C ");
+    const jumped = jumpoverLinkPath(from, to, [], [
+      { from: { x: 100, y: 0 }, to: { x: 100, y: 100 }, route: [] },
+    ]);
+    expect(jumped).toContain("C ");
+    expect(jumped).not.toBe(plain);
+  });
+
+  it("only the later crossing wire jumps so both lines do not overlap hoops", () => {
+    const horizontal = { from: { x: 0, y: 50 }, to: { x: 200, y: 50 }, route: [] as { x: number; y: number }[] };
+    const vertical = { from: { x: 100, y: 0 }, to: { x: 100, y: 100 }, route: [] as { x: number; y: number }[] };
+    const wires = [horizontal, vertical];
+    const under = jumpoverLinkPath(
+      wires[0]!.from,
+      wires[0]!.to,
+      wires[0]!.route,
+      jumpoverUnderlays(wires, 0),
     );
-    expect(points[0]).toEqual(from);
-    expect(points.at(-1)).toEqual(to);
-    expect(points[1]?.y).toBe(from.y);
-    expect(points[1]!.x).toBeGreaterThan(from.x);
-    expect(points.at(-2)?.y).toBe(to.y);
-    expect(points.at(-2)!.x).toBeLessThan(to.x);
-  });
-
-  it("turns a vertical left-edge approach into a horizontal entry", () => {
-    const from = { x: 80, y: 30 };
-    const to = { x: 240, y: 50 };
-    const points = ensureHorizontalStubs(
-      [
-        { x: 80, y: 30 },
-        { x: 200, y: 30 },
-        { x: 240, y: 30 },
-        { x: 240, y: 50 },
-      ],
-      from,
-      to,
+    const over = jumpoverLinkPath(
+      wires[1]!.from,
+      wires[1]!.to,
+      wires[1]!.route,
+      jumpoverUnderlays(wires, 1),
     );
-    expect(points[0]).toEqual(from);
-    expect(points.at(-1)).toEqual(to);
-    expect(points.at(-2)).toEqual({ x: 216, y: 50 });
-    expect(points[1]?.y).toBe(30);
-    expect(points[1]!.x).toBeGreaterThan(80);
-  });
-
-  it("falls back to a cubic spline when ELK has not routed yet", () => {
-    const path = connectorPath({ x: 0, y: 10 }, { x: 200, y: 80 });
-    expect(path.startsWith("M 0 10")).toBe(true);
-    expect(path.endsWith("200 80")).toBe(true);
-    expect(path).toContain("C ");
-    const points = connectorPolyline({ x: 0, y: 10 }, { x: 200, y: 80 });
-    expect(points[0]).toEqual({ x: 0, y: 10 });
-    expect(points.at(-1)).toEqual({ x: 200, y: 80 });
-    expect(splinePath(points)).toContain("C ");
-  });
-
-  it("ignores an ELK attachment on the bottom of the source node", () => {
-    const from = { x: 160, y: 80 };
-    const to = { x: 400, y: 220 };
-    const path = connectorPath(from, to, [
-      { x: 160, y: 120 },
-      { x: 160, y: 180 },
-      { x: 160, y: 220 },
-      { x: 200, y: 220 },
-      { x: 400, y: 220 },
-    ]);
-    expect(path).toBe(cubicLink(from, to).d);
-    expect(path.startsWith("M 160 80")).toBe(true);
-    expect(path).toContain("C ");
-    expect(path.endsWith("400 220")).toBe(true);
-  });
-
-  it("does not detour when a box sits under the wire", () => {
-    const from = { x: 80, y: 200 };
-    const to = { x: 420, y: 40 };
-    const empty = connectorPath(from, to);
-    const nearBox = connectorPath(from, to, [
-      { x: 180, y: 200 },
-      { x: 220, y: 120 },
-      { x: 260, y: 40 },
-      { x: 320, y: 40 },
-    ]);
-    expect(nearBox).toBe(empty);
-    expect(nearBox).toBe(cubicLink(from, to).d);
-  });
-
-  it("builds a piecewise cubic SVG path from ELK spline points", () => {
-    const path = splinePath([
-      { x: 0, y: 10 },
-      { x: 40, y: 10 },
-      { x: 80, y: 40 },
-      { x: 120, y: 40 },
-    ]);
-    expect(path).toBe("M 0 10 C 40 10, 80 40, 120 40");
-  });
-
-  it("rounds orthogonal corners and translates into the connector box", () => {
-    const points = [
-      { x: 50, y: 80 },
-      { x: 90, y: 80 },
-      { x: 90, y: 20 },
-      { x: 150, y: 20 },
-    ];
-    const path = roundedPolylinePath(points, 8);
-    expect(path.startsWith("M 50 80")).toBe(true);
-    expect(path).toContain("Q 90 80");
-    expect(path).toContain("L 150 20");
-    const box = polylineBounds(points, 16);
-    expect(translateRounded(points, { x: box.left, y: box.top }, 8).startsWith("M 16 76")).toBe(true);
+    expect(jumpoverUnderlays(wires, 0)).toEqual([]);
+    expect(jumpoverUnderlays(wires, 1)).toEqual([horizontal]);
+    expect(under).not.toContain("C ");
+    expect(over).toContain("C ");
   });
 });
