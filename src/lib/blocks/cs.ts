@@ -1,4 +1,5 @@
 import type { Link } from "./diagram";
+import { catalogPortName, portSlotIndex } from "./ports";
 import { type ComposeTree, type Stage, assembleModule, assembleWasm } from "../runtime/assemble";
 import { SAMPLE_CAP } from "../runtime/memory";
 
@@ -147,9 +148,16 @@ export interface CompiledGenerator extends GeneratorPlan {
 const PUSH_STAGES = new Set<Stage>(["quantizer", "sin", "cos"]);
 
 function incomingTo(links: Link[], to: number, port: string): Link[] {
+  const catalog = catalogPortName(port);
   return links
-    .filter((link) => link.toBlock === to && link.toIn === port)
-    .toSorted((left, right) => left.fromBlock - right.fromBlock || left.fromOut.localeCompare(right.fromOut));
+    .filter((link) => link.toBlock === to && catalogPortName(link.toIn) === catalog)
+    .toSorted(
+      (left, right) =>
+        portSlotIndex(left.toIn) - portSlotIndex(right.toIn) ||
+        left.fromBlock - right.fromBlock ||
+        portSlotIndex(left.fromOut) - portSlotIndex(right.fromOut) ||
+        left.fromOut.localeCompare(right.fromOut),
+    );
 }
 
 function walkConsumer(

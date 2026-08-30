@@ -41,6 +41,20 @@ export {
 } from "./cs";
 export { Diagram, type Link, type XmlSource, infer } from "./diagram";
 export {
+  type PortSlot,
+  acceptsManyInputs,
+  allocateIncomingSlot,
+  allocateOutgoingSlot,
+  catalogPortName,
+  compactLinkSlots,
+  findCatalogLink,
+  inputSlotsFor,
+  outputSlotsFor,
+  portSlotIndex,
+  slottedOutputType,
+  slottedPortName,
+} from "./ports";
+export {
   type ResolvedBlock,
   isResolvedCompatible,
   resolvedInput,

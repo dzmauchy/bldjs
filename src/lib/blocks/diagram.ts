@@ -1,6 +1,7 @@
 import { type BlockDef } from "./ast";
 import { Catalog } from "./catalog";
 import { ParseError } from "./parse";
+import { catalogPortName } from "./ports";
 import {
   type Grounding,
   type ResolvedBlock,
@@ -173,14 +174,15 @@ export function infer(
       if (!output) {
         continue;
       }
-      const vararg = block.inputs.find((port) => port.name === link.toIn)?.vararg ?? false;
-      const existing = grounded.get(link.toIn);
+      const catalogIn = catalogPortName(link.toIn);
+      const vararg = block.inputs.find((port) => port.name === catalogIn)?.vararg ?? false;
+      const existing = grounded.get(catalogIn);
       if (existing) {
-        grounded.set(link.toIn, pushGrounding(existing, output));
+        grounded.set(catalogIn, pushGrounding(existing, output));
       } else if (vararg) {
-        grounded.set(link.toIn, { kind: "varargs", items: [output] });
+        grounded.set(catalogIn, { kind: "varargs", items: [output] });
       } else {
-        grounded.set(link.toIn, { kind: "single", ty: output });
+        grounded.set(catalogIn, { kind: "single", ty: output });
       }
     }
 

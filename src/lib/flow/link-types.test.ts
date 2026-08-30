@@ -33,4 +33,16 @@ describe("shouldShowPortType", () => {
     const vector = generic("[]", [consumer]);
     expect(shouldShowPortType({ blockId: 1, port: "out" }, 2, "in", "in", vector, consumer, catalog, [])).toBe(true);
   });
+
+  it("shows extra slotted ports while linking", () => {
+    expect(shouldShowPortType({ blockId: 1, port: "out[1]" }, 1, "out", "out[1]", consumer, consumer, catalog, [])).toBe(
+      true,
+    );
+    expect(shouldShowPortType({ blockId: 1, port: "out[1]" }, 1, "out", "out", consumer, consumer, catalog, [])).toBe(
+      false,
+    );
+    expect(shouldShowPortType({ blockId: 1, port: "out[1]" }, 2, "in", "in[1]", consumer, consumer, catalog, [])).toBe(
+      true,
+    );
+  });
 });

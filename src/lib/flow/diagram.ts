@@ -9,6 +9,8 @@ import {
   typeToString,
   type Link,
   type ResolvedBlock,
+  inputSlotsFor,
+  outputSlotsFor,
 } from "$lib/blocks";
 import { shouldShowPortType } from "./link-types";
 import { AppController } from "$lib/context";
@@ -291,19 +293,20 @@ export class BldDiagram extends LitElement {
       paramsLine: this.#paramLine(resolved, block.id),
       showChart: block.defId === "oscilloscope",
       chartEnabled: block.defId === "oscilloscope" && this.app.isScopeLive(block.id),
-      inputs: def.inputs.map((port) => {
-        const ty = resolvedBlock ? (resolvedInput(resolvedBlock, port.name) ?? port.ty) : port.ty;
+      inputs: inputSlotsFor(def.inputs, block.id, this.app.links).map((slot) => {
+        const catalogPort = def.inputs.find((item) => item.name === slot.catalogName)!;
+        const ty = resolvedBlock ? (resolvedInput(resolvedBlock, slot.name) ?? catalogPort.ty) : catalogPort.ty;
         return {
-          name: port.name,
+          name: slot.name,
           typeLabel: typeToString(ty),
-          vararg: port.vararg,
-          grounded: this.app.inputIsGrounded(block.id, port.name),
-          compatible: resolvedBlock ? isResolvedCompatible(resolvedBlock, port.name) : true,
+          vararg: catalogPort.vararg && slot.index === 0,
+          grounded: this.app.inputIsGrounded(block.id, slot.name),
+          compatible: resolvedBlock ? isResolvedCompatible(resolvedBlock, slot.catalogName) : true,
           showType: shouldShowPortType(
             linking,
             block.id,
             "in",
-            port.name,
+            slot.name,
             sourceOut,
             ty,
             this.app.catalog,
@@ -311,18 +314,19 @@ export class BldDiagram extends LitElement {
           ),
         };
       }),
-      outputs: def.outputs.map((port) => {
-        const ty = resolvedBlock ? (resolvedOutput(resolvedBlock, port.name) ?? port.ty) : port.ty;
+      outputs: outputSlotsFor(def.outputs, block.id, this.app.links).map((slot) => {
+        const catalogPort = def.outputs.find((item) => item.name === slot.catalogName)!;
+        const ty = resolvedBlock ? (resolvedOutput(resolvedBlock, slot.name) ?? catalogPort.ty) : catalogPort.ty;
         return {
-          name: port.name,
+          name: slot.name,
           typeLabel: typeToString(ty),
-          vararg: port.vararg,
-          linking: linking?.blockId === block.id && linking.port === port.name,
+          vararg: catalogPort.vararg && slot.index === 0,
+          linking: linking?.blockId === block.id && linking.port === slot.name,
           showType: shouldShowPortType(
             linking,
             block.id,
             "out",
-            port.name,
+            slot.name,
             sourceOut,
             ty,
             this.app.catalog,

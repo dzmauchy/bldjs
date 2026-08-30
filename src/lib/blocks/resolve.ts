@@ -1,6 +1,7 @@
 import { type BlockDef, type PortDef, type TypeExpr, generic, named, unionOf } from "./ast";
 import type { Catalog } from "./catalog";
 import { isCompatibleWith } from "./compat";
+import { catalogPortName, slottedOutputType } from "./ports";
 import { ground, replaceSelf, subst } from "./types";
 
 export type Grounding = { kind: "single"; ty: TypeExpr } | { kind: "varargs"; items: TypeExpr[] };
@@ -28,15 +29,16 @@ export interface ResolvedBlock {
 }
 
 export function resolvedOutput(block: ResolvedBlock, name: string): TypeExpr | undefined {
-  return block.outputs.find((port) => port.name === name)?.ty;
+  const ty = block.outputs.find((port) => port.name === catalogPortName(name))?.ty;
+  return ty ? slottedOutputType(ty, name) : undefined;
 }
 
 export function resolvedInput(block: ResolvedBlock, name: string): TypeExpr | undefined {
-  return block.inputs.find((port) => port.name === name)?.ty;
+  return block.inputs.find((port) => port.name === catalogPortName(name))?.ty;
 }
 
 export function isResolvedCompatible(block: ResolvedBlock, input: string): boolean {
-  return block.compatible.get(input) ?? true;
+  return block.compatible.get(catalogPortName(input)) ?? true;
 }
 
 export class TypeResolver {

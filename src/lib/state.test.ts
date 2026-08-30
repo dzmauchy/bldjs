@@ -51,7 +51,7 @@ describe("AppState wiring", () => {
     app.toggleLink(scopeB, "out", timerId, "in");
     expect(app.links).toEqual([
       { fromBlock: scopeA, fromOut: "out", toBlock: timerId, toIn: "in" },
-      { fromBlock: scopeB, fromOut: "out", toBlock: timerId, toIn: "in" },
+      { fromBlock: scopeB, fromOut: "out", toBlock: timerId, toIn: "in[1]" },
     ]);
     expect(app.canRun()).toBe(true);
   });
@@ -70,11 +70,72 @@ describe("AppState wiring", () => {
     app.toggleLink(scopeId, "out", cosId, "in");
     app.toggleLink(sinId, "out", timerId, "in");
     app.toggleLink(cosId, "out", timerId, "in");
+    expect(app.links).toEqual([
+      { fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" },
+      { fromBlock: scopeId, fromOut: "out[1]", toBlock: cosId, toIn: "in" },
+      { fromBlock: sinId, fromOut: "out", toBlock: timerId, toIn: "in" },
+      { fromBlock: cosId, fromOut: "out", toBlock: timerId, toIn: "in[1]" },
+    ]);
     expect(app.canRun()).toBe(true);
     expect(app.plannedGenerators()[0].channels).toEqual([
       { scopeId, label: "sin" },
       { scopeId, label: "cos" },
     ]);
+  });
+
+  it("drops extra slots when an extra connector is removed", () => {
+    const app = new AppState();
+    const scopeId = app.nextId;
+    app.addBlock("oscilloscope", 0, 0);
+    const sinId = app.nextId;
+    app.addBlock("sin", 180, 0);
+    const cosId = app.nextId;
+    app.addBlock("cos", 180, 120);
+    const timerId = app.nextId;
+    app.addBlock("timer", 360, 0);
+    app.toggleLink(scopeId, "out", sinId, "in");
+    app.toggleLink(scopeId, "out", cosId, "in");
+    app.toggleLink(sinId, "out", timerId, "in");
+    app.toggleLink(cosId, "out", timerId, "in");
+    app.removeLink({ fromBlock: scopeId, fromOut: "out[1]", toBlock: cosId, toIn: "in" });
+    expect(app.links).toEqual([
+      { fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" },
+      { fromBlock: sinId, fromOut: "out", toBlock: timerId, toIn: "in" },
+      { fromBlock: cosId, fromOut: "out", toBlock: timerId, toIn: "in[1]" },
+    ]);
+    app.removeLink({ fromBlock: cosId, fromOut: "out", toBlock: timerId, toIn: "in[1]" });
+    expect(app.links).toEqual([
+      { fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" },
+      { fromBlock: sinId, fromOut: "out", toBlock: timerId, toIn: "in" },
+    ]);
+  });
+
+  it("compacts remaining slots after the first extra wire is removed", () => {
+    const app = new AppState();
+    const scopeId = app.nextId;
+    app.addBlock("oscilloscope", 0, 0);
+    const sinId = app.nextId;
+    app.addBlock("sin", 180, 0);
+    const cosId = app.nextId;
+    app.addBlock("cos", 180, 120);
+    app.toggleLink(scopeId, "out", sinId, "in");
+    app.toggleLink(scopeId, "out", cosId, "in");
+    app.removeLink({ fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" });
+    expect(app.links).toEqual([{ fromBlock: scopeId, fromOut: "out", toBlock: cosId, toIn: "in" }]);
+  });
+
+  it("toggles an extra slotted wire off from the catalog ports", () => {
+    const app = new AppState();
+    const scopeId = app.nextId;
+    app.addBlock("oscilloscope", 0, 0);
+    const sinId = app.nextId;
+    app.addBlock("sin", 180, 0);
+    const cosId = app.nextId;
+    app.addBlock("cos", 180, 120);
+    app.toggleLink(scopeId, "out", sinId, "in");
+    app.toggleLink(scopeId, "out", cosId, "in");
+    app.toggleLink(scopeId, "out", cosId, "in");
+    expect(app.links).toEqual([{ fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" }]);
   });
 
   it("grounds oscilloscope into quantizer", () => {
