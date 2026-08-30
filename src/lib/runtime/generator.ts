@@ -1,7 +1,8 @@
 import type { SolutionViewConnector } from "../solution/view";
 import { intervalMs } from "./flow";
 import { createHost } from "./host";
-import { createSharedMemory, isStopped, readFlowCounts, readSamples, requestStop } from "./memory";
+import { createSharedMemory, readFlowCounts, readSamples, requestStop } from "./memory";
+import { startTickLoop } from "./runner";
 
 export interface GeneratorHandle {
   connectors: readonly SolutionViewConnector[];
@@ -60,30 +61,8 @@ export async function startLocalGenerator(options: StartGeneratorOptions): Promi
   const memory = createSharedMemory();
   const gen = await instantiateGenerator(options.wasm, memory, options.now);
   const connectors = options.connectors ?? [];
-  const delay = intervalMs(options.delayMs);
-  const fire = (): void => {
-    if (isStopped(memory)) {
-      return;
-    }
-    gen.tick();
-  };
-  fire();
-  const interval = setInterval(() => {
-    if (isStopped(memory)) {
-      clearInterval(interval);
-      return;
-    }
-    gen.tick();
-  }, delay);
-  return bindHandle(
-    memory,
-    connectors,
-    () => {
-      clearInterval(interval);
-      requestStop(memory);
-    },
-    () => gen.tick(),
-  );
+  const loop = startTickLoop(memory, gen.tick, options.delayMs, connectors.length);
+  return bindHandle(memory, connectors, loop.stop, loop.fire);
 }
 
 /** One dedicated worker (wasm thread) per generator; `setInterval` lives in that worker. */
@@ -93,7 +72,13 @@ export async function startWorkerGenerator(options: StartGeneratorOptions): Prom
   const worker = new Worker(new URL("./generator.worker.ts", import.meta.url), { type: "module" });
   const copy = options.wasm.slice();
   worker.postMessage(
-    { type: "start", wasm: copy.buffer, memory, delayMs: intervalMs(options.delayMs) },
+    {
+      type: "start",
+      wasm: copy.buffer,
+      memory,
+      delayMs: intervalMs(options.delayMs),
+      connectorCount: connectors.length,
+    },
     [copy.buffer],
   );
   return bindHandle(memory, connectors, () => {

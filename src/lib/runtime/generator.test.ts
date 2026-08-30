@@ -84,15 +84,24 @@ describe("binaryen generator", () => {
     expect(readSamples(memory)[0]).toBeCloseTo(Math.sin(0.5));
   });
 
-  it("counts each c<f64> connector invocation", async () => {
-    const { wasm, connectors } = await assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
+    it("counts each c<f64> connector invocation in the runner, not the runtime", async () => {
+    const { wasm, connectors } = await assembleModule({ stages: ["quantizer", "sin"], delayMs: 10_000 });
     expect(connectors.length).toBeGreaterThan(0);
     const memory = createSharedMemory();
     const gen = await instantiateGenerator(wasm, memory, () => 0);
+    gen.tick();
+    gen.tick();
     expect(readFlowCounts(memory, connectors.length).every((count) => count === 0)).toBe(true);
-    gen.tick();
-    gen.tick();
-    const counts = readFlowCounts(memory, connectors.length);
-    expect(counts.every((count) => count === 2)).toBe(true);
+
+    const handle = await startLocalGenerator({
+      wasm,
+      delayMs: 10_000,
+      connectors,
+      now: () => 0,
+    });
+    expect(handle.readFlowCounts().every((count) => count === 1)).toBe(true);
+    handle.tick?.();
+    expect(handle.readFlowCounts().every((count) => count === 2)).toBe(true);
+    handle.stop();
   });
 });

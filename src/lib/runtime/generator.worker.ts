@@ -1,19 +1,22 @@
 import { createHost } from "./host";
+import { startTickLoop } from "./runner";
 import { intervalMs } from "./flow";
-import { isStopped, requestStop } from "./memory";
+import { requestStop } from "./memory";
 
 let memory: WebAssembly.Memory | undefined;
-let interval: ReturnType<typeof setInterval> | undefined;
+let stopLoop: (() => void) | undefined;
 
 function clearTimer(): void {
-  if (interval === undefined) {
-    return;
-  }
-  clearInterval(interval);
-  interval = undefined;
+  stopLoop?.();
+  stopLoop = undefined;
 }
 
-async function start(wasm: ArrayBuffer, shared: WebAssembly.Memory, delayMs: number): Promise<void> {
+async function start(
+  wasm: ArrayBuffer,
+  shared: WebAssembly.Memory,
+  delayMs: number,
+  connectorCount: number,
+): Promise<void> {
   clearTimer();
   memory = shared;
   const bytes = new Uint8Array(wasm);
@@ -23,25 +26,22 @@ async function start(wasm: ArrayBuffer, shared: WebAssembly.Memory, delayMs: num
   if (typeof tick !== "function") {
     throw new Error("generator wasm is missing exported tick");
   }
-  const fire = tick as () => void;
-  const delay = intervalMs(delayMs);
-  const step = (): void => {
-    if (!memory || isStopped(memory)) {
-      clearTimer();
-      return;
-    }
-    fire();
-  };
-  step();
-  interval = setInterval(step, delay);
+  const loop = startTickLoop(shared, tick as () => void, intervalMs(delayMs), connectorCount);
+  stopLoop = loop.stop;
 }
 
 self.onmessage = (
-  event: MessageEvent<{ type: string; wasm?: ArrayBuffer; memory?: WebAssembly.Memory; delayMs?: number }>,
+  event: MessageEvent<{
+    type: string;
+    wasm?: ArrayBuffer;
+    memory?: WebAssembly.Memory;
+    delayMs?: number;
+    connectorCount?: number;
+  }>,
 ) => {
   const msg = event.data;
   if (msg.type === "start" && msg.wasm && msg.memory) {
-    void start(msg.wasm, msg.memory, msg.delayMs ?? 1);
+    void start(msg.wasm, msg.memory, msg.delayMs ?? 1, msg.connectorCount ?? 0);
     return;
   }
   if (msg.type === "stop") {

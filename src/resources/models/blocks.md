@@ -175,7 +175,7 @@ So two channels from one oscilloscope compile as `timer(fork(sin(plot[0]), cos(p
 </block>
 ```
 
-SolutionBuilder walks the connected SolutionView and runs the binaryen.js script for each XML block (`resources/binaryen/blocks`), then wires `SolutionViewConnector`s (`array.get` for vector slots, `fork` on fan-in) into one wasm-gc module (`call_ref`). Each Timer starts in its own worker thread; that thread drives `tick` with `setInterval` and counts `c<?>` connector invocations in shared memory so the canvas can animate each wire at its measured data rate.
+SolutionBuilder walks the connected SolutionView and runs the binaryen.js script for each XML block (`resources/binaryen/blocks`), then wires `SolutionViewConnector`s (`array.get` for vector slots, `fork` on fan-in) into one wasm-gc module (`call_ref`). Each Timer starts in its own worker thread; that thread drives `tick` with `setInterval`. The runner (not the WASM runtime) intercepts `c<?>` connector frequency after every tick so the canvas can pick one of ten logarithmic dash styles (`0` slowest … `9` fastest).
 
 ### A. Varargs (`array#of`)
 Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.

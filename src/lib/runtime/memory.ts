@@ -47,16 +47,25 @@ export function requestStop(memory: WebAssembly.Memory): void {
   Atomics.store(new Int32Array(memory.buffer), MEM.stop / 4, 1);
 }
 
-export function flowCountAddr(index: number): number {
-  return FLOW_COUNTS + index * 4;
-}
-
 export function readFlowCounts(memory: WebAssembly.Memory, count: number): number[] {
   const n = Math.max(0, Math.min(count, FLOW_COUNT_CAP));
   if (n === 0) {
     return [];
   }
-  return Array.from(new Int32Array(memory.buffer, FLOW_COUNTS, n));
+  const view = new Int32Array(memory.buffer, FLOW_COUNTS, n);
+  return Array.from({ length: n }, (_, index) => Atomics.load(view, index));
+}
+
+/** The runner records one c<?> invocation per connector after each `tick`. */
+export function bumpFlowCounts(memory: WebAssembly.Memory, count: number): void {
+  const n = Math.max(0, Math.min(count, FLOW_COUNT_CAP));
+  if (n === 0) {
+    return;
+  }
+  const view = new Int32Array(memory.buffer, FLOW_COUNTS, n);
+  for (let i = 0; i < n; i += 1) {
+    Atomics.add(view, i, 1);
+  }
 }
 
 export function readSamples(memory: WebAssembly.Memory, scopeIndex = 0): number[] {

@@ -4,7 +4,7 @@ import { Catalog } from "$lib/blocks/catalog";
 import { associateBuiltinModels } from "$lib/blocks/builtin";
 import { Diagram } from "$lib/blocks/diagram";
 import { catalogPortName, portSlotIndex } from "$lib/blocks/ports";
-import { CTX, FLOW_COUNT_CAP, SAMPLE_CAP, flowCountAddr } from "$lib/runtime/memory";
+import { CTX, SAMPLE_CAP } from "$lib/runtime/memory";
 import type { SolutionAssembly, SolutionBuilder } from "./builder";
 import {
   type SolutionView,
@@ -16,7 +16,6 @@ import {
   instanceName,
   outgoingConnectors,
   subgraphFromTimer,
-  connectorKey,
 } from "./view";
 
 export interface WasmBuildOptions {
@@ -135,7 +134,7 @@ async function emitWasm(
     import("../../resources/binaryen"),
     import("../../resources/binaryen/util"),
   ]);
-  const { BLOCK_SCRIPTS, RUNTIME_SCRIPTS, addCatalogTypes, GC_FEATURES, nopConsumer, addFork, addTap } = scripts;
+  const { BLOCK_SCRIPTS, RUNTIME_SCRIPTS, addCatalogTypes, GC_FEATURES, nopConsumer, addFork } = scripts;
   const delayNs = BigInt(Math.max(options.delayMs, 1)) * 1_000_000n;
   const module = new binaryen.Module();
   try {
@@ -182,15 +181,6 @@ async function emitWasm(
       }
     }
 
-    const tapIndex = new Map<string, number>();
-    view.connectors.forEach((link, index) => {
-      if (index >= FLOW_COUNT_CAP) {
-        return;
-      }
-      tapIndex.set(connectorKey(link), index);
-      addTap(module, types, `tap_${index}`, flowCountAddr(index));
-    });
-
     const order = topoBlocks(view, catalog);
     const valueOf = new Map<number, { local: number; type: number }>();
     const extraLocals: number[] = [];
@@ -226,14 +216,6 @@ async function emitWasm(
       return module.local.get(stored.local, stored.type);
     };
 
-    const tapConsumer = (link: { fromBlock: number; fromOut: string; toBlock: number; toIn: string }, raw: number): number => {
-      const index = tapIndex.get(connectorKey(link));
-      if (index === undefined) {
-        return raw;
-      }
-      return module.call(`tap_${index}`, [raw], types.c1_f64);
-    };
-
     for (const block of order) {
       const def = catalog.block(block.defId);
       const name = names.get(block.id);
@@ -245,8 +227,7 @@ async function emitWasm(
         const incoming = incomingConnectors(view, block.id, port.name);
         const pieces = incoming.map((link) => {
           const srcDef = catalog.block(defIdOf(view, link.fromBlock) ?? "");
-          const raw = srcDef ? readPort(link, srcDef) : nopConsumer(module, types);
-          return tapConsumer(link, raw);
+          return srcDef ? readPort(link, srcDef) : nopConsumer(module, types);
         });
         if (pieces.length === 0) {
           args.push(nopConsumer(module, types));

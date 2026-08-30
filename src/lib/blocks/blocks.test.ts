@@ -722,7 +722,7 @@ describe("blocks", () => {
     expect(compiled.text).toContain("call $oscilloscope");
     expect(compiled.text).toContain("call_ref $c1_f64");
     expect(compiled.text).not.toContain("memory.atomic.wait32");
-    expect(compiled.text).toContain("(func $tap_0");
+    expect(compiled.text).not.toContain("(func $tap_0");
     expect(compiled.text).toContain('(export "tick"');
     expect(compiled.text).not.toContain('(export "run"');
     expect(compiled.text).not.toContain("setTimeout");

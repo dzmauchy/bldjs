@@ -309,10 +309,14 @@ test.describe("wiring", () => {
     await page.keyboard.press("Escape");
     await expect(page.locator('[data-testid="oscilloscope-modal"]')).toHaveCount(0);
     await expect.poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count()).toBe(3);
-    const period = await page.locator("bld-connector:not([data-preview])[data-flow]").first().evaluate((el) => {
-      return (el as HTMLElement).style.getPropertyValue("--flow-period");
+    const style = await page.locator("bld-connector:not([data-preview])[data-flow]").first().getAttribute("data-flow");
+    expect(Number(style)).toBeGreaterThanOrEqual(0);
+    expect(Number(style)).toBeLessThanOrEqual(9);
+    const duration = await page.locator("bld-connector:not([data-preview])[data-flow]").first().evaluate((el) => {
+      const stroke = el.shadowRoot?.querySelector(".path-stroke");
+      return stroke ? getComputedStyle(stroke).animationDuration : "";
     });
-    expect(period).toMatch(/ms$/);
+    expect(duration).toMatch(/^\d+(\.\d+)?(s|ms)$/);
     await page.locator('[data-testid="toolbar-stop"]').click();
     await expect(run).toBeEnabled();
     await expect(page.locator("bld-connector:not([data-preview])[data-flow]")).toHaveCount(0);
