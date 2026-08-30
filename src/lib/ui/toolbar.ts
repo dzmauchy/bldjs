@@ -47,11 +47,13 @@ export class BldToolbar extends LitElement {
       .toolbar-btn {
         display: inline-flex;
         align-items: center;
-        gap: 0.35rem;
+        justify-content: center;
         color: var(--bs-body-color);
         border: 0;
         background: transparent;
-        padding: 0.15rem 0.55rem;
+        padding: 0.2rem 0.45rem;
+        min-width: 28px;
+        min-height: 28px;
         line-height: 1;
       }
       .toolbar-btn bld-block-icon {
@@ -145,24 +147,25 @@ export class BldToolbar extends LitElement {
           class="toolbar-btn btn btn-sm"
           type="button"
           title="Run"
+          aria-label="Run"
           data-testid="toolbar-run"
+          ?disabled=${app.running}
           @click=${() => {
             void app.runDiagram();
           }}
         >
           <bld-block-icon name="run"></bld-block-icon>
-          <span>Run</span>
         </button>
         <button
           class="toolbar-btn btn btn-sm"
           type="button"
           title="Stop"
+          aria-label="Stop"
           data-testid="toolbar-stop"
           ?disabled=${!app.running}
           @click=${() => app.stopRun()}
         >
           <bld-block-icon name="stop"></bld-block-icon>
-          <span>Stop</span>
         </button>
 
         <div class="ms-auto position-relative">

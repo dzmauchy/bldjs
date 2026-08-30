@@ -299,13 +299,17 @@ export class AppState extends EventTarget {
   }
 
   async runDiagram(): Promise<void> {
+    if (this.running) {
+      return;
+    }
     const topology = this.timerTopologyKey();
     const plans = this.plannedGenerators();
-    this.stopRun();
     if (plans.length === 0) {
       this.runError = "Wire an Oscilloscope through to a Timer, then Run.";
       return;
     }
+    this.stopRun();
+    this.running = true;
     const op = this.#runningOp;
     try {
       const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
@@ -323,6 +327,9 @@ export class AppState extends EventTarget {
           series.push({ label: channel.label, ring: index });
           this.#scopeChannels.set(channel.scopeId, series);
         });
+      }
+      if (op !== this.#runningOp) {
+        return;
       }
       this.#runTopology = topology;
       this.runError = null;

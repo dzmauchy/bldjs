@@ -220,6 +220,22 @@ describe("AppState run", () => {
     expect(app.isScopeLive(scopeId)).toBe(false);
   });
 
+  it("ignores a second Run until Stop", async () => {
+    const app = new AppState();
+    const { scopeId } = wireCsPipeline(app);
+    await app.runDiagram();
+    expect(app.running).toBe(true);
+    expect(app.isScopeLive(scopeId)).toBe(true);
+    await app.runDiagram();
+    expect(app.running).toBe(true);
+    expect(app.isScopeLive(scopeId)).toBe(true);
+    app.stopRun();
+    expect(app.running).toBe(false);
+    await app.runDiagram();
+    expect(app.running).toBe(true);
+    app.stopRun();
+  });
+
   it("run snapshots two series for an oscilloscope vector", async () => {
     const app = new AppState();
     const scopeId = app.nextId;

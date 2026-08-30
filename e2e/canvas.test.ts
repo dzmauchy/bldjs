@@ -145,6 +145,8 @@ describe("canvas", () => {
     const root = await host.getShadowRoot();
     expect(await root.findElements(By.css(".flow-node-title"))).toHaveLength(0);
     expect((await host.getText()).toLowerCase()).not.toContain("sin");
+    const body = await root.findElement(By.css(".flow-node"));
+    expect(await body.getAttribute("title")).toBe("Sin");
     const icon = await root.findElement(By.css(".flow-node-icon svg"));
     const iconBox = await icon.getRect();
     expect(iconBox.width).toBeGreaterThanOrEqual(30);
@@ -160,5 +162,7 @@ describe("canvas", () => {
     const outCenter = outBox.x + outBox.width / 2;
     expect(Math.abs(inCenter - nodeBox.x)).toBeLessThan(4);
     expect(Math.abs(outCenter - (nodeBox.x + nodeBox.width))).toBeLessThan(4);
+    expect(await root.findElements(By.css(".block-port-name"))).toHaveLength(0);
+    expect(await (await root.findElement(By.css('[data-testid="input-in"]'))).getAttribute("title")).toBe("c<f64>");
   });
 });
