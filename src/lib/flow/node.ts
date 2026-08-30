@@ -24,6 +24,7 @@ export class BldNode extends LitElement {
   static override styles = css`
     :host {
       --port-size: 12px;
+      --port-outset: calc(var(--port-size) / 2);
       --port-stub: 2px;
       --port-rail: 2px;
       display: flex;
@@ -173,10 +174,10 @@ export class BldNode extends LitElement {
       overflow: visible;
     }
     .block-port-row.is-vector.is-in {
-      margin-left: calc(-0.5 * var(--port-size) - 1px);
+      margin-left: calc(-1 * var(--port-outset));
     }
     .block-port-row.is-vector.is-out {
-      margin-right: calc(-0.5 * var(--port-size) - 1px);
+      margin-right: calc(-1 * var(--port-outset));
     }
     .block-port-meta {
       display: flex;
@@ -213,12 +214,12 @@ export class BldNode extends LitElement {
       position: relative;
     }
     .block-port-row.is-in:not(.is-vector) .block-port {
-      left: calc(-0.5 * var(--port-size) - 1px);
-      margin-right: calc(-0.5 * var(--port-size));
+      left: calc(-1 * var(--port-outset));
+      margin-right: calc(-1 * var(--port-outset));
     }
     .block-port-row.is-out:not(.is-vector) .block-port {
-      left: calc(0.5 * var(--port-size) + 1px);
-      margin-left: calc(-0.5 * var(--port-size));
+      left: var(--port-outset);
+      margin-left: calc(-1 * var(--port-outset));
     }
     .block-port-row.is-grounded .block-port,
     .block-port-row.is-linking .block-port {
@@ -392,10 +393,13 @@ export class BldNode extends LitElement {
     return html`<span class="block-port" data-handle></span>`;
   }
 
-  #renderMeta(label: string, typeLabel: string | undefined, typeTestId: string | undefined) {
+  #renderMeta(label: string | undefined, typeLabel: string | undefined, typeTestId: string | undefined) {
+    if (!label && !(typeLabel && typeTestId)) {
+      return nothing;
+    }
     return html`
       <span class="block-port-meta">
-        <span class="block-port-name">${label}</span>
+        ${label ? html`<span class="block-port-name">${label}</span>` : nothing}
         ${typeLabel && typeTestId
           ? html`<span class="block-port-type" data-testid=${typeTestId}>${typeLabel}</span>`
           : nothing}
@@ -423,10 +427,10 @@ export class BldNode extends LitElement {
     `;
   }
 
-  #renderGroup(group: PortGroup, side: PortSide) {
+  #renderGroup(group: PortGroup, side: PortSide, showName: boolean) {
     const typed = this.#typedSlot(group);
     const typeTestId = typed ? `${this.#portTestId(side, group.catalogName)}-type` : undefined;
-    const meta = this.#renderMeta(group.label, typed?.typeLabel, typeTestId);
+    const meta = this.#renderMeta(showName ? group.label : undefined, typed?.typeLabel, typeTestId);
     if (!group.vectorized) {
       const port = group.ports[0];
       if (!port) {
@@ -462,15 +466,18 @@ export class BldNode extends LitElement {
     if (!view) {
       return nothing;
     }
+    const inputs = groupPortViews(view.inputs);
+    const outputs = groupPortViews(view.outputs);
     return html`
       <div
         class="flow-node"
         role="group"
+        title=${view.name}
         @pointerdown=${(event: PointerEvent) => this.#onPortPointer(event, "pointerdown")}
         @pointerup=${(event: PointerEvent) => this.#onPortPointer(event, "pointerup")}
       >
         <div class="flow-node-port-col is-in flow-node-ports">
-          ${groupPortViews(view.inputs).map((group) => this.#renderGroup(group, "in"))}
+          ${inputs.map((group) => this.#renderGroup(group, "in", inputs.length > 1))}
         </div>
         <div class="flow-node-body">
           <span class="flow-node-icon" aria-hidden="true">
@@ -494,7 +501,7 @@ export class BldNode extends LitElement {
             : nothing}
         </div>
         <div class="flow-node-port-col is-out flow-node-ports">
-          ${groupPortViews(view.outputs).map((group) => this.#renderGroup(group, "out"))}
+          ${outputs.map((group) => this.#renderGroup(group, "out", outputs.length > 1))}
         </div>
       </div>
     `;

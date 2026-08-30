@@ -28,8 +28,10 @@ describe("BldToolbar", () => {
     const brand = bar.shadowRoot?.querySelector('[data-testid="app-brand"] svg');
     expect(brand?.getAttribute("viewBox")).toBe("0 0 512 512");
     expect(brand?.getAttribute("aria-label")).toBe("Bld");
-    expect(run?.textContent).toContain("Run");
-    expect(stop?.textContent).toContain("Stop");
+    expect(run?.textContent?.trim()).toBe("");
+    expect(stop?.textContent?.trim()).toBe("");
+    expect(run?.getAttribute("aria-label")).toBe("Run");
+    expect(stop?.getAttribute("aria-label")).toBe("Stop");
     expect(run?.textContent).not.toContain("Bld");
     expect((stop as HTMLButtonElement | null)?.disabled).toBe(true);
 
@@ -41,6 +43,35 @@ describe("BldToolbar", () => {
     expect(menuSvg?.namespaceURI).toBe("http://www.w3.org/2000/svg");
     expect(menuSvg?.querySelectorAll("path")).toHaveLength(1);
     expect(menuSvg?.querySelector("path")?.getAttribute("d")).toContain("M2.5 4h11");
+  });
+
+  it("disables Run while running and Stop while idle", async () => {
+    const app = new AppState();
+    const bar = document.createElement("bld-toolbar") as BldToolbar;
+    bar.app = app;
+    document.body.append(bar);
+    await bar.updateComplete;
+
+    const runBtn = () => bar.shadowRoot?.querySelector('[data-testid="toolbar-run"]') as HTMLButtonElement;
+    const stopBtn = () => bar.shadowRoot?.querySelector('[data-testid="toolbar-stop"]') as HTMLButtonElement;
+    expect(runBtn().disabled).toBe(false);
+    expect(stopBtn().disabled).toBe(true);
+
+    app.starting = true;
+    await bar.updateComplete;
+    expect(runBtn().disabled).toBe(true);
+    expect(stopBtn().disabled).toBe(false);
+
+    app.starting = false;
+    app.running = true;
+    await bar.updateComplete;
+    expect(runBtn().disabled).toBe(true);
+    expect(stopBtn().disabled).toBe(false);
+
+    app.running = false;
+    await bar.updateComplete;
+    expect(runBtn().disabled).toBe(false);
+    expect(stopBtn().disabled).toBe(true);
   });
 
   it("opens the overflow menu from the three-line button", async () => {

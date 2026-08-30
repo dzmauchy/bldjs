@@ -129,7 +129,7 @@ describe("wiring", () => {
     expect(await portNames("sin", "in")).toEqual(["in"]);
     const scopeRoot = await (await nodeHost(driver, "oscilloscope")).getShadowRoot();
     expect(await scopeRoot.findElements(By.css('[data-vector="out"] .block-port-vector-rail'))).toHaveLength(1);
-    expect(await (await scopeRoot.findElement(By.css('[data-vector="out"] .block-port-name'))).getText()).toBe("out");
+    expect(await scopeRoot.findElements(By.css('[data-vector="out"] .block-port-name'))).toHaveLength(0);
 
     await clickPortHandle(driver, "oscilloscope", "output-out");
     await clickPortHandle(driver, "cos", "input-in");
@@ -137,7 +137,7 @@ describe("wiring", () => {
     expect(await portNames("oscilloscope", "out")).toEqual(["out", "out[1]"]);
     expect(await portNames("cos", "in")).toEqual(["in"]);
     expect(await scopeRoot.findElements(By.css('[data-vector="out"] [data-handle]'))).toHaveLength(2);
-    expect(await (await scopeRoot.findElement(By.css('[data-vector="out"] .block-port-name'))).getText()).toBe("out");
+    expect(await scopeRoot.findElements(By.css('[data-vector="out"] .block-port-name'))).toHaveLength(0);
 
     await clickPortHandle(driver, "sin", "output-out");
     await clickPortHandle(driver, "timer", "input-in");
@@ -151,7 +151,7 @@ describe("wiring", () => {
     const timerRoot = await (await nodeHost(driver, "timer")).getShadowRoot();
     expect(await timerRoot.findElements(By.css('[data-vector="in"] .block-port-vector-rail'))).toHaveLength(1);
     expect(await timerRoot.findElements(By.css('[data-vector="in"] [data-handle]'))).toHaveLength(2);
-    expect(await (await timerRoot.findElement(By.css('[data-vector="in"] .block-port-name'))).getText()).toBe("in");
+    expect(await timerRoot.findElements(By.css('[data-vector="in"] .block-port-name'))).toHaveLength(0);
 
     await clickPortHandle(driver, "oscilloscope", "output-out[1]");
     await clickPortHandle(driver, "cos", "input-in");
@@ -284,6 +284,8 @@ describe("wiring", () => {
     const chart = await (await scope.getShadowRoot()).findElement(By.css('[data-testid^="chart-"]'));
     expect(await chart.getAttribute("disabled")).toBe("true");
     await runDiagram(driver);
+    const run = await waitDeep(driver, '[data-testid="toolbar-run"]');
+    expect(await run.getAttribute("disabled")).toBe("true");
     await driver.wait(async () => (await chart.getAttribute("disabled")) === null, 10000);
     await chart.click();
     await waitDeep(driver, '[data-testid="oscilloscope-modal"]');
@@ -293,6 +295,8 @@ describe("wiring", () => {
     }, 5000);
     await driver.actions({ async: true }).sendKeys(Key.ESCAPE).perform();
     await driver.wait(async () => (await queryDeepAll(driver, '[data-testid="oscilloscope-modal"]')).length === 0, 5000);
+    await (await waitDeep(driver, '[data-testid="toolbar-stop"]')).click();
+    await driver.wait(async () => (await run.getAttribute("disabled")) === null, 5000);
   });
 
   it("opens a multi-axis chart after two vector channels run", async () => {
