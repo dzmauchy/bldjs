@@ -100,3 +100,7 @@ export function subgraphFromTimer(view: SolutionView, timerId: number): Solution
 export function firstTimerId(view: SolutionView): number | undefined {
   return view.blocks.find((block) => block.defId === "timer")?.id;
 }
+
+export function connectorKey(link: Pick<SolutionViewConnector, "fromBlock" | "fromOut" | "toBlock" | "toIn">): string {
+  return `${link.fromBlock}:${link.fromOut}->${link.toBlock}:${link.toIn}`;
+}

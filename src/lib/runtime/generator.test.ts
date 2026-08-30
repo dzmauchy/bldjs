@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assembleModule, assembleWasm } from "./assemble";
 import { compileGenerator } from "../blocks/cs";
-import { createSharedMemory, readSamples } from "./memory";
+import { createSharedMemory, readFlowCounts, readSamples } from "./memory";
 import { instantiateGenerator, startLocalGenerator } from "./generator";
 
 describe("binaryen generator", () => {
@@ -57,6 +57,21 @@ describe("binaryen generator", () => {
     expect(samples.every((value) => Math.abs(value - 1) < 1e-9)).toBe(true);
   });
 
+  it("ticks on setInterval instead of parking", async () => {
+    const wasm = await assembleWasm({ stages: ["sin"], delayMs: 10 });
+    const handle = await startLocalGenerator({
+      wasm,
+      delayMs: 10,
+      now: () => 0.25,
+    });
+    const first = (await handle.snapshot()).length;
+    await new Promise((resolve) => setTimeout(resolve, 35));
+    const second = (await handle.snapshot()).length;
+    handle.stop();
+    expect(first).toBeGreaterThan(0);
+    expect(second).toBeGreaterThan(first);
+  });
+
   it("tick writes samples through XML-typed block functions", async () => {
     const { text, wasm } = await assembleModule({ stages: ["sin"], delayMs: 0 });
     expect(text).toContain("(func $timer");
@@ -67,5 +82,17 @@ describe("binaryen generator", () => {
     const gen = await instantiateGenerator(wasm, memory, () => 0.5);
     gen.tick();
     expect(readSamples(memory)[0]).toBeCloseTo(Math.sin(0.5));
+  });
+
+  it("counts each c<f64> connector invocation", async () => {
+    const { wasm, connectors } = await assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
+    expect(connectors.length).toBeGreaterThan(0);
+    const memory = createSharedMemory();
+    const gen = await instantiateGenerator(wasm, memory, () => 0);
+    expect(readFlowCounts(memory, connectors.length).every((count) => count === 0)).toBe(true);
+    gen.tick();
+    gen.tick();
+    const counts = readFlowCounts(memory, connectors.length);
+    expect(counts.every((count) => count === 2)).toBe(true);
   });
 });

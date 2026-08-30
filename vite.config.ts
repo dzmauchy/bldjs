@@ -4,7 +4,7 @@ import { defineConfig, type Plugin } from "vitest/config";
 
 const csp = "script-src 'self' 'wasm-unsafe-eval';";
 
-/** Isolation headers required for SharedArrayBuffer + wasm threads / wait. */
+/** Isolation headers required for SharedArrayBuffer / wasm worker threads. */
 const isolationHeaders = {
   "Content-Security-Policy": csp,
   "Cross-Origin-Opener-Policy": "same-origin",

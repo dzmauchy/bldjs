@@ -4,7 +4,7 @@ import type { WasmCatalogTypes } from "../gc-types";
 
 /**
  * quantizer — XML `c<f64> → c<f64>`.
- * Passes samples through; the run loop parks from `$ctx.delay_ns`.
+ * Passes samples through; the generator worker spaces ticks with `setInterval`.
  */
 export function addQuantizer(
   module: binaryen.Module,

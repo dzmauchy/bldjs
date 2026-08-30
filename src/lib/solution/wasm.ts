@@ -4,7 +4,7 @@ import { Catalog } from "$lib/blocks/catalog";
 import { associateBuiltinModels } from "$lib/blocks/builtin";
 import { Diagram } from "$lib/blocks/diagram";
 import { catalogPortName, portSlotIndex } from "$lib/blocks/ports";
-import { CTX, SAMPLE_CAP } from "$lib/runtime/memory";
+import { CTX, FLOW_COUNT_CAP, SAMPLE_CAP, flowCountAddr } from "$lib/runtime/memory";
 import type { SolutionAssembly, SolutionBuilder } from "./builder";
 import {
   type SolutionView,
@@ -16,6 +16,7 @@ import {
   instanceName,
   outgoingConnectors,
   subgraphFromTimer,
+  connectorKey,
 } from "./view";
 
 export interface WasmBuildOptions {
@@ -129,12 +130,12 @@ async function emitWasm(
   view: SolutionView,
   options: { delayMs: number; timerId?: number },
 ): Promise<SolutionAssembly> {
-  const [{ default: binaryen }, scripts, { nameLocals }] = await Promise.all([
+    const [{ default: binaryen }, scripts, { nameLocals }] = await Promise.all([
     import("binaryen"),
     import("../../resources/binaryen"),
     import("../../resources/binaryen/util"),
   ]);
-  const { BLOCK_SCRIPTS, RUNTIME_SCRIPTS, addCatalogTypes, GC_FEATURES, nopConsumer, addFork } = scripts;
+  const { BLOCK_SCRIPTS, RUNTIME_SCRIPTS, addCatalogTypes, GC_FEATURES, nopConsumer, addFork, addTap } = scripts;
   const delayNs = BigInt(Math.max(options.delayMs, 1)) * 1_000_000n;
   const module = new binaryen.Module();
   try {
@@ -142,8 +143,6 @@ async function emitWasm(
     const types = addCatalogTypes(binaryen, module);
     RUNTIME_SCRIPTS.imports(module);
     RUNTIME_SCRIPTS.push(module, SAMPLE_CAP);
-    RUNTIME_SCRIPTS.park(module);
-    RUNTIME_SCRIPTS.stopped(module);
 
     const rings = options.timerId !== undefined ? assignRings(view, options.timerId) : new Map<string, number>();
     const names = new Map<number, string>();
@@ -183,6 +182,15 @@ async function emitWasm(
       }
     }
 
+    const tapIndex = new Map<string, number>();
+    view.connectors.forEach((link, index) => {
+      if (index >= FLOW_COUNT_CAP) {
+        return;
+      }
+      tapIndex.set(connectorKey(link), index);
+      addTap(module, types, `tap_${index}`, flowCountAddr(index));
+    });
+
     const order = topoBlocks(view, catalog);
     const valueOf = new Map<number, { local: number; type: number }>();
     const extraLocals: number[] = [];
@@ -218,6 +226,14 @@ async function emitWasm(
       return module.local.get(stored.local, stored.type);
     };
 
+    const tapConsumer = (link: { fromBlock: number; fromOut: string; toBlock: number; toIn: string }, raw: number): number => {
+      const index = tapIndex.get(connectorKey(link));
+      if (index === undefined) {
+        return raw;
+      }
+      return module.call(`tap_${index}`, [raw], types.c1_f64);
+    };
+
     for (const block of order) {
       const def = catalog.block(block.defId);
       const name = names.get(block.id);
@@ -229,7 +245,8 @@ async function emitWasm(
         const incoming = incomingConnectors(view, block.id, port.name);
         const pieces = incoming.map((link) => {
           const srcDef = catalog.block(defIdOf(view, link.fromBlock) ?? "");
-          return srcDef ? readPort(link, srcDef) : nopConsumer(module, types);
+          const raw = srcDef ? readPort(link, srcDef) : nopConsumer(module, types);
+          return tapConsumer(link, raw);
         });
         if (pieces.length === 0) {
           args.push(nopConsumer(module, types));
@@ -271,22 +288,6 @@ async function emitWasm(
     ]);
     module.addFunctionExport("tick", "tick");
 
-    module.addFunction(
-      "run",
-      binaryen.none,
-      binaryen.none,
-      [],
-      module.loop(
-        "again",
-        module.block(null, [
-          module.call("tick", [], binaryen.none),
-          module.call("park", [module.i64.const(delayNs)], binaryen.none),
-          module.br("again", module.i32.eqz(module.call("stopped", [], binaryen.i32))),
-        ]),
-      ),
-    );
-    module.addFunctionExport("run", "run");
-
     if (!module.validate()) {
       throw new Error("binaryen rejected the assembled generator module");
     }
@@ -294,7 +295,7 @@ async function emitWasm(
     if (!text.includes(`i32.const ${SAMPLE_CAP}`)) {
       throw new Error(`push script must use SAMPLE_CAP=${SAMPLE_CAP}`);
     }
-    return { wasm: module.emitBinary().slice(), text };
+    return { wasm: module.emitBinary().slice(), text, connectors: view.connectors };
   } finally {
     module.dispose();
   }

@@ -1,6 +1,6 @@
 import { associateBuiltinModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
-import { firstTimerId, type SolutionView } from "../solution/view";
+import { firstTimerId, type SolutionView, type SolutionViewConnector } from "../solution/view";
 import { linearSolutionView, WasmSolutionBuilder } from "../solution/wasm";
 import { blockSignature, blockTypeWat } from "./signatures";
 
@@ -20,6 +20,7 @@ export interface AssembleOptions {
 export interface AssembledModule {
   wasm: Uint8Array;
   text: string;
+  connectors: readonly SolutionViewConnector[];
 }
 
 /** Types whose names are referenced from XML block composition (`$fn_timer`, …). */

@@ -86,7 +86,8 @@ describe("block binaryen assembly", () => {
     expect(text).toContain("call $oscilloscope");
     expect(text).toContain("call_ref $c1_f64");
     expect(text).toContain("(local $ctx i32)");
-    expect(text).toContain("memory.atomic.wait32");
+    expect(text).not.toContain("memory.atomic.wait32");
+    expect(text).toContain("(func $tap_0");
     expect(text).toContain(`i32.const ${SAMPLE_CAP}`);
     expect([...wasm.slice(0, 4)]).toEqual([0, 97, 115, 109]);
 

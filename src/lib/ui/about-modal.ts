@@ -80,7 +80,7 @@ export class BldAboutModal extends LitElement {
                 <li>Drag a placed block to move it</li>
                 <li>Click or drag from an output handle to an input handle to ground a type</li>
                 <li>Run builds the wasm assembly from the wired blocks (SolutionBuilder)</li>
-                <li>The worker parks with atomic.wait on a SharedArrayBuffer</li>
+                <li>Each Timer starts in its own worker thread and ticks with setInterval</li>
                 <li>After Run, Chart on Oscilloscope reads samples from that buffer</li>
                 <li>Delete or Backspace removes the selection</li>
                 <li>Ctrl/Cmd + 0 resets the view</li>

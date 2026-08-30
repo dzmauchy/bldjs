@@ -25,6 +25,11 @@ export function scopeSamplesAddr(index: number): number {
 }
 
 export const MEMORY_PAGES = 1;
+export const MEMORY_BYTES = MEMORY_PAGES * 65536;
+
+/** Per-connector invocation counters, packed at the end of the shared page. */
+export const FLOW_COUNT_CAP = 256;
+export const FLOW_COUNTS = MEMORY_BYTES - FLOW_COUNT_CAP * 4;
 
 export function createSharedMemory(): WebAssembly.Memory {
   return new WebAssembly.Memory({
@@ -34,10 +39,24 @@ export function createSharedMemory(): WebAssembly.Memory {
   });
 }
 
+export function isStopped(memory: WebAssembly.Memory): boolean {
+  return Atomics.load(new Int32Array(memory.buffer), MEM.stop / 4) !== 0;
+}
+
 export function requestStop(memory: WebAssembly.Memory): void {
-  const flags = new Int32Array(memory.buffer);
-  Atomics.store(flags, MEM.stop / 4, 1);
-  Atomics.notify(flags, MEM.wait / 4);
+  Atomics.store(new Int32Array(memory.buffer), MEM.stop / 4, 1);
+}
+
+export function flowCountAddr(index: number): number {
+  return FLOW_COUNTS + index * 4;
+}
+
+export function readFlowCounts(memory: WebAssembly.Memory, count: number): number[] {
+  const n = Math.max(0, Math.min(count, FLOW_COUNT_CAP));
+  if (n === 0) {
+    return [];
+  }
+  return Array.from(new Int32Array(memory.buffer, FLOW_COUNTS, n));
 }
 
 export function readSamples(memory: WebAssembly.Memory, scopeIndex = 0): number[] {

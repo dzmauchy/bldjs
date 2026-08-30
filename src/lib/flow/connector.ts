@@ -1,5 +1,6 @@
 import { LitElement, css, html } from "lit";
 import { jumpoverLinkBounds, translateJumpover, type Point, type RoutedLink } from "./geometry";
+import { flowPeriodMs } from "$lib/runtime/flow";
 
 export class BldConnector extends LitElement {
   static override properties = {
@@ -9,6 +10,7 @@ export class BldConnector extends LitElement {
     crossings: { attribute: false },
     selected: { type: Boolean, reflect: true, attribute: "data-selected" },
     preview: { type: Boolean, reflect: true, attribute: "data-preview" },
+    hz: { type: Number },
   };
 
   declare from: Point;
@@ -17,6 +19,7 @@ export class BldConnector extends LitElement {
   declare crossings: RoutedLink[];
   declare selected: boolean;
   declare preview: boolean;
+  declare hz: number;
 
   static override styles = css`
     :host {
@@ -62,6 +65,20 @@ export class BldConnector extends LitElement {
     :host([data-preview]) .path-hit {
       pointer-events: none;
     }
+    :host([data-flow]) .path-stroke {
+      stroke-dasharray: 8 6;
+      animation: bld-flow-dash var(--flow-period, 400ms) linear infinite;
+    }
+    @keyframes bld-flow-dash {
+      to {
+        stroke-dashoffset: -14;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :host([data-flow]) .path-stroke {
+        animation: none;
+      }
+    }
   `;
 
   constructor() {
@@ -72,6 +89,7 @@ export class BldConnector extends LitElement {
     this.crossings = [];
     this.selected = false;
     this.preview = false;
+    this.hz = 0;
   }
 
   protected override willUpdate(): void {
@@ -81,6 +99,16 @@ export class BldConnector extends LitElement {
     this.style.width = `${box.width}px`;
     this.style.height = `${box.height}px`;
     this.dataset.testid = this.preview ? "connector-preview" : "connector";
+    const flowing = !this.preview && this.hz > 0;
+    if (flowing) {
+      this.setAttribute("data-flow", "");
+      this.dataset.hz = String(Math.round(this.hz));
+      this.style.setProperty("--flow-period", `${flowPeriodMs(this.hz)}ms`);
+    } else {
+      this.removeAttribute("data-flow");
+      delete this.dataset.hz;
+      this.style.removeProperty("--flow-period");
+    }
   }
 
   #vertices(): Point[] {
