@@ -243,7 +243,7 @@ export function isPushType(expr: TypeExpr | undefined): boolean {
   if (isConsumerType(expr)) {
     return true;
   }
-  return isArrayType(expr) && isPushType(expr.args[0]);
+  return expr.kind === "type" && isArrayType(expr) && isPushType(expr.args[0]);
 }
 
 export function typeArgs(expr: TypeExpr): TypeExpr[] {
