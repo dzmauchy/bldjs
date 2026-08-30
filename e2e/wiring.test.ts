@@ -4,7 +4,7 @@ import {
   clickConnector,
   clickPortHandle,
   connectorPath,
-  connectorPaths,
+  connectorWorldPolylines,
   diagramCss,
   diagramRoot,
   dragNodeBy,
@@ -23,34 +23,8 @@ import {
 } from "./actions";
 import { createDriver } from "./harness";
 
-function pathPoints(d: string): { x: number; y: number }[] {
-  const points: { x: number; y: number }[] = [];
-  const tokens = d.match(/[MLC]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? [];
-  let command = "";
-  const nums: number[] = [];
-  const flush = (): void => {
-    if ((command === "M" || command === "L") && nums.length >= 2) {
-      points.push({ x: nums[nums.length - 2]!, y: nums[nums.length - 1]! });
-    } else if (command === "C" && nums.length >= 6) {
-      points.push({ x: nums[nums.length - 2]!, y: nums[nums.length - 1]! });
-    }
-  };
-  for (const token of tokens) {
-    if (/^[MLCmlc]$/.test(token)) {
-      flush();
-      command = token.toUpperCase();
-      nums.length = 0;
-      continue;
-    }
-    nums.push(Number(token));
-  }
-  flush();
-  return points;
-}
-
-function collinearOverlap(left: string, right: string): number {
-  const segments = (d: string) => {
-    const pts = pathPoints(d);
+function collinearOverlap(left: { x: number; y: number }[], right: { x: number; y: number }[]): number {
+  const segments = (pts: { x: number; y: number }[]) => {
     const out: { axis: "h" | "v"; a: number; b: number; pos: number }[] = [];
     for (let i = 1; i < pts.length; i += 1) {
       const prev = pts[i - 1]!;
@@ -205,16 +179,16 @@ describe("wiring", () => {
     await waitForLinks(driver, "2 links");
     await waitForAvoidRouter(driver);
     await driver.wait(async () => {
-      const paths = await connectorPaths(driver);
-      return paths.length === 2 && paths.every((d) => d.includes("L ") || d.includes("C "));
+      const polylines = await connectorWorldPolylines(driver);
+      return polylines.length === 2 && polylines.every((pts) => pts.length >= 2);
     }, 10000);
     await driver.wait(async () => {
-      const paths = await connectorPaths(driver);
-      return paths.length === 2 && collinearOverlap(paths[0]!, paths[1]!) < 16;
+      const polylines = await connectorWorldPolylines(driver);
+      return polylines.length === 2 && collinearOverlap(polylines[0]!, polylines[1]!) < 16;
     }, 10000);
-    const paths = await connectorPaths(driver);
-    expect(paths).toHaveLength(2);
-    expect(collinearOverlap(paths[0]!, paths[1]!)).toBeLessThan(16);
+    const polylines = await connectorWorldPolylines(driver);
+    expect(polylines).toHaveLength(2);
+    expect(collinearOverlap(polylines[0]!, polylines[1]!)).toBeLessThan(16);
   });
 
   it("toggles the same wire off", async () => {
