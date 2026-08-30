@@ -60,9 +60,19 @@ export function superBound(bound: TypeExpr): TypeExpr {
   return { kind: "wildcard", variance: "contravariant", bound };
 }
 
+/** Short display heads used when `compact` is true. */
+const COMPACT_HEADS: Record<string, string> = {
+  c1: "c",
+};
+
 function rawTypeName(name: string): string {
   const parts = name.split(".");
   return parts[parts.length - 1] ?? name;
+}
+
+function compactHead(name: string): string {
+  const raw = rawTypeName(name);
+  return COMPACT_HEADS[raw] ?? raw;
 }
 
 function displayArrayElem(elem: TypeExpr, compact: boolean): string {
@@ -88,7 +98,7 @@ export function displayType(expr: TypeExpr, compact: boolean): string {
         const elem = expr.args[0];
         return `${elem ? displayArrayElem(elem, compact) : "?"}[]`;
       }
-      const head = compact ? rawTypeName(expr.name) : expr.ns ? `${expr.ns}.${expr.name}` : expr.name;
+      const head = compact ? compactHead(expr.name) : expr.ns ? `${expr.ns}.${expr.name}` : expr.name;
       if (expr.args.length === 0) {
         return head;
       }

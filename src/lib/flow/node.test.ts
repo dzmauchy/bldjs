@@ -122,7 +122,7 @@ describe("BldNode", () => {
         name: "Oscilloscope",
         showChart: true,
         chartEnabled: false,
-        inputs: [{ name: "in", typeLabel: "c1<f64>", vararg: false }],
+        inputs: [{ name: "in", typeLabel: "c<c<c<f64>>>", vararg: false }],
         outputs: [],
         paramsLine: "",
       }),
@@ -135,6 +135,11 @@ describe("BldNode", () => {
     });
     chart.click();
     expect(opened).toBe(false);
+    const hint = node.shadowRoot!.querySelector('[data-testid="input-in-type"]');
+    expect(hint?.textContent).toBe("c<c<c<f64>>>");
+    expect(node.shadowRoot!.querySelector('[data-testid="input-in"]')?.getAttribute("title")).toBe(
+      "c<c<c<f64>>>",
+    );
   });
 
   it("reports its measured size through noderesize", async () => {

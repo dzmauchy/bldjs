@@ -4,13 +4,16 @@
   <namespace id="cs" name="Control Systems"/>
 
   <!--
-    Ports use the language-agnostic catalog (f64, f1, c1, …).
-    The current runtime compiles each block to WASM:
+    Catalog ports are nested consumers — the full type shown on hover:
 
-      timer()            : s<f64>          (result f64)
-      quantizer(f64)     : f1<f64, f64>    (param f64) (result f64)
-      sin(f64)           : f1<f64, f64>    (param f64) (result f64)
-      oscilloscope(f64)  : c1<f64>         (param f64)
+      timer()      : c<c<c<f64>>>
+      quantizer(_) : c<c<c<f64>>> → c<c<f64>>
+      sin(_)       : c<c<f64>> → c<f64>
+      oscilloscope : c<f64> → void
+
+    Compact display writes c1 as c, so c1<c1<c1<f64>>> is c<c<c<f64>>>.
+    The WASM runtime lowers each sample port to first-order f64
+    (timer : s<f64>, quantizer/sin : f1<f64, f64>, oscilloscope : c1<f64>).
 
     Each block is a binaryen.js script in resources/binaryen/blocks.
     Run assembles those scripts and emits the module.
@@ -21,31 +24,61 @@
     <attribute name="kind">Start</attribute>
     <attribute name="runnable">true</attribute>
     <attribute name="generator">true</attribute>
-    <attribute name="description">Runnable time source. Supplier s&lt;f64&gt; — host now().</attribute>
+    <attribute name="description">Runnable time source. Returns c&lt;c&lt;c&lt;f64&gt;&gt;&gt; for quantizer(timer()).</attribute>
     <factory id="timer"/>
-    <out name="out" type="f64"/>
+    <out name="out" type="c1">
+      <attribute name="wasm">f64</attribute>
+      <t type="c1">
+        <t type="c1">
+          <t type="f64"/>
+        </t>
+      </t>
+    </out>
   </block>
 
   <block id="quantizer" name="Quantizer" ns="cs" icon="quantizer">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">f1&lt;f64, f64&gt;. Parks 10 ms per sample via memory.atomic.wait32.</attribute>
+    <attribute name="description">c&lt;c&lt;c&lt;f64&gt;&gt;&gt; → c&lt;c&lt;f64&gt;&gt;. Parks 10 ms per sample via memory.atomic.wait32.</attribute>
     <factory id="quantizer"/>
-    <in name="in" type="f64"/>
-    <out name="out" type="f64"/>
+    <in name="in" type="c1">
+      <attribute name="wasm">f64</attribute>
+      <t type="c1">
+        <t type="c1">
+          <t type="f64"/>
+        </t>
+      </t>
+    </in>
+    <out name="out" type="c1">
+      <attribute name="wasm">f64</attribute>
+      <t type="c1">
+        <t type="f64"/>
+      </t>
+    </out>
   </block>
 
   <block id="sin" name="Sin" ns="cs" icon="sin">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">f1&lt;f64, f64&gt;. Maps each sample through f64.sin (host).</attribute>
+    <attribute name="description">c&lt;c&lt;f64&gt;&gt; → c&lt;f64&gt;. Maps each sample through f64.sin (host).</attribute>
     <factory id="f64.sin"/>
-    <in name="in" type="f64"/>
-    <out name="out" type="f64"/>
+    <in name="in" type="c1">
+      <attribute name="wasm">f64</attribute>
+      <t type="c1">
+        <t type="f64"/>
+      </t>
+    </in>
+    <out name="out" type="c1">
+      <attribute name="wasm">f64</attribute>
+      <t type="f64"/>
+    </out>
   </block>
 
   <block id="oscilloscope" name="Oscilloscope" ns="cs" icon="scope">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Consumer c1&lt;f64&gt;. Pushes samples into the shared buffer. After Run, click Chart.</attribute>
+    <attribute name="description">Consumes c&lt;f64&gt; and plots samples. After Run, click Chart.</attribute>
     <factory id="oscilloscope"/>
-    <in name="in" type="f64"/>
+    <in name="in" type="c1">
+      <attribute name="wasm">f64</attribute>
+      <t type="f64"/>
+    </in>
   </block>
 </blocks>
