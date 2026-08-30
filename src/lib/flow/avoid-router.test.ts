@@ -8,6 +8,7 @@ import {
   jointPortId,
   obstacleFromBlock,
 } from "./avoid-router";
+import { connectorPolyline } from "./geometry";
 
 const wasmPath = `${(globalThis as { process?: { cwd?: () => string } }).process?.cwd?.() ?? ""}/node_modules/libavoid-js/dist/libavoid.wasm`;
 
@@ -116,6 +117,14 @@ describe("avoid router engine", () => {
     expect(vertices.length).toBeGreaterThanOrEqual(1);
     const hitsBlocker = vertices.some((point) => point.x > 140 && point.x < 220 && point.y > 0 && point.y < 160);
     expect(hitsBlocker).toBe(false);
+    const from = { x: left.x + left.width, y: left.y + 30 };
+    const to = { x: right.x, y: right.y + 30 };
+    const polyline = connectorPolyline(from, to, vertices);
+    for (let index = 1; index < polyline.length; index += 1) {
+      const prev = polyline[index - 1]!;
+      const point = polyline[index]!;
+      expect(Math.abs(prev.x - point.x) < 0.5 || Math.abs(prev.y - point.y) < 0.5).toBe(true);
+    }
     engine.destroy();
   }, 20000);
 
@@ -151,6 +160,14 @@ describe("avoid router engine", () => {
     expect(last!.x).toBeLessThanOrEqual(240);
     expect(last!.y).toBeGreaterThanOrEqual(0);
     expect(last!.y).toBeLessThanOrEqual(56);
+    const from = { x: 80, y: 30 };
+    const to = { x: 240, y: 50 };
+    const polyline = connectorPolyline(from, to, engine.routes.get("1:out->2:in") ?? []);
+    for (let index = 1; index < polyline.length; index += 1) {
+      const prev = polyline[index - 1]!;
+      const point = polyline[index]!;
+      expect(Math.abs(prev.x - point.x) < 0.5 || Math.abs(prev.y - point.y) < 0.5).toBe(true);
+    }
     engine.destroy();
   }, 20000);
 

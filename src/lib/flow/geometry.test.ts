@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   clientToWorld,
+  connectorPolyline,
   cubicLink,
   cubicLinkBounds,
+  jumpoverRoute,
   linkKey,
   orthogonalLink,
   polylineBounds,
@@ -13,7 +15,19 @@ import {
   translateJumpover,
   translatePath,
   translatePolyline,
+  type Point,
 } from "./geometry";
+
+function expectOrthogonal(points: Point[]): void {
+  expect(points.length).toBeGreaterThanOrEqual(2);
+  for (let index = 1; index < points.length; index += 1) {
+    const prev = points[index - 1]!;
+    const point = points[index]!;
+    const flatX = Math.abs(prev.x - point.x) < 0.5;
+    const flatY = Math.abs(prev.y - point.y) < 0.5;
+    expect(flatX || flatY).toBe(true);
+  }
+}
 
 describe("flow geometry", () => {
   it("builds a cubic bezier that starts and ends on the ports", () => {
@@ -62,6 +76,41 @@ describe("flow geometry", () => {
     expect(points.at(-1)).toEqual({ x: 200, y: 80 });
     expect(polylinePath(points).startsWith("M 0 10")).toBe(true);
     expect(polylinePath(points)).toContain("L ");
+    expectOrthogonal(points);
+  });
+
+  it("does not draw a diagonal when avoid returns no vertices", () => {
+    const from = { x: 400, y: 80 };
+    const to = { x: 520, y: 88 };
+    const points = connectorPolyline(from, to, []);
+    expect(points[0]).toEqual(from);
+    expect(points.at(-1)).toEqual(to);
+    expect(points.length).toBeGreaterThan(2);
+    expectOrthogonal(points);
+  });
+
+  it("stitches avoid vertices onto inset handles without diagonal ends", () => {
+    const from = { x: 200, y: 40 };
+    const to = { x: 380, y: 70 };
+    const points = connectorPolyline(from, to, [
+      { x: 230, y: 42 },
+      { x: 230, y: 10 },
+      { x: 350, y: 10 },
+      { x: 350, y: 68 },
+    ]);
+    expect(points[0]).toEqual(from);
+    expect(points.at(-1)).toEqual(to);
+    expectOrthogonal(points);
+    expect(points[1]?.y).toBe(from.y);
+    expect(points.at(-2)?.y).toBe(to.y);
+  });
+
+  it("keeps axis-aligned empty routes as a single segment", () => {
+    expect(connectorPolyline({ x: 0, y: 50 }, { x: 200, y: 50 }, [])).toEqual([
+      { x: 0, y: 50 },
+      { x: 200, y: 50 },
+    ]);
+    expect(jumpoverRoute({ x: 100, y: 0 }, { x: 100, y: 100 }, [])).toEqual([]);
   });
 
   it("bounds and translates a routed polyline", () => {
@@ -88,6 +137,7 @@ describe("flow geometry", () => {
     const straight = jumpoverLinkPath(from, to, []);
     expect(straight.startsWith("M 0 10")).toBe(true);
     expect(straight).toContain("L ");
+    expect(straight).toContain("C ");
     const routed = jumpoverLinkPath(from, to, [
       { x: 80, y: 10 },
       { x: 80, y: 80 },
