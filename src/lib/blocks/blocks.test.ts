@@ -19,6 +19,7 @@ import {
   SampleBuf,
   compileGenerator,
   compileTimer,
+  cos,
   generatorText,
   oscilloscope,
   quantizer,
@@ -496,19 +497,22 @@ describe("blocks", () => {
   it("control systems model and types", () => {
     const cat = catalog();
     const timerBlock = cat.block("timer")!;
-    expect(timerBlock.inputs.length).toBe(0);
-    expect(displayType(timerBlock.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<c<f64>>");
-    expect(timerBlock.outputs.find((port) => port.name === "out")!.attributes.find((a) => a.name === "wasm")?.value).toBe(
+    expect(timerBlock.inputs.length).toBe(1);
+    expect(timerBlock.outputs.length).toBe(0);
+    expect(displayType(timerBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
+    expect(timerBlock.inputs.find((port) => port.name === "in")!.attributes.find((a) => a.name === "wasm")?.value).toBe(
       "f64",
     );
     expect(timerBlock.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
     const scope = cat.block("oscilloscope")!;
-    expect(scope.outputs.length).toBe(0);
-    expect(displayType(scope.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<c<f64>>");
-    expect(displayType(cat.block("quantizer")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<c<f64>>");
-    expect(displayType(cat.block("quantizer")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<c<f64>>");
-    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<c<f64>>");
-    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<c<f64>>");
+    expect(scope.inputs.length).toBe(0);
+    expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
+    expect(displayType(cat.block("quantizer")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
+    expect(displayType(cat.block("quantizer")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
+    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
+    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
+    expect(displayType(cat.block("cos")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
+    expect(displayType(cat.block("cos")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
     expect(cat.namespaceLabel("cs")).toBe("Control Systems");
     expect(cat.findType("f64")).toBeDefined();
     expect(cat.findType("c1")).toBeDefined();
@@ -540,6 +544,15 @@ describe("blocks", () => {
     expect(Math.abs(out[1] - 1)).toBeLessThan(1e-9);
   });
 
+  it("cos maps samples", () => {
+    const out: number[] = [];
+    const mapped = cos((value) => out.push(value));
+    mapped(0);
+    mapped(Math.PI);
+    expect(Math.abs(out[0] - 1)).toBeLessThan(1e-9);
+    expect(Math.abs(out[1] + 1)).toBeLessThan(1e-9);
+  });
+
   it("compile generator emits typed-function wasm", async () => {
     const nodes = [
       { id: 1, defId: "oscilloscope" },
@@ -548,9 +561,9 @@ describe("blocks", () => {
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
-      { fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in" },
+      { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" },
       { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.scopeId).toBe(1);
@@ -562,6 +575,7 @@ describe("blocks", () => {
     expect(compiled.text).toContain("(func $quantizer");
     expect(compiled.text).toContain("(param $ctx i32) (param $in f64) (result f64)");
     expect(compiled.text).toContain("(func $sin");
+    expect(compiled.text).toContain("(func $cos");
     expect(compiled.text).toContain("(func $oscilloscope (type $fn_oscilloscope) (param $ctx i32) (param $in f64)");
     expect(compiled.text).toContain("call_ref $fn_timer");
     expect(compiled.text).toContain("ref.func $quantizer");
@@ -581,9 +595,9 @@ describe("blocks", () => {
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
-      { fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in" },
+      { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" },
       { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
     ];
     const buffers = new Map<number, SampleBuf>([[1, new SampleBuf()]]);
     const compiled = (await compileTimer(4, nodes, links, buffers))!;
@@ -595,12 +609,28 @@ describe("blocks", () => {
     expect(compiled.delayMs).toBe(QUANTIZER_DELAY_MS);
   });
 
+  it("compile generator walks a cos stage", async () => {
+    const nodes = [
+      { id: 1, defId: "oscilloscope" },
+      { id: 2, defId: "cos" },
+      { id: 4, defId: "timer" },
+    ];
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+    ];
+    const compiled = (await compileGenerator(4, nodes, links))!;
+    expect(compiled.stages).toEqual(["cos"]);
+    expect(compiled.text).toContain("ref.func $cos");
+    expect(compiled.text).toContain("call_ref $fn_cos");
+  });
+
   it("compile timer needs oscilloscope", async () => {
     const nodes = [
       { id: 3, defId: "quantizer" },
       { id: 4, defId: "timer" },
     ];
-    const links: Link[] = [{ fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in" }];
+    const links: Link[] = [{ fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" }];
     expect(await compileGenerator(4, nodes, links)).toBeUndefined();
     expect(await compileTimer(4, nodes, links, new Map())).toBeUndefined();
   });
@@ -612,34 +642,34 @@ describe("blocks", () => {
     const quantizerId = diagram.addNode("quantizer");
     const sinId = diagram.addNode("sin");
     const scopeId = diagram.addNode("oscilloscope");
-    diagram.addLink(timerId, "out", quantizerId, "in");
+    diagram.addLink(scopeId, "out", quantizerId, "in");
     diagram.addLink(quantizerId, "out", sinId, "in");
-    diagram.addLink(sinId, "out", scopeId, "in");
+    diagram.addLink(sinId, "out", timerId, "in");
 
     const timerResolved = diagram.resolveNode(timerId)!;
-    expect(displayType(timerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<c<f64>>");
+    expect(timerResolved.compatible.get("in") ?? true).toBe(true);
+    expect(displayType(timerResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
 
     const quantizerResolved = diagram.resolveNode(quantizerId)!;
     expect(quantizerResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(quantizerResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<c<f64>>");
-    expect(displayType(quantizerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<c<f64>>");
+    expect(displayType(quantizerResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
+    expect(displayType(quantizerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
 
     const sinResolved = diagram.resolveNode(sinId)!;
     expect(sinResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<c<f64>>");
-    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<c<f64>>");
+    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
+    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
 
     const scopeResolved = diagram.resolveNode(scopeId)!;
-    expect(scopeResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(scopeResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<c<f64>>");
+    expect(displayType(scopeResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
   });
 
-  it("timer wires to sin because both ports are c<c<f64>>", () => {
+  it("oscilloscope wires to sin because both ports are c<f64>", () => {
     const diagram = new Diagram("cs", "Same");
     associateBuiltinModels(diagram);
-    const timerId = diagram.addNode("timer");
+    const scopeId = diagram.addNode("oscilloscope");
     const sinId = diagram.addNode("sin");
-    diagram.addLink(timerId, "out", sinId, "in");
+    diagram.addLink(scopeId, "out", sinId, "in");
     expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
   });
 
@@ -654,7 +684,7 @@ describe("blocks", () => {
     expect(sinResolved.compatible.get("in")).toBe(false);
   });
 
-  it("interprets the wired chain as sin(quantizer(timer())).accept(plot)", () => {
+  it("interprets the wired chain as timer(sin(quantizer(plot)))", () => {
     const out: number[] = [];
     let live = true;
     const running = () => {
@@ -662,7 +692,7 @@ describe("blocks", () => {
       live = false;
       return next;
     };
-    oscilloscope(sin(quantizer(0, timer(running, () => Math.PI / 2))), (value) => out.push(value));
+    timer(sin(quantizer(oscilloscope((value) => out.push(value)), 0)), running, () => Math.PI / 2);
     expect(out).toHaveLength(1);
     expect(Math.abs(out[0] - 1)).toBeLessThan(1e-9);
   });

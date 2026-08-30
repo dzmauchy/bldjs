@@ -8,6 +8,7 @@ export function createHost(
     host: {
       now,
       sin: Math.sin,
+      cos: Math.cos,
     },
   };
 }

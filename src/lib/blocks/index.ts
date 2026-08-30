@@ -18,6 +18,7 @@ export {
   generatorText,
   generatorWat,
   planGenerator,
+  cos,
   oscilloscope,
   quantizer,
   sin,

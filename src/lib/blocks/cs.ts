@@ -9,55 +9,53 @@ export type Func<T> = (value: T) => void;
 /** Java `DoubleConsumer` — catalog `c<f64>`. */
 export type DoubleConsumer = Func<number>;
 export type F64Func = DoubleConsumer;
-/**
- * Java `Consumer<DoubleConsumer>` — catalog `c<c<f64>>`.
- * A push source: give it a sink and it pushes samples.
- */
-export type DoubleSource = Func<DoubleConsumer>;
-export type F64Source = DoubleSource;
-/** @deprecated Same as {@link DoubleSource}; depth tags are gone. */
-export type Nested = DoubleSource;
+/** @deprecated Push model uses {@link DoubleConsumer} on every port. */
+export type DoubleSource = DoubleConsumer;
+export type F64Source = DoubleConsumer;
+/** @deprecated Same as {@link DoubleConsumer}. */
+export type Nested = DoubleConsumer;
 
 /**
- * In-process model of the catalog (compact display writes c1 as c):
+ * Pure push. Compact display writes c1 as c:
  *
- *   timer(running)        : c<c<f64>>
- *   quantizer(period, c)  : c<c<f64>> → c<c<f64>>
- *   sin(c)                : c<c<f64>> → c<c<f64>>
- *   oscilloscope(c, plot) : c<c<f64>> → void     // c(plot)
+ *   timer(c)              : c<f64> → void
+ *   quantizer(c)          : c<f64> → c<f64>
+ *   sin(c) / cos(c)       : c<f64> → c<f64>
+ *   oscilloscope()        : c<f64>              (plot sink)
  *
- * Composition: sin(quantizer(period, timer(running)))(plot)
+ * Composition: timer(sin(quantizer(plot)))
  *
- * The WASM runtime still lowers each sample port to first-order f64
- * (timer : s<f64>, quantizer/sin : f1<f64, f64>, oscilloscope : c1<f64>).
+ * The WASM runtime still lowers each sample port to first-order f64.
  */
 
-/** Java `timer(BooleanSupplier running)` — `Consumer<DoubleConsumer>`. */
-export function timer(running: () => boolean, now: () => number = nowSecs): DoubleSource {
-  return (c) => {
-    while (running()) {
-      c(now());
-    }
+/** Accepts a sink and pushes timestamps while `running`. */
+export function timer(c: DoubleConsumer, running: () => boolean, now: () => number = nowSecs): void {
+  while (running()) {
+    c(now());
+  }
+}
+
+/** Accepts a sink, returns a sink. Parks `periodNs` after each sample. */
+export function quantizer(c: DoubleConsumer, periodNs = QUANTIZER_DELAY_MS * 1_000_000): DoubleConsumer {
+  return (v) => {
+    c(v);
+    parkNanos(periodNs);
   };
 }
 
-/** Java `quantizer(long period, Consumer<DoubleConsumer> c)`. `period` is nanoseconds. */
-export function quantizer(periodNs: number, c: DoubleSource): DoubleSource {
-  return (dc) =>
-    c((v) => {
-      dc(v);
-      parkNanos(periodNs);
-    });
+/** Accepts a sink, returns a sink. */
+export function sin(c: DoubleConsumer): DoubleConsumer {
+  return (v) => c(Math.sin(v));
 }
 
-/** Java `sin(Consumer<DoubleConsumer> c)` — `Consumer<DoubleConsumer>`. */
-export function sin(c: DoubleSource): DoubleSource {
-  return (dc) => c((v) => dc(Math.sin(v)));
+/** Accepts a sink, returns a sink. */
+export function cos(c: DoubleConsumer): DoubleConsumer {
+  return (v) => c(Math.cos(v));
 }
 
-/** `c.accept(plot)` — plot is a `DoubleConsumer`. */
-export function oscilloscope(c: DoubleSource, plot: DoubleConsumer): void {
-  c(plot);
+/** Plot sink — the `c<f64>` Oscilloscope provides. */
+export function oscilloscope(plot: DoubleConsumer): DoubleConsumer {
+  return plot;
 }
 
 function parkNanos(periodNs: number): void {
@@ -113,29 +111,31 @@ export interface CompiledGenerator extends GeneratorPlan {
   wasm: Uint8Array;
 }
 
-/** Walk Timer → … → Oscilloscope. Does not compile WASM. */
+const PUSH_STAGES = new Set<Stage>(["quantizer", "sin", "cos"]);
+
+/** Walk Oscilloscope → … → Timer (sink flow). Does not compile WASM. */
 export function planGenerator(timerId: number, nodes: NodeSpec[], links: Link[]): GeneratorPlan | undefined {
   const defOf = (id: number): string | undefined => nodes.find((node) => node.id === id)?.defId;
-  const outgoing = (from: number, port: string): Link | undefined =>
-    links.find((link) => link.fromBlock === from && link.fromOut === port);
+  const incoming = (to: number, port: string): Link | undefined =>
+    links.find((link) => link.toBlock === to && link.toIn === port);
 
   const stages: Stage[] = [];
   let cursor = timerId;
   let scopeId: number | undefined;
   for (let i = 0; i < 64; i += 1) {
-    const link = outgoing(cursor, "out");
+    const link = incoming(cursor, "in");
     if (!link) {
       break;
     }
-    const toDef = defOf(link.toBlock);
-    if (!toDef) {
+    const fromDef = defOf(link.fromBlock);
+    if (!fromDef) {
       return undefined;
     }
-    if (toDef === "quantizer" || toDef === "sin") {
-      stages.push(toDef);
-      cursor = link.toBlock;
-    } else if (toDef === "oscilloscope") {
-      scopeId = link.toBlock;
+    if (PUSH_STAGES.has(fromDef as Stage)) {
+      stages.unshift(fromDef as Stage);
+      cursor = link.fromBlock;
+    } else if (fromDef === "oscilloscope") {
+      scopeId = link.fromBlock;
       break;
     } else {
       break;
@@ -159,7 +159,7 @@ export async function assembleGenerator(plan: Pick<GeneratorPlan, "stages" | "de
 }
 
 /**
- * Walk Timer → … → Oscilloscope, then generate the module with binaryen.js.
+ * Walk Oscilloscope → … → Timer (sink flow), then generate the module with binaryen.js.
  * `runDiagram` does the same assemble step when the simulation starts.
  */
 export async function compileGenerator(
@@ -208,7 +208,9 @@ export async function compileTimer(
   let emit: F64Func = (value) => buf.push(value);
   for (const stage of [...compiled.stages].reverse()) {
     if (stage === "sin") {
-      emit = sinFunc(emit);
+      emit = sin(emit);
+    } else if (stage === "cos") {
+      emit = cos(emit);
     }
   }
   return { emit, delayMs: compiled.delayMs };

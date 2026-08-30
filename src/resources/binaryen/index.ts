@@ -1,3 +1,4 @@
+import { addCos } from "./blocks/cos";
 import { addOscilloscope } from "./blocks/oscilloscope";
 import { addQuantizer } from "./blocks/quantizer";
 import { addSin } from "./blocks/sin";
@@ -12,6 +13,7 @@ export const BLOCK_SCRIPTS = {
   timer: addTimer,
   quantizer: addQuantizer,
   sin: addSin,
+  cos: addCos,
   oscilloscope: addOscilloscope,
 } as const;
 
