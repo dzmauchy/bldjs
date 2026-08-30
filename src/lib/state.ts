@@ -3,25 +3,16 @@ import {
   Catalog,
   Diagram,
   type Link,
-  type NodeSpec,
   type ResolvedBlock,
+  type ScopeSeries,
   type XmlSource,
   associateBuiltinModels,
   blockAttribute,
-  blockInput,
-  assembleGenerator,
-  infer,
-  planGenerator,
-  type GeneratorPlan,
-  type ScopeSeries,
-  acceptsManyInputs,
-  allocateIncomingSlot,
-  allocateOutgoingSlot,
-  catalogPortName,
   compactLinkSlots,
-  findCatalogLink,
+  infer,
 } from "./blocks";
 import { linksEqual } from "./blocks/diagram";
+import { DiagramModel, type BlockInstance } from "./diagram-model";
 import {
   BLOCK_PLACE_HEIGHT,
   BLOCK_PLACE_WIDTH,
@@ -30,66 +21,31 @@ import {
   NONE_ID,
   type BlockKindInfo,
   blockKindFromName,
-  clampZoom,
   screenToWorld,
-  zoomToward,
+  zoomViewport,
 } from "./model";
-import { type GeneratorHandle, startGenerator } from "./runtime/generator";
-import { hzFromDelta, intervalMs } from "./runtime/flow";
-import { connectorKey, solutionViewFrom, subgraphFromTimer } from "./solution/view";
+import { ObservableState } from "./observable";
+import { DiagramRunCancelled, DiagramRunner, EMPTY_RUN_MESSAGE } from "./runtime/diagram-runner";
+import { nodeSpecsFrom, plannedGenerators, topologyKey } from "./topology";
+import { portAcceptsMany, remapSelectedLink, WiringGraph } from "./wiring";
 import { preloadAssembler } from "./solution/wasm";
 
-function yieldForPaint(): Promise<void> {
-  return new Promise((resolve) => {
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(() => resolve());
-      return;
-    }
-    setTimeout(resolve, 0);
-  });
-}
-
-export interface BlockInstance {
-  id: number;
-  defId: string;
-  x: number;
-  y: number;
-}
+export type { BlockInstance };
 
 export interface LinkingFrom {
   blockId: number;
   port: string;
 }
 
-function reactiveFields(target: AppState, fields: Record<string, unknown>): void {
-  for (const [key, initial] of Object.entries(fields)) {
-    let value = initial;
-    Object.defineProperty(target, key, {
-      get: () => value,
-      set(next: unknown) {
-        if (Object.is(value, next)) {
-          return;
-        }
-        value = next;
-        target.notify();
-      },
-      enumerable: true,
-      configurable: true,
-    });
-  }
-}
-
-export class AppState extends EventTarget {
+export class AppState extends ObservableState {
   declare catalog: Catalog;
   declare sources: XmlSource[];
-  declare blocks: BlockInstance[];
   declare links: Link[];
   declare selected: number;
   declare selectedLink: Link | null;
   declare panX: number;
   declare panY: number;
   declare zoom: number;
-  declare nextId: number;
   declare viewportW: number;
   declare viewportH: number;
   declare aboutOpen: boolean;
@@ -100,30 +56,22 @@ export class AppState extends EventTarget {
   declare starting: boolean;
   declare runError: string | null;
 
-  #generators = new Map<number, GeneratorHandle>();
-  #scopeToTimer = new Map<number, number>();
-  #scopeChannels = new Map<number, { label: string; ring: number }[]>();
-  #runTopology = "";
-  #runningOp = 0;
-  #linkHz = new Map<string, number>();
-  #flowPrev = new Map<GeneratorHandle, number[]>();
-  #flowSampleAt = 0;
+  #diagram = new DiagramModel();
+  #runner = new DiagramRunner();
 
   constructor() {
     super();
     const diagram = new Diagram("workspace", "Workspace");
     associateBuiltinModels(diagram);
-    reactiveFields(this, {
+    this.defineFields({
       catalog: diagram.catalog(),
       sources: [...diagram.sources()],
-      blocks: [],
       links: [],
       selected: NONE_ID,
       selectedLink: null,
       panX: 48,
       panY: 48,
       zoom: 1,
-      nextId: 1,
       viewportW: 800,
       viewportH: 600,
       aboutOpen: false,
@@ -136,16 +84,16 @@ export class AppState extends EventTarget {
     });
   }
 
-  subscribe(listener: () => void): () => void {
-    const wrapped = (): void => {
-      listener();
-    };
-    this.addEventListener("change", wrapped);
-    return () => this.removeEventListener("change", wrapped);
+  get blocks(): BlockInstance[] {
+    return this.#diagram.blocks;
   }
 
-  notify(): void {
-    this.dispatchEvent(new Event("change"));
+  get nextId(): number {
+    return this.#diagram.nextId;
+  }
+
+  block(id: number): BlockInstance | undefined {
+    return this.#diagram.block(id);
   }
 
   isDragging(): boolean {
@@ -165,10 +113,8 @@ export class AppState extends EventTarget {
     if (!this.blockDef(defId)) {
       return;
     }
-    const id = this.nextId;
-    this.nextId = id + 1;
-    this.blocks = [...this.blocks, { id, defId, x, y }];
-    this.selectBlock(id);
+    const block = this.#diagram.add(defId, x, y);
+    this.selectBlock(block.id);
     this.#invalidateRun();
     this.#maybePreloadAssembler();
   }
@@ -193,24 +139,24 @@ export class AppState extends EventTarget {
 
   clearCanvas(): void {
     this.stopRun();
-    this.blocks = [];
+    this.#diagram.clear();
     this.links = [];
     this.scopeOpen = NONE_ID;
     this.selected = NONE_ID;
     this.selectedLink = null;
     this.linkingFrom = null;
     this.resetView();
+    this.notify();
   }
 
   removeBlock(id: number): void {
-    if (!this.blocks.some((block) => block.id === id)) {
+    if (!this.#diagram.remove(id)) {
       return;
     }
     if (this.scopeOpen === id) {
       this.scopeOpen = NONE_ID;
     }
-    this.blocks = this.blocks.filter((block) => block.id !== id);
-    this.#replaceLinks(this.links.filter((link) => link.fromBlock !== id && link.toBlock !== id));
+    this.#replaceLinks(this.#wiring().withoutBlock(id).links);
     if (this.selected === id) {
       this.selected = NONE_ID;
     }
@@ -220,6 +166,7 @@ export class AppState extends EventTarget {
     if (this.selectedLink && (this.selectedLink.fromBlock === id || this.selectedLink.toBlock === id)) {
       this.selectedLink = null;
     }
+    this.notify();
     this.#invalidateRun();
   }
 
@@ -235,10 +182,7 @@ export class AppState extends EventTarget {
   }
 
   removeLink(link: Link): void {
-    this.#replaceLinks(
-      this.links.filter((item) => !linksEqual(item, link)),
-      link,
-    );
+    this.#replaceLinks(this.#wiring().disconnect(link).links, link);
     this.#invalidateRun();
   }
 
@@ -248,14 +192,14 @@ export class AppState extends EventTarget {
   }
 
   isScopeLive(id: number): boolean {
-    return this.runBusy() && this.#scopeToTimer.has(id);
+    return this.runBusy() && (this.#runner.current?.isScopeLive(id) ?? false);
   }
 
   openOscilloscope(id: number): void {
     if (!this.isScopeLive(id)) {
       return;
     }
-    if (this.blocks.some((block) => block.id === id && block.defId === "oscilloscope")) {
+    if (this.block(id)?.defId === "oscilloscope") {
       this.scopeOpen = id;
     }
   }
@@ -265,76 +209,36 @@ export class AppState extends EventTarget {
   }
 
   async snapshotScope(id: number): Promise<ScopeSeries[]> {
-    const timerId = this.#scopeToTimer.get(id);
-    const channels = this.#scopeChannels.get(id);
-    if (timerId === undefined || !channels?.length) {
-      return [];
-    }
-    const handle = this.#generators.get(timerId);
-    if (!handle) {
-      return [];
-    }
-    return Promise.all(
-      channels.map(async (channel) => ({
-        label: channel.label,
-        samples: await handle.snapshot(channel.ring),
-      })),
-    );
+    return this.#runner.current?.snapshotScope(id) ?? [];
   }
 
   connectorHz(link: { fromBlock: number; fromOut: string; toBlock: number; toIn: string }): number {
-    return this.#linkHz.get(connectorKey(link)) ?? 0;
+    return this.#runner.current?.connectorHz(link) ?? 0;
   }
 
   connectorHzForKey(key: string): number {
-    return this.#linkHz.get(key) ?? 0;
+    return this.#runner.current?.connectorHzForKey(key) ?? 0;
   }
 
   /** Sample runner intercept counts and update per-connector Hertz. */
   sampleFlowRates(now = performance.now()): void {
-    if (!this.running || this.#generators.size === 0) {
+    if (!this.running) {
       return;
     }
-    if (this.#flowSampleAt === 0) {
-      this.#flowSampleAt = now;
-      for (const handle of this.#generators.values()) {
-        this.#flowPrev.set(handle, handle.readFlowCounts());
-      }
-      return;
-    }
-    const dt = now - this.#flowSampleAt;
-    if (dt <= 0) {
-      return;
-    }
-    this.#flowSampleAt = now;
-    for (const handle of this.#generators.values()) {
-      const counts = handle.readFlowCounts();
-      const prev = this.#flowPrev.get(handle) ?? [];
-      handle.connectors.forEach((link, index) => {
-        const hz = hzFromDelta(prev[index] ?? 0, counts[index] ?? 0, dt);
-        if (hz > 0) {
-          this.#linkHz.set(connectorKey(link), hz);
-        }
-      });
-      this.#flowPrev.set(handle, counts);
-    }
+    this.#runner.current?.sampleFlowRates(now);
+  }
+
+  get topologyKey(): string {
+    return topologyKey(this.blocks, this.links);
   }
 
   /** Block ids, definitions, and links — not positions — so moving a block does not restart generators. */
   timerTopologyKey(): string {
-    const nodes = this.blocks.map((block) => `${block.id}:${block.defId}`).join(",");
-    const links = this.links
-      .map((link) => `${link.fromBlock}:${link.fromOut}->${link.toBlock}:${link.toIn}`)
-      .join(",");
-    return `${nodes}|${links}`;
+    return this.topologyKey;
   }
 
   plannedGenerators() {
-    const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
-    return this.blocks
-      .filter((block) => block.defId === "timer")
-      .map((block) => planGenerator(block.id, nodes, this.links))
-      .filter((item): item is NonNullable<typeof item> => item !== undefined);
+    return plannedGenerators(this.blocks, this.links);
   }
 
   canRun(): boolean {
@@ -346,17 +250,7 @@ export class AppState extends EventTarget {
   }
 
   stopRun(): void {
-    this.#runningOp += 1;
-    for (const handle of this.#generators.values()) {
-      handle.stop();
-    }
-    this.#generators.clear();
-    this.#scopeToTimer.clear();
-    this.#scopeChannels.clear();
-    this.#linkHz.clear();
-    this.#flowPrev.clear();
-    this.#flowSampleAt = 0;
-    this.#runTopology = "";
+    this.#runner.stop();
     this.starting = false;
     this.running = false;
     if (this.scopeOpen !== NONE_ID && !this.isScopeLive(this.scopeOpen)) {
@@ -368,72 +262,36 @@ export class AppState extends EventTarget {
     if (this.runBusy()) {
       return;
     }
-    const topology = this.timerTopologyKey();
-    const plans = this.plannedGenerators();
-    if (plans.length === 0) {
-      this.runError = "Wire an Oscilloscope through to a Timer, then Run.";
+    if (this.plannedGenerators().length === 0) {
+      this.runError = EMPTY_RUN_MESSAGE;
       return;
     }
     this.stopRun();
-    const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
-    this.#runTopology = topology;
-    this.#armLiveUi(plans, nodes);
     this.starting = true;
-    const op = this.#runningOp;
     try {
-      // Let Chart / flow styles paint before binaryen blocks the main thread.
-      await yieldForPaint();
-      if (op !== this.#runningOp) {
+      await this.#runner.start(nodeSpecsFrom(this.blocks), this.links, {
+        onArmed: () => this.notify(),
+      });
+      if (!this.#runner.current) {
         return;
       }
-      for (const plan of plans) {
-        const { wasm, connectors } = await assembleGenerator(plan, nodes, this.links);
-        const handle = await startGenerator({ wasm, delayMs: plan.delayMs, connectors });
-        if (op !== this.#runningOp) {
-          handle.stop();
-          return;
-        }
-        this.#generators.set(plan.timerId, handle);
-        const nominalHz = 1000 / intervalMs(plan.delayMs);
-        for (const link of connectors) {
-          this.#linkHz.set(connectorKey(link), nominalHz);
-        }
-      }
-      if (op !== this.#runningOp) {
-        return;
-      }
-      this.#runTopology = topology;
       this.runError = null;
       this.starting = false;
       this.running = true;
     } catch (error) {
+      if (error instanceof DiagramRunCancelled) {
+        return;
+      }
       this.stopRun();
       this.runError = error instanceof Error ? error.message : "Run failed";
     }
   }
 
-  /** Enable Chart and seeded wire animation from the plan, before WASM is ready. */
-  #armLiveUi(plans: GeneratorPlan[], nodes: NodeSpec[]): void {
-    const view = solutionViewFrom(nodes, this.links);
-    for (const plan of plans) {
-      const nominalHz = 1000 / intervalMs(plan.delayMs);
-      for (const link of subgraphFromTimer(view, plan.timerId).connectors) {
-        this.#linkHz.set(connectorKey(link), nominalHz);
-      }
-      plan.channels.forEach((channel, index) => {
-        this.#scopeToTimer.set(channel.scopeId, plan.timerId);
-        const series = this.#scopeChannels.get(channel.scopeId) ?? [];
-        series.push({ label: channel.label, ring: index });
-        this.#scopeChannels.set(channel.scopeId, series);
-      });
-    }
-  }
-
   #invalidateRun(): void {
-    if (!this.runBusy() && this.#generators.size === 0) {
+    if (!this.runBusy() && !this.#runner.current) {
       return;
     }
-    if (this.timerTopologyKey() === this.#runTopology) {
+    if (this.topologyKey === this.#runner.current?.topology) {
       return;
     }
     this.stopRun();
@@ -445,46 +303,33 @@ export class AppState extends EventTarget {
     }
   }
 
+  #wiring(): WiringGraph {
+    return new WiringGraph(this.links);
+  }
+
   toggleLink(fromBlock: number, fromOut: string, toBlock: number, toIn: string): void {
-    const existing = findCatalogLink(this.links, fromBlock, fromOut, toBlock, toIn);
-    if (existing) {
-      this.removeLink(existing);
-      return;
-    }
-    const target = this.blocks.find((block) => block.id === toBlock);
+    const target = this.block(toBlock);
     const def = target ? this.blockDef(target.defId) : undefined;
-    const catalogIn = catalogPortName(toIn);
-    const catalogOut = catalogPortName(fromOut);
-    const targetPort = def ? blockInput(def, catalogIn) : undefined;
-    const many = acceptsManyInputs(targetPort);
-    let next = this.links;
-    if (!many) {
-      next = next.filter((item) => !(item.toBlock === toBlock && catalogPortName(item.toIn) === catalogIn));
-    }
-    const link: Link = {
+    const { graph, existing } = this.#wiring().connect(
       fromBlock,
-      fromOut: allocateOutgoingSlot(next, fromBlock, catalogOut),
+      fromOut,
       toBlock,
-      toIn: many ? allocateIncomingSlot(next, toBlock, catalogIn) : catalogIn,
-    };
-    this.#replaceLinks([...next, link]);
+      toIn,
+      portAcceptsMany(def, toIn),
+    );
+    this.#replaceLinks(graph.links, existing);
     this.#invalidateRun();
     this.#maybePreloadAssembler();
   }
 
   #replaceLinks(remaining: Link[], removed?: Link): void {
     const compacted = compactLinkSlots(remaining);
-    if (removed && this.selectedLink && linksEqual(this.selectedLink, removed)) {
-      this.selectedLink = null;
-    } else if (this.selectedLink) {
-      const index = remaining.findIndex((item) => linksEqual(item, this.selectedLink!));
-      this.selectedLink = index >= 0 ? compacted[index] : null;
-    }
+    this.selectedLink = remapSelectedLink(remaining, compacted, this.selectedLink, removed);
     this.links = compacted;
   }
 
   inputIsGrounded(blockId: number, port: string): boolean {
-    return this.links.some((link) => link.toBlock === blockId && link.toIn === port);
+    return this.#wiring().inputIsGrounded(blockId, port);
   }
 
   selectBlock(id: number): void {
@@ -512,16 +357,19 @@ export class AppState extends EventTarget {
     this.zoom = 1;
   }
 
+  panBy(dx: number, dy: number): void {
+    this.panX += dx;
+    this.panY += dy;
+  }
+
   zoomBy(factor: number, cursorX = this.viewportW / 2, cursorY = this.viewportH / 2): void {
-    const oldZoom = this.zoom;
-    const newZoom = clampZoom(oldZoom * factor);
-    if (Math.abs(newZoom - oldZoom) < Number.EPSILON) {
+    const next = zoomViewport({ panX: this.panX, panY: this.panY, zoom: this.zoom }, factor, cursorX, cursorY);
+    if (!next) {
       return;
     }
-    const [panX, panY] = zoomToward(oldZoom, newZoom, cursorX, cursorY, this.panX, this.panY);
-    this.zoom = newZoom;
-    this.panX = panX;
-    this.panY = panY;
+    this.zoom = next.zoom;
+    this.panX = next.panX;
+    this.panY = next.panY;
   }
 
   zoomIn(): void {
@@ -545,11 +393,13 @@ export class AppState extends EventTarget {
   }
 
   moveBlock(id: number, dx: number, dy: number): void {
-    this.blocks = this.blocks.map((item) => (item.id === id ? { ...item, x: item.x + dx, y: item.y + dy } : item));
+    this.#diagram.moveBy(id, dx, dy);
+    this.notify();
   }
 
   moveBlockTo(id: number, x: number, y: number): void {
-    this.blocks = this.blocks.map((item) => (item.id === id ? { ...item, x, y } : item));
+    this.#diagram.moveTo(id, x, y);
+    this.notify();
   }
 }
 

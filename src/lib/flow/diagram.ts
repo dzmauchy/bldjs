@@ -2,43 +2,18 @@ import { LitElement, css, html, nothing } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { repeat } from "lit/directives/repeat.js";
 import { styleMap } from "lit/directives/style-map.js";
-import {
-  isPushType,
-  isResolvedCompatible,
-  resolvedInput,
-  resolvedOutput,
-  typeToString,
-  type Link,
-  type ResolvedBlock,
-  inputSlotsFor,
-  outputSlotsFor,
-} from "$lib/blocks";
-import { isArrayType } from "$lib/blocks/ast";
-import { shouldShowPortType } from "./link-types";
 import { AppController } from "$lib/context";
-import { GRID_SIZE, clampZoom, zoomToward } from "$lib/model";
-import { type AppState, type BlockInstance } from "$lib/state";
+import { GRID_SIZE, wheelZoomFactor } from "$lib/model";
+import { type AppState } from "$lib/state";
 import { FLOW_MIME } from "./mime";
-import {
-  clientToWorld,
-  jumpoverUnderlays,
-  linkKey,
-  type Point,
-  type RoutedLink,
-} from "./geometry";
-import { AvoidRouteEngine, connectorFromLink, obstacleFromBlock } from "./avoid-router";
-import { portFromComposedPath, portFromClientPoint, worldPort } from "./layout";
-import { capturePointer, isCanvasPointer, releasePointer } from "./pointer";
-import type { BldNodeState, NodeLayout, PortPointerDetail } from "./types";
+import { clientToWorld, type Point } from "./geometry";
+import { AvoidRouteEngine } from "./avoid-router";
+import { DiagramInteractionController } from "./interaction";
+import { DiagramLayoutController } from "./layout-controller";
+import { buildConnectorViews, buildNodeState, linkPushes, previewFromPort } from "./views";
+import type { NodeLayout, PortPointerDetail } from "./types";
 import "./node";
 import { BldConnector } from "./connector";
-
-const LINK_DRAG = 8;
-
-type PointerSession =
-  | { kind: "pan"; pointerId: number; lastX: number; lastY: number }
-  | { kind: "move"; pointerId: number; id: number; lastX: number; lastY: number }
-  | { kind: "link"; pointerId: number; fromBlock: number; fromPort: string; startX: number; startY: number; dragged: boolean };
 
 export class BldDiagram extends LitElement {
   static override properties = {
@@ -48,9 +23,8 @@ export class BldDiagram extends LitElement {
   declare app: AppState;
 
   #ctrl?: AppController;
-  #session: PointerSession | null = null;
-  #previewTo: Point | null = null;
-  #layouts = new Map<number, NodeLayout>();
+  #interaction: DiagramInteractionController;
+  #layout = new DiagramLayoutController();
   #resize: ResizeObserver | null = null;
   #avoid = new AvoidRouteEngine();
   #routes = new Map<string, Point[]>();
@@ -173,6 +147,15 @@ export class BldDiagram extends LitElement {
   constructor() {
     super();
     this.app = undefined as unknown as AppState;
+    const diagram = this;
+    this.#interaction = new DiagramInteractionController({
+      get app() {
+        return diagram.app;
+      },
+      toWorld: (clientX, clientY) => diagram.#toWorld(clientX, clientY),
+      viewportElement: () => diagram.#viewportEl(),
+      requestUpdate: () => diagram.requestUpdate(),
+    });
   }
 
   connectedCallback(): void {
@@ -239,20 +222,7 @@ export class BldDiagram extends LitElement {
     if (!this.app || !this.#avoid.ready) {
       return;
     }
-    const obstacles = [];
-    for (const block of this.app.blocks) {
-      const layout = this.#layouts.get(block.id);
-      if (!layout) {
-        continue;
-      }
-      const obstacle = obstacleFromBlock(block.id, block.x, block.y, layout);
-      if (obstacle) {
-        obstacles.push(obstacle);
-      }
-    }
-    const connectors = this.app.links
-      .filter((link) => this.#layouts.has(link.fromBlock) && this.#layouts.has(link.toBlock))
-      .map(connectorFromLink);
+    const { obstacles, connectors } = this.#layout.routePayload(this.app.blocks, this.app.links);
     this.#avoid.sync(obstacles, connectors);
   }
 
@@ -288,94 +258,6 @@ export class BldDiagram extends LitElement {
     return clientToWorld(clientX, clientY, rect, this.app.panX, this.app.panY, this.app.zoom);
   }
 
-  #linkPushes(resolved: Map<number, ResolvedBlock>, link: Link): boolean {
-    const from = resolved.get(link.fromBlock);
-    const to = resolved.get(link.toBlock);
-    return (
-      isPushType(from ? resolvedOutput(from, link.fromOut) : undefined) ||
-      isPushType(to ? resolvedInput(to, link.toIn) : undefined)
-    );
-  }
-
-  #paramLine(resolved: Map<number, ResolvedBlock>, blockId: number): string {
-    const block = resolved.get(blockId);
-    if (!block || block.params.size === 0) {
-      return "";
-    }
-    return block.params
-      .entries()
-      .toArray()
-      .toSorted(([a], [b]) => a.localeCompare(b))
-      .map(([name, ty]) => `${name} = ${typeToString(ty)}`)
-      .join(" · ");
-  }
-
-  #nodeState(block: BlockInstance, resolved: Map<number, ResolvedBlock>): BldNodeState | null {
-    const def = this.app.blockDef(block.defId);
-    if (!def) {
-      return null;
-    }
-    const kind = this.app.kindOf(def);
-    const resolvedBlock = resolved.get(block.id);
-    const linking = this.app.linkingFrom;
-    const sourceResolved = linking ? resolved.get(linking.blockId) : undefined;
-    const sourceOut = linking && sourceResolved ? resolvedOutput(sourceResolved, linking.port) : undefined;
-    return {
-      blockId: block.id,
-      defId: block.defId,
-      name: def.name,
-      icon: def.icon,
-      kindClass: kind.className,
-      selected: this.app.selected === block.id,
-      paramsLine: this.#paramLine(resolved, block.id),
-      showChart: block.defId === "oscilloscope",
-      chartEnabled: block.defId === "oscilloscope" && this.app.isScopeLive(block.id),
-      inputs: inputSlotsFor(def.inputs, block.id, this.app.links).map((slot) => {
-        const catalogPort = def.inputs.find((item) => item.name === slot.catalogName)!;
-        const ty = resolvedBlock ? (resolvedInput(resolvedBlock, slot.name) ?? catalogPort.ty) : catalogPort.ty;
-        return {
-          name: slot.name,
-          typeLabel: typeToString(ty),
-          vararg: catalogPort.vararg && slot.index === 0,
-          vectorized: catalogPort.vararg || isArrayType(catalogPort.ty),
-          grounded: this.app.inputIsGrounded(block.id, slot.name),
-          compatible: resolvedBlock ? isResolvedCompatible(resolvedBlock, slot.catalogName) : true,
-          showType: shouldShowPortType(
-            linking,
-            block.id,
-            "in",
-            slot.name,
-            sourceOut,
-            ty,
-            this.app.catalog,
-            def.params,
-          ),
-        };
-      }),
-      outputs: outputSlotsFor(def.outputs, block.id, this.app.links).map((slot) => {
-        const catalogPort = def.outputs.find((item) => item.name === slot.catalogName)!;
-        const ty = resolvedBlock ? (resolvedOutput(resolvedBlock, slot.name) ?? catalogPort.ty) : catalogPort.ty;
-        return {
-          name: slot.name,
-          typeLabel: typeToString(ty),
-          vararg: catalogPort.vararg && slot.index === 0,
-          vectorized: catalogPort.vararg || isArrayType(catalogPort.ty),
-          linking: linking?.blockId === block.id && linking.port === slot.name,
-          showType: shouldShowPortType(
-            linking,
-            block.id,
-            "out",
-            slot.name,
-            sourceOut,
-            ty,
-            this.app.catalog,
-            def.params,
-          ),
-        };
-      }),
-    };
-  }
-
   #syncHostSize(): void {
     if (!this.app) {
       return;
@@ -385,175 +267,10 @@ export class BldDiagram extends LitElement {
   }
 
   #rememberLayout(blockId: number, layout: NodeLayout): void {
-    const prev = this.#layouts.get(blockId);
-    if (
-      prev &&
-      prev.width === layout.width &&
-      prev.height === layout.height &&
-      JSON.stringify(prev.ports) === JSON.stringify(layout.ports)
-    ) {
-      return;
-    }
-    const next = new Map(this.#layouts);
-    next.set(blockId, layout);
-    this.#layouts = next;
-    this.requestUpdate();
-  }
-
-  #finishLink(toBlock: number, toIn: string): void {
-    const from = this.app.linkingFrom;
-    if (!from || from.blockId === toBlock) {
-      return;
-    }
-    this.app.toggleLink(from.blockId, from.port, toBlock, toIn);
-    this.app.linkingFrom = null;
-    this.#previewTo = null;
-    this.#endPointer();
-    this.requestUpdate();
-  }
-
-  #capture(event: PointerEvent): void {
-    capturePointer(this.#viewportEl(), event.pointerId);
-  }
-
-  #endPointer(pointerId?: number): void {
-    const session = this.#session;
-    if (!session) {
-      return;
-    }
-    if (pointerId !== undefined && session.pointerId !== pointerId) {
-      return;
-    }
-    releasePointer(this.#viewportEl(), session.pointerId);
-    this.#session = null;
-  }
-
-  #onPortDown(detail: PortPointerDetail): void {
-    if (detail.side === "out") {
-      this.app.linkingFrom = { blockId: detail.blockId, port: detail.port };
-      this.#previewTo = this.#toWorld(detail.clientX, detail.clientY) ?? null;
-      this.#session = {
-        kind: "link",
-        pointerId: detail.pointerId,
-        fromBlock: detail.blockId,
-        fromPort: detail.port,
-        startX: detail.clientX,
-        startY: detail.clientY,
-        dragged: false,
-      };
-      capturePointer(this.#viewportEl(), detail.pointerId);
-      this.requestUpdate();
-      return;
-    }
-    if (this.app.linkingFrom) {
-      this.#finishLink(detail.blockId, detail.port);
-    }
-  }
-
-  #onPortUp(detail: PortPointerDetail): void {
-    if (detail.side === "in" && this.app.linkingFrom) {
-      this.#finishLink(detail.blockId, detail.port);
-    }
-  }
-
-  #onPointerMove = (event: PointerEvent): void => {
-    if (!this.app) {
-      return;
-    }
-    if (this.#session && this.#session.pointerId !== event.pointerId) {
-      return;
-    }
-    if (this.app.linkingFrom) {
-      this.#previewTo = this.#toWorld(event.clientX, event.clientY) ?? this.#previewTo;
+    if (this.#layout.remember(blockId, layout)) {
       this.requestUpdate();
     }
-    if (!this.#session) {
-      return;
-    }
-    if (this.#session.kind === "pan") {
-      const dx = event.clientX - this.#session.lastX;
-      const dy = event.clientY - this.#session.lastY;
-      this.#session = { ...this.#session, lastX: event.clientX, lastY: event.clientY };
-      this.app.panX += dx;
-      this.app.panY += dy;
-      return;
-    }
-    if (this.#session.kind === "move") {
-      const dx = event.clientX - this.#session.lastX;
-      const dy = event.clientY - this.#session.lastY;
-      this.#session = { ...this.#session, lastX: event.clientX, lastY: event.clientY };
-      this.app.moveBlock(this.#session.id, dx / this.app.zoom, dy / this.app.zoom);
-      return;
-    }
-    const dist = Math.hypot(event.clientX - this.#session.startX, event.clientY - this.#session.startY);
-    if (dist >= LINK_DRAG) {
-      this.#session = { ...this.#session, dragged: true };
-    }
-  };
-
-  #onPointerUp = (event: PointerEvent): void => {
-    if (!this.app) {
-      return;
-    }
-    if (this.#session && this.#session.pointerId !== event.pointerId) {
-      return;
-    }
-    const hit = portFromComposedPath(event) ?? portFromClientPoint(event.clientX, event.clientY);
-    if (this.#session?.kind === "link" || this.app.linkingFrom) {
-      if (hit?.side === "in") {
-        this.#finishLink(Number(hit.host.dataset.blockId), hit.port);
-        return;
-      }
-      if (this.#session?.kind === "link" && this.#session.dragged) {
-        this.app.linkingFrom = null;
-        this.#previewTo = null;
-      }
-      this.#endPointer(event.pointerId);
-      this.requestUpdate();
-      return;
-    }
-    this.#endPointer(event.pointerId);
-    this.requestUpdate();
-  };
-
-  #onViewportPointerDown = (event: PointerEvent): void => {
-    if (!isCanvasPointer(event) || this.#session) {
-      return;
-    }
-    const path = event.composedPath();
-    if (path.some((item) => item instanceof Element && item.closest(".toolbar"))) {
-      return;
-    }
-    const node = path.find((item) => item instanceof HTMLElement && item.localName === "bld-node");
-    if (node instanceof HTMLElement) {
-      if (portFromComposedPath(event)) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      const id = Number(node.dataset.blockId);
-      this.app.selectBlock(id);
-      this.#session = {
-        kind: "move",
-        pointerId: event.pointerId,
-        id,
-        lastX: event.clientX,
-        lastY: event.clientY,
-      };
-      this.#capture(event);
-      this.requestUpdate();
-      return;
-    }
-    event.preventDefault();
-    if (event.button === 0) {
-      this.app.clearSelection();
-      this.app.linkingFrom = null;
-      this.#previewTo = null;
-    }
-    this.#session = { kind: "pan", pointerId: event.pointerId, lastX: event.clientX, lastY: event.clientY };
-    this.#capture(event);
-    this.requestUpdate();
-  };
+  }
 
   #onHostDragOver = (event: DragEvent): void => {
     event.preventDefault();
@@ -576,108 +293,52 @@ export class BldDiagram extends LitElement {
     this.app.addBlock(defId, world.x, world.y);
   };
 
-  #onLinkPointerDown(link: Link): void {
-    this.app.selectLink(link);
-    this.app.linkingFrom = null;
-    this.#previewTo = null;
-    this.#endPointer();
-    this.requestUpdate();
-  }
-
   #onWheel = (event: WheelEvent): void => {
     event.preventDefault();
     const rect = this.#viewportRect();
     if (!rect) {
       return;
     }
-    const cursorX = event.clientX - rect.left;
-    const cursorY = event.clientY - rect.top;
-    const oldZoom = this.app.zoom;
-    const factor = Math.min(1.25, Math.max(0.8, 1 - event.deltaY * 0.0015));
-    const newZoom = clampZoom(oldZoom * factor);
-    if (Math.abs(newZoom - oldZoom) < 1e-9) {
-      return;
-    }
-    const [panX, panY] = zoomToward(oldZoom, newZoom, cursorX, cursorY, this.app.panX, this.app.panY);
-    this.app.zoom = newZoom;
-    this.app.panX = panX;
-    this.app.panY = panY;
+    this.app.zoomBy(wheelZoomFactor(event.deltaY), event.clientX - rect.left, event.clientY - rect.top);
   };
-
-  #connectors() {
-    const views: {
-      key: string;
-      link: Link;
-      from: Point;
-      to: Point;
-      points: Point[];
-      crossings: RoutedLink[];
-      selected: boolean;
-    }[] = [];
-    for (const link of this.app.links) {
-      const fromBlock = this.app.blocks.find((block) => block.id === link.fromBlock);
-      const toBlock = this.app.blocks.find((block) => block.id === link.toBlock);
-      const from = worldPort(fromBlock, this.#layouts.get(link.fromBlock), "out", link.fromOut);
-      const to = worldPort(toBlock, this.#layouts.get(link.toBlock), "in", link.toIn);
-      if (!from || !to) {
-        continue;
-      }
-      const key = linkKey(link.fromBlock, link.fromOut, link.toBlock, link.toIn);
-      views.push({
-        key,
-        link,
-        from,
-        to,
-        points: this.#routes.get(key) ?? [],
-        crossings: [],
-        selected: this.app.isLinkSelected(link),
-      });
-    }
-    views.forEach((item, index) => {
-      item.crossings = jumpoverUnderlays(views, index).map((other) => ({
-        from: other.from,
-        to: other.to,
-        route: other.points,
-      }));
-    });
-    return views;
-  }
-
-  #previewFrom(): Point | null {
-    const linking = this.app.linkingFrom;
-    if (!linking) {
-      return null;
-    }
-    const block = this.app.blocks.find((item) => item.id === linking.blockId);
-    return worldPort(block, this.#layouts.get(linking.blockId), "out", linking.port) ?? null;
-  }
 
   protected override render() {
     const app = this.app;
     if (!app) {
       return nothing;
     }
+    const session = this.#interaction.session;
     const resolved = app.resolveAll();
-    const previewFrom = this.#previewFrom();
-    const connectors = this.#connectors();
+    const previewFrom = previewFromPort(
+      app.linkingFrom,
+      (id) => app.block(id),
+      this.#layout.layouts,
+    );
+    const connectors = buildConnectorViews(
+      app.links,
+      (id) => app.block(id),
+      this.#layout.layouts,
+      this.#routes,
+      (link) => app.isLinkSelected(link),
+    );
     const grid = GRID_SIZE * app.zoom;
     return html`
       <div
         class=${classMap({
           viewport: true,
-          "is-panning": this.#session?.kind === "pan",
-          "is-moving-block": this.#session?.kind === "move",
+          "is-panning": session?.kind === "pan",
+          "is-moving-block": session?.kind === "move",
           "is-linking": app.linkingFrom !== null,
           "drop-target": app.draggingDefId !== null,
         })}
         role="application"
         aria-label="Diagram canvas"
         data-testid="diagram-canvas"
-        @pointerdown=${this.#onViewportPointerDown}
-        @pointermove=${this.#onPointerMove}
-        @pointerup=${this.#onPointerUp}
-        @pointercancel=${this.#onPointerUp}
-        @lostpointercapture=${this.#onPointerUp}
+        @pointerdown=${(event: PointerEvent) => this.#interaction.onViewportPointerDown(event)}
+        @pointermove=${(event: PointerEvent) => this.#interaction.onPointerMove(event)}
+        @pointerup=${(event: PointerEvent) => this.#interaction.onPointerUp(event)}
+        @pointercancel=${(event: PointerEvent) => this.#interaction.onPointerUp(event)}
+        @lostpointercapture=${(event: PointerEvent) => this.#interaction.onPointerUp(event)}
       >
         <div
           class="grid"
@@ -703,16 +364,16 @@ export class BldDiagram extends LitElement {
                 .points=${item.points}
                 .crossings=${item.crossings}
                 .selected=${item.selected}
-                .push=${this.#linkPushes(resolved, item.link)}
+                .push=${linkPushes(resolved, item.link)}
                 .hz=${app.runBusy() ? app.connectorHz(item.link) : 0}
-                @linkpointerdown=${() => this.#onLinkPointerDown(item.link)}
+                @linkpointerdown=${() => this.#interaction.onLinkPointerDown(item.link)}
               ></bld-connector>
             `,
           )}
-          ${previewFrom && this.#previewTo
+          ${previewFrom && this.#interaction.previewTo
             ? html`<bld-connector
                 .from=${previewFrom}
-                .to=${this.#previewTo}
+                .to=${this.#interaction.previewTo}
                 .crossings=${connectors.map((item) => ({
                   from: item.from,
                   to: item.to,
@@ -725,7 +386,16 @@ export class BldDiagram extends LitElement {
             app.blocks,
             (block) => block.id,
             (block) => {
-              const state = this.#nodeState(block, resolved);
+              const state = buildNodeState(block, resolved, {
+                catalog: app.catalog,
+                links: app.links,
+                selected: app.selected,
+                linkingFrom: app.linkingFrom,
+                isScopeLive: (id) => app.isScopeLive(id),
+                inputIsGrounded: (blockId, port) => app.inputIsGrounded(blockId, port),
+                blockDef: (defId) => app.blockDef(defId),
+                kindOf: (def) => app.kindOf(def),
+              });
               if (!state) {
                 return nothing;
               }
@@ -734,9 +404,11 @@ export class BldDiagram extends LitElement {
                   .view=${state}
                   .x=${block.x}
                   .y=${block.y}
-                  .dragging=${this.#session?.kind === "move" && this.#session.id === block.id}
-                  @portpointerdown=${(event: CustomEvent<PortPointerDetail>) => this.#onPortDown(event.detail)}
-                  @portpointerup=${(event: CustomEvent<PortPointerDetail>) => this.#onPortUp(event.detail)}
+                  .dragging=${session?.kind === "move" && session.id === block.id}
+                  @portpointerdown=${(event: CustomEvent<PortPointerDetail>) =>
+                    this.#interaction.onPortDown(event.detail)}
+                  @portpointerup=${(event: CustomEvent<PortPointerDetail>) =>
+                    this.#interaction.onPortUp(event.detail)}
                   @chartclick=${() => app.openOscilloscope(block.id)}
                   @noderesize=${(event: CustomEvent<NodeLayout>) => this.#rememberLayout(block.id, event.detail)}
                 ></bld-node>
