@@ -115,11 +115,10 @@ test.describe("wiring", () => {
     expect(await portTypeText(page, "timer", "input-in")).toBeNull();
 
     const path = await connectorPath(page);
-    expect(path.startsWith("M ")).toBe(true);
-    expect(path.includes("L ") || path.includes("C ")).toBe(true);
+    expect(path.startsWith("polygon(")).toBe(true);
     expect((await diagramCss(page, "bld-connector").evaluate((el) => el.tagName)).toLowerCase()).toBe("bld-connector");
     const diagram = await waitDeep(page, "bld-diagram");
-    await expect(diagram).toHaveAttribute("data-connector", "jumpover");
+    await expect(diagram).toHaveAttribute("data-connector", "clip-path");
     await expect(diagram).toHaveAttribute("data-worker", "true");
   });
 
@@ -314,14 +313,13 @@ test.describe("wiring", () => {
     await page.keyboard.press("Escape");
     await expect(page.locator('[data-testid="oscilloscope-modal"]')).toHaveCount(0);
     await expect.poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count()).toBe(3);
-    const style = await page.locator("bld-connector:not([data-preview])[data-flow]").first().getAttribute("data-flow");
-    expect(Number(style)).toBeGreaterThanOrEqual(0);
-    expect(Number(style)).toBeLessThanOrEqual(9);
     const duration = await page.locator("bld-connector:not([data-preview])[data-flow]").first().evaluate((el) => {
-      const stroke = el.shadowRoot?.querySelector(".path-stroke");
-      return stroke ? getComputedStyle(stroke).animationDuration : "";
+      return getComputedStyle(el).getPropertyValue("--flow-period").trim();
     });
     expect(duration).toMatch(/^\d+(\.\d+)?(s|ms)$/);
+    const periodMs = Number.parseFloat(duration);
+    expect(periodMs).toBeGreaterThanOrEqual(200);
+    expect(periodMs).toBeLessThanOrEqual(2500);
     await page.locator('[data-testid="toolbar-stop"]').click();
     await expect(run).toBeEnabled();
     await expect(page.locator("bld-connector:not([data-preview])[data-flow]")).toHaveCount(0);

@@ -18,7 +18,7 @@ import { AppController } from "$lib/context";
 import { GRID_SIZE, clampZoom, zoomToward } from "$lib/model";
 import { type AppState, type BlockInstance } from "$lib/state";
 import { FLOW_MIME } from "./mime";
-import { clientToWorld, jumpoverUnderlays, linkKey, type Point } from "./geometry";
+import { clientToWorld, connectorPolyline, jumpoverUnderlays, linkKey, type Point } from "./geometry";
 import { AvoidRouteEngine, connectorFromLink, obstacleFromBlock } from "./avoid-router";
 import { portFromComposedPath, portFromClientPoint, worldPort } from "./layout";
 import { capturePointer, isCanvasPointer, releasePointer } from "./pointer";
@@ -223,7 +223,7 @@ export class BldDiagram extends LitElement {
     }
     this.dataset.router = "avoid";
     this.dataset.worker = this.#avoid.worker ? "true" : "false";
-    this.dataset.connector = "jumpover";
+    this.dataset.connector = "clip-path";
     this.#syncRoutes();
     this.requestUpdate();
   }
@@ -595,7 +595,7 @@ export class BldDiagram extends LitElement {
       from: Point;
       to: Point;
       points: Point[];
-      crossings: { from: Point; to: Point; route: Point[] }[];
+      crossings: Point[][];
       selected: boolean;
     }[] = [];
     for (const link of this.app.links) {
@@ -618,11 +618,9 @@ export class BldDiagram extends LitElement {
       });
     }
     views.forEach((item, index) => {
-      item.crossings = jumpoverUnderlays(views, index).map((other) => ({
-        from: other.from,
-        to: other.to,
-        route: other.points,
-      }));
+      item.crossings = jumpoverUnderlays(views, index).map((other) =>
+        connectorPolyline(other.from, other.to, other.points),
+      );
     });
     return views;
   }
@@ -696,11 +694,7 @@ export class BldDiagram extends LitElement {
             ? html`<bld-connector
                 .from=${previewFrom}
                 .to=${this.#previewTo}
-                .crossings=${connectors.map((item) => ({
-                  from: item.from,
-                  to: item.to,
-                  route: item.points,
-                }))}
+                .crossings=${connectors.map((item) => connectorPolyline(item.from, item.to, item.points))}
                 .preview=${true}
               ></bld-connector>`
             : nothing}
