@@ -1,7 +1,8 @@
+import { canShareMemory, canUseIsolatedWorker } from "../isolation";
 import type { SolutionViewConnector } from "../solution/view";
 import { intervalMs } from "./flow";
 import { createHost } from "./host";
-import { createSharedMemory, readFlowCounts, readSamples, requestStop } from "./memory";
+import { createMemory, readFlowCounts, readSamples, requestStop } from "./memory";
 import { startTickLoop } from "./runner";
 
 export interface GeneratorHandle {
@@ -56,9 +57,9 @@ function bindHandle(
   };
 }
 
-/** Drive `tick` with `setInterval` on this thread (tests and fallback). */
+/** Drive `tick` with `setInterval` on this thread (tests and non-isolated pages). */
 export async function startLocalGenerator(options: StartGeneratorOptions): Promise<GeneratorHandle> {
-  const memory = createSharedMemory();
+  const memory = createMemory(canShareMemory());
   const gen = await instantiateGenerator(options.wasm, memory, options.now);
   const connectors = options.connectors ?? [];
   const loop = startTickLoop(memory, gen.tick, options.delayMs, connectors.length);
@@ -67,7 +68,7 @@ export async function startLocalGenerator(options: StartGeneratorOptions): Promi
 
 /** One dedicated worker (wasm thread) per generator; `setInterval` lives in that worker. */
 export async function startWorkerGenerator(options: StartGeneratorOptions): Promise<GeneratorHandle> {
-  const memory = createSharedMemory();
+  const memory = createMemory(true);
   const connectors = options.connectors ?? [];
   const worker = new Worker(new URL("./generator.worker.ts", import.meta.url), { type: "module" });
   const copy = options.wasm.slice();
@@ -89,7 +90,7 @@ export async function startWorkerGenerator(options: StartGeneratorOptions): Prom
 }
 
 export async function startGenerator(options: StartGeneratorOptions): Promise<GeneratorHandle> {
-  if (typeof Worker === "function" && import.meta.env.MODE !== "test") {
+  if (import.meta.env.MODE !== "test" && canUseIsolatedWorker()) {
     return startWorkerGenerator(options);
   }
   return startLocalGenerator(options);

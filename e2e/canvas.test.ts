@@ -133,6 +133,48 @@ test.describe("canvas", () => {
       .toBe(true);
   });
 
+  test("moves a node with a touch pointer drag", async () => {
+    const host = nodeHost(page, "timer");
+    const before = await boxOf(host);
+    const icon = host.locator(".flow-node-icon");
+    const box = await boxOf(icon);
+    const startX = box.x + box.width / 2;
+    const startY = box.y + box.height / 2;
+    await page.evaluate(
+      ({ startX, startY }) => {
+        const el = document.elementFromPoint(startX, startY);
+        if (!el) {
+          throw new Error("touch drag: no element under the icon");
+        }
+        const fire = (type: string, clientX: number, clientY: number, extra: PointerEventInit = {}) => {
+          el.dispatchEvent(
+            new PointerEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              composed: true,
+              pointerId: 42,
+              pointerType: "touch",
+              isPrimary: true,
+              clientX,
+              clientY,
+              ...extra,
+            }),
+          );
+        };
+        fire("pointerdown", startX, startY, { button: 0, buttons: 1 });
+        fire("pointermove", startX + 72, startY + 36, { button: -1, buttons: 1 });
+        fire("pointerup", startX + 72, startY + 36, { button: 0, buttons: 0 });
+      },
+      { startX, startY },
+    );
+    await expect
+      .poll(async () => {
+        const after = await boxOf(host);
+        return Math.abs(after.x - before.x) > 8 || Math.abs(after.y - before.y) > 8;
+      })
+      .toBe(true);
+  });
+
   test("deletes the selected block with Delete", async () => {
     const before = await statusBlocks(page);
     expect(before).not.toBe("0 blocks");

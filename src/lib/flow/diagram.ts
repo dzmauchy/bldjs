@@ -20,7 +20,8 @@ import { type AppState, type BlockInstance } from "$lib/state";
 import { FLOW_MIME } from "./mime";
 import { clientToWorld, jumpoverUnderlays, linkKey, type Point } from "./geometry";
 import { AvoidRouteEngine, connectorFromLink, obstacleFromBlock } from "./avoid-router";
-import { portFromComposedPath, worldPort } from "./layout";
+import { portFromComposedPath, portFromClientPoint, worldPort } from "./layout";
+import { capturePointer, isCanvasPointer, releasePointer } from "./pointer";
 import type { BldNodeState, NodeLayout, PortPointerDetail } from "./types";
 import "./node";
 import { BldConnector } from "./connector";
@@ -28,9 +29,9 @@ import { BldConnector } from "./connector";
 const LINK_DRAG = 8;
 
 type PointerSession =
-  | { kind: "pan"; lastX: number; lastY: number }
-  | { kind: "move"; id: number; lastX: number; lastY: number }
-  | { kind: "link"; fromBlock: number; fromPort: string; startX: number; startY: number; dragged: boolean };
+  | { kind: "pan"; pointerId: number; lastX: number; lastY: number }
+  | { kind: "move"; pointerId: number; id: number; lastX: number; lastY: number }
+  | { kind: "link"; pointerId: number; fromBlock: number; fromPort: string; startX: number; startY: number; dragged: boolean };
 
 export class BldDiagram extends LitElement {
   static override properties = {
@@ -64,9 +65,12 @@ export class BldDiagram extends LitElement {
       min-height: 0;
       position: relative;
       overflow: hidden;
+      overscroll-behavior: none;
       background: #14171a;
       cursor: grab;
       touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
     }
     .viewport.is-panning,
     .viewport.is-moving-block {
@@ -171,9 +175,6 @@ export class BldDiagram extends LitElement {
     this.addEventListener("dragover", this.#onHostDragOver);
     this.addEventListener("drop", this.#onHostDrop);
     this.addEventListener("wheel", this.#onWheel, { passive: false });
-    window.addEventListener("pointermove", this.#onWinMove);
-    window.addEventListener("pointerup", this.#onWinUp);
-    window.addEventListener("pointercancel", this.#onWinUp);
     if (typeof ResizeObserver === "function") {
       this.#resize = new ResizeObserver(() => this.#syncHostSize());
       this.#resize.observe(this);
@@ -187,9 +188,6 @@ export class BldDiagram extends LitElement {
     this.removeEventListener("dragover", this.#onHostDragOver);
     this.removeEventListener("drop", this.#onHostDrop);
     this.removeEventListener("wheel", this.#onWheel);
-    window.removeEventListener("pointermove", this.#onWinMove);
-    window.removeEventListener("pointerup", this.#onWinUp);
-    window.removeEventListener("pointercancel", this.#onWinUp);
     this.#resize?.disconnect();
     this.#resize = null;
     this.#avoid.destroy();
@@ -394,8 +392,24 @@ export class BldDiagram extends LitElement {
     this.app.toggleLink(from.blockId, from.port, toBlock, toIn);
     this.app.linkingFrom = null;
     this.#previewTo = null;
-    this.#session = null;
+    this.#endPointer();
     this.requestUpdate();
+  }
+
+  #capture(event: PointerEvent): void {
+    capturePointer(this.#viewportEl(), event.pointerId);
+  }
+
+  #endPointer(pointerId?: number): void {
+    const session = this.#session;
+    if (!session) {
+      return;
+    }
+    if (pointerId !== undefined && session.pointerId !== pointerId) {
+      return;
+    }
+    releasePointer(this.#viewportEl(), session.pointerId);
+    this.#session = null;
   }
 
   #onPortDown(detail: PortPointerDetail): void {
@@ -404,12 +418,14 @@ export class BldDiagram extends LitElement {
       this.#previewTo = this.#toWorld(detail.clientX, detail.clientY) ?? null;
       this.#session = {
         kind: "link",
+        pointerId: detail.pointerId,
         fromBlock: detail.blockId,
         fromPort: detail.port,
         startX: detail.clientX,
         startY: detail.clientY,
         dragged: false,
       };
+      capturePointer(this.#viewportEl(), detail.pointerId);
       this.requestUpdate();
       return;
     }
@@ -424,8 +440,11 @@ export class BldDiagram extends LitElement {
     }
   }
 
-  #onWinMove = (event: PointerEvent): void => {
+  #onPointerMove = (event: PointerEvent): void => {
     if (!this.app) {
+      return;
+    }
+    if (this.#session && this.#session.pointerId !== event.pointerId) {
       return;
     }
     if (this.app.linkingFrom) {
@@ -456,11 +475,14 @@ export class BldDiagram extends LitElement {
     }
   };
 
-  #onWinUp = (event: PointerEvent): void => {
+  #onPointerUp = (event: PointerEvent): void => {
     if (!this.app) {
       return;
     }
-    const hit = portFromComposedPath(event);
+    if (this.#session && this.#session.pointerId !== event.pointerId) {
+      return;
+    }
+    const hit = portFromComposedPath(event) ?? portFromClientPoint(event.clientX, event.clientY);
     if (this.#session?.kind === "link" || this.app.linkingFrom) {
       if (hit?.side === "in") {
         this.#finishLink(Number(hit.host.dataset.blockId), hit.port);
@@ -470,16 +492,16 @@ export class BldDiagram extends LitElement {
         this.app.linkingFrom = null;
         this.#previewTo = null;
       }
-      this.#session = null;
+      this.#endPointer(event.pointerId);
       this.requestUpdate();
       return;
     }
-    this.#session = null;
+    this.#endPointer(event.pointerId);
     this.requestUpdate();
   };
 
   #onViewportPointerDown = (event: PointerEvent): void => {
-    if (event.button !== 0 && event.button !== 1) {
+    if (!isCanvasPointer(event) || this.#session) {
       return;
     }
     const path = event.composedPath();
@@ -491,19 +513,29 @@ export class BldDiagram extends LitElement {
       if (portFromComposedPath(event)) {
         return;
       }
+      event.preventDefault();
       event.stopPropagation();
       const id = Number(node.dataset.blockId);
       this.app.selectBlock(id);
-      this.#session = { kind: "move", id, lastX: event.clientX, lastY: event.clientY };
+      this.#session = {
+        kind: "move",
+        pointerId: event.pointerId,
+        id,
+        lastX: event.clientX,
+        lastY: event.clientY,
+      };
+      this.#capture(event);
       this.requestUpdate();
       return;
     }
+    event.preventDefault();
     if (event.button === 0) {
       this.app.clearSelection();
       this.app.linkingFrom = null;
       this.#previewTo = null;
     }
-    this.#session = { kind: "pan", lastX: event.clientX, lastY: event.clientY };
+    this.#session = { kind: "pan", pointerId: event.pointerId, lastX: event.clientX, lastY: event.clientY };
+    this.#capture(event);
     this.requestUpdate();
   };
 
@@ -532,7 +564,7 @@ export class BldDiagram extends LitElement {
     this.app.selectLink(link);
     this.app.linkingFrom = null;
     this.#previewTo = null;
-    this.#session = null;
+    this.#endPointer();
     this.requestUpdate();
   }
 
@@ -626,6 +658,10 @@ export class BldDiagram extends LitElement {
         aria-label="Diagram canvas"
         data-testid="diagram-canvas"
         @pointerdown=${this.#onViewportPointerDown}
+        @pointermove=${this.#onPointerMove}
+        @pointerup=${this.#onPointerUp}
+        @pointercancel=${this.#onPointerUp}
+        @lostpointercapture=${this.#onPointerUp}
       >
         <div
           class="grid"

@@ -5,7 +5,8 @@ import { localNames as functionLocalNames } from "../../resources/binaryen/util"
 import { associateBuiltinModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
 import { assembleModule, blockTypeWat, runtimeTypeWat } from "./assemble";
-import { SAMPLE_CAP } from "./memory";
+import { SAMPLE_CAP, createMemory, readSamples } from "./memory";
+import { instantiateGenerator } from "./generator";
 import { blockSignature, signatureWat } from "./signatures";
 
 function withBlockScript(id: string, use: (module: binaryen.Module) => void): void {
@@ -103,5 +104,15 @@ describe("block binaryen assembly", () => {
     expect(runtimeTypeWat()).toContain(
       "(type $fn_oscilloscope (func (param $ctx i32) (result $out (ref $array_c1_f64))))",
     );
+  });
+
+  it("emits a non-shared memory module that instantiates without COI", async () => {
+    const { text, wasm } = await assembleModule({ stages: ["sin"], delayMs: 10, sharedMemory: false });
+    expect(text.toLowerCase()).not.toMatch(/\(memory[^\n]*shared/);
+    expect(text).not.toContain("i32.atomic");
+    const memory = createMemory(false);
+    const gen = await instantiateGenerator(wasm, memory, () => 0.5);
+    gen.tick();
+    expect(readSamples(memory)[0]).toBeCloseTo(Math.sin(0.5));
   });
 });

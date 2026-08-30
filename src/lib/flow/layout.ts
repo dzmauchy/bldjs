@@ -51,21 +51,66 @@ export function portFromComposedPath(
   event: Event,
 ): { host: HTMLElement; side: PortSide; port: string } | undefined {
   for (const item of event.composedPath()) {
-    if (!(item instanceof Element) || !item.hasAttribute("data-port")) {
-      continue;
-    }
-    const root = item.getRootNode();
-    if (!(root instanceof ShadowRoot) || !(root.host instanceof HTMLElement)) {
-      continue;
-    }
-    if (root.host.localName !== "bld-node") {
-      continue;
-    }
-    const side = item.getAttribute("data-side");
-    const port = item.getAttribute("data-name");
-    if ((side === "in" || side === "out") && port) {
-      return { host: root.host, side, port };
+    if (item instanceof Element) {
+      const hit = portFromElement(item);
+      if (hit) {
+        return hit;
+      }
     }
   }
   return undefined;
+}
+
+/**
+ * Hit-test a port by client coordinates. Pointer capture retargets events to the
+ * capturing node, so `composedPath()` no longer includes the handle under the finger.
+ */
+export function portFromClientPoint(
+  clientX: number,
+  clientY: number,
+): { host: HTMLElement; side: PortSide; port: string } | undefined {
+  let node: Element | null = deepestElementFromPoint(clientX, clientY);
+  while (node) {
+    const hit = portFromElement(node);
+    if (hit) {
+      return hit;
+    }
+    const root = node.getRootNode();
+    node =
+      node.parentElement ?? (root instanceof ShadowRoot && root.host instanceof Element ? root.host : null);
+  }
+  return undefined;
+}
+
+function portFromElement(item: Element): { host: HTMLElement; side: PortSide; port: string } | undefined {
+  if (!item.hasAttribute("data-port")) {
+    return undefined;
+  }
+  const root = item.getRootNode();
+  if (!(root instanceof ShadowRoot) || !(root.host instanceof HTMLElement)) {
+    return undefined;
+  }
+  if (root.host.localName !== "bld-node") {
+    return undefined;
+  }
+  const side = item.getAttribute("data-side");
+  const port = item.getAttribute("data-name");
+  if ((side === "in" || side === "out") && port) {
+    return { host: root.host, side, port };
+  }
+  return undefined;
+}
+
+function deepestElementFromPoint(clientX: number, clientY: number): Element | null {
+  let root: Document | ShadowRoot | null = document;
+  let current: Element | null = null;
+  while (root && typeof root.elementFromPoint === "function") {
+    const hit = root.elementFromPoint(clientX, clientY);
+    if (!hit || hit === current) {
+      break;
+    }
+    current = hit;
+    root = hit.shadowRoot;
+  }
+  return current;
 }

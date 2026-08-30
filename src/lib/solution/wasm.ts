@@ -4,6 +4,7 @@ import { Catalog } from "$lib/blocks/catalog";
 import { associateBuiltinModels } from "$lib/blocks/builtin";
 import { Diagram } from "$lib/blocks/diagram";
 import { catalogPortName, portSlotIndex } from "$lib/blocks/ports";
+import { canShareMemory } from "$lib/isolation";
 import { CTX, SAMPLE_CAP } from "$lib/runtime/memory";
 import type { SolutionAssembly, SolutionBuilder } from "./builder";
 import {
@@ -21,6 +22,8 @@ import {
 export interface WasmBuildOptions {
   delayMs?: number;
   timerId?: number;
+  /** Shared memory + atomics. Off when the page is not cross-origin isolated. */
+  sharedMemory?: boolean;
 }
 
 function builtinCatalog(): Catalog {
@@ -120,14 +123,18 @@ export class WasmSolutionBuilder implements SolutionBuilder {
     const graph = timerId === undefined ? view : subgraphFromTimer(view, timerId);
     const delayMs =
       options.delayMs ?? graph.blocks.filter((block) => block.defId === "quantizer").length * 10;
-    return emitWasm(this.catalog, graph, { delayMs, timerId });
+    return emitWasm(this.catalog, graph, {
+      delayMs,
+      timerId,
+      sharedMemory: options.sharedMemory ?? canShareMemory(),
+    });
   }
 }
 
 async function emitWasm(
   catalog: Catalog,
   view: SolutionView,
-  options: { delayMs: number; timerId?: number },
+  options: { delayMs: number; timerId?: number; sharedMemory: boolean },
 ): Promise<SolutionAssembly> {
     const [{ default: binaryen }, scripts, { nameLocals }] = await Promise.all([
     import("binaryen"),
@@ -140,7 +147,7 @@ async function emitWasm(
   try {
     module.setFeatures(GC_FEATURES(binaryen));
     const types = addCatalogTypes(binaryen, module);
-    RUNTIME_SCRIPTS.imports(module);
+    RUNTIME_SCRIPTS.imports(module, options.sharedMemory);
     RUNTIME_SCRIPTS.push(module, SAMPLE_CAP);
 
     const rings = options.timerId !== undefined ? assignRings(view, options.timerId) : new Map<string, number>();

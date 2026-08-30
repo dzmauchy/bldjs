@@ -1,6 +1,7 @@
 import { dia, shapes } from "@joint/core";
 import { initAvoidRouter, type RouterService } from "@joint/router-avoid";
 import type { Link } from "$lib/blocks";
+import { canUseIsolatedWorker } from "$lib/isolation";
 import type { Point } from "./geometry";
 import { linkKey, routesEqual } from "./geometry";
 import type { NodeLayout, PortSide } from "./types";
@@ -136,8 +137,22 @@ export class AvoidRouteEngine {
     if (this.#service) {
       return;
     }
-    const worker = options?.worker ?? true;
-    this.#usesWorker = worker === true || typeof worker === "object";
+    const requested = options?.worker ?? true;
+    const wantWorker = requested === true || typeof requested === "object";
+    const worker = wantWorker && canUseIsolatedWorker();
+    try {
+      await this.#boot(worker, options?.filePath);
+    } catch (error) {
+      if (!worker) {
+        throw error;
+      }
+      console.warn("avoid router worker unavailable, using main thread", error);
+      await this.#boot(false, options?.filePath);
+    }
+  }
+
+  async #boot(worker: boolean, filePath?: string): Promise<void> {
+    this.#usesWorker = worker;
     const graph = new dia.Graph({}, { cellNamespace: shapes });
     graph.on("remove", (cell: dia.Cell) => {
       if (cell.isLink()) {
@@ -147,7 +162,7 @@ export class AvoidRouteEngine {
     });
     const service = await initAvoidRouter(graph, {
       worker,
-      libavoidFilePath: options?.filePath ?? LIBAVOID_WASM,
+      libavoidFilePath: filePath ?? LIBAVOID_WASM,
       shapeBufferDistance: 12,
       idealNudgingDistance: 16,
       setRouteAttributes: ({ link, attributes }) => {
