@@ -48,7 +48,7 @@ describe("BldNode", () => {
     expect(shadow).not.toBeNull();
     expect(shadow!.querySelector(".flow-node")).not.toBeNull();
     expect(shadow!.querySelector(".flow-node-ports")).not.toBeNull();
-    expect(shadow!.querySelector(".flow-node-title")).toBeNull();
+    expect(shadow!.querySelector(".flow-node-title")?.textContent).toBe("array");
     expect(shadow!.querySelectorAll("[data-port]")).toHaveLength(2);
     expect(shadow!.querySelector(".flow-node")?.getAttribute("title")).toBe("array");
     expect(shadow!.querySelector('[data-vector="elems"] .block-port-name')).toBeNull();
@@ -103,6 +103,13 @@ describe("BldNode", () => {
       }),
     );
     expect(node.hasAttribute("data-selected")).toBe(true);
+    expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("Oscilloscope");
+    const selectedCss = Array.isArray(BldNode.styles)
+      ? BldNode.styles.map((sheet) => sheet.cssText).join("\n")
+      : BldNode.styles.cssText;
+    expect(selectedCss).toContain("node-selected-fade");
+    expect(selectedCss).toContain("#14191e");
+    expect(selectedCss).not.toMatch(/:host\(\[data-selected\]\)[^{]*\{[^}]*border-color/);
     const chart = node.shadowRoot!.querySelector('[data-testid="chart-7"]') as HTMLButtonElement;
     expect(chart.hidden).toBe(false);
     let opened = false;
@@ -138,6 +145,7 @@ describe("BldNode", () => {
     expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-type')).toBeNull();
     expect(node.shadowRoot!.querySelector('[data-vector="out"] .block-port-name')).toBeNull();
     expect(node.shadowRoot!.querySelector(".flow-node")?.getAttribute("title")).toBe("Oscilloscope");
+    expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("Oscilloscope");
     expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("c<f64>[]");
   });
 
@@ -193,6 +201,9 @@ describe("BldNode", () => {
     expect(node.shadowRoot!.querySelector('[data-testid="input-elems-type"]')?.textContent).toBe("f64");
     expect(node.shadowRoot!.querySelector('[data-testid="output-result"]')?.classList.contains("is-typed")).toBe(true);
     expect(node.shadowRoot!.querySelector('[data-vector="elems"] .block-port-type')?.textContent).toBe("f64");
+    expect(node.shadowRoot!.querySelector(".block-port-meta .block-port-type")).toBeNull();
+    expect(node.shadowRoot!.querySelector('[data-testid="output-result"] .block-port-anchor .block-port-type')).not.toBeNull();
+    expect(node.shadowRoot!.querySelector('[data-testid="input-elems"] .block-port-anchor .block-port-type')).not.toBeNull();
   });
 
   it("shows in/out names only when a side has more than one catalog port", async () => {
@@ -214,6 +225,7 @@ describe("BldNode", () => {
     expect(node.shadowRoot!.querySelector('[data-testid="input-index"] .block-port-name')?.textContent).toBe("index");
     expect(node.shadowRoot!.querySelector('[data-testid="output-true"] .block-port-name')?.textContent).toBe("true");
     expect(node.shadowRoot!.querySelector('[data-testid="output-false"] .block-port-name')?.textContent).toBe("false");
+    expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("array.get");
     expect(node.shadowRoot!.querySelector(".flow-node")?.getAttribute("title")).toBe("array.get");
   });
 
