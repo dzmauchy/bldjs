@@ -123,16 +123,16 @@ When defining a `<param>`, use `<extends>` and `<super>` to bound the generic va
 
 ## 5. Modeling functions, consumers, and arrays
 
-`<in>` ports and `<out>` ports carry language-agnostic types. Control Systems uses a pure push model: every consumer is `DoubleConsumer` (`c<f64>`). Compact display writes `c1` as `c`. The WASM runtime still lowers each sample port to first-order f64.
+`<in>` ports and `<out>` ports carry language-agnostic types. Control Systems uses a pure push model: every consumer is `DoubleConsumer` (`c<f64>`). Compact display writes `c1` as `c`. WASM builder blocks use the same ports: `c1<T>` is `(ref $c1_T)`, and `T[]` is a dynamically sized `(array (mut T))` whose length is the number of outgoing connectors.
 
 ```
 timer(c)           : c<f64> → void
 quantizer(c)       : c<f64> → c<f64>
 sin(c) / cos(c)    : c<f64> → c<f64>
-oscilloscope()     : c<f64>[]          (vector of plot sinks)
+oscilloscope()     : c<f64>[]          (dynamically sized vector of plot sinks)
 ```
 
-Composition is `timer(sin(quantizer(plot[0])))`. Wire Oscilloscope → Quantizer → Sin (or Cos) → Timer. Oscilloscope `out` is a vector of `c<f64>`; each outgoing wire is one channel. Several `c<f64>` outputs may share one input; the runtime inserts a hidden `fork`:
+Composition is `timer(sin(quantizer(plot[0])))`. Wire Oscilloscope → Quantizer → Sin (or Cos) → Timer. Oscilloscope `out` is a vector of `c<f64>`; each outgoing wire is one channel. Several `c<f64>` outputs may share one input; SolutionBuilder inserts a hidden `fork`:
 
 ```
 c<f64> fork(c<f64>... downstreams) {
@@ -150,7 +150,6 @@ So two channels from one oscilloscope compile as `timer(fork(sin(plot[0]), cos(p
 <block id="timer" name="Timer" ns="com.dauch.cs.gen">
   <factory id="timer"/>
   <in name="in" type="c1">
-    <attribute name="wasm">f64</attribute>
     <t type="f64"/>
   </in>
 </block>
@@ -158,17 +157,25 @@ So two channels from one oscilloscope compile as `timer(fork(sin(plot[0]), cos(p
 <block id="sin" name="Sin" ns="com.dauch.cs.transform">
   <factory id="f64.sin"/>
   <in name="in" type="c1">
-    <attribute name="wasm">f64</attribute>
     <t type="f64"/>
   </in>
   <out name="out" type="c1">
-    <attribute name="wasm">f64</attribute>
     <t type="f64"/>
+  </out>
+</block>
+
+<block id="oscilloscope" name="Oscilloscope" ns="com.dauch.cs.sink">
+  <factory id="oscilloscope"/>
+  <out name="out" type="[]">
+    <attribute name="dynamic">true</attribute>
+    <t type="c1">
+      <t type="f64"/>
+    </t>
   </out>
 </block>
 ```
 
-Run runs each runtime block's binaryen.js script from `resources/binaryen/blocks` to build one module, then emits wasm-gc (`call_ref`). Catalog ports are the push-model I/O (`c<f64>`); the WASM sample pipeline stays first-order (`timer` produces f64, `oscilloscope` consumes f64). Each Timer worker parks with `memory.atomic.wait32` on a SharedArrayBuffer.
+SolutionBuilder walks the connected SolutionView and runs the binaryen.js script for each XML block (`resources/binaryen/blocks`), then wires `SolutionViewConnector`s (`array.get` for vector slots, `fork` on fan-in) into one wasm-gc module (`call_ref`). Each Timer worker parks with `memory.atomic.wait32` on a SharedArrayBuffer.
 
 ### A. Varargs (`array#of`)
 Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.

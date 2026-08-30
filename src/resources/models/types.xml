@@ -64,6 +64,7 @@
   </type>
   <type name="[]">
     <attribute name="wasm">array</attribute>
+    <attribute name="dynamic">true</attribute>
     <param name="T"/>
   </type>
 </blocks>

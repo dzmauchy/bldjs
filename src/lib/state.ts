@@ -308,8 +308,9 @@ export class AppState extends EventTarget {
     }
     const op = this.#runningOp;
     try {
+      const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
       for (const plan of plans) {
-        const wasm = await assembleGenerator(plan);
+        const wasm = await assembleGenerator(plan, nodes, this.links);
         const handle = await startGenerator({ wasm, delayMs: plan.delayMs });
         if (op !== this.#runningOp) {
           handle.stop();

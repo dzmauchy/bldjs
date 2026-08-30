@@ -1,16 +1,27 @@
 import binaryen from "binaryen";
 import { exportFunc, nameLocals } from "../util";
+import type { WasmCatalogTypes } from "../gc-types";
+import type { WasmBlockEmit } from "../consumer";
 
-/** timer — Control Systems. inputs: $ctx; outputs: $out f64 */
-export function addTimer(module: binaryen.Module): binaryen.FunctionRef {
+/** timer — XML `c<f64> → void`. Pushes `$ctx.time` into `$in`. */
+export function addTimer(
+  module: binaryen.Module,
+  types: WasmCatalogTypes,
+  opts: WasmBlockEmit = {},
+): binaryen.FunctionRef {
+  const name = opts.name ?? "timer";
   const fn = module.addFunction(
-    "timer",
-    binaryen.i32,
-    binaryen.f64,
+    name,
+    binaryen.createType([binaryen.i32, types.c1_f64]),
+    binaryen.none,
     [],
-    module.f64.load(0, 8, module.local.get(0, binaryen.i32)),
+    module.call_ref(
+      module.local.get(1, types.c1_f64),
+      [module.f64.load(0, 8, module.local.get(0, binaryen.i32))],
+      binaryen.none,
+    ),
   );
-  nameLocals(fn, ["ctx"]);
-  exportFunc(module, "timer");
+  nameLocals(fn, ["ctx", "in"]);
+  exportFunc(module, name);
   return fn;
 }

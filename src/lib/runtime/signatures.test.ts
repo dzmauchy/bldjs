@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { associateBuiltinModels, associateFixtureModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
-import { blockSignature, signatureWat, wasmValType } from "./signatures";
+import { blockSignature, signatureWat, wasmHeapTypeName, wasmValType } from "./signatures";
 import { arrayOf, displayType, named, generic } from "../blocks/ast";
 
 describe("XML ↔ WASM signatures", () => {
@@ -18,9 +18,11 @@ describe("XML ↔ WASM signatures", () => {
       "(ref $f2_i32_i64_bool)",
     );
     expect(wasmValType(arrayOf(named("i32")))).toBe("(ref $array_i32)");
+    expect(wasmValType(arrayOf(generic("c1", [named("f64")])))).toBe("(ref $array_c1_f64)");
+    expect(wasmHeapTypeName(arrayOf(generic("c1", [named("f64")])))).toBe("array_c1_f64");
   });
 
-  it("control-system blocks match WASM params and results", () => {
+  it("control-system blocks match XML ports as WASM params and results", () => {
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);
     const cat = diagram.catalog();
@@ -28,32 +30,32 @@ describe("XML ↔ WASM signatures", () => {
     expect(blockSignature(cat.block("timer")!)).toEqual({
       id: "timer",
       name: "Timer",
-      params: [{ name: "in", type: "f64" }],
+      params: [{ name: "in", type: "(ref $c1_f64)" }],
       results: [],
     });
     expect(blockSignature(cat.block("quantizer")!)).toEqual({
       id: "quantizer",
       name: "Quantizer",
-      params: [{ name: "in", type: "f64" }],
-      results: [{ name: "out", type: "f64" }],
+      params: [{ name: "in", type: "(ref $c1_f64)" }],
+      results: [{ name: "out", type: "(ref $c1_f64)" }],
     });
     expect(blockSignature(cat.block("sin")!)).toEqual({
       id: "sin",
       name: "Sin",
-      params: [{ name: "in", type: "f64" }],
-      results: [{ name: "out", type: "f64" }],
+      params: [{ name: "in", type: "(ref $c1_f64)" }],
+      results: [{ name: "out", type: "(ref $c1_f64)" }],
     });
     expect(blockSignature(cat.block("cos")!)).toEqual({
       id: "cos",
       name: "Cos",
-      params: [{ name: "in", type: "f64" }],
-      results: [{ name: "out", type: "f64" }],
+      params: [{ name: "in", type: "(ref $c1_f64)" }],
+      results: [{ name: "out", type: "(ref $c1_f64)" }],
     });
     expect(blockSignature(cat.block("oscilloscope")!)).toEqual({
       id: "oscilloscope",
       name: "Oscilloscope",
       params: [],
-      results: [{ name: "out", type: "f64" }],
+      results: [{ name: "out", type: "(ref $array_c1_f64)" }],
     });
     expect(displayType(cat.block("timer")!.inputs[0].ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("quantizer")!.outputs[0].ty, true)).toBe("c<f64>");
@@ -101,10 +103,13 @@ describe("XML ↔ WASM signatures", () => {
     associateFixtureModels(diagram);
     const cat = diagram.catalog();
     expect(signatureWat(blockSignature(cat.block("timer")!))).toBe(
-      "(func $timer (param $ctx i32) (param $in f64)",
+      "(func $timer (param $ctx i32) (param $in (ref $c1_f64))",
     );
     expect(signatureWat(blockSignature(cat.block("sin")!))).toBe(
-      "(func $sin (param $ctx i32) (param $in f64) (result $out f64)",
+      "(func $sin (param $ctx i32) (param $in (ref $c1_f64)) (result $out (ref $c1_f64))",
+    );
+    expect(signatureWat(blockSignature(cat.block("oscilloscope")!))).toBe(
+      "(func $oscilloscope (param $ctx i32) (result $out (ref $array_c1_f64))",
     );
     expect(signatureWat(blockSignature(cat.block("b_decision")!), false)).toBe(
       "(func $b_decision (param $in externref) (result $true externref) (result $false externref)",
