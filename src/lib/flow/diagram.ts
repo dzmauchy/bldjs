@@ -23,7 +23,7 @@ import { AvoidRouteEngine, connectorFromLink, obstacleFromBlock } from "./avoid-
 import { portFromComposedPath, worldPort } from "./layout";
 import type { BldNodeState, NodeLayout, PortPointerDetail } from "./types";
 import "./node";
-import "./connector";
+import { BldConnector } from "./connector";
 
 const LINK_DRAG = 8;
 
@@ -46,6 +46,7 @@ export class BldDiagram extends LitElement {
   #resize: ResizeObserver | null = null;
   #avoid = new AvoidRouteEngine();
   #routes = new Map<string, Point[]>();
+  #flowTimer: ReturnType<typeof setInterval> | null = null;
 
   static override styles = css`
     :host {
@@ -179,6 +180,7 @@ export class BldDiagram extends LitElement {
     }
     void this.updateComplete.then(() => this.#syncHostSize());
     void this.#startAvoidRouter();
+    this.#flowTimer = setInterval(() => this.#syncFlowRates(), 100);
   }
 
   disconnectedCallback(): void {
@@ -191,6 +193,10 @@ export class BldDiagram extends LitElement {
     this.#resize?.disconnect();
     this.#resize = null;
     this.#avoid.destroy();
+    if (this.#flowTimer !== null) {
+      clearInterval(this.#flowTimer);
+      this.#flowTimer = null;
+    }
     super.disconnectedCallback();
   }
 
@@ -243,6 +249,22 @@ export class BldDiagram extends LitElement {
       .filter((link) => this.#layouts.has(link.fromBlock) && this.#layouts.has(link.toBlock))
       .map(connectorFromLink);
     this.#avoid.sync(obstacles, connectors);
+  }
+
+  #syncFlowRates(): void {
+    if (!this.app) {
+      return;
+    }
+    if (this.app.running) {
+      this.app.sampleFlowRates();
+    }
+    for (const host of this.renderRoot.querySelectorAll("bld-connector")) {
+      if (!(host instanceof BldConnector) || host.preview) {
+        continue;
+      }
+      const key = host.getAttribute("data-link");
+      host.hz = key && this.app.running ? this.app.connectorHzForKey(key) : 0;
+    }
   }
 
   #viewportEl(): HTMLDivElement | null {
@@ -629,6 +651,7 @@ export class BldDiagram extends LitElement {
                 .points=${item.points}
                 .crossings=${item.crossings}
                 .selected=${item.selected}
+                .hz=${app.running ? app.connectorHz(item.link) : 0}
                 @linkpointerdown=${() => this.#onLinkPointerDown(item.link)}
               ></bld-connector>
             `,

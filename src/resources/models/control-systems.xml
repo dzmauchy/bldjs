@@ -37,7 +37,7 @@
 
   <block id="quantizer" name="Quantizer" ns="com.dauch.cs" icon="quantizer">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">c&lt;f64&gt; → c&lt;f64&gt;. Parks 10 ms per sample via memory.atomic.wait32.</attribute>
+    <attribute name="description">c&lt;f64&gt; → c&lt;f64&gt;. Adds 10 ms to the generator setInterval per sample.</attribute>
     <factory id="quantizer"/>
     <in name="in" type="c1">
       <t type="f64"/>

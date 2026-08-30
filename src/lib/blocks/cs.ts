@@ -2,7 +2,7 @@ import type { Link } from "./diagram";
 import { catalogPortName, portSlotIndex } from "./ports";
 import { type Stage, assembleModule } from "../runtime/assemble";
 import { SAMPLE_CAP } from "../runtime/memory";
-import { solutionViewFrom } from "../solution/view";
+import { solutionViewFrom, type SolutionViewConnector } from "../solution/view";
 import { WasmSolutionBuilder } from "../solution/wasm";
 
 export const QUANTIZER_DELAY_MS = 10;
@@ -38,7 +38,7 @@ export function timer(c: DoubleConsumer, running: () => boolean, now: () => numb
   }
 }
 
-/** Accepts a sink, returns a sink. Parks `periodNs` after each sample. */
+/** Accepts a sink, returns a sink. Quantizer delay is applied by the generator `setInterval`. */
 export function quantizer(c: DoubleConsumer, periodNs = QUANTIZER_DELAY_MS * 1_000_000): DoubleConsumer {
   return (v) => {
     c(v);
@@ -145,6 +145,7 @@ export interface GeneratorPlan {
 export interface CompiledGenerator extends GeneratorPlan {
   text: string;
   wasm: Uint8Array;
+  connectors: readonly SolutionViewConnector[];
 }
 
 const PUSH_STAGES = new Set<Stage>(["quantizer", "sin", "cos"]);
@@ -256,12 +257,12 @@ export async function assembleGenerator(
   plan: Pick<GeneratorPlan, "delayMs" | "timerId">,
   nodes: NodeSpec[],
   links: Link[],
-): Promise<Uint8Array> {
+): Promise<{ wasm: Uint8Array; connectors: readonly SolutionViewConnector[] }> {
   const assembled = await new WasmSolutionBuilder().build(solutionViewFrom(nodes, links), {
     delayMs: plan.delayMs,
     timerId: plan.timerId,
   });
-  return assembled.wasm;
+  return { wasm: assembled.wasm, connectors: assembled.connectors };
 }
 
 /**
@@ -281,7 +282,7 @@ export async function compileGenerator(
     delayMs: plan.delayMs,
     timerId: plan.timerId,
   });
-  return { ...plan, text: assembled.text, wasm: assembled.wasm };
+  return { ...plan, text: assembled.text, wasm: assembled.wasm, connectors: assembled.connectors };
 }
 
 /** Assemble the catalog block scripts into one module and return binaryen text. */
@@ -334,11 +335,24 @@ export async function compileTimer(
 }
 
 export function spawnTimer(compiled: CompiledTimer, running: { value: boolean }): () => void {
-  if (running.value) {
+  const delay = Math.max(compiled.delayMs, 1);
+  const fire = (): void => {
+    if (!running.value) {
+      return;
+    }
     compiled.emit(nowSecs());
-  }
+  };
+  fire();
+  const interval = setInterval(() => {
+    if (!running.value) {
+      clearInterval(interval);
+      return;
+    }
+    compiled.emit(nowSecs());
+  }, delay);
   return () => {
     running.value = false;
+    clearInterval(interval);
   };
 }
 

@@ -28,6 +28,18 @@ describe("BldConnector", () => {
     expect(Number.parseFloat(link.style.width)).toBeGreaterThan(0);
     expect(Number.parseFloat(link.style.height)).toBeGreaterThan(20);
     expect(link.style.left).toMatch(/px$/);
+    expect(link.hasAttribute("data-flow")).toBe(false);
+  });
+
+  it("animates a dashed stroke from measured connector frequency", async () => {
+    const link = await mountConnector({ from: { x: 0, y: 0 }, to: { x: 80, y: 0 }, hz: 10 });
+    expect(link.hasAttribute("data-flow")).toBe(true);
+    expect(link.dataset.hz).toBe("10");
+    expect(link.style.getPropertyValue("--flow-period")).toBe("100ms");
+    link.hz = 0;
+    await link.updateComplete;
+    expect(link.hasAttribute("data-flow")).toBe(false);
+    expect(link.style.getPropertyValue("--flow-period")).toBe("");
   });
 
   it("updates the path when an endpoint moves with its node", async () => {

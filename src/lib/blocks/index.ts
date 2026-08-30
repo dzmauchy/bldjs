@@ -46,6 +46,7 @@ export {
   type SolutionBuilder,
   WasmSolutionBuilder,
   solutionViewFrom,
+  connectorKey,
 } from "../solution";
 export { Diagram, type Link, type XmlSource, infer } from "./diagram";
 export {

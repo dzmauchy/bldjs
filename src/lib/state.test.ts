@@ -220,6 +220,21 @@ describe("AppState run", () => {
     expect(app.isScopeLive(scopeId)).toBe(false);
   });
 
+  it("seeds connector frequency on run and measures tap counts", async () => {
+    const app = new AppState();
+    const { timerId } = wireCsPipeline(app);
+    await app.runDiagram();
+    const link = app.links.find((item) => item.toBlock === timerId)!;
+    expect(app.connectorHz(link)).toBeGreaterThan(0);
+    const t0 = 1_000;
+    app.sampleFlowRates(t0);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    app.sampleFlowRates(t0 + 40);
+    expect(app.connectorHz(link)).toBeGreaterThan(0);
+    app.stopRun();
+    expect(app.connectorHz(link)).toBe(0);
+  });
+
   it("ignores a second Run until Stop", async () => {
     const app = new AppState();
     const { scopeId } = wireCsPipeline(app);

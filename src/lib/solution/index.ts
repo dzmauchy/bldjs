@@ -11,4 +11,5 @@ export {
   outgoingConnectors,
   solutionViewFrom,
   subgraphFromTimer,
+  connectorKey,
 } from "./view";

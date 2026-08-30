@@ -308,8 +308,14 @@ test.describe("wiring", () => {
     await expect(page.locator('[data-testid="oscilloscope-chart"]')).toHaveAttribute("data-series-count", "1");
     await page.keyboard.press("Escape");
     await expect(page.locator('[data-testid="oscilloscope-modal"]')).toHaveCount(0);
+    await expect.poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count()).toBe(3);
+    const period = await page.locator("bld-connector:not([data-preview])[data-flow]").first().evaluate((el) => {
+      return (el as HTMLElement).style.getPropertyValue("--flow-period");
+    });
+    expect(period).toMatch(/ms$/);
     await page.locator('[data-testid="toolbar-stop"]').click();
     await expect(run).toBeEnabled();
+    await expect(page.locator("bld-connector:not([data-preview])[data-flow]")).toHaveCount(0);
   });
 
   test("opens a multi-axis chart after two vector channels run", async () => {

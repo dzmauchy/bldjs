@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compileGenerator } from "../blocks/cs";
-import { createSharedMemory, readSamples } from "../runtime/memory";
+import { createSharedMemory, readFlowCounts, readSamples } from "../runtime/memory";
 import { instantiateGenerator } from "../runtime/generator";
 import { solutionViewFrom, subgraphFromTimer, instanceName } from "./view";
 import { WasmSolutionBuilder } from "./wasm";
@@ -72,6 +72,7 @@ describe("WasmSolutionBuilder", () => {
     expect(text).toContain("(result (ref $c1_f64))");
     expect(text).toContain("(func $timer");
     expect(text).not.toContain("(param $in f64)");
+    expect(text).toContain("(func $tap_0");
     expect(WebAssembly.validate(wasm.slice().buffer)).toBe(true);
 
     const memory = createSharedMemory();
@@ -79,6 +80,7 @@ describe("WasmSolutionBuilder", () => {
     gen.tick();
     expect(Math.abs(readSamples(memory, 0)[0])).toBeLessThan(1e-9);
     expect(Math.abs(readSamples(memory, 1)[0] - 1)).toBeLessThan(1e-9);
+    expect(readFlowCounts(memory, 4).every((count) => count === 1)).toBe(true);
   });
 
   it("compiles the same pipeline as compileGenerator", async () => {

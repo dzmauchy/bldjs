@@ -34,6 +34,8 @@ import {
   zoomToward,
 } from "./model";
 import { type GeneratorHandle, startGenerator } from "./runtime/generator";
+import { hzFromDelta, intervalMs } from "./runtime/flow";
+import { connectorKey } from "./solution/view";
 
 export interface BlockInstance {
   id: number;
@@ -91,6 +93,9 @@ export class AppState extends EventTarget {
   #scopeChannels = new Map<number, { label: string; ring: number }[]>();
   #runTopology = "";
   #runningOp = 0;
+  #linkHz = new Map<string, number>();
+  #flowPrev = new Map<GeneratorHandle, number[]>();
+  #flowSampleAt = 0;
 
   constructor() {
     super();
@@ -264,6 +269,44 @@ export class AppState extends EventTarget {
     );
   }
 
+  connectorHz(link: { fromBlock: number; fromOut: string; toBlock: number; toIn: string }): number {
+    return this.#linkHz.get(connectorKey(link)) ?? 0;
+  }
+
+  connectorHzForKey(key: string): number {
+    return this.#linkHz.get(key) ?? 0;
+  }
+
+  /** Sample shared-memory tap counters and update per-connector Hertz. */
+  sampleFlowRates(now = performance.now()): void {
+    if (!this.running || this.#generators.size === 0) {
+      return;
+    }
+    if (this.#flowSampleAt === 0) {
+      this.#flowSampleAt = now;
+      for (const handle of this.#generators.values()) {
+        this.#flowPrev.set(handle, handle.readFlowCounts());
+      }
+      return;
+    }
+    const dt = now - this.#flowSampleAt;
+    if (dt <= 0) {
+      return;
+    }
+    this.#flowSampleAt = now;
+    for (const handle of this.#generators.values()) {
+      const counts = handle.readFlowCounts();
+      const prev = this.#flowPrev.get(handle) ?? [];
+      handle.connectors.forEach((link, index) => {
+        const hz = hzFromDelta(prev[index] ?? 0, counts[index] ?? 0, dt);
+        if (hz > 0) {
+          this.#linkHz.set(connectorKey(link), hz);
+        }
+      });
+      this.#flowPrev.set(handle, counts);
+    }
+  }
+
   /** Block ids, definitions, and links — not positions — so moving a block does not restart generators. */
   timerTopologyKey(): string {
     const nodes = this.blocks.map((block) => `${block.id}:${block.defId}`).join(",");
@@ -297,6 +340,9 @@ export class AppState extends EventTarget {
     this.#generators.clear();
     this.#scopeToTimer.clear();
     this.#scopeChannels.clear();
+    this.#linkHz.clear();
+    this.#flowPrev.clear();
+    this.#flowSampleAt = 0;
     this.#runTopology = "";
     this.starting = false;
     this.running = false;
@@ -321,13 +367,17 @@ export class AppState extends EventTarget {
     try {
       const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
       for (const plan of plans) {
-        const wasm = await assembleGenerator(plan, nodes, this.links);
-        const handle = await startGenerator({ wasm, delayMs: plan.delayMs });
+        const { wasm, connectors } = await assembleGenerator(plan, nodes, this.links);
+        const handle = await startGenerator({ wasm, delayMs: plan.delayMs, connectors });
         if (op !== this.#runningOp) {
           handle.stop();
           return;
         }
         this.#generators.set(plan.timerId, handle);
+        const nominalHz = 1000 / intervalMs(plan.delayMs);
+        for (const link of connectors) {
+          this.#linkHz.set(connectorKey(link), nominalHz);
+        }
         plan.channels.forEach((channel, index) => {
           this.#scopeToTimer.set(channel.scopeId, plan.timerId);
           const series = this.#scopeChannels.get(channel.scopeId) ?? [];
