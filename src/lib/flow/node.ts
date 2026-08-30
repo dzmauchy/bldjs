@@ -202,6 +202,12 @@ export class BldNode extends LitElement {
       font-size: 0.7rem;
       color: var(--bs-secondary-color, #adb5bd);
     }
+    .block-port-type {
+      font-size: 0.62rem;
+      color: var(--bs-info, #0dcaf0);
+      font-family: var(--bs-font-monospace, ui-monospace, monospace);
+      white-space: nowrap;
+    }
     .block-port {
       display: inline-block;
       width: 12px;
@@ -219,6 +225,9 @@ export class BldNode extends LitElement {
     }
     .block-port-row.is-linking .block-port {
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--block-accent, #0d6efd) 55%, transparent);
+    }
+    .block-port-row.is-bad .block-port-type {
+      color: var(--bs-danger, #dc3545);
     }
     .block-port-row.is-bad .block-port {
       border-color: var(--bs-danger, #dc3545);
@@ -340,6 +349,7 @@ export class BldNode extends LitElement {
     const meta = html`
       <span class="block-port-meta">
         <span class="block-port-name">${port.vararg ? `${port.name}…` : port.name}</span>
+        <span class="block-port-type">${port.typeLabel}</span>
       </span>
     `;
     return html`
