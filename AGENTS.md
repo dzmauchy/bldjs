@@ -6,7 +6,11 @@ Always check the main branch.
 
 ## Models
 
-When launching subagents, keep the same model as this session. Do not switch to a different model.
+Always use **Grok 4.6 High** at standard (non-Fast) speed for chats, agents, and subagents.
+
+- Do not use Grok 4.6 Fast, `cursor-grok-4.6-high-fast`, or any other Fast variant.
+- When launching subagents, inherit this session's model. Do not switch models.
+- If a tool requires an explicit model slug and Grok 4.6 High (non-Fast) is not listed, use `inherit`. Do not substitute Fast or another model family.
 
 ## Testing
 
