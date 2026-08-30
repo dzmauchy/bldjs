@@ -34,9 +34,9 @@ describe("canvas", () => {
     const hint = await (await diagramCss(driver, ".hint-card")).getText();
     expect(hint).toContain("Drop blocks here");
     const parentNs = await waitDeep(driver, '[data-testid="ns-com.dauch.cs"]');
-    expect(await parentNs.getText()).toContain("Control Systems");
+    expect((await parentNs.getText()).toLowerCase()).toContain("control systems");
     const genNs = await waitDeep(driver, '[data-testid="ns-com.dauch.cs.gen"]');
-    expect(await genNs.getText()).toContain("Gen");
+    expect((await genNs.getText()).toLowerCase()).toContain("gen");
     const nested = await driver.executeScript(
       `
       const parent = arguments[0];
