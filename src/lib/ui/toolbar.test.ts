@@ -57,6 +57,12 @@ describe("BldToolbar", () => {
     expect(runBtn().disabled).toBe(false);
     expect(stopBtn().disabled).toBe(true);
 
+    app.starting = true;
+    await bar.updateComplete;
+    expect(runBtn().disabled).toBe(true);
+    expect(stopBtn().disabled).toBe(false);
+
+    app.starting = false;
     app.running = true;
     await bar.updateComplete;
     expect(runBtn().disabled).toBe(true);

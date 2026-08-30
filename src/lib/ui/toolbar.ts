@@ -149,7 +149,7 @@ export class BldToolbar extends LitElement {
           title="Run"
           aria-label="Run"
           data-testid="toolbar-run"
-          ?disabled=${app.running}
+          ?disabled=${app.runBusy()}
           @click=${() => {
             void app.runDiagram();
           }}
@@ -162,7 +162,7 @@ export class BldToolbar extends LitElement {
           title="Stop"
           aria-label="Stop"
           data-testid="toolbar-stop"
-          ?disabled=${!app.running}
+          ?disabled=${!app.runBusy()}
           @click=${() => app.stopRun()}
         >
           <bld-block-icon name="stop"></bld-block-icon>

@@ -225,12 +225,14 @@ describe("AppState run", () => {
     const { scopeId } = wireCsPipeline(app);
     await app.runDiagram();
     expect(app.running).toBe(true);
+    expect(app.starting).toBe(false);
     expect(app.isScopeLive(scopeId)).toBe(true);
     await app.runDiagram();
     expect(app.running).toBe(true);
     expect(app.isScopeLive(scopeId)).toBe(true);
     app.stopRun();
     expect(app.running).toBe(false);
+    expect(app.starting).toBe(false);
     await app.runDiagram();
     expect(app.running).toBe(true);
     app.stopRun();
