@@ -12,6 +12,7 @@ import {
   inputSlotsFor,
   outputSlotsFor,
 } from "$lib/blocks";
+import { isArrayType } from "$lib/blocks/ast";
 import { shouldShowPortType } from "./link-types";
 import { AppController } from "$lib/context";
 import { GRID_SIZE, clampZoom, zoomToward } from "$lib/model";
@@ -300,6 +301,7 @@ export class BldDiagram extends LitElement {
           name: slot.name,
           typeLabel: typeToString(ty),
           vararg: catalogPort.vararg && slot.index === 0,
+          vectorized: catalogPort.vararg || isArrayType(catalogPort.ty),
           grounded: this.app.inputIsGrounded(block.id, slot.name),
           compatible: resolvedBlock ? isResolvedCompatible(resolvedBlock, slot.catalogName) : true,
           showType: shouldShowPortType(
@@ -321,6 +323,7 @@ export class BldDiagram extends LitElement {
           name: slot.name,
           typeLabel: typeToString(ty),
           vararg: catalogPort.vararg && slot.index === 0,
+          vectorized: catalogPort.vararg || isArrayType(catalogPort.ty),
           linking: linking?.blockId === block.id && linking.port === slot.name,
           showType: shouldShowPortType(
             linking,

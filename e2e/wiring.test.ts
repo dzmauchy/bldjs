@@ -127,12 +127,17 @@ describe("wiring", () => {
     await waitForLinks(driver, "1 link");
     expect(await portNames("oscilloscope", "out")).toEqual(["out"]);
     expect(await portNames("sin", "in")).toEqual(["in"]);
+    const scopeRoot = await (await nodeHost(driver, "oscilloscope")).getShadowRoot();
+    expect(await scopeRoot.findElements(By.css('[data-vector="out"] .block-port-vector-rail'))).toHaveLength(1);
+    expect(await (await scopeRoot.findElement(By.css('[data-vector="out"] .block-port-name'))).getText()).toBe("out");
 
     await clickPortHandle(driver, "oscilloscope", "output-out");
     await clickPortHandle(driver, "cos", "input-in");
     await waitForLinks(driver, "2 links");
     expect(await portNames("oscilloscope", "out")).toEqual(["out", "out[1]"]);
     expect(await portNames("cos", "in")).toEqual(["in"]);
+    expect(await scopeRoot.findElements(By.css('[data-vector="out"] [data-handle]'))).toHaveLength(2);
+    expect(await (await scopeRoot.findElement(By.css('[data-vector="out"] .block-port-name'))).getText()).toBe("out");
 
     await clickPortHandle(driver, "sin", "output-out");
     await clickPortHandle(driver, "timer", "input-in");
@@ -143,6 +148,10 @@ describe("wiring", () => {
     await clickPortHandle(driver, "timer", "input-in");
     await waitForLinks(driver, "4 links");
     expect(await portNames("timer", "in")).toEqual(["in", "in[1]"]);
+    const timerRoot = await (await nodeHost(driver, "timer")).getShadowRoot();
+    expect(await timerRoot.findElements(By.css('[data-vector="in"] .block-port-vector-rail'))).toHaveLength(1);
+    expect(await timerRoot.findElements(By.css('[data-vector="in"] [data-handle]'))).toHaveLength(2);
+    expect(await (await timerRoot.findElement(By.css('[data-vector="in"] .block-port-name'))).getText()).toBe("in");
 
     await clickPortHandle(driver, "oscilloscope", "output-out[1]");
     await clickPortHandle(driver, "cos", "input-in");
@@ -324,8 +333,8 @@ describe("wiring", () => {
     await waitForLinks(driver, "1 link");
     const before = await connectorPath(driver);
     const host = await nodeHost(driver, "oscilloscope");
-    const header = await (await host.getShadowRoot()).findElement(By.css(".flow-node-header"));
-    await driver.actions({ async: true }).dragAndDrop(header, { x: 90, y: 30 }).perform();
+    const icon = await (await host.getShadowRoot()).findElement(By.css(".flow-node-icon"));
+    await driver.actions({ async: true }).dragAndDrop(icon, { x: 90, y: 30 }).perform();
     await driver.wait(async () => (await connectorPath(driver)) !== before, 5000);
   });
 });

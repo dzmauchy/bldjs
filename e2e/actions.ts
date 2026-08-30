@@ -240,10 +240,10 @@ export async function connectorWorldPolylines(driver: WebDriver): Promise<{ x: n
 
 export async function dragNodeBy(driver: WebDriver, defId: string, dx: number, dy: number): Promise<void> {
   const host = await nodeHost(driver, defId);
-  const header = await (await host.getShadowRoot()).findElement(By.css(".flow-node-header"));
+  const icon = await (await host.getShadowRoot()).findElement(By.css(".flow-node-icon"));
   await driver
     .actions({ async: true })
-    .dragAndDrop(header, { x: Math.round(dx), y: Math.round(dy) })
+    .dragAndDrop(icon, { x: Math.round(dx), y: Math.round(dy) })
     .perform();
 }
 
