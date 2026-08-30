@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { BldConnector } from "./connector";
-import { FLOW_PERIODS_MS } from "$lib/runtime/flow";
+import { FLOW_PERIOD_MIN_MS, flowPeriodMs } from "$lib/runtime/flow";
 import "./connector";
 
 async function mountConnector(init: Partial<BldConnector>): Promise<BldConnector> {
@@ -11,58 +11,65 @@ async function mountConnector(init: Partial<BldConnector>): Promise<BldConnector
   return link;
 }
 
+function strokeClip(link: BldConnector): string {
+  return (link.shadowRoot?.querySelector(".path-stroke") as HTMLElement | null)?.style.clipPath ?? "";
+}
+
 describe("BldConnector", () => {
   beforeAll(() => {
     expect(customElements.get("bld-connector")).toBeDefined();
     const cssText = (BldConnector.styles as { cssText: string }).cssText;
-    for (let style = 0; style < 10; style += 1) {
-      expect(cssText).toContain(`[data-flow="${style}"]`);
-      expect(cssText).toContain(`${FLOW_PERIODS_MS[style]}ms`);
-    }
+    expect(cssText).not.toContain("[data-flow=");
+    expect(cssText).toContain("--flow-period");
+    expect(cssText).not.toContain("svg");
   });
 
   afterEach(() => {
     document.body.replaceChildren();
   });
 
-  it("lays out an svg path from world endpoints", async () => {
+  it("lays out a clip-path polygon from world endpoints", async () => {
     const link = await mountConnector({ from: { x: 10, y: 20 }, to: { x: 120, y: 40 } });
-    const d = link.shadowRoot?.querySelector(".path-stroke")?.getAttribute("d") ?? "";
-    expect(d.startsWith("M ")).toBe(true);
-    expect(d).toContain("L ");
-    expect(link.shadowRoot?.querySelector("svg")).not.toBeNull();
+    const clip = strokeClip(link);
+    expect(clip.startsWith("polygon(")).toBe(true);
+    expect(link.shadowRoot?.querySelector("svg")).toBeNull();
+    expect(link.shadowRoot?.querySelector(".path-hit")).not.toBeNull();
     expect(Number.parseFloat(link.style.width)).toBeGreaterThan(0);
     expect(Number.parseFloat(link.style.height)).toBeGreaterThan(20);
     expect(link.style.left).toMatch(/px$/);
     expect(link.hasAttribute("data-flow")).toBe(false);
+    expect(link.dataset.points).toMatch(/10,20/);
   });
 
-  it("picks a logarithmic animating style from measured connector frequency", async () => {
+  it("applies animation duration from measured frequency via inline style", async () => {
     const link = await mountConnector({ from: { x: 0, y: 0 }, to: { x: 80, y: 0 }, hz: 10 });
-    expect(link.getAttribute("data-flow")).toBe("7");
+    expect(link.hasAttribute("data-flow")).toBe(true);
     expect(link.dataset.hz).toBe("10");
+    expect(link.style.getPropertyValue("--flow-period")).toBe(`${flowPeriodMs(10)}ms`);
     link.hz = 100;
     await link.updateComplete;
-    expect(link.getAttribute("data-flow")).toBe("9");
+    expect(link.style.getPropertyValue("--flow-period")).toBe(`${FLOW_PERIOD_MIN_MS}ms`);
     link.hz = 0.1;
     await link.updateComplete;
-    expect(link.getAttribute("data-flow")).toBe("0");
+    expect(link.style.getPropertyValue("--flow-period")).toBe(`${flowPeriodMs(0.1)}ms`);
     link.hz = 1;
     await link.updateComplete;
-    expect(link.getAttribute("data-flow")).toBe("2");
+    expect(link.style.getPropertyValue("--flow-period")).toBe("1000ms");
     link.hz = 0;
     await link.updateComplete;
     expect(link.hasAttribute("data-flow")).toBe(false);
+    expect(link.style.getPropertyValue("--flow-period")).toBe("");
+    expect(link.shadowRoot?.querySelector(".seg")).toBeNull();
   });
 
-  it("updates the path when an endpoint moves with its node", async () => {
+  it("updates the clip-path when an endpoint moves with its node", async () => {
     const link = await mountConnector({ from: { x: 0, y: 40 }, to: { x: 120, y: 40 } });
-    const before = link.shadowRoot?.querySelector(".path-stroke")?.getAttribute("d") ?? "";
+    const before = strokeClip(link);
     link.from = { x: 80, y: 40 };
     await link.updateComplete;
-    const after = link.shadowRoot?.querySelector(".path-stroke")?.getAttribute("d") ?? "";
+    const after = strokeClip(link);
     expect(after).not.toBe(before);
-    expect(after.startsWith("M ")).toBe(true);
+    expect(after.startsWith("polygon(")).toBe(true);
   });
 
   it("marks preview connectors as non-interactive", async () => {
@@ -74,6 +81,7 @@ describe("BldConnector", () => {
     });
     expect(link.hasAttribute("data-preview")).toBe(true);
     expect(link.hasAttribute("data-selected")).toBe(true);
+    expect(link.shadowRoot?.querySelector(".path-stroke")?.classList.contains("is-dashed")).toBe(true);
   });
 
   it("emits linkpointerdown from the hit path", async () => {

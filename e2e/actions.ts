@@ -105,41 +105,25 @@ export async function clickConnector(page: Page): Promise<void> {
 
 export async function connectorPath(page: Page): Promise<string> {
   const stroke = page.locator("bld-connector:not([data-preview]) .path-stroke");
-  return (await stroke.getAttribute("d")) ?? "";
+  return stroke.evaluate((el) => (el as HTMLElement).style.clipPath);
 }
 
 export async function connectorPaths(page: Page): Promise<string[]> {
   return page.locator("bld-connector:not([data-preview]) .path-stroke").evaluateAll((els) =>
-    els.map((el) => el.getAttribute("d") ?? ""),
+    els.map((el) => (el as HTMLElement).style.clipPath),
   );
 }
 
 export async function connectorWorldPolylines(page: Page): Promise<{ x: number; y: number }[][]> {
   return page.evaluate(() => {
-    const parse = (d: string) => {
-      const points: { x: number; y: number }[] = [];
-      const tokens = d.match(/[MLC]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi) || [];
-      let command = "";
-      const nums: number[] = [];
-      const flush = () => {
-        if ((command === "M" || command === "L") && nums.length >= 2) {
-          points.push({ x: nums[nums.length - 2]!, y: nums[nums.length - 1]! });
-        } else if (command === "C" && nums.length >= 6) {
-          points.push({ x: nums[nums.length - 2]!, y: nums[nums.length - 1]! });
-        }
-      };
-      for (const token of tokens) {
-        if (/^[MLCmlc]$/.test(token)) {
-          flush();
-          command = token.toUpperCase();
-          nums.length = 0;
-          continue;
-        }
-        nums.push(Number(token));
-      }
-      flush();
-      return points;
-    };
+    const parse = (raw: string) =>
+      raw
+        .split(" ")
+        .filter(Boolean)
+        .map((token) => {
+          const [x, y] = token.split(",").map(Number);
+          return { x: x ?? 0, y: y ?? 0 };
+        });
     const walk = (root: ParentNode, selector: string): Element | null => {
       const match = root.querySelector(selector);
       if (match) {
@@ -157,12 +141,7 @@ export async function connectorWorldPolylines(page: Page): Promise<{ x: number; 
     };
     const diagram = walk(document, "bld-diagram");
     const hosts = [...(diagram?.shadowRoot?.querySelectorAll("bld-connector:not([data-preview])") ?? [])];
-    return hosts.map((host) => {
-      const d = host.shadowRoot?.querySelector(".path-stroke")?.getAttribute("d") ?? "";
-      const left = Number.parseFloat((host as HTMLElement).style.left) || 0;
-      const top = Number.parseFloat((host as HTMLElement).style.top) || 0;
-      return parse(d).map((point) => ({ x: point.x + left, y: point.y + top }));
-    });
+    return hosts.map((host) => parse((host as HTMLElement).dataset.points ?? ""));
   });
 }
 
