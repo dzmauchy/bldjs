@@ -9,8 +9,10 @@ import {
   isNoneId,
   kindDragKey,
   screenToWorld,
+  wheelZoomFactor,
   worldToScreen,
   zoomToward,
+  zoomViewport,
 } from "./model";
 
 describe("model", () => {
@@ -48,6 +50,22 @@ describe("model", () => {
     expect(clampZoom(0.01)).toBe(MIN_ZOOM);
     expect(clampZoom(99)).toBe(MAX_ZOOM);
     expect(clampZoom(1)).toBe(1);
+  });
+
+  it("converts wheel delta into a clamped zoom factor", () => {
+    expect(wheelZoomFactor(0)).toBe(1);
+    expect(wheelZoomFactor(1000)).toBe(0.8);
+    expect(wheelZoomFactor(-1000)).toBe(1.25);
+  });
+
+  it("zoomViewport keeps the cursor world point", () => {
+    const next = zoomViewport({ panX: 40, panY: 10, zoom: 1 }, 2, 120, 90);
+    expect(next).not.toBeNull();
+    const before = screenToWorld(120, 90, 40, 10, 1);
+    const after = screenToWorld(120, 90, next!.panX, next!.panY, next!.zoom);
+    expect(Math.abs(before[0] - after[0])).toBeLessThan(1e-9);
+    expect(Math.abs(before[1] - after[1])).toBeLessThan(1e-9);
+    expect(zoomViewport({ panX: 0, panY: 0, zoom: MAX_ZOOM }, 2, 0, 0)).toBeNull();
   });
 
   it("none id is negative sentinel", () => {

@@ -113,6 +113,33 @@ export function clampZoom(zoom: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 }
 
+/** Wheel-delta → multiplicative zoom factor used by the canvas. */
+export function wheelZoomFactor(deltaY: number): number {
+  return Math.min(1.25, Math.max(0.8, 1 - deltaY * 0.0015));
+}
+
+export interface Viewport {
+  panX: number;
+  panY: number;
+  zoom: number;
+}
+
+/** Pan/zoom that keeps the cursor's world point fixed. `null` when zoom is unchanged. */
+export function zoomViewport(
+  viewport: Viewport,
+  factor: number,
+  cursorX: number,
+  cursorY: number,
+): Viewport | null {
+  const oldZoom = viewport.zoom;
+  const newZoom = clampZoom(oldZoom * factor);
+  if (Math.abs(newZoom - oldZoom) < Number.EPSILON) {
+    return null;
+  }
+  const [panX, panY] = zoomToward(oldZoom, newZoom, cursorX, cursorY, viewport.panX, viewport.panY);
+  return { panX, panY, zoom: newZoom };
+}
+
 export function screenToWorld(
   screenX: number,
   screenY: number,

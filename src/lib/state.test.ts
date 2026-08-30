@@ -18,6 +18,14 @@ function wireCsPipeline(app: AppState): { timerId: number; scopeId: number } {
 }
 
 describe("AppState placement", () => {
+  it("indexes placed blocks by id", () => {
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("timer", 8, 4);
+    expect(app.block(id)).toEqual({ id, defId: "timer", x: 8, y: 4 });
+    expect(app.block(id + 1)).toBeUndefined();
+  });
+
   it("tiles double-clicked blocks so they do not overlap", () => {
     const app = new AppState();
     app.viewportW = 800;

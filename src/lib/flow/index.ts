@@ -55,3 +55,14 @@ export type {
 export { BldConnector } from "./connector";
 export { BldDiagram } from "./diagram";
 export { BldNode } from "./node";
+export { DiagramInteractionController, LINK_DRAG, type PointerSession } from "./interaction";
+export { DiagramLayoutController } from "./layout-controller";
+export {
+  buildConnectorViews,
+  buildNodeState,
+  linkPushes,
+  paramLine,
+  previewFromPort,
+  type ConnectorView,
+  type NodeViewContext,
+} from "./views";
