@@ -65,11 +65,14 @@ describe("canvas", () => {
   it("places nodes as flex-sized custom elements", async () => {
     await placeBlock(driver, "timer");
     await placeBlock(driver, "fork");
+    await placeBlock(driver, "oscilloscope");
     const timerBox = await (await nodeHost(driver, "timer")).getRect();
     const forkBox = await (await nodeHost(driver, "fork")).getRect();
+    const scopeBox = await (await nodeHost(driver, "oscilloscope")).getRect();
     expect(timerBox.width).toBeGreaterThan(80);
     expect(timerBox.height).toBeGreaterThan(40);
-    expect(forkBox.height).toBeGreaterThan(timerBox.height - 1);
+    expect(forkBox.height).toBeGreaterThan(40);
+    expect(forkBox.height).toBeGreaterThan(scopeBox.height);
     const tag = await (await nodeHost(driver, "timer")).getTagName();
     expect(tag).toBe("bld-node");
   });

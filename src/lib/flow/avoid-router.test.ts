@@ -88,6 +88,24 @@ describe("avoid router mapping", () => {
     expect(positions[jointPortId("in", "elems")]).toMatchObject({ x: 0, y: 50 });
     expect(positions[jointPortId("out", "value")]).toMatchObject({ x: 80, y: 28 });
   });
+
+  it("snaps a bottom-place pin to the block's bottom edge", () => {
+    const obstacle = obstacleFromBlock(4, 0, 0, {
+      width: 160,
+      height: 90,
+      ports: {
+        in: { sync: { x: 80, y: 82, place: "bottom" } },
+        out: { out: { x: 80, y: 8, place: "top" } },
+      },
+    });
+    expect(obstacle?.ports).toEqual([
+      { side: "out", name: "out", x: 80, y: 0 },
+      { side: "in", name: "sync", x: 80, y: 90 },
+    ]);
+    const positions = elementFromObstacle(obstacle!).getPortsPositions("pin");
+    expect(positions[jointPortId("out", "out")]).toMatchObject({ x: 80, y: 0 });
+    expect(positions[jointPortId("in", "sync")]).toMatchObject({ x: 80, y: 90 });
+  });
 });
 
 describe("avoid router engine", () => {
