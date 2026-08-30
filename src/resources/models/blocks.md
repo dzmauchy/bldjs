@@ -126,13 +126,15 @@ When defining a `<param>`, use `<extends>` and `<super>` to bound the generic va
 `<in>` ports and `<out>` ports carry language-agnostic types. Control Systems uses a pure push model: every consumer is `DoubleConsumer` (`c<f64>`). Compact display writes `c1` as `c`. The WASM runtime still lowers each sample port to first-order f64.
 
 ```
-timer(c)           : c<f64> → void
-quantizer(c)       : c<f64> → c<f64>
+timer(c)           : c<f64> → void     (requires Quantizer on the bottom)
+quantizer          : virtual synchronizer attached under Timer
 sin(c) / cos(c)    : c<f64> → c<f64>
-oscilloscope()     : c<f64>            (the plot sink)
+fork(d1, d2)       : c<f64> → c<f64>   (fans one sample to two sinks)
+oscilloscope()     : c<f64>            (virtual meter; attach under a block)
 ```
 
-Composition is `timer(sin(quantizer(plot)))`. Wire Oscilloscope → Quantizer → Sin (or Cos) → Timer.
+Composition is `timer(quantizer(sin(plot)))` or `timer(quantizer(fork(sin(plot1), cos(plot2))))`.
+Oscilloscope and Quantizer are virtual: their connector sits on top and plugs into a bottom port.
 
 ```xml
 <type name="c1">
@@ -160,7 +162,7 @@ Composition is `timer(sin(quantizer(plot)))`. Wire Oscilloscope → Quantizer �
 </block>
 ```
 
-Run runs each runtime block's binaryen.js script from `resources/binaryen/blocks` to build one module, then emits wasm-gc (`call_ref`). Catalog ports are the push-model I/O (`c<f64>`); the WASM sample pipeline stays first-order (`timer` produces f64, `oscilloscope` consumes f64). Each Timer worker parks with `memory.atomic.wait32` on a SharedArrayBuffer.
+Run runs each runtime block's binaryen.js script from `src/lib/runtime/binaryen/blocks` to build one module, then emits wasm-gc (`call_ref`). Catalog ports are the push-model I/O (`c<f64>`); the WASM sample pipeline stays first-order (`timer` produces f64, `oscilloscope` consumes f64). Each Timer worker parks with `memory.atomic.wait32` on a SharedArrayBuffer. Port types are shown only as a hover hint on the handle.
 
 ### A. Varargs (`array#of`)
 Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.

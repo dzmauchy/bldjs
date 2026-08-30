@@ -11,7 +11,7 @@ import {
   typesEqual,
   unbounded,
 } from "./ast";
-import { CONTROL_SYSTEMS_XML, FLOW_XML, TYPES_XML, associateBuiltinModels } from "./builtin";
+import { CONTROL_SYSTEMS_XML, TYPES_XML, associateBuiltinModels } from "./builtin";
 import { Catalog } from "./catalog";
 import { isCompatible } from "./compat";
 import {
@@ -21,6 +21,7 @@ import {
   compileTimer,
   cos,
   generatorText,
+  fork,
   oscilloscope,
   quantizer,
   sin,
@@ -41,11 +42,50 @@ function g(name: string, args: TypeExpr[]): TypeExpr {
   return generic(name, args);
 }
 
+const TEST_LIB_XML = `
+  <blocks id="testlib" name="Test Lib">
+    <namespace id="types" name="Types"/>
+    <namespace id="flow" name="Flow"/>
+    <block id="b_f64" name="f64" ns="types"><out name="value" type="f64"/></block>
+    <block id="b_i32" name="i32" ns="types"><out name="value" type="i32"/></block>
+    <block id="b_array_of" name="array" ns="types">
+      <param name="T"/>
+      <in name="elems" type="T" vararg="true"/>
+      <out name="result" type="[]"><t type="T"/></out>
+    </block>
+    <block id="b_array_get" name="array.get" ns="types">
+      <param name="T"/>
+      <in name="array" type="[]"><t type="T"/></in>
+      <in name="index" type="i32"/>
+      <out name="elem" type="T"/>
+    </block>
+    <block id="b_process" name="Process" ns="flow">
+      <param name="T"/>
+      <in name="in" type="T"/>
+      <out name="out" type="T"/>
+    </block>
+    <block id="b_identity" name="Identity" ns="flow">
+      <param name="T"/>
+      <in name="in" type="T"/>
+      <out name="out" type="T"/>
+    </block>
+    <block id="b_start" name="Start" ns="flow">
+      <param name="T"/>
+      <out name="out" type="T"/>
+    </block>
+  </blocks>
+`;
+
 function catalog(): Catalog {
   const next = new Catalog();
   next.addXml("types.xml", TYPES_XML);
-  next.addXml("flow.xml", FLOW_XML);
   next.addXml("control-systems.xml", CONTROL_SYSTEMS_XML);
+  return next;
+}
+
+function catalogWithLib(): Catalog {
+  const next = catalog();
+  next.addXml("test-lib.xml", TEST_LIB_XML);
   return next;
 }
 
@@ -76,7 +116,7 @@ describe("blocks", () => {
   });
 
   it("builtin catalogs declare blocks.xsd", () => {
-    for (const xml of [TYPES_XML, FLOW_XML, CONTROL_SYSTEMS_XML]) {
+    for (const xml of [TYPES_XML, CONTROL_SYSTEMS_XML]) {
       expect(xml).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
       expect(xml).toContain('xsi:noNamespaceSchemaLocation="blocks.xsd"');
     }
@@ -190,9 +230,11 @@ describe("blocks", () => {
 
   it("builtin models merge", () => {
     const cat = catalog();
-    expect(cat.block("b_array_of")).toBeDefined();
-    expect(cat.block("b_start")).toBeDefined();
     expect(cat.block("timer")).toBeDefined();
+    expect(cat.block("fork")).toBeDefined();
+    expect(cat.block("b_array_of")).toBeUndefined();
+    expect(cat.namespaceLabel("meters")).toBe("Meters");
+    expect(cat.namespaceLabel("synchronizers")).toBe("Synchronizers");
     expect(cat.findType("c1")).toBeDefined();
     expect(cat.findType("f64")).toBeDefined();
     expect(cat.findType("[]")).toBeDefined();
@@ -203,7 +245,7 @@ describe("blocks", () => {
     expect(cat.findType("c1")?.attributes.find((attribute) => attribute.name === "wasm")?.value).toBe(
       "(func (param T))",
     );
-    expect(cat.sources().length).toBe(3);
+    expect(cat.sources().length).toBe(2);
   });
 
   it("array of f64 is compatible with array wildcard", () => {
@@ -261,7 +303,7 @@ describe("blocks", () => {
 
   it("infer array of from f64 grounding", () => {
     const resolved = resolveBlock(
-      catalog(),
+      catalogWithLib(),
       "b_array_of",
       new Map([["elems", { kind: "single", ty: t("f64") }]]),
     );
@@ -272,7 +314,7 @@ describe("blocks", () => {
 
   it("infer array of vararg union", () => {
     const resolved = resolveBlock(
-      catalog(),
+      catalogWithLib(),
       "b_array_of",
       new Map([["elems", { kind: "varargs", items: [t("f64"), t("i32")] }]]),
     );
@@ -317,13 +359,13 @@ describe("blocks", () => {
   });
 
   it("unbound param grounds to wildcard", () => {
-    const resolved = resolveBlock(catalog(), "b_process", new Map());
+    const resolved = resolveBlock(catalogWithLib(), "b_process", new Map());
     expectType(resolvedOutput(resolved, "out"), unbounded());
   });
 
   it("process identity from array", () => {
     const resolved = resolveBlock(
-      catalog(),
+      catalogWithLib(),
       "b_process",
       new Map([["in", { kind: "single", ty: arrayOf(t("f64")) }]]),
     );
@@ -332,7 +374,7 @@ describe("blocks", () => {
 
   it("array get infers element type", () => {
     const resolved = resolveBlock(
-      catalog(),
+      catalogWithLib(),
       "b_array_get",
       new Map([
         ["array", { kind: "single", ty: arrayOf(t("f64")) }],
@@ -433,6 +475,7 @@ describe("blocks", () => {
   it("diagram associates multiple xml files and grounds inputs", () => {
     const diagram = new Diagram("d1", "Demo");
     associateBuiltinModels(diagram);
+    diagram.associateXml("test-lib.xml", TEST_LIB_XML);
     expect(diagram.sources().length).toBe(3);
 
     const f64Id = diagram.addNode("b_f64");
@@ -454,6 +497,7 @@ describe("blocks", () => {
   it("diagram chain grounds through identity", () => {
     const diagram = new Diagram("d2", "Chain");
     associateBuiltinModels(diagram);
+    diagram.associateXml("test-lib.xml", TEST_LIB_XML);
     const f64Id = diagram.addNode("b_f64");
     const identId = diagram.addNode("b_identity");
     const arrayId = diagram.addNode("b_array_of");
@@ -465,10 +509,11 @@ describe("blocks", () => {
   it("dissociate xml rebuilds catalog", () => {
     const diagram = new Diagram("d3", "Drop");
     associateBuiltinModels(diagram);
+    diagram.associateXml("test-lib.xml", TEST_LIB_XML);
     diagram.addNode("b_array_of");
-    diagram.dissociateXml("types.xml");
+    diagram.dissociateXml("test-lib.xml");
     expect(diagram.catalog().block("b_array_of")).toBeUndefined();
-    expect(diagram.catalog().block("b_start")).toBeDefined();
+    expect(diagram.catalog().block("timer")).toBeDefined();
     expect(diagram.nodes().length).toBe(0);
   });
 
@@ -497,18 +542,25 @@ describe("blocks", () => {
   it("control systems model and types", () => {
     const cat = catalog();
     const timerBlock = cat.block("timer")!;
-    expect(timerBlock.inputs.length).toBe(1);
+    expect(timerBlock.inputs.length).toBe(2);
     expect(timerBlock.outputs.length).toBe(0);
     expect(displayType(timerBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
+    expect(timerBlock.inputs.find((port) => port.name === "sync")!.attributes.find((a) => a.name === "side")?.value).toBe(
+      "bottom",
+    );
     expect(timerBlock.inputs.find((port) => port.name === "in")!.attributes.find((a) => a.name === "wasm")?.value).toBe(
       "f64",
     );
     expect(timerBlock.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
     const scope = cat.block("oscilloscope")!;
     expect(scope.inputs.length).toBe(0);
+    expect(scope.attributes.find((a) => a.name === "virtual")?.value).toBe("true");
     expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
-    expect(displayType(cat.block("quantizer")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
+    expect(cat.block("quantizer")!.inputs.length).toBe(0);
+    expect(cat.block("quantizer")!.attributes.find((a) => a.name === "virtual")?.value).toBe("true");
     expect(displayType(cat.block("quantizer")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
+    expect(displayType(cat.block("fork")!.inputs.find((port) => port.name === "d1")!.ty, true)).toBe("c<f64>");
+    expect(displayType(cat.block("fork")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("cos")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
@@ -561,9 +613,9 @@ describe("blocks", () => {
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" },
-      { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
       { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "sync" },
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.scopeId).toBe(1);
@@ -595,9 +647,9 @@ describe("blocks", () => {
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" },
-      { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
       { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "sync" },
     ];
     const buffers = new Map<number, SampleBuf>([[1, new SampleBuf()]]);
     const compiled = (await compileTimer(4, nodes, links, buffers))!;
@@ -613,15 +665,53 @@ describe("blocks", () => {
     const nodes = [
       { id: 1, defId: "oscilloscope" },
       { id: 2, defId: "cos" },
+      { id: 3, defId: "quantizer" },
+      { id: 4, defId: "timer" },
+    ];
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "sync" },
+    ];
+    const compiled = (await compileGenerator(4, nodes, links))!;
+    expect(compiled.stages).toEqual(["quantizer", "cos"]);
+    expect(compiled.text).toContain("ref.func $cos");
+  });
+
+  it("compile timer needs quantizer on the bottom", async () => {
+    const nodes = [
+      { id: 1, defId: "oscilloscope" },
+      { id: 2, defId: "sin" },
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
       { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
       { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
     ];
-    const compiled = (await compileGenerator(4, nodes, links))!;
-    expect(compiled.stages).toEqual(["cos"]);
-    expect(compiled.text).toContain("ref.func $cos");
+    expect(await compileGenerator(4, nodes, links)).toBeUndefined();
+  });
+
+  it("compile fork fans a sample to two sinks", async () => {
+    const nodes = [
+      { id: 1, defId: "oscilloscope" },
+      { id: 2, defId: "oscilloscope" },
+      { id: 3, defId: "fork" },
+      { id: 4, defId: "quantizer" },
+      { id: 5, defId: "timer" },
+    ];
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "d1" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "d2" },
+      { fromBlock: 3, fromOut: "out", toBlock: 5, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 5, toIn: "sync" },
+    ];
+    const compiled = (await compileGenerator(5, nodes, links))!;
+    expect(compiled.sink).toEqual({
+      kind: "quantizer",
+      then: { kind: "fork", d1: { kind: "scope" }, d2: { kind: "scope" } },
+    });
+    expect(compiled.text).toContain("ref.func $fork");
+    expect(compiled.scopeIds).toEqual([1, 2]);
   });
 
   it("compile timer needs oscilloscope", async () => {
@@ -629,7 +719,7 @@ describe("blocks", () => {
       { id: 3, defId: "quantizer" },
       { id: 4, defId: "timer" },
     ];
-    const links: Link[] = [{ fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" }];
+    const links: Link[] = [{ fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "sync" }];
     expect(await compileGenerator(4, nodes, links)).toBeUndefined();
     expect(await compileTimer(4, nodes, links, new Map())).toBeUndefined();
   });
@@ -641,17 +731,16 @@ describe("blocks", () => {
     const quantizerId = diagram.addNode("quantizer");
     const sinId = diagram.addNode("sin");
     const scopeId = diagram.addNode("oscilloscope");
-    diagram.addLink(scopeId, "out", quantizerId, "in");
-    diagram.addLink(quantizerId, "out", sinId, "in");
+    diagram.addLink(scopeId, "out", sinId, "in");
     diagram.addLink(sinId, "out", timerId, "in");
+    diagram.addLink(quantizerId, "out", timerId, "sync");
 
     const timerResolved = diagram.resolveNode(timerId)!;
     expect(timerResolved.compatible.get("in") ?? true).toBe(true);
+    expect(timerResolved.compatible.get("sync") ?? true).toBe(true);
     expect(displayType(timerResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
 
     const quantizerResolved = diagram.resolveNode(quantizerId)!;
-    expect(quantizerResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(quantizerResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
     expect(displayType(quantizerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
 
     const sinResolved = diagram.resolveNode(sinId)!;
@@ -675,6 +764,7 @@ describe("blocks", () => {
   it("array is incompatible with an f64 sample port", () => {
     const diagram = new Diagram("cs", "Skip");
     associateBuiltinModels(diagram);
+    diagram.associateXml("test-lib.xml", TEST_LIB_XML);
     const tableId = diagram.addNode("b_array_of");
     const sinId = diagram.addNode("sin");
     diagram.addLink(tableId, "result", sinId, "in");
@@ -694,6 +784,17 @@ describe("blocks", () => {
     timer(sin(quantizer(oscilloscope((value) => out.push(value)), 0)), running, () => Math.PI / 2);
     expect(out).toHaveLength(1);
     expect(Math.abs(out[0] - 1)).toBeLessThan(1e-9);
+  });
+
+  it("fork sends one sample to two sinks", () => {
+    const left: number[] = [];
+    const right: number[] = [];
+    fork(
+      (value) => left.push(value),
+      (value) => right.push(value),
+    )(0.5);
+    expect(left).toEqual([0.5]);
+    expect(right).toEqual([0.5]);
   });
 
   it("spawn timer emits until stopped", () => {

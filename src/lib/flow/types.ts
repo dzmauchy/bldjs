@@ -1,10 +1,13 @@
+import type { PortPlace } from "$lib/blocks";
 import type { Point } from "./geometry";
 
 export type PortSide = "in" | "out";
+export type { PortPlace };
 
 export interface PortView {
   name: string;
   typeLabel: string;
+  place: PortPlace;
   vararg: boolean;
   grounded?: boolean;
   compatible?: boolean;
@@ -34,7 +37,9 @@ export interface PortPointerDetail {
   pointerId: number;
 }
 
-export interface PortAnchor extends Point {}
+export interface PortAnchor extends Point {
+  place?: PortPlace;
+}
 
 export interface NodeLayout {
   width: number;

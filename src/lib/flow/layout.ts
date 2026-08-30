@@ -1,5 +1,13 @@
+import type { PortPlace } from "$lib/blocks";
 import type { Point } from "./geometry";
 import type { NodeLayout, PortSide } from "./types";
+
+function parsePlace(value: string | undefined, side: PortSide): PortPlace {
+  if (value === "top" || value === "bottom" || value === "left" || value === "right") {
+    return value;
+  }
+  return side === "in" ? "left" : "right";
+}
 
 export function worldPort(
   block: { x: number; y: number } | undefined,
@@ -38,10 +46,12 @@ export function measureHostLayout(host: HTMLElement): NodeLayout {
     if ((side !== "in" && side !== "out") || !name) {
       continue;
     }
+    const place = parsePlace(row.dataset.place, side);
     const rect = handle.getBoundingClientRect();
     ports[side][name] = {
       x: Math.round((rect.left + rect.width / 2 - hostRect.left) / scaleX),
       y: Math.round((rect.top + rect.height / 2 - hostRect.top) / scaleY),
+      place,
     };
   }
   return { width, height, ports };

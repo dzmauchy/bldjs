@@ -1,4 +1,15 @@
-export { type BlockDef, arrayOf, blockAttribute, blockInput, blockOutput, displayType, typeToString } from "./ast";
+export {
+  type BlockDef,
+  type PortPlace,
+  arrayOf,
+  blockAttribute,
+  blockInput,
+  blockIsVirtual,
+  blockOutput,
+  displayType,
+  portPlace,
+  typeToString,
+} from "./ast";
 export { associateBuiltinModels } from "./builtin";
 export { blockSignature, signatureWat, wasmValType } from "../runtime/signatures";
 export { assembleModule, assembleWasm, assembleWat } from "../runtime/assemble";
@@ -19,6 +30,7 @@ export {
   generatorWat,
   planGenerator,
   cos,
+  fork,
   oscilloscope,
   quantizer,
   sin,

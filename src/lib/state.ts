@@ -283,7 +283,7 @@ export class AppState extends EventTarget {
     const plans = this.plannedGenerators();
     this.stopRun();
     if (plans.length === 0) {
-      this.runError = "Wire an Oscilloscope through to a Timer, then Run.";
+      this.runError = "Attach Quantizer under Timer and a meter under a block, then Run.";
       return;
     }
     const op = this.#runningOp;
@@ -296,7 +296,9 @@ export class AppState extends EventTarget {
           return;
         }
         this.#generators.set(plan.timerId, handle);
-        this.#scopeToTimer.set(plan.scopeId, plan.timerId);
+        for (const scopeId of plan.scopeIds) {
+          this.#scopeToTimer.set(scopeId, plan.timerId);
+        }
       }
       this.#runTopology = topology;
       this.runError = null;

@@ -32,6 +32,25 @@ export interface RouteConnector {
   targetPort: string;
 }
 
+function snapAnchor(
+  side: PortSide,
+  name: string,
+  anchor: { x: number; y: number; place?: string },
+  layout: NodeLayout,
+): RoutePort {
+  const place = anchor.place ?? (side === "in" ? "left" : "right");
+  switch (place) {
+    case "top":
+      return { side, name, x: anchor.x, y: 0 };
+    case "bottom":
+      return { side, name, x: anchor.x, y: layout.height };
+    case "right":
+      return { side, name, x: layout.width, y: anchor.y };
+    default:
+      return { side, name, x: 0, y: anchor.y };
+  }
+}
+
 export function jointPortId(side: PortSide, name: string): string {
   return `${side}:${name}`;
 }
@@ -47,13 +66,10 @@ export function obstacleFromBlock(
   }
   const ports: RoutePort[] = [];
   for (const [name, anchor] of Object.entries(layout.ports.out)) {
-    ports.push({ side: "out", name, x: layout.width, y: anchor.y });
+    ports.push(snapAnchor("out", name, anchor, layout));
   }
   for (const [name, anchor] of Object.entries(layout.ports.in)) {
-    // Snap to the left edge. Avoid picks connectionDirection via
-    // sideNearestToPoint; an inset handle near the bottom of a short
-    // block is closer to the bottom than the left, so routes attach there.
-    ports.push({ side: "in", name, x: 0, y: anchor.y });
+    ports.push(snapAnchor("in", name, anchor, layout));
   }
   return { id: String(id), x, y, width: layout.width, height: layout.height, ports };
 }

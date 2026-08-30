@@ -1,5 +1,10 @@
 import type { Link } from "./diagram";
-import { type Stage, assembleModule, assembleWasm } from "../runtime/assemble";
+import {
+  type Stage,
+  type TickSink,
+  assembleModule,
+  assembleWasm,
+} from "../runtime/assemble";
 import { SAMPLE_CAP } from "../runtime/memory";
 
 export const QUANTIZER_DELAY_MS = 10;
@@ -58,6 +63,14 @@ export function oscilloscope(plot: DoubleConsumer): DoubleConsumer {
   return plot;
 }
 
+/** Fan one sample out to two sinks: `c<f64> fork(c<f64> d1, c<f64> d2)`. */
+export function fork(d1: DoubleConsumer, d2: DoubleConsumer): DoubleConsumer {
+  return (value) => {
+    d1(value);
+    d2(value);
+  };
+}
+
 function parkNanos(periodNs: number): void {
   if (periodNs <= 0) {
     return;
@@ -102,8 +115,10 @@ export interface NodeSpec {
 export interface GeneratorPlan {
   timerId: number;
   scopeId: number;
+  scopeIds: number[];
   delayMs: number;
   stages: Stage[];
+  sink: TickSink;
 }
 
 export interface CompiledGenerator extends GeneratorPlan {
@@ -111,51 +126,79 @@ export interface CompiledGenerator extends GeneratorPlan {
   wasm: Uint8Array;
 }
 
-const PUSH_STAGES = new Set<Stage>(["quantizer", "sin", "cos"]);
+function linearStages(sink: TickSink): Stage[] {
+  const stages: Stage[] = [];
+  let cursor: TickSink = sink;
+  while (cursor.kind !== "scope" && cursor.kind !== "fork") {
+    stages.push(cursor.kind);
+    cursor = cursor.then;
+  }
+  return stages;
+}
 
-/** Walk Oscilloscope → … → Timer (sink flow). Does not compile WASM. */
+/** Walk Timer ← … ← Oscilloscope (sink flow). Quantizer must sit on Timer.sync. */
 export function planGenerator(timerId: number, nodes: NodeSpec[], links: Link[]): GeneratorPlan | undefined {
   const defOf = (id: number): string | undefined => nodes.find((node) => node.id === id)?.defId;
   const incoming = (to: number, port: string): Link | undefined =>
     links.find((link) => link.toBlock === to && link.toIn === port);
 
-  const stages: Stage[] = [];
-  let cursor = timerId;
-  let scopeId: number | undefined;
-  for (let i = 0; i < 64; i += 1) {
-    const link = incoming(cursor, "in");
-    if (!link) {
-      break;
-    }
-    const fromDef = defOf(link.fromBlock);
-    if (!fromDef) {
-      return undefined;
-    }
-    if (PUSH_STAGES.has(fromDef as Stage)) {
-      stages.unshift(fromDef as Stage);
-      cursor = link.fromBlock;
-    } else if (fromDef === "oscilloscope") {
-      scopeId = link.fromBlock;
-      break;
-    } else {
-      break;
-    }
-  }
-  if (scopeId === undefined) {
+  const sync = incoming(timerId, "sync");
+  if (!sync || defOf(sync.fromBlock) !== "quantizer") {
     return undefined;
   }
-  let delayMs = 0;
-  for (const stage of stages) {
-    if (stage === "quantizer") {
-      delayMs += QUANTIZER_DELAY_MS;
+
+  const scopeIds: number[] = [];
+  const walk = (id: number): TickSink | undefined => {
+    const def = defOf(id);
+    if (def === "oscilloscope") {
+      scopeIds.push(id);
+      return { kind: "scope" };
     }
+    if (def === "sin" || def === "cos") {
+      const link = incoming(id, "in");
+      if (!link) {
+        return undefined;
+      }
+      const then = walk(link.fromBlock);
+      return then ? { kind: def, then } : undefined;
+    }
+    if (def === "fork") {
+      const d1 = incoming(id, "d1");
+      const d2 = incoming(id, "d2");
+      if (!d1 || !d2) {
+        return undefined;
+      }
+      const left = walk(d1.fromBlock);
+      const right = walk(d2.fromBlock);
+      return left && right ? { kind: "fork", d1: left, d2: right } : undefined;
+    }
+    return undefined;
+  };
+
+  const input = incoming(timerId, "in");
+  if (!input) {
+    return undefined;
   }
-  return { timerId, scopeId, delayMs, stages };
+  const inner = walk(input.fromBlock);
+  if (!inner || scopeIds.length === 0) {
+    return undefined;
+  }
+  const sink: TickSink = { kind: "quantizer", then: inner };
+  return {
+    timerId,
+    scopeId: scopeIds[0],
+    scopeIds,
+    delayMs: QUANTIZER_DELAY_MS,
+    stages: linearStages(sink),
+    sink,
+  };
 }
 
 /** Run each block's binaryen.js script and emit wasm for this pipeline. */
-export async function assembleGenerator(plan: Pick<GeneratorPlan, "stages" | "delayMs">): Promise<Uint8Array> {
-  return assembleWasm({ stages: plan.stages, delayMs: plan.delayMs });
+export async function assembleGenerator(
+  plan: Pick<GeneratorPlan, "stages" | "delayMs" | "sink">,
+): Promise<Uint8Array> {
+  return assembleWasm({ stages: plan.stages, sink: plan.sink, delayMs: plan.delayMs });
 }
 
 /**
@@ -205,15 +248,21 @@ export async function compileTimer(
   if (!buf) {
     return undefined;
   }
-  let emit: F64Func = (value) => buf.push(value);
-  for (const stage of [...compiled.stages].reverse()) {
-    if (stage === "sin") {
-      emit = sin(emit);
-    } else if (stage === "cos") {
-      emit = cos(emit);
+  const emitFrom = (node: TickSink, plot: F64Func): F64Func => {
+    switch (node.kind) {
+      case "scope":
+        return plot;
+      case "sin":
+        return sin(emitFrom(node.then, plot));
+      case "cos":
+        return cos(emitFrom(node.then, plot));
+      case "quantizer":
+        return emitFrom(node.then, plot);
+      case "fork":
+        return fork(emitFrom(node.d1, plot), emitFrom(node.d2, plot));
     }
-  }
-  return { emit, delayMs: compiled.delayMs };
+  };
+  return { emit: emitFrom(compiled.sink, (value) => buf.push(value)), delayMs: compiled.delayMs };
 }
 
 export function spawnTimer(compiled: CompiledTimer, running: { value: boolean }): () => void {

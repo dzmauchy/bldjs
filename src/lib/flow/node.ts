@@ -2,7 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { renderIconSvg } from "./icons";
 import { measureHostLayout, portFromComposedPath } from "./layout";
-import type { BldNodeState, NodeLayout, PortPointerDetail, PortSide, PortView } from "./types";
+import type { BldNodeState, NodeLayout, PortPlace, PortPointerDetail, PortSide, PortView } from "./types";
 
 export class BldNode extends LitElement {
   static override properties = {
@@ -61,6 +61,12 @@ export class BldNode extends LitElement {
     }
     :host(.block-kind-output) {
       --block-accent: var(--bs-danger, #dc3545);
+    }
+    :host(.block-kind-meter) {
+      --block-accent: var(--bs-info, #0dcaf0);
+    }
+    :host(.block-kind-sync) {
+      --block-accent: var(--bs-warning, #ffc107);
     }
     .flow-node {
       display: flex;
@@ -131,6 +137,21 @@ export class BldNode extends LitElement {
       padding: 2px 6px 8px;
       flex: 1 1 auto;
     }
+    .flow-node-ports-top,
+    .flow-node-ports-bottom {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      padding: 0 6px;
+      flex: 0 0 auto;
+    }
+    .flow-node-ports-top {
+      padding-top: 4px;
+    }
+    .flow-node-ports-bottom {
+      padding-bottom: 4px;
+    }
     .flow-node-port-col {
       display: flex;
       flex-direction: column;
@@ -162,6 +183,16 @@ export class BldNode extends LitElement {
       text-align: right;
       justify-content: flex-end;
     }
+    .block-port-row.is-top,
+    .block-port-row.is-bottom {
+      flex-direction: column;
+      width: auto;
+      text-align: center;
+      justify-content: center;
+    }
+    .block-port-row.is-bottom {
+      flex-direction: column-reverse;
+    }
     .block-port-hint {
       position: absolute;
       top: calc(100% + 2px);
@@ -184,6 +215,12 @@ export class BldNode extends LitElement {
       left: auto;
       right: 0;
     }
+    .block-port-row.is-top .block-port-hint,
+    .block-port-row.is-bottom .block-port-hint {
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
+    }
     .block-port-row:hover .block-port-hint,
     .block-port-row:focus-visible .block-port-hint {
       visibility: visible;
@@ -202,12 +239,6 @@ export class BldNode extends LitElement {
       font-size: 0.7rem;
       color: var(--bs-secondary-color, #adb5bd);
     }
-    .block-port-type {
-      font-size: 0.62rem;
-      color: var(--bs-info, #0dcaf0);
-      font-family: var(--bs-font-monospace, ui-monospace, monospace);
-      white-space: nowrap;
-    }
     .block-port {
       display: inline-block;
       width: 12px;
@@ -225,9 +256,6 @@ export class BldNode extends LitElement {
     }
     .block-port-row.is-linking .block-port {
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--block-accent, #0d6efd) 55%, transparent);
-    }
-    .block-port-row.is-bad .block-port-type {
-      color: var(--bs-danger, #dc3545);
     }
     .block-port-row.is-bad .block-port {
       border-color: var(--bs-danger, #dc3545);
@@ -322,6 +350,10 @@ export class BldNode extends LitElement {
     this.dispatchEvent(new CustomEvent("chartclick", { bubbles: true, composed: true }));
   };
 
+  #portsAt(ports: PortView[], _side: PortSide, place: PortPlace): PortView[] {
+    return ports.filter((port) => port.place === place);
+  }
+
   #portTestId(side: PortSide, name: string): string {
     return `${side === "in" ? "input" : "output"}-${name}`;
   }
@@ -330,6 +362,7 @@ export class BldNode extends LitElement {
     return [
       "block-port-row",
       `is-${side}`,
+      `is-${port.place}`,
       port.grounded ? "is-grounded" : "",
       port.linking ? "is-linking" : "",
       port.compatible === false ? "is-bad" : "",
@@ -349,21 +382,27 @@ export class BldNode extends LitElement {
     const meta = html`
       <span class="block-port-meta">
         <span class="block-port-name">${port.vararg ? `${port.name}…` : port.name}</span>
-        <span class="block-port-type">${port.typeLabel}</span>
       </span>
     `;
+    const body =
+      port.place === "top" || port.place === "bottom"
+        ? html`${handle}${meta}`
+        : side === "in"
+          ? html`${handle}${meta}`
+          : html`${meta}${handle}`;
     return html`
       <button
         class=${this.#portClass(port, side)}
         type="button"
         data-port
         data-side=${side}
+        data-place=${port.place}
         data-name=${port.name}
         data-testid=${testId}
         title=${port.typeLabel}
         aria-describedby=${hintId}
       >
-        ${side === "in" ? handle : meta} ${side === "in" ? meta : handle}
+        ${body}
         <span
           id=${hintId}
           class="block-port-hint"
@@ -408,14 +447,30 @@ export class BldNode extends LitElement {
             : nothing}
         </div>
         ${view.paramsLine ? html`<div class="flow-node-params">${view.paramsLine}</div>` : nothing}
+        ${this.#portsAt(view.inputs, "in", "top").length > 0 || this.#portsAt(view.outputs, "out", "top").length > 0
+          ? html`
+              <div class="flow-node-ports-top">
+                ${this.#portsAt(view.inputs, "in", "top").map((port) => this.#renderPort(port, "in"))}
+                ${this.#portsAt(view.outputs, "out", "top").map((port) => this.#renderPort(port, "out"))}
+              </div>
+            `
+          : nothing}
         <div class="flow-node-ports">
           <div class="flow-node-port-col">
-            ${view.inputs.map((port) => this.#renderPort(port, "in"))}
+            ${this.#portsAt(view.inputs, "in", "left").map((port) => this.#renderPort(port, "in"))}
           </div>
           <div class="flow-node-port-col is-out">
-            ${view.outputs.map((port) => this.#renderPort(port, "out"))}
+            ${this.#portsAt(view.outputs, "out", "right").map((port) => this.#renderPort(port, "out"))}
           </div>
         </div>
+        ${this.#portsAt(view.inputs, "in", "bottom").length > 0 || this.#portsAt(view.outputs, "out", "bottom").length > 0
+          ? html`
+              <div class="flow-node-ports-bottom">
+                ${this.#portsAt(view.inputs, "in", "bottom").map((port) => this.#renderPort(port, "in"))}
+                ${this.#portsAt(view.outputs, "out", "bottom").map((port) => this.#renderPort(port, "out"))}
+              </div>
+            `
+          : nothing}
       </div>
     `;
   }

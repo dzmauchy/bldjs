@@ -7,8 +7,8 @@ describe("node layout", () => {
     width: 180,
     height: 90,
     ports: {
-      in: { elements: { x: 6, y: 48 } },
-      out: { value: { x: 174, y: 40 } },
+      in: { elements: { x: 6, y: 48, place: "left" } },
+      out: { value: { x: 174, y: 40, place: "right" } },
     },
   };
 

@@ -3,10 +3,18 @@ import { CTX_PARAM, type WasmSignature } from "./signatures";
 
 export type Stage = "sin" | "cos" | "quantizer";
 
-export type { BlockScriptId } from "../../resources/binaryen";
+export type TickSink =
+  | { kind: "scope" }
+  | { kind: "sin"; then: TickSink }
+  | { kind: "cos"; then: TickSink }
+  | { kind: "quantizer"; then: TickSink }
+  | { kind: "fork"; d1: TickSink; d2: TickSink };
+
+export type { BlockScriptId } from "./binaryen";
 
 export interface AssembleOptions {
-  stages: readonly Stage[];
+  stages?: readonly Stage[];
+  sink?: TickSink;
   delayMs: number;
 }
 
@@ -16,6 +24,25 @@ export interface AssembledModule {
 }
 
 type Binaryen = typeof import("binaryen").default;
+
+export function stagesToSink(stages: readonly Stage[]): TickSink {
+  let sink: TickSink = { kind: "scope" };
+  for (const stage of [...stages].reverse()) {
+    sink = { kind: stage, then: sink };
+  }
+  return sink;
+}
+
+export function countForks(sink: TickSink): number {
+  switch (sink.kind) {
+    case "scope":
+      return 0;
+    case "fork":
+      return 1 + countForks(sink.d1) + countForks(sink.d2);
+    default:
+      return countForks(sink.then);
+  }
+}
 
 function typeDecl(id: string, params: { name: string; type: string }[], results: { name: string; type: string }[]): string {
   const inner = [
@@ -39,6 +66,7 @@ export function runtimeTypeWat(): string {
     typeDecl("fn_quantizer", [CTX_PARAM, { name: "in", type: "f64" }], [{ name: "out", type: "f64" }]),
     typeDecl("fn_sin", [CTX_PARAM, { name: "in", type: "f64" }], [{ name: "out", type: "f64" }]),
     typeDecl("fn_cos", [CTX_PARAM, { name: "in", type: "f64" }], [{ name: "out", type: "f64" }]),
+    typeDecl("fn_fork", [CTX_PARAM, { name: "in", type: "f64" }], [{ name: "out", type: "f64" }]),
     typeDecl("fn_oscilloscope", [CTX_PARAM, { name: "in", type: "f64" }], []),
   ].join("\n");
 }
@@ -81,14 +109,35 @@ function callBlock(
 function composeTick(
   bin: Binaryen,
   module: InstanceType<Binaryen["Module"]>,
-  stages: readonly Stage[],
+  sink: TickSink,
 ): number {
   const ctx = (): number => module.local.get(0, bin.i32);
-  let expr = callBlock(bin, module, "timer", [ctx()], bin.f64);
-  for (const stage of stages) {
-    expr = callBlock(bin, module, stage, [ctx(), expr], bin.f64);
-  }
-  return callBlock(bin, module, "oscilloscope", [ctx(), expr], bin.none);
+  const stmts: number[] = [];
+  let nextLocal = 1;
+
+  const apply = (node: TickSink, value: number): void => {
+    switch (node.kind) {
+      case "scope":
+        stmts.push(callBlock(bin, module, "oscilloscope", [ctx(), value], bin.none));
+        return;
+      case "quantizer":
+      case "sin":
+      case "cos":
+        apply(node.then, callBlock(bin, module, node.kind, [ctx(), value], bin.f64));
+        return;
+      case "fork": {
+        const tee = callBlock(bin, module, "fork", [ctx(), value], bin.f64);
+        const local = nextLocal;
+        nextLocal += 1;
+        stmts.push(module.local.set(local, tee));
+        apply(node.d1, module.local.get(local, bin.f64));
+        apply(node.d2, module.local.get(local, bin.f64));
+      }
+    }
+  };
+
+  apply(sink, callBlock(bin, module, "timer", [ctx()], bin.f64));
+  return module.block(null, stmts, bin.none);
 }
 
 /**
@@ -100,9 +149,10 @@ function composeTick(
 export async function assembleModule(options: AssembleOptions): Promise<AssembledModule> {
   const [{ default: binaryen }, { BLOCK_SCRIPTS, RUNTIME_SCRIPTS }, { nameLocals }] = await Promise.all([
     import("binaryen"),
-    import("../../resources/binaryen"),
-    import("../../resources/binaryen/util"),
+    import("./binaryen"),
+    import("./binaryen/util"),
   ]);
+  const sink = options.sink ?? stagesToSink(options.stages ?? []);
   const delayNs = BigInt(Math.max(options.delayMs, 1)) * 1_000_000n;
   const module = new binaryen.Module();
   try {
@@ -132,19 +182,21 @@ export async function assembleModule(options: AssembleOptions): Promise<Assemble
       nameFuncType(binaryen, module, seen, id, `fn_${id}`);
     }
 
+    const teeCount = countForks(sink);
+    const extraLocals = Array.from({ length: teeCount }, () => binaryen.f64);
     const tick = module.addFunction(
       "tick",
       binaryen.none,
       binaryen.none,
-      [binaryen.i32],
+      [binaryen.i32, ...extraLocals],
       module.block(null, [
         module.local.set(0, module.i32.const(CTX)),
         module.f64.store(0, 8, module.local.get(0, binaryen.i32), module.call("now", [], binaryen.f64)),
         module.i64.store(8, 8, module.local.get(0, binaryen.i32), module.i64.const(delayNs)),
-        composeTick(binaryen, module, options.stages),
+        composeTick(binaryen, module, sink),
       ]),
     );
-    nameLocals(tick, ["ctx"]);
+    nameLocals(tick, ["ctx", ...Array.from({ length: teeCount }, (_, index) => `t${index}`)]);
     module.addFunctionExport("tick", "tick");
 
     module.addFunction(

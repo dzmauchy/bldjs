@@ -16,9 +16,9 @@ function sampleState(overrides: Partial<BldNodeState> = {}): BldNodeState {
     showChart: false,
     chartEnabled: false,
     inputs: [
-      { name: "elems", typeLabel: "f64", vararg: true, grounded: true, compatible: true },
+      { name: "elems", typeLabel: "f64", place: "left", vararg: true, grounded: true, compatible: true },
     ],
-    outputs: [{ name: "result", typeLabel: "f64[]", vararg: false }],
+    outputs: [{ name: "result", typeLabel: "f64[]", place: "right", vararg: false }],
     ...overrides,
   };
 }
@@ -52,8 +52,7 @@ describe("BldNode", () => {
     expect(shadow!.querySelector('[data-testid="input-elems"] .block-port-name')?.textContent).toContain("elems");
     expect(shadow!.querySelector('[data-testid="output-result"] .block-port-name')?.textContent).toContain("result");
     expect(shadow!.querySelector('[data-testid="output-result"] .block-port-name')?.textContent).not.toContain("f64[]");
-    expect(shadow!.querySelector('[data-testid="output-result"] .block-port-type')?.textContent).toBe("f64[]");
-    expect(shadow!.querySelector('[data-testid="input-elems"] .block-port-type')?.textContent).toBe("f64");
+    expect(shadow!.querySelector('[data-testid="output-result"] .block-port-type')).toBeNull();
     expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("f64[]");
     expect(shadow!.querySelector('[data-testid="input-elems"]')?.getAttribute("title")).toBe("f64");
     const outputHint = shadow!.querySelector('[data-testid="output-result-type"]') as HTMLElement | null;
@@ -101,7 +100,7 @@ describe("BldNode", () => {
         chartEnabled: true,
         selected: true,
         inputs: [],
-        outputs: [{ name: "out", typeLabel: "c<f64>", vararg: false }],
+        outputs: [{ name: "out", typeLabel: "c<f64>", place: "top", vararg: false }],
         paramsLine: "",
       }),
     );
@@ -125,7 +124,7 @@ describe("BldNode", () => {
         showChart: true,
         chartEnabled: false,
         inputs: [],
-        outputs: [{ name: "out", typeLabel: "c<f64>", vararg: false }],
+        outputs: [{ name: "out", typeLabel: "c<f64>", place: "top", vararg: false }],
         paramsLine: "",
       }),
     );
@@ -139,7 +138,10 @@ describe("BldNode", () => {
     expect(opened).toBe(false);
     const hint = node.shadowRoot!.querySelector('[data-testid="output-out-type"]');
     expect(hint?.textContent).toBe("c<f64>");
-    expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-type')?.textContent).toBe("c<f64>");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-type')).toBeNull();
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-name')?.textContent).not.toContain(
+      "c<f64>",
+    );
     expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("c<f64>");
   });
 

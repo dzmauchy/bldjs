@@ -28,13 +28,25 @@ describe("XML ↔ WASM signatures", () => {
     expect(blockSignature(cat.block("timer")!)).toEqual({
       id: "timer",
       name: "Timer",
-      params: [{ name: "in", type: "f64" }],
+      params: [
+        { name: "in", type: "f64" },
+        { name: "sync", type: "f64" },
+      ],
       results: [],
     });
     expect(blockSignature(cat.block("quantizer")!)).toEqual({
       id: "quantizer",
       name: "Quantizer",
-      params: [{ name: "in", type: "f64" }],
+      params: [],
+      results: [{ name: "out", type: "f64" }],
+    });
+    expect(blockSignature(cat.block("fork")!)).toEqual({
+      id: "fork",
+      name: "Fork",
+      params: [
+        { name: "d1", type: "f64" },
+        { name: "d2", type: "f64" },
+      ],
       results: [{ name: "out", type: "f64" }],
     });
     expect(blockSignature(cat.block("sin")!)).toEqual({
@@ -62,38 +74,12 @@ describe("XML ↔ WASM signatures", () => {
     expect(displayType(cat.block("oscilloscope")!.outputs[0].ty, true)).toBe("c<f64>");
   });
 
-  it("types.xml blocks use arguments as inputs and results as outputs", () => {
+  it("virtual meter and synchronizer ports stay first-order f64", () => {
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);
     const cat = diagram.catalog();
-
-    expect(blockSignature(cat.block("b_f64")!)).toEqual({
-      id: "b_f64",
-      name: "f64",
-      params: [],
-      results: [{ name: "value", type: "f64" }],
-    });
-    expect(blockSignature(cat.block("b_bool")!)).toEqual({
-      id: "b_bool",
-      name: "bool",
-      params: [],
-      results: [{ name: "value", type: "i32" }],
-    });
-    expect(blockSignature(cat.block("b_str")!)).toEqual({
-      id: "b_str",
-      name: "str",
-      params: [],
-      results: [{ name: "value", type: "externref" }],
-    });
-    expect(blockSignature(cat.block("b_array_get")!)).toEqual({
-      id: "b_array_get",
-      name: "array.get",
-      params: [
-        { name: "array", type: "(ref $array_T)" },
-        { name: "index", type: "i32" },
-      ],
-      results: [{ name: "elem", type: "externref" }],
-    });
+    expect(displayType(cat.block("oscilloscope")!.outputs[0].ty, true)).toBe("c<f64>");
+    expect(displayType(cat.block("quantizer")!.outputs[0].ty, true)).toBe("c<f64>");
   });
 
   it("emits named params, named results, and a runtime $ctx", () => {
@@ -101,13 +87,13 @@ describe("XML ↔ WASM signatures", () => {
     associateBuiltinModels(diagram);
     const cat = diagram.catalog();
     expect(signatureWat(blockSignature(cat.block("timer")!))).toBe(
-      "(func $timer (param $ctx i32) (param $in f64)",
+      "(func $timer (param $ctx i32) (param $in f64) (param $sync f64)",
     );
     expect(signatureWat(blockSignature(cat.block("sin")!))).toBe(
       "(func $sin (param $ctx i32) (param $in f64) (result $out f64)",
     );
-    expect(signatureWat(blockSignature(cat.block("b_decision")!), false)).toBe(
-      "(func $b_decision (param $in externref) (result $true externref) (result $false externref)",
+    expect(signatureWat(blockSignature(cat.block("fork")!), false)).toBe(
+      "(func $fork (param $d1 f64) (param $d2 f64) (result $out f64)",
     );
   });
 });

@@ -1,5 +1,5 @@
 import binaryen from "binaryen";
-import { MEM, SAMPLE_CAP } from "../../lib/runtime/memory";
+import { MEM, SAMPLE_CAP } from "../memory";
 import { nameLocals } from "./util";
 
 /** Push a sample into the shared ring buffer (count at 4, samples at 16). */

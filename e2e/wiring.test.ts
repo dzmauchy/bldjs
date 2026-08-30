@@ -36,54 +36,38 @@ describe("wiring", () => {
     await newCanvas(driver);
   });
 
-  it("wires f64 into array and infers f64[]", async () => {
-    await placeBlock(driver, "b_f64");
-    await placeBlock(driver, "b_array_of");
-    await clickPortHandle(driver, "b_f64", "output-value");
-    await clickPortHandle(driver, "b_array_of", "input-elems");
-    await waitForLinks(driver, "1 link");
+  it("shows port types only as a hover hint", async () => {
+    await placeBlock(driver, "sin");
     await waitForAvoidRouter(driver);
 
-    const listHost = await nodeHost(driver, "b_array_of");
-    const listRoot = await listHost.getShadowRoot();
-    const result = await listRoot.findElement(By.css('[data-testid="output-result"]'));
-    const elems = await listRoot.findElement(By.css('[data-testid="input-elems"]'));
-    expect(await result.getText()).toContain("f64[]");
-    expect(await result.getAttribute("title")).toBe("f64[]");
-    expect(await elems.getAttribute("title")).toBe("f64");
-    expect(await elems.getText()).toContain("f64");
-    const resultHint = await listRoot.findElement(By.css('[data-testid="output-result-type"]'));
-    expect(await resultHint.getCssValue("visibility")).toBe("hidden");
-    await driver.actions({ async: true }).move({ origin: result }).perform();
-    await driver.wait(async () => (await resultHint.getCssValue("visibility")) === "visible", 5000);
-    expect(await resultHint.getText()).toBe("f64[]");
-
-    const path = await connectorPath(driver);
-    expect(path.startsWith("M ")).toBe(true);
-    expect(path.includes("L ") || path.includes("C ")).toBe(true);
-    const tag = await (await diagramCss(driver, "bld-connector")).getTagName();
-    expect(tag).toBe("bld-connector");
-    const diagram = await waitDeep(driver, "bld-diagram");
-    expect(await diagram.getAttribute("data-connector")).toBe("jumpover");
-    expect(await diagram.getAttribute("data-worker")).toBe("true");
+    const sinHost = await nodeHost(driver, "sin");
+    const sinRoot = await sinHost.getShadowRoot();
+    const sinOut = await sinRoot.findElement(By.css('[data-testid="output-out"]'));
+    expect(await sinOut.getText()).not.toContain("c<f64>");
+    expect(await sinOut.getAttribute("title")).toBe("c<f64>");
+    const hint = await sinRoot.findElement(By.css('[data-testid="output-out-type"]'));
+    expect(await hint.getCssValue("visibility")).toBe("hidden");
+    await driver.actions({ async: true }).move({ origin: sinOut }).perform();
+    await driver.wait(async () => (await hint.getCssValue("visibility")) === "visible", 5000);
+    expect(await hint.getText()).toBe("c<f64>");
   });
 
   it("toggles the same wire off", async () => {
-    await placeBlock(driver, "b_f64");
-    await placeBlock(driver, "b_array_of");
-    await clickPortHandle(driver, "b_f64", "output-value");
-    await clickPortHandle(driver, "b_array_of", "input-elems");
+    await placeBlock(driver, "oscilloscope");
+    await placeBlock(driver, "sin");
+    await clickPortHandle(driver, "oscilloscope", "output-out");
+    await clickPortHandle(driver, "sin", "input-in");
     await waitForLinks(driver, "1 link");
-    await clickPortHandle(driver, "b_f64", "output-value");
-    await clickPortHandle(driver, "b_array_of", "input-elems");
+    await clickPortHandle(driver, "oscilloscope", "output-out");
+    await clickPortHandle(driver, "sin", "input-in");
     await waitForLinks(driver, "0 links");
   });
 
   it("deletes a selected connector", async () => {
-    await placeBlock(driver, "b_f64");
-    await placeBlock(driver, "b_array_of");
-    await clickPortHandle(driver, "b_f64", "output-value");
-    await clickPortHandle(driver, "b_array_of", "input-elems");
+    await placeBlock(driver, "oscilloscope");
+    await placeBlock(driver, "sin");
+    await clickPortHandle(driver, "oscilloscope", "output-out");
+    await clickPortHandle(driver, "sin", "input-in");
     await waitForLinks(driver, "1 link");
     await clickConnector(driver);
     await pressDelete(driver);
@@ -92,8 +76,8 @@ describe("wiring", () => {
   });
 
   it("cancels an in-progress link with Escape", async () => {
-    await placeBlock(driver, "b_f64");
-    await clickPortHandle(driver, "b_f64", "output-value");
+    await placeBlock(driver, "oscilloscope");
+    await clickPortHandle(driver, "oscilloscope", "output-out");
     await driver.wait(async () => {
       const preview = await (await diagramRoot(driver)).findElements(By.css('[data-testid="connector-preview"]'));
       return preview.length === 1;
@@ -106,7 +90,7 @@ describe("wiring", () => {
     expect(await statusLinks(driver)).toBe("0 links");
   });
 
-  it("wires Oscilloscope → Quantizer → Sin → Timer and opens the chart", async () => {
+  it("wires a meter and quantizer on bottom ports, then opens the chart", async () => {
     for (const id of ["timer", "quantizer", "sin", "cos", "oscilloscope"] as const) {
       await placeBlock(driver, id);
     }
@@ -114,21 +98,15 @@ describe("wiring", () => {
     const timerHost = await nodeHost(driver, "timer");
     const timerRoot = await timerHost.getShadowRoot();
     const timerIn = await timerRoot.findElement(By.css('[data-testid="input-in"]'));
+    const timerSync = await timerRoot.findElement(By.css('[data-testid="input-sync"]'));
     expect(await timerIn.getAttribute("title")).toBe("c<f64>");
-    expect(await timerIn.getText()).toContain("c<f64>");
+    expect(await timerIn.getText()).not.toContain("c<f64>");
+    expect(await timerSync.getAttribute("data-place")).toBe("bottom");
     const sinHost = await nodeHost(driver, "sin");
     const sinRoot = await sinHost.getShadowRoot();
     const sinIn = await sinRoot.findElement(By.css('[data-testid="input-in"]'));
-    const sinOut = await sinRoot.findElement(By.css('[data-testid="output-out"]'));
-    expect(await sinIn.getText()).toContain("c<f64>");
-    expect(await sinOut.getText()).toContain("c<f64>");
-    expect(await sinOut.getAttribute("title")).toBe("c<f64>");
-    const cosHost = await nodeHost(driver, "cos");
-    const cosRoot = await cosHost.getShadowRoot();
-    const cosIn = await cosRoot.findElement(By.css('[data-testid="input-in"]'));
-    const cosOut = await cosRoot.findElement(By.css('[data-testid="output-out"]'));
-    expect(await cosIn.getText()).toContain("c<f64>");
-    expect(await cosOut.getText()).toContain("c<f64>");
+    expect(await sinIn.getAttribute("data-place")).toBe("bottom");
+    expect(await sinIn.getText()).not.toContain("c<f64>");
     const timerHint = await timerRoot.findElement(By.css('[data-testid="input-in-type"]'));
     await driver.actions({ async: true }).move({ origin: timerIn }).perform();
     await driver.wait(async () => (await timerHint.getCssValue("visibility")) === "visible", 5000);
@@ -147,9 +125,18 @@ describe("wiring", () => {
       await waitForLinks(driver, expected);
     }
 
-    await wire("oscilloscope", "out", "quantizer", "in", "1 link");
-    await wire("quantizer", "out", "sin", "in", "2 links");
-    await wire("sin", "out", "timer", "in", "3 links");
+    await wire("oscilloscope", "out", "sin", "in", "1 link");
+    await wire("sin", "out", "timer", "in", "2 links");
+    await wire("quantizer", "out", "timer", "sync", "3 links");
+
+    const path = await connectorPath(driver);
+    expect(path.startsWith("M ")).toBe(true);
+    expect(path.includes("L ") || path.includes("C ")).toBe(true);
+    const tag = await (await diagramCss(driver, "bld-connector")).getTagName();
+    expect(tag).toBe("bld-connector");
+    const diagram = await waitDeep(driver, "bld-diagram");
+    expect(await diagram.getAttribute("data-connector")).toBe("jumpover");
+    expect(await diagram.getAttribute("data-worker")).toBe("true");
 
     const scope = await nodeHost(driver, "oscilloscope");
     const chart = await (await scope.getShadowRoot()).findElement(By.css('[data-testid^="chart-"]'));
@@ -163,13 +150,13 @@ describe("wiring", () => {
   });
 
   it("moves the connector when a wired node is dragged", async () => {
-    await placeBlock(driver, "b_f64");
-    await placeBlock(driver, "b_array_of");
-    await clickPortHandle(driver, "b_f64", "output-value");
-    await clickPortHandle(driver, "b_array_of", "input-elems");
+    await placeBlock(driver, "oscilloscope");
+    await placeBlock(driver, "sin");
+    await clickPortHandle(driver, "oscilloscope", "output-out");
+    await clickPortHandle(driver, "sin", "input-in");
     await waitForLinks(driver, "1 link");
     const before = await connectorPath(driver);
-    const host = await nodeHost(driver, "b_f64");
+    const host = await nodeHost(driver, "oscilloscope");
     const header = await (await host.getShadowRoot()).findElement(By.css(".flow-node-header"));
     await driver.actions({ async: true }).dragAndDrop(header, { x: 90, y: 30 }).perform();
     await driver.wait(async () => (await connectorPath(driver)) !== before, 5000);

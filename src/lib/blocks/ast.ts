@@ -325,6 +325,23 @@ export function blockOutput(block: BlockDef, name: string): PortDef | undefined 
   return block.outputs.find((port) => port.name === name);
 }
 
+export type PortPlace = "left" | "right" | "top" | "bottom";
+
+export function blockIsVirtual(block: BlockDef): boolean {
+  return blockAttribute(block, "virtual") === "true";
+}
+
+export function portPlace(port: PortDef, direction: "in" | "out", virtual = false): PortPlace {
+  const side = port.attributes.find((attribute) => attribute.name === "side")?.value;
+  if (side === "top" || side === "bottom" || side === "left" || side === "right") {
+    return side;
+  }
+  if (virtual) {
+    return "top";
+  }
+  return direction === "in" ? "left" : "right";
+}
+
 export interface BlocksDoc {
   id: string;
   name: string;

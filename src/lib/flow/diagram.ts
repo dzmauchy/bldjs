@@ -3,7 +3,9 @@ import { classMap } from "lit/directives/class-map.js";
 import { repeat } from "lit/directives/repeat.js";
 import { styleMap } from "lit/directives/style-map.js";
 import {
+  blockIsVirtual,
   isResolvedCompatible,
+  portPlace,
   resolvedInput,
   resolvedOutput,
   typeToString,
@@ -290,6 +292,7 @@ export class BldDiagram extends LitElement {
       inputs: def.inputs.map((port) => ({
         name: port.name,
         typeLabel: typeToString(resolvedBlock ? (resolvedInput(resolvedBlock, port.name) ?? port.ty) : port.ty),
+        place: portPlace(port, "in", blockIsVirtual(def)),
         vararg: port.vararg,
         grounded: this.app.inputIsGrounded(block.id, port.name),
         compatible: resolvedBlock ? isResolvedCompatible(resolvedBlock, port.name) : true,
@@ -297,6 +300,7 @@ export class BldDiagram extends LitElement {
       outputs: def.outputs.map((port) => ({
         name: port.name,
         typeLabel: typeToString(resolvedBlock ? (resolvedOutput(resolvedBlock, port.name) ?? port.ty) : port.ty),
+        place: portPlace(port, "out", blockIsVirtual(def)),
         vararg: port.vararg,
         linking: this.app.linkingFrom?.blockId === block.id && this.app.linkingFrom.port === port.name,
       })),
@@ -636,7 +640,7 @@ export class BldDiagram extends LitElement {
               <div class="hint">
                 <div class="hint-card">
                   <div class="hint-title">Drop blocks here</div>
-                  <div class="hint-copy">Drag from the left pane. Click or drag an output handle, then an input.</div>
+                  <div class="hint-copy">Drag from the left pane. Attach Quantizer under Timer and a meter under a block.</div>
                 </div>
               </div>
             `

@@ -11,9 +11,9 @@ function wireCsPipeline(app: AppState): { timerId: number; scopeId: number } {
   app.addBlock("sin", 360, 0);
   const scopeId = app.nextId;
   app.addBlock("oscilloscope", 540, 0);
-  app.toggleLink(scopeId, "out", quantizerId, "in");
-  app.toggleLink(quantizerId, "out", sinId, "in");
+  app.toggleLink(scopeId, "out", sinId, "in");
   app.toggleLink(sinId, "out", timerId, "in");
+  app.toggleLink(quantizerId, "out", timerId, "sync");
   return { timerId, scopeId };
 }
 
@@ -22,10 +22,10 @@ describe("AppState placement", () => {
     const app = new AppState();
     app.viewportW = 800;
     app.viewportH = 600;
-    app.addBlockAtViewCenter("b_f64");
-    app.addBlockAtViewCenter("b_array_of");
-    app.addBlockAtViewCenter("sin");
     app.addBlockAtViewCenter("timer");
+    app.addBlockAtViewCenter("sin");
+    app.addBlockAtViewCenter("quantizer");
+    app.addBlockAtViewCenter("oscilloscope");
     for (let i = 0; i < app.blocks.length; i++) {
       for (let j = i + 1; j < app.blocks.length; j++) {
         const a = app.blocks[i];
@@ -41,24 +41,24 @@ describe("AppState placement", () => {
 describe("AppState wiring", () => {
   it("grounds array from f64", () => {
     const app = new AppState();
-    const f64Id = app.nextId;
-    app.addBlock("b_f64", 0, 0);
-    const tableId = app.nextId;
-    app.addBlock("b_array_of", 300, 0);
-    app.toggleLink(f64Id, "value", tableId, "elems");
+    const scopeId = app.nextId;
+    app.addBlock("oscilloscope", 0, 0);
+    const sinId = app.nextId;
+    app.addBlock("sin", 300, 0);
+    app.toggleLink(scopeId, "out", sinId, "in");
     expect(app.links).toEqual([
-      { fromBlock: f64Id, fromOut: "value", toBlock: tableId, toIn: "elems" },
+      { fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" },
     ]);
   });
 
   it("deletes a selected connector without removing blocks", () => {
     const app = new AppState();
-    const f64Id = app.nextId;
-    app.addBlock("b_f64", 0, 0);
-    const tableId = app.nextId;
-    app.addBlock("b_array_of", 300, 0);
-    app.toggleLink(f64Id, "value", tableId, "elems");
-    app.selectLink({ fromBlock: f64Id, fromOut: "value", toBlock: tableId, toIn: "elems" });
+    const scopeId = app.nextId;
+    app.addBlock("oscilloscope", 0, 0);
+    const sinId = app.nextId;
+    app.addBlock("sin", 300, 0);
+    app.toggleLink(scopeId, "out", sinId, "in");
+    app.selectLink({ fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" });
     app.deleteSelected();
     expect(app.links).toEqual([]);
     expect(app.blocks).toHaveLength(2);
@@ -67,13 +67,13 @@ describe("AppState wiring", () => {
 
   it("removes a block and its links", () => {
     const app = new AppState();
-    const f64Id = app.nextId;
-    app.addBlock("b_f64", 0, 0);
-    const tableId = app.nextId;
-    app.addBlock("b_array_of", 300, 0);
-    app.toggleLink(f64Id, "value", tableId, "elems");
-    app.removeBlock(f64Id);
-    expect(app.blocks.map((block) => block.defId)).toEqual(["b_array_of"]);
+    const scopeId = app.nextId;
+    app.addBlock("oscilloscope", 0, 0);
+    const sinId = app.nextId;
+    app.addBlock("sin", 300, 0);
+    app.toggleLink(scopeId, "out", sinId, "in");
+    app.removeBlock(scopeId);
+    expect(app.blocks.map((block) => block.defId)).toEqual(["sin"]);
     expect(app.links).toEqual([]);
   });
 });

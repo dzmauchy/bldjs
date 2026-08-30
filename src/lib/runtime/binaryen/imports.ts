@@ -1,5 +1,5 @@
 import binaryen from "binaryen";
-import { MEMORY_PAGES } from "../../lib/runtime/memory";
+import { MEMORY_PAGES } from "../memory";
 
 /** Shared memory and host services used by every assembled generator. */
 export function addImports(module: binaryen.Module): void {

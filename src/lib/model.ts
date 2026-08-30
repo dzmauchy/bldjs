@@ -16,7 +16,7 @@ export function isNoneId(id: number): boolean {
   return id === NONE_ID;
 }
 
-export const BLOCK_KINDS = ["Start", "Process", "Decision", "Data", "Output"] as const;
+export const BLOCK_KINDS = ["Start", "Process", "Decision", "Data", "Output", "Meter", "Sync"] as const;
 export type BlockKindName = (typeof BLOCK_KINDS)[number];
 
 export interface BlockKindInfo {
@@ -69,6 +69,22 @@ const KIND_INFO: Record<BlockKindName, BlockKindInfo> = {
     badgeClass: "text-bg-danger",
     glyph: "■",
   },
+  Meter: {
+    name: "Meter",
+    label: "Meter",
+    hint: "Attach under a block to plot its samples",
+    className: "block-kind-meter",
+    badgeClass: "text-bg-info",
+    glyph: "▬",
+  },
+  Sync: {
+    name: "Sync",
+    label: "Synchronizer",
+    hint: "Attach under Timer to pace samples",
+    className: "block-kind-sync",
+    badgeClass: "text-bg-warning",
+    glyph: "⏱",
+  },
 };
 
 export function allBlockKinds(): BlockKindInfo[] {
@@ -93,6 +109,9 @@ export function kindOutputLabels(kind: BlockKindName): string[] {
       return ["true", "false"];
     case "Output":
       return [];
+    case "Meter":
+    case "Sync":
+      return ["out"];
   }
 }
 

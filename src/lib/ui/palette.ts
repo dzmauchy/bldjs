@@ -15,7 +15,7 @@ export class BldPalette extends LitElement {
   declare app: AppState;
 
   #ctrl?: AppController;
-    #open = new Set(["cs", "flow", "types"]);
+    #open = new Set(["cs", "meters", "synchronizers"]);
 
   static override styles = [
     bootstrapStyles,
@@ -123,6 +123,12 @@ export class BldPalette extends LitElement {
       }
       .block-kind-output {
         --block-accent: var(--bs-danger);
+      }
+      .block-kind-meter {
+        --block-accent: var(--bs-info);
+      }
+      .block-kind-sync {
+        --block-accent: var(--bs-warning);
       }
     `,
   ];

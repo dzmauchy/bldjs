@@ -2,56 +2,63 @@
 <blocks id="cs" name="Control Systems" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
   <library id="types" name="Types"/>
   <namespace id="cs" name="Control Systems"/>
+  <namespace id="meters" name="Meters"/>
+  <namespace id="synchronizers" name="Synchronizers"/>
 
   <!--
     Pure push. Every consumer is DoubleConsumer = c<f64>:
 
-      timer(c)           : c<f64> → void
-      quantizer(c)       : c<f64> → c<f64>
+      timer(c)           : c<f64> → void   (requires quantizer on the bottom)
+      quantizer          : virtual synchronizer attached under Timer
       sin(c) / cos(c)    : c<f64> → c<f64>
-      oscilloscope()     : c<f64>            (the plot sink)
+      fork(d1, d2)       : c<f64> → c<f64>   (fans one sample to two sinks)
+      oscilloscope()     : c<f64>            (virtual meter; attach under a block)
 
-    Composition: timer(sin(quantizer(plot)))
+    Composition: timer(quantizer(sin(plot)))
+      or timer(quantizer(fork(sin(plot1), cos(plot2))))
 
-    The WASM runtime still lowers each sample port to first-order f64.
+    Oscilloscope and Quantizer are virtual: their connector sits on top
+    and plugs into a bottom port of a regular block.
 
-    Each block is a binaryen.js script in resources/binaryen/blocks.
-    Run assembles those scripts and emits the module.
-    Every function receives runtime $ctx (i32 pointer: time, delay_ns).
+    Each block is a binaryen.js script in src/lib/runtime/binaryen/blocks.
   -->
 
   <block id="timer" name="Timer" ns="cs" icon="timer">
     <attribute name="kind">Start</attribute>
     <attribute name="runnable">true</attribute>
     <attribute name="generator">true</attribute>
-    <attribute name="description">Push source. Accepts c&lt;f64&gt; and writes timestamps while running.</attribute>
+    <attribute name="description">Push source. Accepts c&lt;f64&gt; on the left. Requires Quantizer on the bottom.</attribute>
     <factory id="timer"/>
     <in name="in" type="c1">
       <attribute name="wasm">f64</attribute>
       <t type="f64"/>
     </in>
-  </block>
-
-  <block id="quantizer" name="Quantizer" ns="cs" icon="quantizer">
-    <attribute name="kind">Process</attribute>
-    <attribute name="description">c&lt;f64&gt; → c&lt;f64&gt;. Parks 10 ms per sample via memory.atomic.wait32.</attribute>
-    <factory id="quantizer"/>
-    <in name="in" type="c1">
+    <in name="sync" type="c1">
       <attribute name="wasm">f64</attribute>
+      <attribute name="side">bottom</attribute>
       <t type="f64"/>
     </in>
+  </block>
+
+  <block id="quantizer" name="Quantizer" ns="synchronizers" icon="quantizer">
+    <attribute name="kind">Sync</attribute>
+    <attribute name="virtual">true</attribute>
+    <attribute name="description">Required timer synchronizer. Connect its top port to the bottom of Timer.</attribute>
+    <factory id="quantizer"/>
     <out name="out" type="c1">
       <attribute name="wasm">f64</attribute>
+      <attribute name="side">top</attribute>
       <t type="f64"/>
     </out>
   </block>
 
   <block id="sin" name="Sin" ns="cs" icon="sin">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">c&lt;f64&gt; → c&lt;f64&gt;. Maps each sample through f64.sin (host).</attribute>
+    <attribute name="description">c&lt;f64&gt; → c&lt;f64&gt;. Maps each sample through f64.sin (host). Meter on the bottom.</attribute>
     <factory id="f64.sin"/>
     <in name="in" type="c1">
       <attribute name="wasm">f64</attribute>
+      <attribute name="side">bottom</attribute>
       <t type="f64"/>
     </in>
     <out name="out" type="c1">
@@ -62,9 +69,28 @@
 
   <block id="cos" name="Cos" ns="cs" icon="cos">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">c&lt;f64&gt; → c&lt;f64&gt;. Maps each sample through f64.cos (host).</attribute>
+    <attribute name="description">c&lt;f64&gt; → c&lt;f64&gt;. Maps each sample through f64.cos (host). Meter on the bottom.</attribute>
     <factory id="f64.cos"/>
     <in name="in" type="c1">
+      <attribute name="wasm">f64</attribute>
+      <attribute name="side">bottom</attribute>
+      <t type="f64"/>
+    </in>
+    <out name="out" type="c1">
+      <attribute name="wasm">f64</attribute>
+      <t type="f64"/>
+    </out>
+  </block>
+
+  <block id="fork" name="Fork" ns="cs" icon="fork">
+    <attribute name="kind">Process</attribute>
+    <attribute name="description">c&lt;f64&gt; fork(c&lt;f64&gt; d1, c&lt;f64&gt; d2) fans one sample to two sinks.</attribute>
+    <factory id="fork"/>
+    <in name="d1" type="c1">
+      <attribute name="wasm">f64</attribute>
+      <t type="f64"/>
+    </in>
+    <in name="d2" type="c1">
       <attribute name="wasm">f64</attribute>
       <t type="f64"/>
     </in>
@@ -74,12 +100,14 @@
     </out>
   </block>
 
-  <block id="oscilloscope" name="Oscilloscope" ns="cs" icon="scope">
-    <attribute name="kind">Output</attribute>
-    <attribute name="description">Plot sink c&lt;f64&gt;. Wire into Sin/Cos/Quantizer, then into Timer. After Run, click Chart.</attribute>
+  <block id="oscilloscope" name="Oscilloscope" ns="meters" icon="scope">
+    <attribute name="kind">Meter</attribute>
+    <attribute name="virtual">true</attribute>
+    <attribute name="description">Virtual meter. Connect its top port to the bottom of Sin, Cos, Fork, or Timer. After Run, click Chart.</attribute>
     <factory id="oscilloscope"/>
     <out name="out" type="c1">
       <attribute name="wasm">f64</attribute>
+      <attribute name="side">top</attribute>
       <t type="f64"/>
     </out>
   </block>

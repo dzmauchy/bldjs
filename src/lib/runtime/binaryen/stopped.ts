@@ -1,5 +1,5 @@
 import binaryen from "binaryen";
-import { MEM } from "../../lib/runtime/memory";
+import { MEM } from "../memory";
 
 /** Read the stop flag published by the host (i32.atomic.load at offset 0). */
 export function addStopped(module: binaryen.Module): binaryen.FunctionRef {

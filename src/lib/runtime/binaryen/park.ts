@@ -1,5 +1,5 @@
 import binaryen from "binaryen";
-import { MEM } from "../../lib/runtime/memory";
+import { MEM } from "../memory";
 import { nameLocals } from "./util";
 
 /** Park the worker with memory.atomic.wait32 on the shared wait word. */

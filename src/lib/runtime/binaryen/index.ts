@@ -1,4 +1,5 @@
 import { addCos } from "./blocks/cos";
+import { addFork } from "./blocks/fork";
 import { addOscilloscope } from "./blocks/oscilloscope";
 import { addQuantizer } from "./blocks/quantizer";
 import { addSin } from "./blocks/sin";
@@ -14,6 +15,7 @@ export const BLOCK_SCRIPTS = {
   quantizer: addQuantizer,
   sin: addSin,
   cos: addCos,
+  fork: addFork,
   oscilloscope: addOscilloscope,
 } as const;
 
