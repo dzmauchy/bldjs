@@ -11,6 +11,24 @@ import {
 
 const wasmPath = `${(globalThis as { process?: { cwd?: () => string } }).process?.cwd?.() ?? ""}/node_modules/libavoid-js/dist/libavoid.wasm`;
 
+function longestFlatY(points: { x: number; y: number }[]): number {
+  let bestY = points[0]?.y ?? 0;
+  let bestLen = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const prev = points[index - 1]!;
+    const point = points[index]!;
+    if (Math.abs(prev.y - point.y) >= 0.5) {
+      continue;
+    }
+    const length = Math.abs(point.x - prev.x);
+    if (length > bestLen) {
+      bestLen = length;
+      bestY = prev.y;
+    }
+  }
+  return bestY;
+}
+
 const layout = (width: number, height: number, outY: number, inY: number): NodeLayout => ({
   width,
   height,
@@ -133,6 +151,64 @@ describe("avoid router engine", () => {
     expect(last!.x).toBeLessThanOrEqual(240);
     expect(last!.y).toBeGreaterThanOrEqual(0);
     expect(last!.y).toBeLessThanOrEqual(56);
+    engine.destroy();
+  }, 20000);
+
+  it("nudges two parallel routes off the same path", async () => {
+    const engine = new AvoidRouteEngine();
+    await engine.start({ worker: false, filePath: wasmPath });
+    const source = {
+      id: "1",
+      x: 0,
+      y: 0,
+      width: 80,
+      height: 80,
+      ports: [
+        { side: "out" as const, name: "a", x: 80, y: 24 },
+        { side: "out" as const, name: "b", x: 80, y: 56 },
+      ],
+    };
+    const target = {
+      id: "2",
+      x: 300,
+      y: 0,
+      width: 80,
+      height: 80,
+      ports: [
+        { side: "in" as const, name: "a", x: 0, y: 24 },
+        { side: "in" as const, name: "b", x: 0, y: 56 },
+      ],
+    };
+    const blocker = obstacleFromBlock(3, 140, -20, layout(80, 160, 80, 80))!;
+    engine.sync([source, target, blocker], [
+      {
+        id: "1:a->2:a",
+        sourceId: "1",
+        sourcePort: jointPortId("out", "a"),
+        targetId: "2",
+        targetPort: jointPortId("in", "a"),
+      },
+      {
+        id: "1:b->2:b",
+        sourceId: "1",
+        sourcePort: jointPortId("out", "b"),
+        targetId: "2",
+        targetPort: jointPortId("in", "b"),
+      },
+    ]);
+    await vi.waitFor(
+      () => {
+        expect(engine.routes.has("1:a->2:a")).toBe(true);
+        expect(engine.routes.has("1:b->2:b")).toBe(true);
+      },
+      { timeout: 15000 },
+    );
+    const a = engine.routes.get("1:a->2:a") ?? [];
+    const b = engine.routes.get("1:b->2:b") ?? [];
+    expect(a.length).toBeGreaterThanOrEqual(1);
+    expect(b.length).toBeGreaterThanOrEqual(1);
+    expect(JSON.stringify(a)).not.toBe(JSON.stringify(b));
+    expect(Math.abs(longestFlatY(a) - longestFlatY(b))).toBeGreaterThanOrEqual(10);
     engine.destroy();
   }, 20000);
 });

@@ -9,6 +9,7 @@ import {
   polylinePath,
   routesEqual,
   jumpoverLinkPath,
+  jumpoverUnderlays,
   translateJumpover,
   translatePath,
   translatePolyline,
@@ -108,5 +109,27 @@ describe("flow geometry", () => {
     ]);
     expect(jumped).toContain("C ");
     expect(jumped).not.toBe(plain);
+  });
+
+  it("only the later crossing wire jumps so both lines do not overlap hoops", () => {
+    const horizontal = { from: { x: 0, y: 50 }, to: { x: 200, y: 50 }, route: [] as { x: number; y: number }[] };
+    const vertical = { from: { x: 100, y: 0 }, to: { x: 100, y: 100 }, route: [] as { x: number; y: number }[] };
+    const wires = [horizontal, vertical];
+    const under = jumpoverLinkPath(
+      wires[0]!.from,
+      wires[0]!.to,
+      wires[0]!.route,
+      jumpoverUnderlays(wires, 0),
+    );
+    const over = jumpoverLinkPath(
+      wires[1]!.from,
+      wires[1]!.to,
+      wires[1]!.route,
+      jumpoverUnderlays(wires, 1),
+    );
+    expect(jumpoverUnderlays(wires, 0)).toEqual([]);
+    expect(jumpoverUnderlays(wires, 1)).toEqual([horizontal]);
+    expect(under).not.toContain("C ");
+    expect(over).toContain("C ");
   });
 });

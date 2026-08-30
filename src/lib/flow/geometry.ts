@@ -220,6 +220,18 @@ export function jumpoverLinkPath(
   return jumpoverPath(from, to, route, others).serialize();
 }
 
+/**
+ * JointJS jumpover draws a hoop on every link that lists the other as a
+ * crossing. Only earlier wires should be passed in, or both lines get an
+ * overlap hoop at the same intersection.
+ */
+export function jumpoverUnderlays<T>(items: readonly T[], index: number): T[] {
+  if (index <= 0) {
+    return [];
+  }
+  return items.slice(0, index);
+}
+
 export function jumpoverLinkBounds(
   from: Point,
   to: Point,

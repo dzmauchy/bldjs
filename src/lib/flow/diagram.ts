@@ -14,7 +14,7 @@ import { AppController } from "$lib/context";
 import { GRID_SIZE, clampZoom, zoomToward } from "$lib/model";
 import { type AppState, type BlockInstance } from "$lib/state";
 import { FLOW_MIME } from "./mime";
-import { clientToWorld, linkKey, type Point } from "./geometry";
+import { clientToWorld, jumpoverUnderlays, linkKey, type Point } from "./geometry";
 import { AvoidRouteEngine, connectorFromLink, obstacleFromBlock } from "./avoid-router";
 import { portFromComposedPath, worldPort } from "./layout";
 import type { BldNodeState, NodeLayout, PortPointerDetail } from "./types";
@@ -526,11 +526,13 @@ export class BldDiagram extends LitElement {
         selected: this.app.isLinkSelected(link),
       });
     }
-    for (const item of views) {
-      item.crossings = views
-        .filter((other) => other.key !== item.key)
-        .map((other) => ({ from: other.from, to: other.to, route: other.points }));
-    }
+    views.forEach((item, index) => {
+      item.crossings = jumpoverUnderlays(views, index).map((other) => ({
+        from: other.from,
+        to: other.to,
+        route: other.points,
+      }));
+    });
     return views;
   }
 

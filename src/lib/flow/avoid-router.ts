@@ -148,8 +148,8 @@ export class AvoidRouteEngine {
     const service = await initAvoidRouter(graph, {
       worker,
       libavoidFilePath: options?.filePath ?? LIBAVOID_WASM,
-      shapeBufferDistance: 10,
-      idealNudgingDistance: 5,
+      shapeBufferDistance: 12,
+      idealNudgingDistance: 16,
       setRouteAttributes: ({ link, attributes }) => {
         link.set(attributes, { avoidRouter: true });
         const vertices = (attributes.vertices ?? []).map((point) => ({ x: snap(point.x), y: snap(point.y) }));

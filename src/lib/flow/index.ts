@@ -14,6 +14,7 @@ export {
   routesEqual,
   jumpoverLinkBounds,
   jumpoverLinkPath,
+  jumpoverUnderlays,
   translateJumpover,
   translatePath,
   translatePolyline,
