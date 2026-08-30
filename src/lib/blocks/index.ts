@@ -16,6 +16,8 @@ export {
   type CompiledGenerator,
   type ConsumerTree,
   type GeneratorPlan,
+  type ScopeChannel,
+  type ScopeSeries,
   type DoubleConsumer,
   type DoubleSource,
   type Nested,

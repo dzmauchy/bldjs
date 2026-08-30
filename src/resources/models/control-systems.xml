@@ -9,12 +9,12 @@
   <!--
     Pure push. Every consumer is DoubleConsumer = c<f64>:
 
-      timer(c)           : c<f64> → void
-      quantizer(c)       : c<f64> → c<f64>
-      sin(c) / cos(c)    : c<f64> → c<f64>
-      oscilloscope()     : c<f64>            (the plot sink)
+      timer()                 : c<f64>
+      quantizer(c)            : c<f64> → c<f64>
+      sin(c) / cos(c)         : c<f64> → c<f64>
+      oscilloscope(c...)      : void              (vararg plot sink)
 
-    Composition: timer(sin(quantizer(plot)))
+    Composition: oscilloscope(sin(quantizer(timer())), cos(timer()))
 
     The WASM runtime still lowers each sample port to first-order f64.
 
@@ -27,12 +27,12 @@
     <attribute name="kind">Start</attribute>
     <attribute name="runnable">true</attribute>
     <attribute name="generator">true</attribute>
-    <attribute name="description">Push source. Accepts c&lt;f64&gt; and writes timestamps while running.</attribute>
+    <attribute name="description">Push source. Emits c&lt;f64&gt; timestamps while running.</attribute>
     <factory id="timer"/>
-    <in name="in" type="c1">
+    <out name="out" type="c1">
       <attribute name="wasm">f64</attribute>
       <t type="f64"/>
-    </in>
+    </out>
   </block>
 
   <block id="quantizer" name="Quantizer" ns="com.dauch.cs" icon="quantizer">
@@ -79,11 +79,11 @@
 
   <block id="oscilloscope" name="Oscilloscope" ns="com.dauch.cs.sink" icon="scope">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Plot sink c&lt;f64&gt;. Wire into Sin/Cos/Quantizer, then into Timer. After Run, click Chart.</attribute>
+    <attribute name="description">Plot sink. Vararg c&lt;f64&gt; input. Wire Timer through Sin/Cos/Quantizer into Oscilloscope. After Run, Chart is a multi-axis plot.</attribute>
     <factory id="oscilloscope"/>
-    <out name="out" type="c1">
+    <in name="in" type="c1" vararg="true">
       <attribute name="wasm">f64</attribute>
       <t type="f64"/>
-    </out>
+    </in>
   </block>
 </blocks>

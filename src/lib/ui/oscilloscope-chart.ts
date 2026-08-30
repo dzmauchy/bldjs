@@ -1,17 +1,20 @@
-import { Chart, type ChartConfiguration } from "chart.js/auto";
+import { Chart } from "chart.js/auto";
 import { LitElement, css, html, nothing } from "lit";
 import { createRef, ref } from "lit/directives/ref.js";
 import { AppController } from "$lib/context";
 import { isNoneId } from "$lib/model";
 import type { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
+import { buildScopeChartConfig, longestIndexLabels, scopeChartDatasets, scopeChartScales } from "./scope-chart";
 
 export class BldOscilloscopeChart extends LitElement {
   static override properties = {
     app: { attribute: false },
+    seriesCount: { state: true },
   };
 
   declare app: AppState;
+  declare seriesCount: number;
 
   #ctrl?: AppController;
   #canvas = createRef<HTMLCanvasElement>();
@@ -38,6 +41,7 @@ export class BldOscilloscopeChart extends LitElement {
   constructor() {
     super();
     this.app = undefined as unknown as AppState;
+    this.seriesCount = 0;
   }
 
   connectedCallback(): void {
@@ -84,67 +88,33 @@ export class BldOscilloscopeChart extends LitElement {
     this.#chart?.destroy();
     this.#chart = null;
     this.#openId = -1;
+    this.seriesCount = 0;
   }
 
   #startChart(canvas: HTMLCanvasElement, id: number): void {
-    const darkGrid = "rgba(255, 255, 255, 0.08)";
-    const darkTick = "#adb5bd";
-    const config: ChartConfiguration<"line"> = {
-      type: "line",
-      data: {
-        labels: [],
-        datasets: [
-          {
-            label: "samples",
-            data: [],
-            borderColor: "#0dcaf0",
-            backgroundColor: "rgba(13, 202, 240, 0.16)",
-            fill: true,
-            pointRadius: 0,
-            borderWidth: 1.8,
-            tension: 0.25,
-            spanGaps: true,
-          },
-        ],
-      },
-      options: {
-        animation: false,
-        responsive: true,
-        maintainAspectRatio: false,
-        color: darkTick,
-        font: { family: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            enabled: true,
-            backgroundColor: "#1c2125",
-            titleColor: "#f8f9fa",
-            bodyColor: "#0dcaf0",
-            borderColor: "rgba(255,255,255,0.12)",
-            borderWidth: 1,
-          },
-        },
-        scales: {
-          x: {
-            display: false,
-            grid: { color: darkGrid },
-          },
-          y: {
-            grid: { color: darkGrid },
-            border: { color: darkGrid },
-            ticks: { color: darkTick, maxTicksLimit: 6 },
-          },
-        },
-      },
-    };
-    const chart = new Chart(canvas, config);
+    const chart = new Chart(canvas, buildScopeChartConfig());
     const tick = (): void => {
-      void this.app.snapshotScope(id).then((samples) => {
+      void this.app.snapshotScope(id).then((series) => {
         if (this.#openId !== id || !this.#chart) {
           return;
         }
-        chart.data.labels = samples.map((_, index) => index);
-        chart.data.datasets[0].data = samples;
+        if (this.seriesCount !== series.length) {
+          chart.data.datasets = scopeChartDatasets(series);
+          chart.options.scales = scopeChartScales(Math.max(series.length, 1));
+          if (chart.options.plugins?.legend) {
+            chart.options.plugins.legend.display = series.length > 1;
+          }
+          this.seriesCount = series.length;
+        } else {
+          series.forEach((channel, index) => {
+            const dataset = chart.data.datasets[index];
+            if (dataset) {
+              dataset.data = channel.samples;
+              dataset.label = channel.label;
+            }
+          });
+        }
+        chart.data.labels = longestIndexLabels(series);
         chart.update("none");
       });
     };
@@ -183,10 +153,16 @@ export class BldOscilloscopeChart extends LitElement {
               ></button>
             </div>
             <div class="modal-body p-3">
-              <div class="scope-chart">
+              <div
+                class="scope-chart"
+                data-testid="oscilloscope-chart"
+                data-series-count=${this.seriesCount}
+              >
                 <canvas ${ref(this.#canvas)}></canvas>
               </div>
-              <div class="small text-secondary mt-2">timer(sin(quantizer(plot))) · shared buffer</div>
+              <div class="small text-secondary mt-2">
+                oscilloscope(sin(quantizer(timer())), cos(timer())) · multi-axis
+              </div>
             </div>
           </div>
         </div>

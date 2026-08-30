@@ -519,16 +519,17 @@ describe("blocks", () => {
   it("control systems model and types", () => {
     const cat = catalog();
     const timerBlock = cat.block("timer")!;
-    expect(timerBlock.inputs.length).toBe(1);
-    expect(timerBlock.outputs.length).toBe(0);
-    expect(displayType(timerBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
-    expect(timerBlock.inputs.find((port) => port.name === "in")!.attributes.find((a) => a.name === "wasm")?.value).toBe(
+    expect(timerBlock.inputs.length).toBe(0);
+    expect(timerBlock.outputs.length).toBe(1);
+    expect(displayType(timerBlock.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
+    expect(timerBlock.outputs.find((port) => port.name === "out")!.attributes.find((a) => a.name === "wasm")?.value).toBe(
       "f64",
     );
     expect(timerBlock.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
     const scope = cat.block("oscilloscope")!;
-    expect(scope.inputs.length).toBe(0);
-    expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
+    expect(scope.outputs.length).toBe(0);
+    expect(scope.inputs.find((port) => port.name === "in")!.vararg).toBe(true);
+    expect(displayType(scope.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("quantizer")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("quantizer")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
@@ -591,15 +592,15 @@ describe("blocks", () => {
     expect(right).toEqual([1, 2]);
   });
 
-  it("plans a hidden fork when two oscilloscopes share a timer input", () => {
+  it("plans a hidden fork when two oscilloscopes share a timer output", () => {
     const nodes = [
       { id: 1, defId: "oscilloscope" },
       { id: 2, defId: "oscilloscope" },
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 4, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 1, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 2, toIn: "in" },
     ];
     const plan = planGenerator(4, nodes, links)!;
     expect(plan.tree).toEqual({
@@ -610,6 +611,38 @@ describe("blocks", () => {
       ],
     });
     expect(plan.scopeIds).toEqual([1, 2]);
+    expect(plan.channels).toEqual([
+      { scopeId: 1, label: "in" },
+      { scopeId: 2, label: "in" },
+    ]);
+  });
+
+  it("plans two vararg channels on one oscilloscope as a multiplot", () => {
+    const nodes = [
+      { id: 1, defId: "oscilloscope" },
+      { id: 2, defId: "sin" },
+      { id: 3, defId: "cos" },
+      { id: 4, defId: "timer" },
+    ];
+    const links: Link[] = [
+      { fromBlock: 4, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 1, toIn: "in" },
+    ];
+    const plan = planGenerator(4, nodes, links)!;
+    expect(plan.tree).toEqual({
+      kind: "fork",
+      inner: [
+        { kind: "stage", stage: "sin", inner: { kind: "scope", id: 1 } },
+        { kind: "stage", stage: "cos", inner: { kind: "scope", id: 1 } },
+      ],
+    });
+    expect(plan.scopeIds).toEqual([1]);
+    expect(plan.channels).toEqual([
+      { scopeId: 1, label: "sin" },
+      { scopeId: 1, label: "cos" },
+    ]);
   });
 
   it("sin maps samples", () => {
@@ -638,9 +671,9 @@ describe("blocks", () => {
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in" },
       { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.scopeId).toBe(1);
@@ -672,15 +705,15 @@ describe("blocks", () => {
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in" },
       { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
     ];
-    const buffers = new Map<number, SampleBuf>([[1, new SampleBuf()]]);
+    const buffers = new Map<number, SampleBuf>([[0, new SampleBuf()]]);
     const compiled = (await compileTimer(4, nodes, links, buffers))!;
     compiled.emit(0);
     compiled.emit(Math.PI / 2);
-    const got = buffers.get(1)!.snapshot();
+    const got = buffers.get(0)!.snapshot();
     expect(Math.abs(got[0])).toBeLessThan(1e-9);
     expect(Math.abs(got[1] - 1)).toBeLessThan(1e-9);
     expect(compiled.delayMs).toBe(QUANTIZER_DELAY_MS);
@@ -693,8 +726,8 @@ describe("blocks", () => {
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.stages).toEqual(["cos"]);
@@ -708,8 +741,8 @@ describe("blocks", () => {
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 4, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 1, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 2, toIn: "in" },
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.scopeIds).toEqual([1, 2]);
@@ -723,7 +756,7 @@ describe("blocks", () => {
       { id: 3, defId: "quantizer" },
       { id: 4, defId: "timer" },
     ];
-    const links: Link[] = [{ fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" }];
+    const links: Link[] = [{ fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in" }];
     expect(await compileGenerator(4, nodes, links)).toBeUndefined();
     expect(await compileTimer(4, nodes, links, new Map())).toBeUndefined();
   });
@@ -735,13 +768,12 @@ describe("blocks", () => {
     const quantizerId = diagram.addNode("quantizer");
     const sinId = diagram.addNode("sin");
     const scopeId = diagram.addNode("oscilloscope");
-    diagram.addLink(scopeId, "out", quantizerId, "in");
+    diagram.addLink(timerId, "out", quantizerId, "in");
     diagram.addLink(quantizerId, "out", sinId, "in");
-    diagram.addLink(sinId, "out", timerId, "in");
+    diagram.addLink(sinId, "out", scopeId, "in");
 
     const timerResolved = diagram.resolveNode(timerId)!;
-    expect(timerResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(timerResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
+    expect(displayType(timerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
 
     const quantizerResolved = diagram.resolveNode(quantizerId)!;
     expect(quantizerResolved.compatible.get("in") ?? true).toBe(true);
@@ -754,28 +786,29 @@ describe("blocks", () => {
     expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
 
     const scopeResolved = diagram.resolveNode(scopeId)!;
-    expect(displayType(scopeResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
+    expect(scopeResolved.inputs.find((port) => port.name === "in")!.vararg).toBe(true);
+    expect(displayType(scopeResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
   });
 
-  it("two oscilloscopes may ground the same c<f64> input", () => {
+  it("two signals may ground the same oscilloscope vararg input", () => {
     const diagram = new Diagram("cs", "Fork");
     associateBuiltinModels(diagram);
-    const scopeA = diagram.addNode("oscilloscope");
-    const scopeB = diagram.addNode("oscilloscope");
+    const scopeId = diagram.addNode("oscilloscope");
     const sinId = diagram.addNode("sin");
-    diagram.addLink(scopeA, "out", sinId, "in");
-    diagram.addLink(scopeB, "out", sinId, "in");
+    const cosId = diagram.addNode("cos");
+    diagram.addLink(sinId, "out", scopeId, "in");
+    diagram.addLink(cosId, "out", scopeId, "in");
     expect(diagram.links()).toHaveLength(2);
-    expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
+    expect(diagram.resolveNode(scopeId)!.compatible.get("in") ?? true).toBe(true);
   });
 
-  it("oscilloscope wires to sin because both ports are c<f64>", () => {
+  it("sin wires to oscilloscope because both ports are c<f64>", () => {
     const diagram = new Diagram("cs", "Same");
     associateBuiltinModels(diagram);
     const scopeId = diagram.addNode("oscilloscope");
     const sinId = diagram.addNode("sin");
-    diagram.addLink(scopeId, "out", sinId, "in");
-    expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
+    diagram.addLink(sinId, "out", scopeId, "in");
+    expect(diagram.resolveNode(scopeId)!.compatible.get("in") ?? true).toBe(true);
   });
 
   it("array is incompatible with an f64 sample port", () => {
@@ -798,7 +831,7 @@ describe("blocks", () => {
       live = false;
       return next;
     };
-    timer(fork(oscilloscope((value) => left.push(value)), oscilloscope((value) => right.push(value))), running, () => 4);
+    timer(oscilloscope((value) => left.push(value), (value) => right.push(value)), running, () => 4);
     expect(left).toEqual([4]);
     expect(right).toEqual([4]);
   });
@@ -810,20 +843,43 @@ describe("blocks", () => {
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 4, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 1, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 2, toIn: "in" },
     ];
     const buffers = new Map<number, SampleBuf>([
+      [0, new SampleBuf()],
       [1, new SampleBuf()],
-      [2, new SampleBuf()],
     ]);
     const compiled = (await compileTimer(4, nodes, links, buffers))!;
     compiled.emit(3);
+    expect(buffers.get(0)!.snapshot()).toEqual([3]);
     expect(buffers.get(1)!.snapshot()).toEqual([3]);
-    expect(buffers.get(2)!.snapshot()).toEqual([3]);
   });
 
-  it("interprets the wired chain as timer(sin(quantizer(plot)))", () => {
+  it("compile timer writes two rings for one vararg oscilloscope", async () => {
+    const nodes = [
+      { id: 1, defId: "oscilloscope" },
+      { id: 2, defId: "sin" },
+      { id: 3, defId: "cos" },
+      { id: 4, defId: "timer" },
+    ];
+    const links: Link[] = [
+      { fromBlock: 4, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 1, toIn: "in" },
+    ];
+    const buffers = new Map<number, SampleBuf>([
+      [0, new SampleBuf()],
+      [1, new SampleBuf()],
+    ]);
+    const compiled = (await compileTimer(4, nodes, links, buffers))!;
+    compiled.emit(0);
+    expect(Math.abs(buffers.get(0)!.snapshot()[0])).toBeLessThan(1e-9);
+    expect(Math.abs(buffers.get(1)!.snapshot()[0] - 1)).toBeLessThan(1e-9);
+  });
+
+  it("interprets the wired chain as oscilloscope(sin(quantizer(timer())))", () => {
     const out: number[] = [];
     let live = true;
     const running = () => {
@@ -831,7 +887,7 @@ describe("blocks", () => {
       live = false;
       return next;
     };
-    timer(sin(quantizer(oscilloscope((value) => out.push(value)), 0)), running, () => Math.PI / 2);
+    timer(oscilloscope(sin(quantizer((value) => out.push(value), 0))), running, () => Math.PI / 2);
     expect(out).toHaveLength(1);
     expect(Math.abs(out[0] - 1)).toBeLessThan(1e-9);
   });

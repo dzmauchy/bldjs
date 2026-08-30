@@ -126,13 +126,13 @@ When defining a `<param>`, use `<extends>` and `<super>` to bound the generic va
 `<in>` ports and `<out>` ports carry language-agnostic types. Control Systems uses a pure push model: every consumer is `DoubleConsumer` (`c<f64>`). Compact display writes `c1` as `c`. The WASM runtime still lowers each sample port to first-order f64.
 
 ```
-timer(c)           : c<f64> → void
+timer()            : c<f64>
 quantizer(c)       : c<f64> → c<f64>
 sin(c) / cos(c)    : c<f64> → c<f64>
-oscilloscope()     : c<f64>            (the plot sink)
+oscilloscope(c...) : void              (vararg plot sink)
 ```
 
-Composition is `timer(sin(quantizer(plot)))`. Wire Oscilloscope → Quantizer → Sin (or Cos) → Timer. Several `c<f64>` outputs may share one input; the runtime inserts a hidden `fork`:
+Composition is `oscilloscope(sin(quantizer(timer())), cos(timer()))`. Wire Timer → Quantizer → Sin (or Cos) → Oscilloscope. Oscilloscope `in` is `vararg="true"`. Several `c<f64>` outputs may share one input; the runtime inserts a hidden `fork`:
 
 ```
 c<f64> fork(c<f64>... downstreams) {
@@ -140,7 +140,7 @@ c<f64> fork(c<f64>... downstreams) {
 }
 ```
 
-So two plots on one timer compile as `timer(fork(plot1, plot2))`.
+So two channels on one oscilloscope compile as `oscilloscope(sin(timer()), cos(timer()))`. After Run the chart is a [Chart.js multi-axis line](https://www.chartjs.org/docs/latest/samples/line/multi-axis.html).
 
 ```xml
 <type name="c1">
@@ -149,10 +149,10 @@ So two plots on one timer compile as `timer(fork(plot1, plot2))`.
 
 <block id="timer" name="Timer" ns="com.dauch.cs.gen">
   <factory id="timer"/>
-  <in name="in" type="c1">
+  <out name="out" type="c1">
     <attribute name="wasm">f64</attribute>
     <t type="f64"/>
-  </in>
+  </out>
 </block>
 
 <block id="sin" name="Sin" ns="com.dauch.cs.transform">
