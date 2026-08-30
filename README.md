@@ -51,7 +51,7 @@ Serve that folder with any static file server that sets the same CSP and isolati
 ## Using the canvas
 
 - Drag a block icon from the left pane onto the canvas (or double-click a palette item to drop it in the center).
-- Click or drag from an output handle to an input handle to ground a type. Port types appear as hints on hover or click, not as permanent labels on the block.
+- Click or drag from an output handle to an input handle to ground a type. While a wire is in progress, the source output and every compatible input show their type under the port; the labels disappear once the wire is finished or cancelled.
 - Control Systems (`com.dauch.cs`): wire Oscilloscope (`com.dauch.cs.sink`) → Quantizer (`com.dauch.cs`) → Sin or Cos (`com.dauch.cs.transform`) → Timer (`com.dauch.cs.gen`). Every port is `c<f64>` (`DoubleConsumer`). Composition is `timer(sin(quantizer(plot)))`. The WASM backend still lowers each sample to first-order `f64`.
 - **Run** runs each block's [binaryen.js](https://github.com/AssemblyScript/binaryen.js) script from `src/resources/binaryen/blocks` into one module, emits wasm-gc (typed `call_ref`), starts one worker per generator, and parks with `memory.atomic.wait32` on a shared sample buffer. After Run, click Chart on Oscilloscope; the chart reads that buffer.
 - Scroll to zoom toward the cursor. Use the zoom controls in the lower-right, or **View** in the three-line menu.

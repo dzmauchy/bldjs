@@ -108,6 +108,23 @@ export class Catalog {
     return id;
   }
 
+  /** Declared parent, or the longest declared dotted prefix (`com.dauch.cs.*` → `com.dauch.cs`). */
+  namespaceParent(id: string): string | null {
+    const declared = this.namespaces.get(id)?.parent;
+    if (declared) {
+      return declared;
+    }
+    const parts = id.split(".");
+    while (parts.length > 1) {
+      parts.pop();
+      const prefix = parts.join(".");
+      if (this.namespaces.has(prefix)) {
+        return prefix;
+      }
+    }
+    return null;
+  }
+
   findType(name: string, nsHint?: string | null): TypeDef | undefined {
     if (nsHint) {
       const qualified = `${nsHint}.${name}`;

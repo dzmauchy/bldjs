@@ -33,6 +33,20 @@ describe("canvas", () => {
     expect(await statusBlocks(driver)).toBe("0 blocks");
     const hint = await (await diagramCss(driver, ".hint-card")).getText();
     expect(hint).toContain("Drop blocks here");
+    const parentNs = await waitDeep(driver, '[data-testid="ns-com.dauch.cs"]');
+    expect(await parentNs.getText()).toContain("Control Systems");
+    const genNs = await waitDeep(driver, '[data-testid="ns-com.dauch.cs.gen"]');
+    expect(await genNs.getText()).toContain("Gen");
+    const nested = await driver.executeScript(
+      `
+      const parent = arguments[0];
+      const child = arguments[1];
+      return parent.parentElement.contains(child);
+      `,
+      parentNs,
+      genNs,
+    );
+    expect(nested).toBe(true);
     const paletteItem = await waitDeep(driver, '[data-testid="palette-timer"]');
     expect(await paletteItem.getText()).toContain("Timer");
     expect(await paletteItem.getText()).not.toContain("→");
