@@ -41,14 +41,11 @@ jobs:
       - name: Build release site
         run: npm run build
 
-      - name: Setup Chrome
-        uses: browser-actions/setup-chrome@v2
-        id: chrome
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
-      - name: Selenium
+      - name: Playwright
         run: npm run test:e2e
-        env:
-          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
 
       - name: Check site output
         run: |
