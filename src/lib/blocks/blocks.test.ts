@@ -40,7 +40,7 @@ import {
 } from "./cs";
 import { type Link, Diagram } from "./diagram";
 import { parseBlocks } from "./parse";
-import { type Grounding, TypeResolver, resolvedOutput } from "./resolve";
+import { type Grounding, TypeResolver, resolvedInput, resolvedOutput } from "./resolve";
 
 function t(name: string): TypeExpr {
   return named(name);
@@ -644,6 +644,33 @@ describe("blocks", () => {
     ]);
   });
 
+  it("plans slotted extra ports as the same fork multiplot", () => {
+    const nodes = [
+      { id: 1, defId: "oscilloscope" },
+      { id: 2, defId: "sin" },
+      { id: 3, defId: "cos" },
+      { id: 4, defId: "timer" },
+    ];
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 1, fromOut: "out[1]", toBlock: 3, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in[1]" },
+    ];
+    const plan = planGenerator(4, nodes, links)!;
+    expect(plan.tree).toEqual({
+      kind: "fork",
+      inner: [
+        { kind: "stage", stage: "sin", inner: { kind: "scope", id: 1 } },
+        { kind: "stage", stage: "cos", inner: { kind: "scope", id: 1 } },
+      ],
+    });
+    expect(plan.channels).toEqual([
+      { scopeId: 1, label: "sin" },
+      { scopeId: 1, label: "cos" },
+    ]);
+  });
+
   it("sin maps samples", () => {
     const out: number[] = [];
     const mapped = sinFunc((value) => out.push(value));
@@ -805,6 +832,28 @@ describe("blocks", () => {
     diagram.addLink(scopeB, "out", sinId, "in");
     expect(diagram.links()).toHaveLength(2);
     expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
+  });
+
+  it("extra slotted ports ground as the catalog consumer ports", () => {
+    const diagram = new Diagram("cs", "Slots");
+    associateBuiltinModels(diagram);
+    const scopeId = diagram.addNode("oscilloscope");
+    const sinId = diagram.addNode("sin");
+    const cosId = diagram.addNode("cos");
+    const timerId = diagram.addNode("timer");
+    diagram.addLink(scopeId, "out", sinId, "in");
+    diagram.addLink(scopeId, "out[1]", cosId, "in");
+    diagram.addLink(sinId, "out", timerId, "in");
+    diagram.addLink(cosId, "out", timerId, "in[1]");
+    const scope = diagram.resolveNode(scopeId)!;
+    expect(displayType(resolvedOutput(scope, "out")!, true)).toBe("c<f64>[]");
+    expect(displayType(resolvedOutput(scope, "out[1]")!, true)).toBe("c<f64>");
+    expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
+    expect(diagram.resolveNode(cosId)!.compatible.get("in") ?? true).toBe(true);
+    const timer = diagram.resolveNode(timerId)!;
+    expect(timer.compatible.get("in") ?? true).toBe(true);
+    expect(displayType(resolvedInput(timer, "in")!, true)).toBe("c<f64>");
+    expect(displayType(resolvedInput(timer, "in[1]")!, true)).toBe("c<f64>");
   });
 
   it("oscilloscope vector wires to sin because c<f64>[] grounds c<f64>", () => {

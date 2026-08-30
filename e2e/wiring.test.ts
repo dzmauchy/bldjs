@@ -81,6 +81,52 @@ describe("wiring", () => {
     await waitForLinks(driver, "2 links");
   });
 
+  it("adds extra ports for a second wire and removes them with the connector", async () => {
+    await placeBlock(driver, "oscilloscope");
+    await placeBlock(driver, "sin");
+    await placeBlock(driver, "cos");
+    await placeBlock(driver, "timer");
+
+    async function portNames(defId: string, side: "in" | "out"): Promise<string[]> {
+      const host = await nodeHost(driver, defId);
+      const root = await host.getShadowRoot();
+      const ports = await root.findElements(By.css(`[data-port][data-side="${side}"]`));
+      return Promise.all(ports.map((port) => port.getAttribute("data-name")));
+    }
+
+    await clickPortHandle(driver, "oscilloscope", "output-out");
+    await clickPortHandle(driver, "sin", "input-in");
+    await waitForLinks(driver, "1 link");
+    expect(await portNames("oscilloscope", "out")).toEqual(["out"]);
+    expect(await portNames("sin", "in")).toEqual(["in"]);
+
+    await clickPortHandle(driver, "oscilloscope", "output-out");
+    await clickPortHandle(driver, "cos", "input-in");
+    await waitForLinks(driver, "2 links");
+    expect(await portNames("oscilloscope", "out")).toEqual(["out", "out[1]"]);
+    expect(await portNames("cos", "in")).toEqual(["in"]);
+
+    await clickPortHandle(driver, "sin", "output-out");
+    await clickPortHandle(driver, "timer", "input-in");
+    await waitForLinks(driver, "3 links");
+    expect(await portNames("timer", "in")).toEqual(["in"]);
+
+    await clickPortHandle(driver, "cos", "output-out");
+    await clickPortHandle(driver, "timer", "input-in");
+    await waitForLinks(driver, "4 links");
+    expect(await portNames("timer", "in")).toEqual(["in", "in[1]"]);
+
+    await clickPortHandle(driver, "oscilloscope", "output-out[1]");
+    await clickPortHandle(driver, "cos", "input-in");
+    await waitForLinks(driver, "3 links");
+    expect(await portNames("oscilloscope", "out")).toEqual(["out"]);
+
+    await clickPortHandle(driver, "cos", "output-out");
+    await clickPortHandle(driver, "timer", "input-in[1]");
+    await waitForLinks(driver, "2 links");
+    expect(await portNames("timer", "in")).toEqual(["in"]);
+  });
+
   it("toggles the same wire off", async () => {
     await placeBlock(driver, "oscilloscope");
     await placeBlock(driver, "quantizer");

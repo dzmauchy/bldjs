@@ -11,9 +11,14 @@ import {
   blockInput,
   assembleGenerator,
   infer,
-  isConsumerType,
   planGenerator,
   type ScopeSeries,
+  acceptsManyInputs,
+  allocateIncomingSlot,
+  allocateOutgoingSlot,
+  catalogPortName,
+  compactLinkSlots,
+  findCatalogLink,
 } from "./blocks";
 import { linksEqual } from "./blocks/diagram";
 import {
@@ -185,7 +190,7 @@ export class AppState extends EventTarget {
       this.scopeOpen = NONE_ID;
     }
     this.blocks = this.blocks.filter((block) => block.id !== id);
-    this.links = this.links.filter((link) => link.fromBlock !== id && link.toBlock !== id);
+    this.#replaceLinks(this.links.filter((link) => link.fromBlock !== id && link.toBlock !== id));
     if (this.selected === id) {
       this.selected = NONE_ID;
     }
@@ -210,10 +215,10 @@ export class AppState extends EventTarget {
   }
 
   removeLink(link: Link): void {
-    this.links = this.links.filter((item) => !linksEqual(item, link));
-    if (this.selectedLink && linksEqual(this.selectedLink, link)) {
-      this.selectedLink = null;
-    }
+    this.#replaceLinks(
+      this.links.filter((item) => !linksEqual(item, link)),
+      link,
+    );
     this.#invalidateRun();
   }
 
@@ -338,25 +343,40 @@ export class AppState extends EventTarget {
   }
 
   toggleLink(fromBlock: number, fromOut: string, toBlock: number, toIn: string): void {
-    const link: Link = { fromBlock, fromOut, toBlock, toIn };
-    const target = this.blocks.find((block) => block.id === toBlock);
-    const def = target ? this.blockDef(target.defId) : undefined;
-    const targetPort = def ? blockInput(def, toIn) : undefined;
-    const many = (targetPort?.vararg ?? false) || (targetPort ? isConsumerType(targetPort.ty) : false);
-    if (this.links.some((item) => linksEqual(item, link))) {
-      this.links = this.links.filter((item) => !linksEqual(item, link));
-      if (this.selectedLink && linksEqual(this.selectedLink, link)) {
-        this.selectedLink = null;
-      }
-      this.#invalidateRun();
+    const existing = findCatalogLink(this.links, fromBlock, fromOut, toBlock, toIn);
+    if (existing) {
+      this.removeLink(existing);
       return;
     }
+    const target = this.blocks.find((block) => block.id === toBlock);
+    const def = target ? this.blockDef(target.defId) : undefined;
+    const catalogIn = catalogPortName(toIn);
+    const catalogOut = catalogPortName(fromOut);
+    const targetPort = def ? blockInput(def, catalogIn) : undefined;
+    const many = acceptsManyInputs(targetPort);
     let next = this.links;
     if (!many) {
-      next = next.filter((item) => !(item.toBlock === link.toBlock && item.toIn === link.toIn));
+      next = next.filter((item) => !(item.toBlock === toBlock && catalogPortName(item.toIn) === catalogIn));
     }
-    this.links = [...next, link];
+    const link: Link = {
+      fromBlock,
+      fromOut: allocateOutgoingSlot(next, fromBlock, catalogOut),
+      toBlock,
+      toIn: many ? allocateIncomingSlot(next, toBlock, catalogIn) : catalogIn,
+    };
+    this.#replaceLinks([...next, link]);
     this.#invalidateRun();
+  }
+
+  #replaceLinks(remaining: Link[], removed?: Link): void {
+    const compacted = compactLinkSlots(remaining);
+    if (removed && this.selectedLink && linksEqual(this.selectedLink, removed)) {
+      this.selectedLink = null;
+    } else if (this.selectedLink) {
+      const index = remaining.findIndex((item) => linksEqual(item, this.selectedLink!));
+      this.selectedLink = index >= 0 ? compacted[index] : null;
+    }
+    this.links = compacted;
   }
 
   inputIsGrounded(blockId: number, port: string): boolean {

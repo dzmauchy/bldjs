@@ -139,6 +139,44 @@ describe("BldNode", () => {
     expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("c<f64>[]");
   });
 
+  it("renders extra slotted ports with distinct handles", async () => {
+    const node = await mountNode(
+      sampleState({
+        defId: "oscilloscope",
+        name: "Oscilloscope",
+        inputs: [],
+        outputs: [
+          { name: "out", typeLabel: "c<f64>[]", vararg: false, grounded: true },
+          { name: "out[1]", typeLabel: "c<f64>", vararg: false, grounded: true },
+        ],
+        paramsLine: "",
+      }),
+    );
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-name')?.textContent).toBe("out");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out[1]"] .block-port-name')?.textContent).toBe(
+      "out[1]",
+    );
+    expect(node.shadowRoot!.querySelectorAll("[data-port][data-side='out']")).toHaveLength(2);
+  });
+
+  it("renders a second extra input handle", async () => {
+    const node = await mountNode(
+      sampleState({
+        defId: "timer",
+        name: "Timer",
+        inputs: [
+          { name: "in", typeLabel: "c<f64>", vararg: false, grounded: true },
+          { name: "in[1]", typeLabel: "c<f64>", vararg: false, grounded: true },
+        ],
+        outputs: [],
+        paramsLine: "",
+      }),
+    );
+    expect(node.shadowRoot!.querySelector('[data-testid="input-in"] .block-port-name')?.textContent).toBe("in");
+    expect(node.shadowRoot!.querySelector('[data-testid="input-in[1]"] .block-port-name')?.textContent).toBe("in[1]");
+    expect(node.shadowRoot!.querySelectorAll("[data-port][data-side='in']")).toHaveLength(2);
+  });
+
   it("prints the type under a port only when showType is set", async () => {
     const node = await mountNode(
       sampleState({
