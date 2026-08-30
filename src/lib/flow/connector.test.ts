@@ -21,6 +21,8 @@ describe("BldConnector", () => {
     const cssText = (BldConnector.styles as { cssText: string }).cssText;
     expect(cssText).not.toContain("[data-flow=");
     expect(cssText).toContain("--flow-period");
+    expect(cssText).toContain("[data-push]");
+    expect(cssText).toContain("animation-direction: reverse");
     expect(cssText).not.toContain("svg");
   });
 
@@ -74,6 +76,19 @@ describe("BldConnector", () => {
     expect(link.hasAttribute("data-flow")).toBe(false);
     expect(link.style.getPropertyValue("--flow-period")).toBe("");
     expect(link.shadowRoot?.querySelector(".seg")).toBeNull();
+  });
+
+  it("reverses dash travel when the wire is a push-model consumer", async () => {
+    const pull = await mountConnector({ from: { x: 0, y: 0 }, to: { x: 80, y: 0 }, hz: 10 });
+    expect(pull.hasAttribute("data-push")).toBe(false);
+    expect(pull.shadowRoot!.querySelector(".seg")).not.toBeNull();
+    pull.push = true;
+    await pull.updateComplete;
+    expect(pull.hasAttribute("data-push")).toBe(true);
+    const push = await mountConnector({ from: { x: 0, y: 0 }, to: { x: 80, y: 0 }, hz: 5, push: true });
+    expect(push.hasAttribute("data-push")).toBe(true);
+    expect(push.hasAttribute("data-flow")).toBe(true);
+    expect(push.shadowRoot!.querySelector(".seg")).not.toBeNull();
   });
 
   it("updates the clip-path when an endpoint moves with its node", async () => {

@@ -6,6 +6,7 @@ export {
   blockOutput,
   displayType,
   isConsumerType,
+  isPushType,
   typeToString,
 } from "./ast";
 export { associateBuiltinModels, associateFixtureModels } from "./builtin";

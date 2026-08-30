@@ -5,6 +5,7 @@ import {
   displayType,
   extendsBound,
   isConsumerType,
+  isPushType,
   typeToString,
   generic,
   named,
@@ -580,6 +581,17 @@ describe("blocks", () => {
     expect(isConsumerType(g("f1", [t("f64"), t("f64")]))).toBe(false);
   });
 
+  it("detects push-model wires from consumers and consumer vectors", () => {
+    expect(isPushType(g("c1", [t("f64")]))).toBe(true);
+    expect(isPushType(arrayOf(g("c1", [t("f64")])))).toBe(true);
+    expect(isPushType(arrayOf(arrayOf(g("c1", [t("f64")]))))).toBe(true);
+    expect(isPushType(t("f64"))).toBe(false);
+    expect(isPushType(g("s", [t("f64")]))).toBe(false);
+    expect(isPushType(g("f1", [t("f64"), t("f64")]))).toBe(false);
+    expect(isPushType(arrayOf(t("f64")))).toBe(false);
+    expect(isPushType(undefined)).toBe(false);
+  });
+
   it("fork forwards each sample to every downstream", () => {
     const left: number[] = [];
     const right: number[] = [];
@@ -857,12 +869,16 @@ describe("blocks", () => {
     const scope = diagram.resolveNode(scopeId)!;
     expect(displayType(resolvedOutput(scope, "out")!, true)).toBe("c<f64>[]");
     expect(displayType(resolvedOutput(scope, "out[1]")!, true)).toBe("c<f64>");
+    expect(isPushType(resolvedOutput(scope, "out"))).toBe(true);
+    expect(isPushType(resolvedOutput(scope, "out[1]"))).toBe(true);
     expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
     expect(diagram.resolveNode(cosId)!.compatible.get("in") ?? true).toBe(true);
     const timer = diagram.resolveNode(timerId)!;
     expect(timer.compatible.get("in") ?? true).toBe(true);
     expect(displayType(resolvedInput(timer, "in")!, true)).toBe("c<f64>");
     expect(displayType(resolvedInput(timer, "in[1]")!, true)).toBe("c<f64>");
+    expect(isPushType(resolvedInput(timer, "in"))).toBe(true);
+    expect(isPushType(resolvedInput(timer, "in[1]"))).toBe(true);
   });
 
   it("oscilloscope vector wires to sin because c<f64>[] grounds c<f64>", () => {

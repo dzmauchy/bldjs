@@ -3,6 +3,7 @@ import { classMap } from "lit/directives/class-map.js";
 import { repeat } from "lit/directives/repeat.js";
 import { styleMap } from "lit/directives/style-map.js";
 import {
+  isPushType,
   isResolvedCompatible,
   resolvedInput,
   resolvedOutput,
@@ -285,6 +286,15 @@ export class BldDiagram extends LitElement {
       return undefined;
     }
     return clientToWorld(clientX, clientY, rect, this.app.panX, this.app.panY, this.app.zoom);
+  }
+
+  #linkPushes(resolved: Map<number, ResolvedBlock>, link: Link): boolean {
+    const from = resolved.get(link.fromBlock);
+    const to = resolved.get(link.toBlock);
+    return (
+      isPushType(from ? resolvedOutput(from, link.fromOut) : undefined) ||
+      isPushType(to ? resolvedInput(to, link.toIn) : undefined)
+    );
   }
 
   #paramLine(resolved: Map<number, ResolvedBlock>, blockId: number): string {
@@ -693,6 +703,7 @@ export class BldDiagram extends LitElement {
                 .points=${item.points}
                 .crossings=${item.crossings}
                 .selected=${item.selected}
+                .push=${this.#linkPushes(resolved, item.link)}
                 .hz=${app.runBusy() ? app.connectorHz(item.link) : 0}
                 @linkpointerdown=${() => this.#onLinkPointerDown(item.link)}
               ></bld-connector>
