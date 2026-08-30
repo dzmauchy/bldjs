@@ -3,6 +3,13 @@ body {
   height: 100%;
   margin: 0;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+bld-app {
+  display: block;
+  height: 100%;
 }
 
 bld-app {

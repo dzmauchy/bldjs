@@ -30,11 +30,13 @@ test.describe("menus", () => {
         csp: response.headers.get("content-security-policy") ?? "",
         coop: response.headers.get("cross-origin-opener-policy") ?? "",
         coep: response.headers.get("cross-origin-embedder-policy") ?? "",
+        corp: response.headers.get("cross-origin-resource-policy") ?? "",
       };
     });
     expect(headers.csp).toBe("script-src 'self' 'wasm-unsafe-eval';");
     expect(headers.coop).toBe("same-origin");
     expect(headers.coep).toBe("require-corp");
+    expect(headers.corp).toBe("same-origin");
     expect(await page.evaluate(() => self.crossOriginIsolated)).toBe(true);
   });
 

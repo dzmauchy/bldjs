@@ -133,6 +133,65 @@ test.describe("canvas", () => {
       .toBe(true);
   });
 
+  test("moves a node with a touch pointer drag", async () => {
+    const host = nodeHost(page, "timer");
+    const before = await boxOf(host);
+    const box = await boxOf(host.locator(".flow-node-icon"));
+    const startX = box.x + box.width / 2;
+    const startY = box.y + box.height / 2;
+    await page.evaluate(
+      ({ startX, startY }) => {
+        const walk = (root, selector) => {
+          const match = root.querySelector?.(selector);
+          if (match) {
+            return match;
+          }
+          for (const node of root.querySelectorAll("*")) {
+            if (node.shadowRoot) {
+              const found = walk(node.shadowRoot, selector);
+              if (found) {
+                return found;
+              }
+            }
+          }
+          return null;
+        };
+        const diagram = walk(document, "bld-diagram");
+        const node = diagram?.shadowRoot?.querySelector('bld-node[data-block-def="timer"]');
+        const viewport = diagram?.shadowRoot?.querySelector(".viewport");
+        if (!node || !viewport) {
+          throw new Error("touch drag: timer node or viewport missing");
+        }
+        const fire = (target, type, clientX, clientY, extra) => {
+          target.dispatchEvent(
+            new PointerEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              composed: true,
+              pointerId: 99,
+              pointerType: "touch",
+              isPrimary: true,
+              view: window,
+              clientX,
+              clientY,
+              ...extra,
+            }),
+          );
+        };
+        fire(node, "pointerdown", startX, startY, { button: 0, buttons: 1 });
+        fire(viewport, "pointermove", startX + 72, startY + 36, { button: -1, buttons: 1 });
+        fire(viewport, "pointerup", startX + 72, startY + 36, { button: 0, buttons: 0 });
+      },
+      { startX, startY },
+    );
+    await expect
+      .poll(async () => {
+        const after = await boxOf(host);
+        return Math.abs(after.x - before.x) > 8 || Math.abs(after.y - before.y) > 8;
+      })
+      .toBe(true);
+  });
+
   test("deletes the selected block with Delete", async () => {
     const before = await statusBlocks(page);
     expect(before).not.toBe("0 blocks");

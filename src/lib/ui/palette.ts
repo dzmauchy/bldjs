@@ -33,6 +33,8 @@ export class BldPalette extends LitElement {
       }
       .palette-list {
         padding: 0;
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
       }
       .palette-ns {
         border-bottom: 1px solid var(--bs-border-color);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { worldPort } from "./layout";
+import { portFromClientPoint, worldPort } from "./layout";
 import type { NodeLayout } from "./types";
 
 describe("node layout", () => {
@@ -27,5 +27,9 @@ describe("node layout", () => {
   it("returns undefined until the custom element has reported a size", () => {
     expect(worldPort({ x: 0, y: 0 }, undefined, "out", "value")).toBeUndefined();
     expect(worldPort(undefined, layout, "out", "value")).toBeUndefined();
+  });
+
+  it("finds no port when the client point misses every handle", () => {
+    expect(portFromClientPoint(-4000, -4000)).toBeUndefined();
   });
 });

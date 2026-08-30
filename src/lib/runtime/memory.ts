@@ -31,20 +31,40 @@ export const MEMORY_BYTES = MEMORY_PAGES * 65536;
 export const FLOW_COUNT_CAP = 256;
 export const FLOW_COUNTS = MEMORY_BYTES - FLOW_COUNT_CAP * 4;
 
-export function createSharedMemory(): WebAssembly.Memory {
+function isSharedBuffer(buffer: ArrayBufferLike): buffer is SharedArrayBuffer {
+  return typeof SharedArrayBuffer === "function" && buffer instanceof SharedArrayBuffer;
+}
+
+export function createMemory(shared: boolean): WebAssembly.Memory {
   return new WebAssembly.Memory({
     initial: MEMORY_PAGES,
     maximum: MEMORY_PAGES,
-    shared: true,
+    shared,
   });
 }
 
+/** Shared memory for worker threads. Throws if the page is not cross-origin isolated. */
+export function createSharedMemory(): WebAssembly.Memory {
+  return createMemory(true);
+}
+
 export function isStopped(memory: WebAssembly.Memory): boolean {
-  return Atomics.load(new Int32Array(memory.buffer), MEM.stop / 4) !== 0;
+  const view = new Int32Array(memory.buffer);
+  const index = MEM.stop / 4;
+  if (isSharedBuffer(memory.buffer)) {
+    return Atomics.load(view, index) !== 0;
+  }
+  return view[index] !== 0;
 }
 
 export function requestStop(memory: WebAssembly.Memory): void {
-  Atomics.store(new Int32Array(memory.buffer), MEM.stop / 4, 1);
+  const view = new Int32Array(memory.buffer);
+  const index = MEM.stop / 4;
+  if (isSharedBuffer(memory.buffer)) {
+    Atomics.store(view, index, 1);
+    return;
+  }
+  view[index] = 1;
 }
 
 export function readFlowCounts(memory: WebAssembly.Memory, count: number): number[] {
@@ -53,7 +73,10 @@ export function readFlowCounts(memory: WebAssembly.Memory, count: number): numbe
     return [];
   }
   const view = new Int32Array(memory.buffer, FLOW_COUNTS, n);
-  return Array.from({ length: n }, (_, index) => Atomics.load(view, index));
+  if (isSharedBuffer(memory.buffer)) {
+    return Array.from({ length: n }, (_, index) => Atomics.load(view, index));
+  }
+  return Array.from({ length: n }, (_, index) => view[index] ?? 0);
 }
 
 /** The runner records one c<?> invocation per connector after each `tick`. */
@@ -64,7 +87,11 @@ export function bumpFlowCounts(memory: WebAssembly.Memory, count: number): void 
   }
   const view = new Int32Array(memory.buffer, FLOW_COUNTS, n);
   for (let i = 0; i < n; i += 1) {
-    Atomics.add(view, i, 1);
+    if (isSharedBuffer(memory.buffer)) {
+      Atomics.add(view, i, 1);
+    } else {
+      view[i] = (view[i] ?? 0) + 1;
+    }
   }
 }
 

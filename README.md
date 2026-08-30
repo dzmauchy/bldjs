@@ -34,9 +34,12 @@ Then open [http://localhost:8080](http://localhost:8080). Vite rebuilds and live
 Content-Security-Policy: script-src 'self' 'wasm-unsafe-eval';
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
+Cross-Origin-Resource-Policy: same-origin
 ```
 
 so generated WASM can instantiate without `unsafe-eval`, and `SharedArrayBuffer` is available (`crossOriginIsolated`) for generator worker threads.
+
+Those headers only isolate a **secure context** (HTTPS or `localhost`). Opening `http://192.168.x.x:8080` from a phone is not secure, so `crossOriginIsolated` stays false. The app then runs the avoid router and generator on the main thread instead of failing to start a worker. `make build` also writes `dist/_headers` (Netlify / Cloudflare Pages) with the same values.
 
 Release assets go to `dist/`:
 
@@ -55,7 +58,7 @@ Serve that folder with any static file server that sets the same CSP and isolati
 - Control Systems (`com.dauch.cs`): wire Oscilloscope (`com.dauch.cs.sink`) → Quantizer (`com.dauch.cs`) → Sin or Cos (`com.dauch.cs.transform`) → Timer (`com.dauch.cs.gen`). Timer, Sin, Cos, and Quantizer ports are `c<f64>` (`DoubleConsumer`). Oscilloscope returns a dynamically sized vector `c<f64>[]`; each outgoing wire is one plot channel: `timer(fork(sin(plot[0]), cos(plot[1])))`. Several `c<f64>` outputs may share one input; Run inserts a hidden `fork` that forwards each sample to every downstream. WASM builder blocks use the same `<in>` / `<out>` ports as the XML catalog.
 - **Run** asks SolutionBuilder to assemble the wired SolutionView: one [binaryen.js](https://github.com/AssemblyScript/binaryen.js) script per XML block from `src/resources/binaryen/blocks`, connectors to wire them (including `array.get` for vector slots), then wasm-gc (`call_ref`). It starts one worker thread per generator (Timer). That worker drives `tick` with `setInterval` (quantizer delay, default 10 ms) and writes samples into a shared buffer. The runner intercepts `c<?>` connector frequency after each tick; live wires use one of ten logarithmically spaced dash styles (`0`…`9`) from that rate. After Run, click Chart on Oscilloscope; the chart is a [Chart.js multi-axis line](https://www.chartjs.org/docs/latest/samples/line/multi-axis.html) with one dataset / y-axis per vector channel.
 - Scroll to zoom toward the cursor. Use the zoom controls in the lower-right, or **View** in the three-line menu.
-- Drag empty canvas space to pan. Drag a placed block to move it.
+- Drag empty canvas space to pan. Drag a placed block to move it (touch and mouse; the canvas captures the pointer so a phone can drag).
 - **Delete** / **Backspace** removes the selected block or edge. **Ctrl/Cmd+0** resets the view.
 
 ## Stack

@@ -40,7 +40,7 @@ export {
   obstacleFromBlock,
 } from "./avoid-router";
 export { iconKey, iconSvgInner, renderBrandSvg, renderIconSvg } from "./icons";
-export { measureHostLayout, portFromComposedPath, worldPort } from "./layout";
+export { measureHostLayout, portFromClientPoint, portFromComposedPath, worldPort } from "./layout";
 export { groupPortViews } from "./port-groups";
 export type { PortGroup } from "./port-groups";
 export type {

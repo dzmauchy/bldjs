@@ -15,6 +15,7 @@ export interface AssembleOptions {
   delayMs: number;
   view?: SolutionView;
   timerId?: number;
+  sharedMemory?: boolean;
 }
 
 export interface AssembledModule {
@@ -40,6 +41,7 @@ export async function assembleModule(options: AssembleOptions): Promise<Assemble
   return builder.build(view, {
     delayMs: options.delayMs,
     timerId: options.timerId ?? firstTimerId(view),
+    sharedMemory: options.sharedMemory,
   });
 }
 

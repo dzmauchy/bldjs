@@ -9,7 +9,44 @@ const isolationHeaders = {
   "Content-Security-Policy": csp,
   "Cross-Origin-Opener-Policy": "same-origin",
   "Cross-Origin-Embedder-Policy": "require-corp",
+  "Cross-Origin-Resource-Policy": "same-origin",
 };
+
+function applyIsolation(headers: { setHeader: (name: string, value: string) => void }): void {
+  for (const [name, value] of Object.entries(isolationHeaders)) {
+    headers.setHeader(name, value);
+  }
+}
+
+/** Set COOP/COEP/CORP on every response, including WASM and worker modules. */
+function crossOriginIsolation(): Plugin {
+  const middleware = (
+    _req: unknown,
+    res: { setHeader: (name: string, value: string) => void },
+    next: () => void,
+  ) => {
+    applyIsolation(res);
+    next();
+  };
+  return {
+    name: "cross-origin-isolation",
+    configureServer(server) {
+      server.middlewares.use(middleware);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(middleware);
+    },
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "_headers",
+        source: `/*\n${Object.entries(isolationHeaders)
+          .map(([name, value]) => `  ${name}: ${value}`)
+          .join("\n")}\n`,
+      });
+    },
+  };
+}
 
 const libavoidWasm = fileURLToPath(new URL("./node_modules/libavoid-js/dist/libavoid.wasm", import.meta.url));
 
@@ -38,7 +75,7 @@ function serveLibavoidWasm(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [serveLibavoidWasm()],
+  plugins: [crossOriginIsolation(), serveLibavoidWasm()],
   resolve: {
     alias: {
       $lib: fileURLToPath(new URL("./src/lib", import.meta.url)),

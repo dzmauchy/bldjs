@@ -38,6 +38,7 @@ export class BldNode extends LitElement {
       z-index: 1;
       cursor: grab;
       user-select: none;
+      -webkit-user-select: none;
       touch-action: none;
       color: var(--bs-body-color, #dee2e6);
       font-size: 12px;

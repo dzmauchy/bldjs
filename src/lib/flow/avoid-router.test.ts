@@ -309,3 +309,14 @@ describe("avoid router engine", () => {
     engine.destroy();
   }, 20000);
 });
+
+describe("avoid router isolation", () => {
+  it("starts on the main thread when isolated workers are unavailable", async () => {
+    expect(globalThis.crossOriginIsolated).not.toBe(true);
+    const engine = new AvoidRouteEngine();
+    await engine.start({ worker: true, filePath: wasmPath });
+    expect(engine.ready).toBe(true);
+    expect(engine.worker).toBe(false);
+    engine.destroy();
+  }, 20000);
+});
