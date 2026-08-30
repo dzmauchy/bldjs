@@ -232,6 +232,20 @@ export function isConsumerType(expr: TypeExpr): boolean {
   return expr.kind === "type" && rawTypeName(expr.name) === "c1";
 }
 
+/**
+ * Push-model wire: a consumer (or vector of consumers) is passed out→in, so
+ * samples travel the opposite way. Dash animation should reverse for these.
+ */
+export function isPushType(expr: TypeExpr | undefined): boolean {
+  if (!expr) {
+    return false;
+  }
+  if (isConsumerType(expr)) {
+    return true;
+  }
+  return isArrayType(expr) && isPushType(expr.args[0]);
+}
+
 export function typeArgs(expr: TypeExpr): TypeExpr[] {
   return expr.kind === "type" ? expr.args : [];
 }

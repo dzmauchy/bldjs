@@ -320,6 +320,13 @@ test.describe("wiring", () => {
     const periodMs = Number.parseFloat(duration);
     expect(periodMs).toBeGreaterThanOrEqual(200);
     expect(periodMs).toBeLessThanOrEqual(2500);
+    const flow = page.locator("bld-connector:not([data-preview])[data-flow]");
+    await expect(flow).toHaveAttribute("data-push");
+    const direction = await flow.first().evaluate((el) => {
+      const seg = el.shadowRoot?.querySelector(".seg");
+      return seg ? getComputedStyle(seg).animationDirection : "";
+    });
+    expect(direction).toBe("reverse");
     await page.locator('[data-testid="toolbar-stop"]').click();
     await expect(run).toBeEnabled();
     await expect(page.locator("bld-connector:not([data-preview])[data-flow]")).toHaveCount(0);

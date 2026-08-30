@@ -30,6 +30,7 @@ export class BldConnector extends LitElement {
     crossings: { attribute: false },
     selected: { type: Boolean, reflect: true, attribute: "data-selected" },
     preview: { type: Boolean, reflect: true, attribute: "data-preview" },
+    push: { type: Boolean, reflect: true, attribute: "data-push" },
     hz: { type: Number },
   };
 
@@ -37,9 +38,10 @@ export class BldConnector extends LitElement {
   declare to: Point;
   declare points: Point[];
   declare crossings: RoutedLink[];
-  declare selected: boolean;
-  declare preview: boolean;
-  declare hz: number;
+    declare selected: boolean;
+    declare preview: boolean;
+    declare push: boolean;
+    declare hz: number;
 
   static override styles = css`
     :host {
@@ -87,6 +89,9 @@ export class BldConnector extends LitElement {
       animation-iteration-count: infinite;
       animation-duration: var(--flow-period, 0ms);
     }
+    :host([data-push]) .seg {
+      animation-direction: reverse;
+    }
     :host(:not([data-flow])) .seg {
       animation-name: none;
     }
@@ -110,6 +115,7 @@ export class BldConnector extends LitElement {
     this.crossings = [];
     this.selected = false;
     this.preview = false;
+    this.push = false;
     this.hz = 0;
   }
 
