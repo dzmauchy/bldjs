@@ -16,6 +16,7 @@ export interface AssembleOptions {
   view?: SolutionView;
   timerId?: number;
   sharedMemory?: boolean;
+  emitText?: boolean;
 }
 
 export interface AssembledModule {
@@ -42,6 +43,7 @@ export async function assembleModule(options: AssembleOptions): Promise<Assemble
     delayMs: options.delayMs,
     timerId: options.timerId ?? firstTimerId(view),
     sharedMemory: options.sharedMemory,
+    emitText: options.emitText,
   });
 }
 

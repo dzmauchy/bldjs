@@ -196,6 +196,22 @@ describe("AppState run", () => {
     expect(app.scopeOpen).toBe(-1);
   });
 
+  it("enables the oscilloscope chart and wire rates as soon as Run starts", async () => {
+    const app = new AppState();
+    const { timerId, scopeId } = wireCsPipeline(app);
+    const link = app.links.find((item) => item.toBlock === timerId)!;
+    const pending = app.runDiagram();
+    expect(app.starting).toBe(true);
+    expect(app.running).toBe(false);
+    expect(app.isScopeLive(scopeId)).toBe(true);
+    expect(app.connectorHz(link)).toBeGreaterThan(0);
+    await pending;
+    expect(app.running).toBe(true);
+    expect(app.starting).toBe(false);
+    expect(app.isScopeLive(scopeId)).toBe(true);
+    app.stopRun();
+  });
+
   it("run compiles wasm and enables the oscilloscope chart", async () => {
     const app = new AppState();
     const { timerId, scopeId } = wireCsPipeline(app);

@@ -106,6 +106,12 @@ describe("block binaryen assembly", () => {
     );
   });
 
+  it("can skip WAT text on the run path", async () => {
+    const { text, wasm } = await assembleModule({ stages: ["sin"], delayMs: 10, emitText: false });
+    expect(text).toBe("");
+    expect([...wasm.slice(0, 4)]).toEqual([0, 97, 115, 109]);
+  });
+
   it("emits a non-shared memory module that instantiates without COI", async () => {
     const { text, wasm } = await assembleModule({ stages: ["sin"], delayMs: 10, sharedMemory: false });
     expect(text.toLowerCase()).not.toMatch(/\(memory[^\n]*shared/);

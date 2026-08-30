@@ -1,5 +1,11 @@
 export type { SolutionAssembly, SolutionBuilder } from "./builder";
-export { WasmSolutionBuilder, assignRings, linearSolutionView, type WasmBuildOptions } from "./wasm";
+export {
+  WasmSolutionBuilder,
+  assignRings,
+  linearSolutionView,
+  preloadAssembler,
+  type WasmBuildOptions,
+} from "./wasm";
 export {
   type SolutionView,
   type SolutionViewBlock,

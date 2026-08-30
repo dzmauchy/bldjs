@@ -261,6 +261,7 @@ export async function assembleGenerator(
   const assembled = await new WasmSolutionBuilder().build(solutionViewFrom(nodes, links), {
     delayMs: plan.delayMs,
     timerId: plan.timerId,
+    emitText: false,
   });
   return { wasm: assembled.wasm, connectors: assembled.connectors };
 }
