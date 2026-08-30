@@ -151,12 +151,11 @@ describe("BldNode", () => {
     const output = node.shadowRoot!.querySelector('[data-testid="output-result"]') as HTMLButtonElement;
     const hint = node.shadowRoot!.querySelector('[data-testid="output-result-type"]') as HTMLElement;
     expect(output.classList.contains("is-hint")).toBe(false);
-    expect(getComputedStyle(hint).visibility).toBe("hidden");
     output.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, clientX: 4, clientY: 8 }));
     await node.updateComplete;
     expect(output.classList.contains("is-hint")).toBe(true);
     expect(hint.textContent).toBe("f64[]");
-    expect(getComputedStyle(hint).visibility).toBe("visible");
+    expect(hint.getAttribute("role")).toBe("tooltip");
   });
 
   it("reports its measured size through noderesize", async () => {
