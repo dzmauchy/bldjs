@@ -49,10 +49,10 @@ describe("XML ↔ WASM signatures", () => {
       params: [{ name: "in", type: "f64" }],
       results: [],
     });
-    expect(displayType(cat.block("timer")!.outputs[0].ty, true)).toBe("c<c<c<f64>>>");
+    expect(displayType(cat.block("timer")!.outputs[0].ty, true)).toBe("c<c<f64>>");
     expect(displayType(cat.block("quantizer")!.outputs[0].ty, true)).toBe("c<c<f64>>");
-    expect(displayType(cat.block("sin")!.outputs[0].ty, true)).toBe("c<f64>");
-    expect(displayType(cat.block("oscilloscope")!.inputs[0].ty, true)).toBe("c<f64>");
+    expect(displayType(cat.block("sin")!.outputs[0].ty, true)).toBe("c<c<f64>>");
+    expect(displayType(cat.block("oscilloscope")!.inputs[0].ty, true)).toBe("c<c<f64>>");
   });
 
   it("types.xml blocks use arguments as inputs and results as outputs", () => {

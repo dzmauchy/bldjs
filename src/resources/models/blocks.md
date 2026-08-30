@@ -19,7 +19,7 @@
 | `f2<T1, T2, R>` | function | `(func (param T1) (param T2) (result R))` |
 | `T[]` | array | array of `T` |
 
-Display uses the same names (`c1<f64>`, `f1<i32, str>`, `f64[]`), except compact form writes `c1` as `c` so a nested consumer is shown in full (`c<c<c<f64>>>`, not a shortened label). `type="f64[]"` and `type="[]"` with a nested `<t>` are both arrays.
+Display uses the same names (`c1<f64>`, `f1<i32, str>`, `f64[]`), except compact form writes `c1` as `c` so `Consumer<DoubleConsumer>` is shown in full as `c<c<f64>>`. `type="f64[]"` and `type="[]"` with a nested `<t>` are both arrays.
 
 ## 1. Core Architecture: The Recursive AST
 The schema represents type constructs through a strictly lowercase, recursive AST. Types are not flat strings; they are composed of nested XML elements.
@@ -123,13 +123,13 @@ When defining a `<param>`, use `<extends>` and `<super>` to bound the generic va
 
 ## 5. Modeling functions, consumers, and arrays
 
-`<in>` ports and `<out>` ports carry language-agnostic types. Control Systems ports are nested consumers; compact display writes `c1` as `c`. The WASM runtime lowers each sample port to first-order f64 (`timer` is `s<f64>`, `sin` is `f1<f64, f64>`, `oscilloscope` is `c1<f64>`).
+`<in>` ports and `<out>` ports carry language-agnostic types. Control Systems ports are `Consumer<DoubleConsumer>` (`c<c<f64>>`). Compact display writes `c1` as `c`. The WASM runtime lowers each sample port to first-order f64.
 
 ```
-timer()            : c<c<c<f64>>>
-quantizer(_)       : c<c<c<f64>>> → c<c<f64>>
-sin(_)             : c<c<f64>> → c<f64>
-oscilloscope       : c<f64> → void
+timer()            : c<c<f64>>
+quantizer(c)       : c<c<f64>> → c<c<f64>>
+sin(c)             : c<c<f64>> → c<c<f64>>
+oscilloscope(c)    : c<c<f64>> → void
 ```
 
 ```xml
@@ -142,9 +142,7 @@ oscilloscope       : c<f64> → void
   <out name="out" type="c1">
     <attribute name="wasm">f64</attribute>
     <t type="c1">
-      <t type="c1">
-        <t type="f64"/>
-      </t>
+      <t type="f64"/>
     </t>
   </out>
 </block>
@@ -159,7 +157,9 @@ oscilloscope       : c<f64> → void
   </in>
   <out name="out" type="c1">
     <attribute name="wasm">f64</attribute>
-    <t type="f64"/>
+    <t type="c1">
+      <t type="f64"/>
+    </t>
   </out>
 </block>
 ```

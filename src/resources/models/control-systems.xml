@@ -4,14 +4,15 @@
   <namespace id="cs" name="Control Systems"/>
 
   <!--
-    Catalog ports are nested consumers — the full type shown on hover:
+    Ports are Consumer<DoubleConsumer> = c<c<f64>> (compact display writes c1 as c):
 
-      timer()      : c<c<c<f64>>>
-      quantizer(_) : c<c<c<f64>>> → c<c<f64>>
-      sin(_)       : c<c<f64>> → c<f64>
-      oscilloscope : c<f64> → void
+      timer()            : c<c<f64>>
+      quantizer(c)       : c<c<f64>> → c<c<f64>>
+      sin(c)             : c<c<f64>> → c<c<f64>>
+      oscilloscope(c)    : c<c<f64>> → void   (c.accept(plot))
 
-    Compact display writes c1 as c, so c1<c1<c1<f64>>> is c<c<c<f64>>>.
+    Composition: sin(quantizer(period, timer(running))).accept(plot)
+
     The WASM runtime lowers each sample port to first-order f64
     (timer : s<f64>, quantizer/sin : f1<f64, f64>, oscilloscope : c1<f64>).
 
@@ -24,28 +25,24 @@
     <attribute name="kind">Start</attribute>
     <attribute name="runnable">true</attribute>
     <attribute name="generator">true</attribute>
-    <attribute name="description">Runnable time source. Returns c&lt;c&lt;c&lt;f64&gt;&gt;&gt; for quantizer(timer()).</attribute>
+    <attribute name="description">Runnable time source. Consumer&lt;DoubleConsumer&gt; — c&lt;c&lt;f64&gt;&gt;.</attribute>
     <factory id="timer"/>
     <out name="out" type="c1">
       <attribute name="wasm">f64</attribute>
       <t type="c1">
-        <t type="c1">
-          <t type="f64"/>
-        </t>
+        <t type="f64"/>
       </t>
     </out>
   </block>
 
   <block id="quantizer" name="Quantizer" ns="cs" icon="quantizer">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">c&lt;c&lt;c&lt;f64&gt;&gt;&gt; → c&lt;c&lt;f64&gt;&gt;. Parks 10 ms per sample via memory.atomic.wait32.</attribute>
+    <attribute name="description">c&lt;c&lt;f64&gt;&gt; → c&lt;c&lt;f64&gt;&gt;. Parks 10 ms per sample via memory.atomic.wait32.</attribute>
     <factory id="quantizer"/>
     <in name="in" type="c1">
       <attribute name="wasm">f64</attribute>
       <t type="c1">
-        <t type="c1">
-          <t type="f64"/>
-        </t>
+        <t type="f64"/>
       </t>
     </in>
     <out name="out" type="c1">
@@ -58,7 +55,7 @@
 
   <block id="sin" name="Sin" ns="cs" icon="sin">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">c&lt;c&lt;f64&gt;&gt; → c&lt;f64&gt;. Maps each sample through f64.sin (host).</attribute>
+    <attribute name="description">c&lt;c&lt;f64&gt;&gt; → c&lt;c&lt;f64&gt;&gt;. Maps each sample through f64.sin (host).</attribute>
     <factory id="f64.sin"/>
     <in name="in" type="c1">
       <attribute name="wasm">f64</attribute>
@@ -68,17 +65,21 @@
     </in>
     <out name="out" type="c1">
       <attribute name="wasm">f64</attribute>
-      <t type="f64"/>
+      <t type="c1">
+        <t type="f64"/>
+      </t>
     </out>
   </block>
 
   <block id="oscilloscope" name="Oscilloscope" ns="cs" icon="scope">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Consumes c&lt;f64&gt; and plots samples. After Run, click Chart.</attribute>
+    <attribute name="description">Accepts c&lt;c&lt;f64&gt;&gt; and plots samples (c.accept(plot)). After Run, click Chart.</attribute>
     <factory id="oscilloscope"/>
     <in name="in" type="c1">
       <attribute name="wasm">f64</attribute>
-      <t type="f64"/>
+      <t type="c1">
+        <t type="f64"/>
+      </t>
     </in>
   </block>
 </blocks>

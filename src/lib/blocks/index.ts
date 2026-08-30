@@ -6,6 +6,8 @@ export { Catalog } from "./catalog";
 export {
   type CompiledGenerator,
   type GeneratorPlan,
+  type DoubleConsumer,
+  type DoubleSource,
   type Nested,
   type NodeSpec,
   QUANTIZER_DELAY_MS,

@@ -4,55 +4,64 @@ import { SAMPLE_CAP } from "../runtime/memory";
 
 export const QUANTIZER_DELAY_MS = 10;
 
-/** Language-agnostic consumer `c1<T>`. */
+/** Language-agnostic consumer `c1<T>` / Java `Consumer<T>`. */
 export type Func<T> = (value: T) => void;
-export type F64Func = Func<number>;
-/** Nested consumer `c1<c1<f64>>` — a push source. */
-export type F64Source = Func<F64Func>;
+/** Java `DoubleConsumer` — catalog `c<f64>`. */
+export type DoubleConsumer = Func<number>;
+export type F64Func = DoubleConsumer;
+/**
+ * Java `Consumer<DoubleConsumer>` — catalog `c<c<f64>>`.
+ * A push source: give it a sink and it pushes samples.
+ */
+export type DoubleSource = Func<DoubleConsumer>;
+export type F64Source = DoubleSource;
+/** @deprecated Same as {@link DoubleSource}; depth tags are gone. */
+export type Nested = DoubleSource;
 
 /**
- * Nested consumers match the catalog (compact display writes c1 as c):
- *   Nested<3> = c<c<c<f64>>>  (Timer)
- *   Nested<2> = c<c<f64>>     (Quantizer)
- *   Nested<1> = c<f64>        (Sin / Oscilloscope)
+ * In-process model of the catalog (compact display writes c1 as c):
+ *
+ *   timer(running)        : c<c<f64>>
+ *   quantizer(period, c)  : c<c<f64>> → c<c<f64>>
+ *   sin(c)                : c<c<f64>> → c<c<f64>>
+ *   oscilloscope(c, plot) : c<c<f64>> → void     // c(plot)
+ *
+ * Composition: sin(quantizer(period, timer(running)))(plot)
  *
  * The WASM runtime still lowers each sample port to first-order f64
  * (timer : s<f64>, quantizer/sin : f1<f64, f64>, oscilloscope : c1<f64>).
  */
-export interface Nested<D extends 1 | 2 | 3> {
-  readonly depth: D;
-  readonly source: F64Source;
-}
 
-export function timer(now: () => number = nowSecs): Nested<3> {
-  return { depth: 3, source: (sink) => sink(now()) };
-}
-
-export function quantizer(input: Nested<3>, delayMs = QUANTIZER_DELAY_MS): Nested<2> {
-  return {
-    depth: 2,
-    source: (sink) => {
-      input.source((value) => {
-        park(delayMs);
-        sink(value);
-      });
-    },
+/** Java `timer(BooleanSupplier running)` — `Consumer<DoubleConsumer>`. */
+export function timer(running: () => boolean, now: () => number = nowSecs): DoubleSource {
+  return (c) => {
+    while (running()) {
+      c(now());
+    }
   };
 }
 
-export function sin(input: Nested<2>): Nested<1> {
-  return {
-    depth: 1,
-    source: (sink) => input.source((value) => sink(Math.sin(value))),
-  };
+/** Java `quantizer(long period, Consumer<DoubleConsumer> c)`. `period` is nanoseconds. */
+export function quantizer(periodNs: number, c: DoubleSource): DoubleSource {
+  return (dc) =>
+    c((v) => {
+      dc(v);
+      parkNanos(periodNs);
+    });
 }
 
-export function oscilloscope(input: Nested<1>, sink: F64Func): void {
-  input.source(sink);
+/** Java `sin(Consumer<DoubleConsumer> c)` — `Consumer<DoubleConsumer>`. */
+export function sin(c: DoubleSource): DoubleSource {
+  return (dc) => c((v) => dc(Math.sin(v)));
 }
 
-function park(delayMs: number): void {
-  if (delayMs <= 0) {
+/** `c.accept(plot)` — plot is a `DoubleConsumer`. */
+export function oscilloscope(c: DoubleSource, plot: DoubleConsumer): void {
+  c(plot);
+}
+
+function parkNanos(periodNs: number): void {
+  if (periodNs <= 0) {
     return;
   }
 }
