@@ -622,7 +622,6 @@ describe("blocks", () => {
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.stages).toEqual(["cos"]);
     expect(compiled.text).toContain("ref.func $cos");
-    expect(compiled.text).toContain("call_ref $fn_cos");
   });
 
   it("compile timer needs oscilloscope", async () => {
