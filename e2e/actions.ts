@@ -179,6 +179,26 @@ export async function connectorPath(driver: WebDriver): Promise<string> {
   return (await stroke.getAttribute("d")) ?? "";
 }
 
+export async function connectorPaths(driver: WebDriver): Promise<string[]> {
+  const root = await diagramRoot(driver);
+  const hosts = await root.findElements(By.css("bld-connector:not([data-preview])"));
+  const paths: string[] = [];
+  for (const host of hosts) {
+    const stroke = await (await host.getShadowRoot()).findElement(By.css(".path-stroke"));
+    paths.push((await stroke.getAttribute("d")) ?? "");
+  }
+  return paths;
+}
+
+export async function dragNodeBy(driver: WebDriver, defId: string, dx: number, dy: number): Promise<void> {
+  const host = await nodeHost(driver, defId);
+  const header = await (await host.getShadowRoot()).findElement(By.css(".flow-node-header"));
+  await driver
+    .actions({ async: true })
+    .dragAndDrop(header, { x: Math.round(dx), y: Math.round(dy) })
+    .perform();
+}
+
 export async function pressDelete(driver: WebDriver): Promise<void> {
   await driver.actions({ async: true }).sendKeys(Key.DELETE).perform();
 }

@@ -4,8 +4,10 @@ import {
   clickConnector,
   clickPortHandle,
   connectorPath,
+  connectorPaths,
   diagramCss,
   diagramRoot,
+  dragNodeBy,
   newCanvas,
   nodeHost,
   openWorkspace,
@@ -20,6 +22,58 @@ import {
   portTypeText,
 } from "./actions";
 import { createDriver } from "./harness";
+
+function pathPoints(d: string): { x: number; y: number }[] {
+  const points: { x: number; y: number }[] = [];
+  const tokens = d.match(/[MLC]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? [];
+  let command = "";
+  const nums: number[] = [];
+  const flush = (): void => {
+    if ((command === "M" || command === "L") && nums.length >= 2) {
+      points.push({ x: nums[nums.length - 2]!, y: nums[nums.length - 1]! });
+    } else if (command === "C" && nums.length >= 6) {
+      points.push({ x: nums[nums.length - 2]!, y: nums[nums.length - 1]! });
+    }
+  };
+  for (const token of tokens) {
+    if (/^[MLCmlc]$/.test(token)) {
+      flush();
+      command = token.toUpperCase();
+      nums.length = 0;
+      continue;
+    }
+    nums.push(Number(token));
+  }
+  flush();
+  return points;
+}
+
+function collinearOverlap(left: string, right: string): number {
+  const segments = (d: string) => {
+    const pts = pathPoints(d);
+    const out: { axis: "h" | "v"; a: number; b: number; pos: number }[] = [];
+    for (let i = 1; i < pts.length; i += 1) {
+      const prev = pts[i - 1]!;
+      const point = pts[i]!;
+      if (Math.abs(prev.y - point.y) < 1 && Math.abs(prev.x - point.x) >= 1) {
+        out.push({ axis: "h", a: Math.min(prev.x, point.x), b: Math.max(prev.x, point.x), pos: prev.y });
+      } else if (Math.abs(prev.x - point.x) < 1 && Math.abs(prev.y - point.y) >= 1) {
+        out.push({ axis: "v", a: Math.min(prev.y, point.y), b: Math.max(prev.y, point.y), pos: prev.x });
+      }
+    }
+    return out;
+  };
+  let longest = 0;
+  for (const a of segments(left)) {
+    for (const b of segments(right)) {
+      if (a.axis !== b.axis || Math.abs(a.pos - b.pos) > 1) {
+        continue;
+      }
+      longest = Math.max(longest, Math.min(a.b, b.b) - Math.max(a.a, b.a));
+    }
+  }
+  return longest;
+}
 
 describe("wiring", () => {
   let driver: WebDriver;
@@ -125,6 +179,42 @@ describe("wiring", () => {
     await clickPortHandle(driver, "timer", "input-in[1]");
     await waitForLinks(driver, "2 links");
     expect(await portNames("timer", "in")).toEqual(["in"]);
+  });
+
+  it("keeps two inputs on distinct connector approaches", async () => {
+    await placeBlock(driver, "cos");
+    await placeBlock(driver, "sin");
+    await placeBlock(driver, "quantizer");
+
+    const cosBox = await (await nodeHost(driver, "cos")).getRect();
+    const sinBox = await (await nodeHost(driver, "sin")).getRect();
+    const quantizerBox = await (await nodeHost(driver, "quantizer")).getRect();
+    await dragNodeBy(driver, "sin", cosBox.x - sinBox.x, cosBox.y + cosBox.height + 36 - sinBox.y);
+    await dragNodeBy(
+      driver,
+      "quantizer",
+      cosBox.x + cosBox.width + 96 - quantizerBox.x,
+      cosBox.y - quantizerBox.y,
+    );
+
+    await clickPortHandle(driver, "cos", "output-out");
+    await clickPortHandle(driver, "quantizer", "input-in");
+    await waitForLinks(driver, "1 link");
+    await clickPortHandle(driver, "sin", "output-out");
+    await clickPortHandle(driver, "quantizer", "input-in");
+    await waitForLinks(driver, "2 links");
+    await waitForAvoidRouter(driver);
+    await driver.wait(async () => {
+      const paths = await connectorPaths(driver);
+      return paths.length === 2 && paths.every((d) => d.includes("L ") || d.includes("C "));
+    }, 10000);
+    await driver.wait(async () => {
+      const paths = await connectorPaths(driver);
+      return paths.length === 2 && collinearOverlap(paths[0]!, paths[1]!) < 16;
+    }, 10000);
+    const paths = await connectorPaths(driver);
+    expect(paths).toHaveLength(2);
+    expect(collinearOverlap(paths[0]!, paths[1]!)).toBeLessThan(16);
   });
 
   it("toggles the same wire off", async () => {

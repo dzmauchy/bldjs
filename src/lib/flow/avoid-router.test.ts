@@ -8,7 +8,7 @@ import {
   jointPortId,
   obstacleFromBlock,
 } from "./avoid-router";
-import { connectorPolyline } from "./geometry";
+import { collinearOverlapLength, connectorPolyline } from "./geometry";
 
 const wasmPath = `${(globalThis as { process?: { cwd?: () => string } }).process?.cwd?.() ?? ""}/node_modules/libavoid-js/dist/libavoid.wasm`;
 
@@ -226,6 +226,86 @@ describe("avoid router engine", () => {
     expect(b.length).toBeGreaterThanOrEqual(1);
     expect(JSON.stringify(a)).not.toBe(JSON.stringify(b));
     expect(Math.abs(longestFlatY(a) - longestFlatY(b))).toBeGreaterThanOrEqual(10);
+    engine.destroy();
+  }, 20000);
+
+  it("re-pins extra inputs so two wires keep distinct approaches", async () => {
+    const engine = new AvoidRouteEngine();
+    await engine.start({ worker: false, filePath: wasmPath });
+    const cos = obstacleFromBlock(1, 0, 0, layout(80, 60, 30, 30))!;
+    const sin = obstacleFromBlock(2, 0, 140, layout(80, 60, 30, 30))!;
+    const quantizer = {
+      id: "3",
+      x: 280,
+      y: 40,
+      width: 80,
+      height: 60,
+      ports: [
+        { side: "out" as const, name: "out", x: 80, y: 30 },
+        { side: "in" as const, name: "in", x: 0, y: 30 },
+      ],
+    };
+    engine.sync([cos, sin, quantizer], [
+      {
+        id: "1:out->3:in",
+        sourceId: "1",
+        sourcePort: jointPortId("out", "out"),
+        targetId: "3",
+        targetPort: jointPortId("in", "in"),
+      },
+    ]);
+    await vi.waitFor(
+      () => {
+        expect(engine.routes.has("1:out->3:in")).toBe(true);
+      },
+      { timeout: 15000 },
+    );
+
+    const twoInputs = {
+      ...quantizer,
+      height: 84,
+      ports: [
+        { side: "out" as const, name: "out", x: 80, y: 30 },
+        { side: "in" as const, name: "in", x: 0, y: 28 },
+        { side: "in" as const, name: "in[1]", x: 0, y: 56 },
+      ],
+    };
+    engine.sync([cos, sin, twoInputs], [
+      {
+        id: "1:out->3:in",
+        sourceId: "1",
+        sourcePort: jointPortId("out", "out"),
+        targetId: "3",
+        targetPort: jointPortId("in", "in"),
+      },
+      {
+        id: "2:out->3:in[1]",
+        sourceId: "2",
+        sourcePort: jointPortId("out", "out"),
+        targetId: "3",
+        targetPort: jointPortId("in", "in[1]"),
+      },
+    ]);
+    await vi.waitFor(
+      () => {
+        expect((engine.routes.get("1:out->3:in") ?? []).length).toBeGreaterThanOrEqual(1);
+        expect((engine.routes.get("2:out->3:in[1]") ?? []).length).toBeGreaterThanOrEqual(1);
+      },
+      { timeout: 15000 },
+    );
+
+    const toIn = { x: twoInputs.x, y: twoInputs.y + 28 };
+    const toExtra = { x: twoInputs.x, y: twoInputs.y + 56 };
+    const routeIn = engine.routes.get("1:out->3:in") ?? [];
+    const routeExtra = engine.routes.get("2:out->3:in[1]") ?? [];
+    expect(JSON.stringify(routeIn)).not.toBe(JSON.stringify(routeExtra));
+    const polyIn = connectorPolyline({ x: 80, y: 30 }, toIn, routeIn);
+    const polyExtra = connectorPolyline({ x: 80, y: 170 }, toExtra, routeExtra);
+    expect(polyIn.at(-1)).toEqual(toIn);
+    expect(polyExtra.at(-1)).toEqual(toExtra);
+    expect(Math.abs((polyIn.at(-2)?.y ?? 0) - toIn.y)).toBeLessThan(1);
+    expect(Math.abs((polyExtra.at(-2)?.y ?? 0) - toExtra.y)).toBeLessThan(1);
+    expect(collinearOverlapLength(polyIn, polyExtra)).toBeLessThan(16);
     engine.destroy();
   }, 20000);
 });

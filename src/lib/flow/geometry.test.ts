@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   clientToWorld,
+  collinearOverlapLength,
   connectorPolyline,
   cubicLink,
   cubicLinkBounds,
   jumpoverRoute,
   linkKey,
   orthogonalLink,
+  pathPolyline,
   polylineBounds,
   polylinePath,
   routesEqual,
@@ -129,6 +131,43 @@ describe("flow geometry", () => {
   it("compares routed point lists", () => {
     expect(routesEqual([{ x: 1, y: 2 }], [{ x: 1, y: 2 }])).toBe(true);
     expect(routesEqual([{ x: 1, y: 2 }], [{ x: 1, y: 3 }])).toBe(false);
+  });
+
+  it("measures collinear overlap of two orthogonal polylines", () => {
+    const top = [
+      { x: 0, y: 10 },
+      { x: 80, y: 10 },
+      { x: 80, y: 40 },
+      { x: 200, y: 40 },
+    ];
+    const shared = [
+      { x: 0, y: 80 },
+      { x: 120, y: 80 },
+      { x: 120, y: 40 },
+      { x: 200, y: 40 },
+    ];
+    expect(collinearOverlapLength(top, shared)).toBe(80);
+    expect(
+      collinearOverlapLength(
+        [
+          { x: 0, y: 10 },
+          { x: 200, y: 10 },
+        ],
+        [
+          { x: 0, y: 40 },
+          { x: 200, y: 40 },
+        ],
+      ),
+    ).toBeLessThanOrEqual(0);
+  });
+
+  it("reads polyline endpoints from an absolute SVG path", () => {
+    expect(pathPolyline("M 0 10 L 40 10 C 44 10 44 14 44 18 L 120 18")).toEqual([
+      { x: 0, y: 10 },
+      { x: 40, y: 10 },
+      { x: 44, y: 18 },
+      { x: 120, y: 18 },
+    ]);
   });
 
   it("builds a JointJS jumpover path with rounded orthogonal corners", () => {

@@ -4,13 +4,16 @@ import "./node";
 
 export { FLOW_MIME } from "./mime";
 export {
+  axisAlignedSegments,
   clientToWorld,
+  collinearOverlapLength,
   connectorPolyline,
   cubicLink,
   cubicLinkBounds,
   ensureHorizontalStubs,
   linkKey,
   orthogonalLink,
+  pathPolyline,
   polylineBounds,
   polylinePath,
   routesEqual,
