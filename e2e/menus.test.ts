@@ -76,8 +76,12 @@ test.describe("menus", () => {
   test("shows Run and Stop on the toolbar with SVG icons", async () => {
     const run = await waitDeep(page, '[data-testid="toolbar-run"]');
     const stop = await waitDeep(page, '[data-testid="toolbar-stop"]');
-    expect(await run.innerText()).toContain("Run");
-    expect(await stop.innerText()).toContain("Stop");
+    expect(await run.innerText()).not.toContain("Run");
+    expect(await stop.innerText()).not.toContain("Stop");
+    await expect(run).toHaveAttribute("title", "Run");
+    await expect(stop).toHaveAttribute("title", "Stop");
+    await expect(run).toHaveAttribute("aria-label", "Run");
+    await expect(stop).toHaveAttribute("aria-label", "Stop");
     await expect(stop).toBeDisabled();
 
     async function svgNs(buttonTestId: string): Promise<string | null> {

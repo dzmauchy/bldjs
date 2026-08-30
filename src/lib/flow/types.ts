@@ -6,6 +6,8 @@ export interface PortView {
   name: string;
   typeLabel: string;
   vararg: boolean;
+  /** Catalog port is a vector/vararg (or extra slots will make the group one). */
+  vectorized?: boolean;
   grounded?: boolean;
   compatible?: boolean;
   linking?: boolean;

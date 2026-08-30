@@ -125,12 +125,17 @@ test.describe("wiring", () => {
     await waitForLinks(page, "1 link");
     expect(await portNames("oscilloscope", "out")).toEqual(["out"]);
     expect(await portNames("sin", "in")).toEqual(["in"]);
+    const scope = nodeHost(page, "oscilloscope");
+    await expect(scope.locator('[data-vector="out"] .block-port-vector-rail')).toHaveCount(1);
+    await expect(scope.locator('[data-vector="out"] .block-port-name')).toHaveCount(0);
 
     await clickPortHandle(page, "oscilloscope", "output-out");
     await clickPortHandle(page, "cos", "input-in");
     await waitForLinks(page, "2 links");
     expect(await portNames("oscilloscope", "out")).toEqual(["out", "out[1]"]);
     expect(await portNames("cos", "in")).toEqual(["in"]);
+    await expect(scope.locator('[data-vector="out"] [data-handle]')).toHaveCount(2);
+    await expect(scope.locator('[data-vector="out"] .block-port-name')).toHaveCount(0);
 
     await clickPortHandle(page, "sin", "output-out");
     await clickPortHandle(page, "timer", "input-in");
@@ -141,6 +146,10 @@ test.describe("wiring", () => {
     await clickPortHandle(page, "timer", "input-in");
     await waitForLinks(page, "4 links");
     expect(await portNames("timer", "in")).toEqual(["in", "in[1]"]);
+    const timer = nodeHost(page, "timer");
+    await expect(timer.locator('[data-vector="in"] .block-port-vector-rail')).toHaveCount(1);
+    await expect(timer.locator('[data-vector="in"] [data-handle]')).toHaveCount(2);
+    await expect(timer.locator('[data-vector="in"] .block-port-name')).toHaveCount(0);
 
     await clickPortHandle(page, "oscilloscope", "output-out[1]");
     await clickPortHandle(page, "cos", "input-in");
@@ -264,12 +273,16 @@ test.describe("wiring", () => {
     const chart = nodeHost(page, "oscilloscope").locator('[data-testid^="chart-"]');
     await expect(chart).toBeDisabled();
     await runDiagram(page);
+    const run = page.locator('[data-testid="toolbar-run"]');
+    await expect(run).toBeDisabled();
     await expect(chart).toBeEnabled();
     await chart.click();
     await waitDeep(page, '[data-testid="oscilloscope-modal"]');
     await expect(page.locator('[data-testid="oscilloscope-chart"]')).toHaveAttribute("data-series-count", "1");
     await page.keyboard.press("Escape");
     await expect(page.locator('[data-testid="oscilloscope-modal"]')).toHaveCount(0);
+    await page.locator('[data-testid="toolbar-stop"]').click();
+    await expect(run).toBeEnabled();
   });
 
   test("opens a multi-axis chart after two vector channels run", async () => {

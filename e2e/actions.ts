@@ -167,10 +167,10 @@ export async function connectorWorldPolylines(page: Page): Promise<{ x: number; 
 }
 
 export async function dragNodeBy(page: Page, defId: string, dx: number, dy: number): Promise<void> {
-  const header = nodeHost(page, defId).locator(".flow-node-header");
-  const box = await header.boundingBox();
+  const icon = nodeHost(page, defId).locator(".flow-node-icon");
+  const box = await icon.boundingBox();
   if (!box) {
-    throw new Error(`dragNodeBy: ${defId} header is not visible`);
+    throw new Error(`dragNodeBy: ${defId} icon is not visible`);
   }
   const startX = box.x + box.width / 2;
   const startY = box.y + box.height / 2;

@@ -116,14 +116,14 @@ test.describe("canvas", () => {
       .toBe(true);
   });
 
-  test("drags a node by its header", async () => {
+  test("drags a node by its icon", async () => {
     const host = nodeHost(page, "timer");
     const before = await boxOf(host);
-    const header = host.locator(".flow-node-header");
-    const headerBox = await boxOf(header);
-    await page.mouse.move(headerBox.x + headerBox.width / 2, headerBox.y + headerBox.height / 2);
+    const icon = host.locator(".flow-node-icon");
+    const iconBox = await boxOf(icon);
+    await page.mouse.move(iconBox.x + iconBox.width / 2, iconBox.y + iconBox.height / 2);
     await page.mouse.down();
-    await page.mouse.move(headerBox.x + headerBox.width / 2 + 70, headerBox.y + headerBox.height / 2 + 40);
+    await page.mouse.move(iconBox.x + iconBox.width / 2 + 70, iconBox.y + iconBox.height / 2 + 40);
     await page.mouse.up();
     await expect
       .poll(async () => {
@@ -147,5 +147,29 @@ test.describe("canvas", () => {
     await dropOnDiagram(page, "cos");
     await waitForBlock(page, "cos");
     expect(await statusBlocks(page)).toBe("1 block");
+  });
+
+  test("renders a nameless block with a 32px icon and edge circles", async () => {
+    await newCanvas(page);
+    await placeBlock(page, "sin");
+    const host = nodeHost(page, "sin");
+    await expect(host.locator(".flow-node-title")).toHaveCount(0);
+    expect((await host.innerText()).toLowerCase()).not.toContain("sin");
+    await expect(host.locator(".flow-node")).toHaveAttribute("title", "Sin");
+    const icon = host.locator(".flow-node-icon svg");
+    const iconBox = await boxOf(icon);
+    expect(iconBox.width).toBeGreaterThanOrEqual(30);
+    expect(iconBox.width).toBeLessThanOrEqual(34);
+    expect(iconBox.height).toBeGreaterThanOrEqual(30);
+    expect(iconBox.height).toBeLessThanOrEqual(34);
+    const nodeBox = await boxOf(host);
+    const inBox = await boxOf(host.locator('[data-testid="input-in"] [data-handle]'));
+    const outBox = await boxOf(host.locator('[data-testid="output-out"] [data-handle]'));
+    const inCenter = inBox.x + inBox.width / 2;
+    const outCenter = outBox.x + outBox.width / 2;
+    expect(Math.abs(inCenter - nodeBox.x)).toBeLessThan(4);
+    expect(Math.abs(outCenter - (nodeBox.x + nodeBox.width))).toBeLessThan(4);
+    await expect(host.locator(".block-port-name")).toHaveCount(0);
+    await expect(host.locator('[data-testid="input-in"]')).toHaveAttribute("title", "c<f64>");
   });
 });

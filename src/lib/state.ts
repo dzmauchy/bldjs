@@ -83,6 +83,7 @@ export class AppState extends EventTarget {
   declare linkingFrom: LinkingFrom | null;
   declare scopeOpen: number;
   declare running: boolean;
+  declare starting: boolean;
   declare runError: string | null;
 
   #generators = new Map<number, GeneratorHandle>();
@@ -113,6 +114,7 @@ export class AppState extends EventTarget {
       linkingFrom: null,
       scopeOpen: NONE_ID,
       running: false,
+      starting: false,
       runError: null,
     });
   }
@@ -283,6 +285,10 @@ export class AppState extends EventTarget {
     return this.plannedGenerators().length > 0;
   }
 
+  runBusy(): boolean {
+    return this.running || this.starting;
+  }
+
   stopRun(): void {
     this.#runningOp += 1;
     for (const handle of this.#generators.values()) {
@@ -292,6 +298,7 @@ export class AppState extends EventTarget {
     this.#scopeToTimer.clear();
     this.#scopeChannels.clear();
     this.#runTopology = "";
+    this.starting = false;
     this.running = false;
     if (this.scopeOpen !== NONE_ID && !this.isScopeLive(this.scopeOpen)) {
       this.scopeOpen = NONE_ID;
@@ -299,13 +306,17 @@ export class AppState extends EventTarget {
   }
 
   async runDiagram(): Promise<void> {
+    if (this.runBusy()) {
+      return;
+    }
     const topology = this.timerTopologyKey();
     const plans = this.plannedGenerators();
-    this.stopRun();
     if (plans.length === 0) {
       this.runError = "Wire an Oscilloscope through to a Timer, then Run.";
       return;
     }
+    this.stopRun();
+    this.starting = true;
     const op = this.#runningOp;
     try {
       const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
@@ -324,8 +335,12 @@ export class AppState extends EventTarget {
           this.#scopeChannels.set(channel.scopeId, series);
         });
       }
+      if (op !== this.#runningOp) {
+        return;
+      }
       this.#runTopology = topology;
       this.runError = null;
+      this.starting = false;
       this.running = true;
     } catch (error) {
       this.stopRun();
@@ -334,7 +349,7 @@ export class AppState extends EventTarget {
   }
 
   #invalidateRun(): void {
-    if (!this.running && this.#generators.size === 0) {
+    if (!this.runBusy() && this.#generators.size === 0) {
       return;
     }
     if (this.timerTopologyKey() === this.#runTopology) {
