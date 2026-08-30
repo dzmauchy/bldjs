@@ -4,16 +4,16 @@
   <namespace id="cs" name="Control Systems"/>
 
   <!--
-    Catalog ports are nested consumers — the full type shown on hover:
+    Pure push. Every consumer is DoubleConsumer = c<f64>:
 
-      timer()      : c<c<c<f64>>>
-      quantizer(_) : c<c<c<f64>>> → c<c<f64>>
-      sin(_)       : c<c<f64>> → c<f64>
-      oscilloscope : c<f64> → void
+      timer(c)           : c<f64> → void
+      quantizer(c)       : c<f64> → c<f64>
+      sin(c) / cos(c)    : c<f64> → c<f64>
+      oscilloscope()     : c<f64>            (the plot sink)
 
-    Compact display writes c1 as c, so c1<c1<c1<f64>>> is c<c<c<f64>>>.
-    The WASM runtime lowers each sample port to first-order f64
-    (timer : s<f64>, quantizer/sin : f1<f64, f64>, oscilloscope : c1<f64>).
+    Composition: timer(sin(quantizer(plot)))
+
+    The WASM runtime still lowers each sample port to first-order f64.
 
     Each block is a binaryen.js script in resources/binaryen/blocks.
     Run assembles those scripts and emits the module.
@@ -24,47 +24,49 @@
     <attribute name="kind">Start</attribute>
     <attribute name="runnable">true</attribute>
     <attribute name="generator">true</attribute>
-    <attribute name="description">Runnable time source. Returns c&lt;c&lt;c&lt;f64&gt;&gt;&gt; for quantizer(timer()).</attribute>
+    <attribute name="description">Push source. Accepts c&lt;f64&gt; and writes timestamps while running.</attribute>
     <factory id="timer"/>
-    <out name="out" type="c1">
+    <in name="in" type="c1">
       <attribute name="wasm">f64</attribute>
-      <t type="c1">
-        <t type="c1">
-          <t type="f64"/>
-        </t>
-      </t>
-    </out>
+      <t type="f64"/>
+    </in>
   </block>
 
   <block id="quantizer" name="Quantizer" ns="cs" icon="quantizer">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">c&lt;c&lt;c&lt;f64&gt;&gt;&gt; → c&lt;c&lt;f64&gt;&gt;. Parks 10 ms per sample via memory.atomic.wait32.</attribute>
+    <attribute name="description">c&lt;f64&gt; → c&lt;f64&gt;. Parks 10 ms per sample via memory.atomic.wait32.</attribute>
     <factory id="quantizer"/>
     <in name="in" type="c1">
       <attribute name="wasm">f64</attribute>
-      <t type="c1">
-        <t type="c1">
-          <t type="f64"/>
-        </t>
-      </t>
+      <t type="f64"/>
     </in>
     <out name="out" type="c1">
       <attribute name="wasm">f64</attribute>
-      <t type="c1">
-        <t type="f64"/>
-      </t>
+      <t type="f64"/>
     </out>
   </block>
 
   <block id="sin" name="Sin" ns="cs" icon="sin">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">c&lt;c&lt;f64&gt;&gt; → c&lt;f64&gt;. Maps each sample through f64.sin (host).</attribute>
+    <attribute name="description">c&lt;f64&gt; → c&lt;f64&gt;. Maps each sample through f64.sin (host).</attribute>
     <factory id="f64.sin"/>
     <in name="in" type="c1">
       <attribute name="wasm">f64</attribute>
-      <t type="c1">
-        <t type="f64"/>
-      </t>
+      <t type="f64"/>
+    </in>
+    <out name="out" type="c1">
+      <attribute name="wasm">f64</attribute>
+      <t type="f64"/>
+    </out>
+  </block>
+
+  <block id="cos" name="Cos" ns="cs" icon="cos">
+    <attribute name="kind">Process</attribute>
+    <attribute name="description">c&lt;f64&gt; → c&lt;f64&gt;. Maps each sample through f64.cos (host).</attribute>
+    <factory id="f64.cos"/>
+    <in name="in" type="c1">
+      <attribute name="wasm">f64</attribute>
+      <t type="f64"/>
     </in>
     <out name="out" type="c1">
       <attribute name="wasm">f64</attribute>
@@ -74,11 +76,11 @@
 
   <block id="oscilloscope" name="Oscilloscope" ns="cs" icon="scope">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Consumes c&lt;f64&gt; and plots samples. After Run, click Chart.</attribute>
+    <attribute name="description">Plot sink c&lt;f64&gt;. Wire into Sin/Cos/Quantizer, then into Timer. After Run, click Chart.</attribute>
     <factory id="oscilloscope"/>
-    <in name="in" type="c1">
+    <out name="out" type="c1">
       <attribute name="wasm">f64</attribute>
       <t type="f64"/>
-    </in>
+    </out>
   </block>
 </blocks>

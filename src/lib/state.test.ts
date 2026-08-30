@@ -11,9 +11,9 @@ function wireCsPipeline(app: AppState): { timerId: number; scopeId: number } {
   app.addBlock("sin", 360, 0);
   const scopeId = app.nextId;
   app.addBlock("oscilloscope", 540, 0);
-  app.toggleLink(timerId, "out", quantizerId, "in");
+  app.toggleLink(scopeId, "out", quantizerId, "in");
   app.toggleLink(quantizerId, "out", sinId, "in");
-  app.toggleLink(sinId, "out", scopeId, "in");
+  app.toggleLink(sinId, "out", timerId, "in");
   return { timerId, scopeId };
 }
 
@@ -125,7 +125,7 @@ describe("AppState run", () => {
     await app.runDiagram();
     expect(app.running).toBe(true);
 
-    app.toggleLink(timerId, "out", app.blocks.find((block) => block.defId === "quantizer")!.id, "in");
+    app.toggleLink(app.blocks.find((block) => block.defId === "sin")!.id, "out", timerId, "in");
     expect(app.running).toBe(false);
     expect(app.canRun()).toBe(false);
   });

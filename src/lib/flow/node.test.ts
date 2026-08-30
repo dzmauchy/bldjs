@@ -52,6 +52,8 @@ describe("BldNode", () => {
     expect(shadow!.querySelector('[data-testid="input-elems"] .block-port-name')?.textContent).toContain("elems");
     expect(shadow!.querySelector('[data-testid="output-result"] .block-port-name')?.textContent).toContain("result");
     expect(shadow!.querySelector('[data-testid="output-result"] .block-port-name')?.textContent).not.toContain("f64[]");
+    expect(shadow!.querySelector('[data-testid="output-result"] .block-port-type')?.textContent).toBe("f64[]");
+    expect(shadow!.querySelector('[data-testid="input-elems"] .block-port-type')?.textContent).toBe("f64");
     expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("f64[]");
     expect(shadow!.querySelector('[data-testid="input-elems"]')?.getAttribute("title")).toBe("f64");
     const outputHint = shadow!.querySelector('[data-testid="output-result-type"]') as HTMLElement | null;
@@ -98,8 +100,8 @@ describe("BldNode", () => {
         showChart: true,
         chartEnabled: true,
         selected: true,
-        inputs: [{ name: "in", typeLabel: "f64", vararg: false }],
-        outputs: [],
+        inputs: [],
+        outputs: [{ name: "out", typeLabel: "c<f64>", vararg: false }],
         paramsLine: "",
       }),
     );
@@ -122,8 +124,8 @@ describe("BldNode", () => {
         name: "Oscilloscope",
         showChart: true,
         chartEnabled: false,
-        inputs: [{ name: "in", typeLabel: "c<c<c<f64>>>", vararg: false }],
-        outputs: [],
+        inputs: [],
+        outputs: [{ name: "out", typeLabel: "c<f64>", vararg: false }],
         paramsLine: "",
       }),
     );
@@ -135,11 +137,10 @@ describe("BldNode", () => {
     });
     chart.click();
     expect(opened).toBe(false);
-    const hint = node.shadowRoot!.querySelector('[data-testid="input-in-type"]');
-    expect(hint?.textContent).toBe("c<c<c<f64>>>");
-    expect(node.shadowRoot!.querySelector('[data-testid="input-in"]')?.getAttribute("title")).toBe(
-      "c<c<c<f64>>>",
-    );
+    const hint = node.shadowRoot!.querySelector('[data-testid="output-out-type"]');
+    expect(hint?.textContent).toBe("c<f64>");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-type')?.textContent).toBe("c<f64>");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("c<f64>");
   });
 
   it("reports its measured size through noderesize", async () => {

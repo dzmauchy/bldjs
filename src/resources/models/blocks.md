@@ -19,7 +19,7 @@
 | `f2<T1, T2, R>` | function | `(func (param T1) (param T2) (result R))` |
 | `T[]` | array | array of `T` |
 
-Display uses the same names (`c1<f64>`, `f1<i32, str>`, `f64[]`), except compact form writes `c1` as `c` so a nested consumer is shown in full (`c<c<c<f64>>>`, not a shortened label). `type="f64[]"` and `type="[]"` with a nested `<t>` are both arrays.
+Display uses the same names (`c1<f64>`, `f1<i32, str>`, `f64[]`), except compact form writes `c1` as `c` so `DoubleConsumer` is shown as `c<f64>`. Nested consumers still print in full (`c<c<f64>>`). `type="f64[]"` and `type="[]"` with a nested `<t>` are both arrays.
 
 ## 1. Core Architecture: The Recursive AST
 The schema represents type constructs through a strictly lowercase, recursive AST. Types are not flat strings; they are composed of nested XML elements.
@@ -123,14 +123,16 @@ When defining a `<param>`, use `<extends>` and `<super>` to bound the generic va
 
 ## 5. Modeling functions, consumers, and arrays
 
-`<in>` ports and `<out>` ports carry language-agnostic types. Control Systems ports are nested consumers; compact display writes `c1` as `c`. The WASM runtime lowers each sample port to first-order f64 (`timer` is `s<f64>`, `sin` is `f1<f64, f64>`, `oscilloscope` is `c1<f64>`).
+`<in>` ports and `<out>` ports carry language-agnostic types. Control Systems uses a pure push model: every consumer is `DoubleConsumer` (`c<f64>`). Compact display writes `c1` as `c`. The WASM runtime still lowers each sample port to first-order f64.
 
 ```
-timer()            : c<c<c<f64>>>
-quantizer(_)       : c<c<c<f64>>> → c<c<f64>>
-sin(_)             : c<c<f64>> → c<f64>
-oscilloscope       : c<f64> → void
+timer(c)           : c<f64> → void
+quantizer(c)       : c<f64> → c<f64>
+sin(c) / cos(c)    : c<f64> → c<f64>
+oscilloscope()     : c<f64>            (the plot sink)
 ```
+
+Composition is `timer(sin(quantizer(plot)))`. Wire Oscilloscope → Quantizer → Sin (or Cos) → Timer.
 
 ```xml
 <type name="c1">
@@ -139,23 +141,17 @@ oscilloscope       : c<f64> → void
 
 <block id="timer" name="Timer" ns="cs">
   <factory id="timer"/>
-  <out name="out" type="c1">
+  <in name="in" type="c1">
     <attribute name="wasm">f64</attribute>
-    <t type="c1">
-      <t type="c1">
-        <t type="f64"/>
-      </t>
-    </t>
-  </out>
+    <t type="f64"/>
+  </in>
 </block>
 
 <block id="sin" name="Sin" ns="cs">
   <factory id="f64.sin"/>
   <in name="in" type="c1">
     <attribute name="wasm">f64</attribute>
-    <t type="c1">
-      <t type="f64"/>
-    </t>
+    <t type="f64"/>
   </in>
   <out name="out" type="c1">
     <attribute name="wasm">f64</attribute>
@@ -164,7 +160,7 @@ oscilloscope       : c<f64> → void
 </block>
 ```
 
-Run runs each runtime block's binaryen.js script from `resources/binaryen/blocks` (params = `<in>`, results = `<out>`, plus a runtime `$ctx`) to build one module, then emits wasm-gc (`call_ref`). Each Timer worker parks with `memory.atomic.wait32` on a SharedArrayBuffer.
+Run runs each runtime block's binaryen.js script from `resources/binaryen/blocks` to build one module, then emits wasm-gc (`call_ref`). Catalog ports are the push-model I/O (`c<f64>`); the WASM sample pipeline stays first-order (`timer` produces f64, `oscilloscope` consumes f64). Each Timer worker parks with `memory.atomic.wait32` on a SharedArrayBuffer.
 
 ### A. Varargs (`array#of`)
 Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.

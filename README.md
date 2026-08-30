@@ -52,7 +52,7 @@ Serve that folder with any static file server that sets the same CSP and isolati
 
 - Drag a block icon from the left pane onto the canvas (or double-click a palette item to drop it in the center).
 - Click or drag from an output handle to an input handle to ground a type. Inferred parameters and port types update on the block.
-- Control Systems (`cs`): wire Timer → Quantizer → Sin → Oscilloscope. Port hints show the full nested consumer types (`c<c<c<f64>>>` on Timer). The WASM backend lowers those to first-order `f64` (`s<f64>`, `f1<f64, f64>`, `c1<f64>`), composed as `oscilloscope(sin(quantizer(timer())))`.
+- Control Systems (`cs`): wire Oscilloscope → Quantizer → Sin (or Cos) → Timer. Every port is `c<f64>` (`DoubleConsumer`). Composition is `timer(sin(quantizer(plot)))`. The WASM backend still lowers each sample to first-order `f64`.
 - **Run** runs each block's [binaryen.js](https://github.com/AssemblyScript/binaryen.js) script from `src/resources/binaryen/blocks` into one module, emits wasm-gc (typed `call_ref`), starts one worker per generator, and parks with `memory.atomic.wait32` on a shared sample buffer. After Run, click Chart on Oscilloscope; the chart reads that buffer.
 - Scroll to zoom toward the cursor. Use the zoom controls in the lower-right, or **View** in the three-line menu.
 - Drag empty canvas space to pan. Drag a placed block to move it.

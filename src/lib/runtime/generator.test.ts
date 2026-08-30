@@ -40,9 +40,9 @@ describe("binaryen generator", () => {
         { id: 4, defId: "timer" },
       ],
       [
-        { fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in" },
+        { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" },
         { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
-        { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
       ],
     ))!;
     const handle = await startLocalGenerator({
@@ -66,11 +66,13 @@ describe("binaryen generator", () => {
       timer: (ctx: number) => number;
       quantizer: (ctx: number, value: number) => number;
       sin: (ctx: number, value: number) => number;
+      cos: (ctx: number, value: number) => number;
       oscilloscope: (ctx: number, value: number) => void;
     };
     expect(exports.timer(CTX)).toBe(0.5);
     expect(exports.quantizer(CTX, 2)).toBe(2);
     expect(Math.abs(exports.sin(CTX, Math.PI / 2) - 1)).toBeLessThan(1e-9);
+    expect(Math.abs(exports.cos(CTX, 0) - 1)).toBeLessThan(1e-9);
     exports.oscilloscope(CTX, 3);
     expect(readSamples(memory)).toEqual([3]);
   });

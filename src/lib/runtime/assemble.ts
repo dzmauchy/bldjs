@@ -1,7 +1,7 @@
 import { CTX, SAMPLE_CAP } from "./memory";
 import { CTX_PARAM, type WasmSignature } from "./signatures";
 
-export type Stage = "sin" | "quantizer";
+export type Stage = "sin" | "cos" | "quantizer";
 
 export type { BlockScriptId } from "../../resources/binaryen";
 
@@ -30,6 +30,7 @@ export function runtimeTypeWat(): string {
   return [
     typeDecl("fn_now", [], [{ name: "out", type: "f64" }]),
     typeDecl("fn_host_sin", [{ name: "in", type: "f64" }], [{ name: "out", type: "f64" }]),
+    typeDecl("fn_host_cos", [{ name: "in", type: "f64" }], [{ name: "out", type: "f64" }]),
     typeDecl("fn_push", [{ name: "v", type: "f64" }], []),
     typeDecl("fn_park", [{ name: "ns", type: "i64" }], []),
     typeDecl("fn_stopped", [], [{ name: "flag", type: "i32" }]),
@@ -37,6 +38,7 @@ export function runtimeTypeWat(): string {
     typeDecl("fn_timer", [CTX_PARAM], [{ name: "out", type: "f64" }]),
     typeDecl("fn_quantizer", [CTX_PARAM, { name: "in", type: "f64" }], [{ name: "out", type: "f64" }]),
     typeDecl("fn_sin", [CTX_PARAM, { name: "in", type: "f64" }], [{ name: "out", type: "f64" }]),
+    typeDecl("fn_cos", [CTX_PARAM, { name: "in", type: "f64" }], [{ name: "out", type: "f64" }]),
     typeDecl("fn_oscilloscope", [CTX_PARAM, { name: "in", type: "f64" }], []),
   ].join("\n");
 }
@@ -122,6 +124,7 @@ export async function assembleModule(options: AssembleOptions): Promise<Assemble
     const seen = new Set<number>();
     nameFuncType(binaryen, module, seen, "now", "fn_now");
     nameFuncType(binaryen, module, seen, "host_sin", "fn_host_sin");
+    nameFuncType(binaryen, module, seen, "host_cos", "fn_host_cos");
     nameFuncType(binaryen, module, seen, "push", "fn_push");
     nameFuncType(binaryen, module, seen, "park", "fn_park");
     nameFuncType(binaryen, module, seen, "stopped", "fn_stopped");

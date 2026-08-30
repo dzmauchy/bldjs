@@ -283,7 +283,7 @@ export class AppState extends EventTarget {
     const plans = this.plannedGenerators();
     this.stopRun();
     if (plans.length === 0) {
-      this.runError = "Wire a Timer through to an Oscilloscope, then Run.";
+      this.runError = "Wire an Oscilloscope through to a Timer, then Run.";
       return;
     }
     const op = this.#runningOp;

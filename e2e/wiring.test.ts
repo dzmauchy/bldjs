@@ -48,9 +48,10 @@ describe("wiring", () => {
     const listRoot = await listHost.getShadowRoot();
     const result = await listRoot.findElement(By.css('[data-testid="output-result"]'));
     const elems = await listRoot.findElement(By.css('[data-testid="input-elems"]'));
-    expect(await result.getText()).not.toContain("f64[]");
+    expect(await result.getText()).toContain("f64[]");
     expect(await result.getAttribute("title")).toBe("f64[]");
     expect(await elems.getAttribute("title")).toBe("f64");
+    expect(await elems.getText()).toContain("f64");
     const resultHint = await listRoot.findElement(By.css('[data-testid="output-result-type"]'));
     expect(await resultHint.getCssValue("visibility")).toBe("hidden");
     await driver.actions({ async: true }).move({ origin: result }).perform();
@@ -105,19 +106,33 @@ describe("wiring", () => {
     expect(await statusLinks(driver)).toBe("0 links");
   });
 
-  it("wires Timer → Quantizer → Sin → Oscilloscope and opens the chart", async () => {
-    for (const id of ["timer", "quantizer", "sin", "oscilloscope"] as const) {
+  it("wires Oscilloscope → Quantizer → Sin → Timer and opens the chart", async () => {
+    for (const id of ["timer", "quantizer", "sin", "cos", "oscilloscope"] as const) {
       await placeBlock(driver, id);
     }
 
     const timerHost = await nodeHost(driver, "timer");
     const timerRoot = await timerHost.getShadowRoot();
-    const timerOut = await timerRoot.findElement(By.css('[data-testid="output-out"]'));
-    expect(await timerOut.getAttribute("title")).toBe("c<c<c<f64>>>");
-    const timerHint = await timerRoot.findElement(By.css('[data-testid="output-out-type"]'));
-    await driver.actions({ async: true }).move({ origin: timerOut }).perform();
+    const timerIn = await timerRoot.findElement(By.css('[data-testid="input-in"]'));
+    expect(await timerIn.getAttribute("title")).toBe("c<f64>");
+    expect(await timerIn.getText()).toContain("c<f64>");
+    const sinHost = await nodeHost(driver, "sin");
+    const sinRoot = await sinHost.getShadowRoot();
+    const sinIn = await sinRoot.findElement(By.css('[data-testid="input-in"]'));
+    const sinOut = await sinRoot.findElement(By.css('[data-testid="output-out"]'));
+    expect(await sinIn.getText()).toContain("c<f64>");
+    expect(await sinOut.getText()).toContain("c<f64>");
+    expect(await sinOut.getAttribute("title")).toBe("c<f64>");
+    const cosHost = await nodeHost(driver, "cos");
+    const cosRoot = await cosHost.getShadowRoot();
+    const cosIn = await cosRoot.findElement(By.css('[data-testid="input-in"]'));
+    const cosOut = await cosRoot.findElement(By.css('[data-testid="output-out"]'));
+    expect(await cosIn.getText()).toContain("c<f64>");
+    expect(await cosOut.getText()).toContain("c<f64>");
+    const timerHint = await timerRoot.findElement(By.css('[data-testid="input-in-type"]'));
+    await driver.actions({ async: true }).move({ origin: timerIn }).perform();
     await driver.wait(async () => (await timerHint.getCssValue("visibility")) === "visible", 5000);
-    expect(await timerHint.getText()).toBe("c<c<c<f64>>>");
+    expect(await timerHint.getText()).toBe("c<f64>");
     const timerIcon = await timerRoot.findElement(By.css(".flow-node-icon svg"));
     expect(await timerIcon.isDisplayed()).toBe(true);
     const glyphNs = await driver.executeScript(
@@ -132,9 +147,9 @@ describe("wiring", () => {
       await waitForLinks(driver, expected);
     }
 
-    await wire("timer", "out", "quantizer", "in", "1 link");
+    await wire("oscilloscope", "out", "quantizer", "in", "1 link");
     await wire("quantizer", "out", "sin", "in", "2 links");
-    await wire("sin", "out", "oscilloscope", "in", "3 links");
+    await wire("sin", "out", "timer", "in", "3 links");
 
     const scope = await nodeHost(driver, "oscilloscope");
     const chart = await (await scope.getShadowRoot()).findElement(By.css('[data-testid^="chart-"]'));
