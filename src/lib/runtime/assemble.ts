@@ -2,12 +2,12 @@ import { associateBuiltinModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
 import { firstTimerId, type SolutionView, type SolutionViewConnector } from "../solution/view";
 import { linearSolutionView, WasmSolutionBuilder } from "../solution/wasm";
-import { blockSignature, blockTypeWat } from "./signatures";
+import { asBlockType, asSignature, blockSignature } from "./signatures";
 
 export type Stage = "sin" | "cos" | "quantizer";
 
-export type { BlockScriptId } from "../../resources/binaryen";
-export { blockTypeWat } from "./signatures";
+export type { BlockScriptId } from "../../resources/assemblyscript";
+export { asBlockType, blockTypeWat } from "./signatures";
 export type { SolutionView } from "../solution/view";
 
 export interface AssembleOptions {
@@ -25,15 +25,20 @@ export interface AssembledModule {
   connectors: readonly SolutionViewConnector[];
 }
 
-/** Types whose names are referenced from XML block composition (`$fn_timer`, …). */
-export function runtimeTypeWat(): string {
+/** Catalog block headers using AssemblyScript `c<T>` aliases. */
+export function runtimeTypeAs(): string {
   const diagram = new Diagram("ws", "Workspace");
   associateBuiltinModels(diagram);
   return diagram
     .catalog()
     .blocks()
-    .map((block) => blockTypeWat(blockSignature(block)))
+    .map((block) => asBlockType(blockSignature(block)))
     .join("\n");
+}
+
+/** @deprecated Prefer {@link runtimeTypeAs}. */
+export function runtimeTypeWat(): string {
+  return runtimeTypeAs();
 }
 
 export async function assembleModule(options: AssembleOptions): Promise<AssembledModule> {
@@ -55,3 +60,5 @@ export async function assembleWasm(options: AssembleOptions): Promise<Uint8Array
 export async function assembleWat(options: AssembleOptions): Promise<string> {
   return (await assembleModule(options)).text;
 }
+
+export { asSignature };

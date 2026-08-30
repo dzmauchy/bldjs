@@ -28,7 +28,7 @@ export type Nested = DoubleConsumer;
  *
  * Composition: timer(sin(quantizer(plot[0])))
  *
- * The WASM runtime still lowers each sample port to first-order f64.
+ * AssemblyScript uses type aliases for `c` so the runtime never boxes consumers.
  */
 
 /** Accepts a sink and pushes timestamps while `running`. */
@@ -267,7 +267,7 @@ export async function assembleGenerator(
 }
 
 /**
- * Walk Oscilloscope → … → Timer (sink flow), then generate the module with binaryen.js.
+ * Walk Oscilloscope → … → Timer (sink flow), then generate AssemblyScript and compile it.
  * `runDiagram` does the same assemble step when the simulation starts.
  */
 export async function compileGenerator(
@@ -286,7 +286,7 @@ export async function compileGenerator(
   return { ...plan, text: assembled.text, wasm: assembled.wasm, connectors: assembled.connectors };
 }
 
-/** Assemble the catalog block scripts into one module and return binaryen text. */
+/** Assemble the catalog block functions into one module and return AssemblyScript source. */
 export async function generatorText(stages: readonly Stage[], delayMs = 0): Promise<string> {
   return (await assembleModule({ stages, delayMs })).text;
 }

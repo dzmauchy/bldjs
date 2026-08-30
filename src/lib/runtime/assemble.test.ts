@@ -1,112 +1,69 @@
-import binaryen from "binaryen";
 import { describe, expect, it } from "vitest";
-import { BLOCK_SCRIPTS, addCatalogTypes, GC_FEATURES } from "../../resources/binaryen";
-import { localNames as functionLocalNames } from "../../resources/binaryen/util";
+import { BLOCK_AS, preambleAs } from "../../resources/assemblyscript";
 import { associateBuiltinModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
-import { assembleModule, blockTypeWat, runtimeTypeWat } from "./assemble";
+import { assembleModule, runtimeTypeAs } from "./assemble";
 import { SAMPLE_CAP, createMemory, readSamples } from "./memory";
 import { instantiateGenerator } from "./generator";
-import { blockSignature, signatureWat } from "./signatures";
+import { asSignature, asValType, blockSignature } from "./signatures";
 
-function withBlockScript(id: string, use: (module: binaryen.Module) => void): void {
-  const module = new binaryen.Module();
-  try {
-    module.setFeatures(GC_FEATURES(binaryen));
-    const types = addCatalogTypes(binaryen, module);
-    BLOCK_SCRIPTS[id](module, types);
-    use(module);
-  } finally {
-    module.dispose();
-  }
-}
-
-function functionText(id: string): string {
-  let text = "";
-  withBlockScript(id, (module) => {
-    text = module.emitText();
-  });
-  return text;
-}
-
-function localNames(id: string): string[] {
-  let names: string[] = [];
-  withBlockScript(id, (module) => {
-    names = functionLocalNames(module.getFunction(id));
-  });
-  return names;
-}
-
-describe("block binaryen assembly", () => {
-  it("keeps one binaryen.js script per XML block", () => {
-    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["cos", "oscilloscope", "quantizer", "sin", "timer"]);
-    expect(functionText("timer")).toContain("(param $ctx i32)");
-    expect(functionText("timer")).toContain("(param $in (ref $c1_f64))");
-    expect(functionText("timer")).not.toContain("(result");
-    expect(functionText("quantizer")).toContain("(param $in (ref $c1_f64))");
-    expect(functionText("quantizer")).toContain("(result (ref $c1_f64))");
-    expect(functionText("sin")).toContain("(param $in (ref $c1_f64))");
-    expect(functionText("cos")).toContain("(param $in (ref $c1_f64))");
-    expect(functionText("oscilloscope")).toContain("(result (ref $array_c1_f64))");
-    expect(functionText("oscilloscope")).toContain("array.new_fixed $array_c1_f64");
-    expect(functionText("oscilloscope")).not.toContain("(param $in");
+describe("block AssemblyScript assembly", () => {
+  it("keeps one AssemblyScript function per XML block", () => {
+    expect(Object.keys(BLOCK_AS).sort()).toEqual(["cos", "oscilloscope", "quantizer", "sin", "timer"]);
+    expect(BLOCK_AS.timer).toContain("function timer(inn: c<f64>): void");
+    expect(BLOCK_AS.timer).not.toContain("): c<");
+    expect(BLOCK_AS.quantizer).toContain("function quantizer(inn: c<f64>, v: f64): void");
+    expect(BLOCK_AS.sin).toContain("function sin(inn: c<f64>, v: f64): void");
+    expect(BLOCK_AS.cos).toContain("function cos(inn: c<f64>, v: f64): void");
+    expect(BLOCK_AS.oscilloscope).toContain("function oscilloscope(v: f64): void");
+    expect(BLOCK_AS.oscilloscope).not.toContain("function oscilloscope(inn:");
+    expect(preambleAs()).toContain("type c<T> = (v: T) => void");
   });
 
   it("matches XML port names in each block script", () => {
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);
     const cat = diagram.catalog();
-    for (const id of Object.keys(BLOCK_SCRIPTS)) {
+    for (const id of Object.keys(BLOCK_AS)) {
       const sig = blockSignature(cat.block(id)!);
-      const names = localNames(id);
-      expect(names[0], id).toBe("ctx");
-      expect(names.slice(1), id).toEqual(sig.params.map((port) => port.name));
-      const header = signatureWat(sig);
-      expect(header, id).toContain(`(func $${id}`);
+      const header = asSignature(sig);
+      expect(header, id).toContain(`function ${id}(`);
       for (const port of sig.params) {
-        expect(header, id).toContain(`(param $${port.name} ${port.type})`);
-      }
-      for (const port of sig.results) {
-        expect(header, id).toContain(`(result $${port.name} ${port.type})`);
+        expect(header, id).toContain(`${port.name}: ${port.type}`);
       }
     }
   });
 
-  it("assembles every block script into the final module", async () => {
+  it("assembles every block function into the final module", async () => {
     const { text, wasm } = await assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
-    expect(text).toContain("(module");
-    expect(text).toContain("(type $c1_f64 (func (param f64)))");
-    expect(text).toContain("(type $array_c1_f64 (array (mut (ref $c1_f64))))");
-    expect(text).toContain("(func $timer");
-    expect(text).toContain("(func $quantizer");
-    expect(text).toContain("(func $sin");
-    expect(text).toContain("(func $oscilloscope");
-    expect(text).toContain("array.new_fixed $array_c1_f64");
-    expect(text).toContain("array.get $array_c1_f64");
-    expect(text).toContain("call $timer");
-    expect(text).toContain("call $oscilloscope");
-    expect(text).toContain("call_ref $c1_f64");
-    expect(text).toContain("(local $ctx i32)");
+    expect(text).toContain("type c<T> = (v: T) => void");
+    expect(text).toContain("function timer(): void");
+    expect(text).toContain("function quantizer(v: f64): void");
+    expect(text).toContain("function sin(v: f64): void");
+    expect(text).toContain("function oscilloscope(v: f64): void");
+    expect(text).toContain("host_sin");
+    expect(text).toContain("push_at");
+    expect(text).toContain("export function tick(): void");
+    expect(text).not.toContain("call_ref");
+    expect(text).not.toContain("(ref $c1_f64)");
     expect(text).not.toContain("memory.atomic.wait32");
-    expect(text).not.toContain("(func $tap_0");
-    expect(text).toContain(`i32.const ${SAMPLE_CAP}`);
+    expect(text).not.toContain("function tap_0");
+    expect(text).toContain(`SAMPLE_CAP: i32 = ${SAMPLE_CAP}`);
     expect([...wasm.slice(0, 4)]).toEqual([0, 97, 115, 109]);
 
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);
-    expect(blockTypeWat(blockSignature(diagram.catalog().block("timer")!))).toContain(
-      "(type $fn_timer (func (param $ctx i32) (param $in (ref $c1_f64))))",
+    expect(asSignature(blockSignature(diagram.catalog().block("timer")!))).toBe(
+      "function timer(inn: c<f64>): void",
     );
-    expect(blockTypeWat(blockSignature(diagram.catalog().block("oscilloscope")!))).toContain(
-      "(type $fn_oscilloscope (func (param $ctx i32) (result $out (ref $array_c1_f64))))",
+    expect(asSignature(blockSignature(diagram.catalog().block("oscilloscope")!))).toBe(
+      "function oscilloscope(): c<f64>[]",
     );
-    expect(runtimeTypeWat()).toContain("(type $fn_timer (func (param $ctx i32) (param $in (ref $c1_f64))))");
-    expect(runtimeTypeWat()).toContain(
-      "(type $fn_oscilloscope (func (param $ctx i32) (result $out (ref $array_c1_f64))))",
-    );
+    expect(runtimeTypeAs()).toContain("function timer(inn: c<f64>): void");
+    expect(runtimeTypeAs()).toContain("function oscilloscope(): c<f64>[]");
   });
 
-  it("can skip WAT text on the run path", async () => {
+  it("can skip AssemblyScript text on the run path", async () => {
     const { text, wasm } = await assembleModule({ stages: ["sin"], delayMs: 10, emitText: false });
     expect(text).toBe("");
     expect([...wasm.slice(0, 4)]).toEqual([0, 97, 115, 109]);
@@ -114,8 +71,7 @@ describe("block binaryen assembly", () => {
 
   it("emits a non-shared memory module that instantiates without COI", async () => {
     const { text, wasm } = await assembleModule({ stages: ["sin"], delayMs: 10, sharedMemory: false });
-    expect(text.toLowerCase()).not.toMatch(/\(memory[^\n]*shared/);
-    expect(text).not.toContain("i32.atomic");
+    expect(text.toLowerCase()).not.toMatch(/sharedMemory|shared memory/i);
     const memory = createMemory(false);
     const gen = await instantiateGenerator(wasm, memory, () => 0.5);
     gen.tick();

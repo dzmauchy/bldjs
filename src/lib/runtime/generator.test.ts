@@ -4,8 +4,8 @@ import { compileGenerator } from "../blocks/cs";
 import { createSharedMemory, readFlowCounts, readSamples } from "./memory";
 import { instantiateGenerator, startLocalGenerator } from "./generator";
 
-describe("binaryen generator", () => {
-  it("assembles block scripts into a valid wasm-gc module", async () => {
+describe("AssemblyScript generator", () => {
+  it("assembles block functions into a valid wasm module", async () => {
     const wasm = await assembleWasm({ stages: ["quantizer", "sin"], delayMs: 10 });
     expect([...wasm.slice(0, 4)]).toEqual([0, 97, 115, 109]);
     expect(WebAssembly.validate(wasm.slice().buffer)).toBe(true);
@@ -13,11 +13,9 @@ describe("binaryen generator", () => {
 
   it("ticks sin(pi/2) through the assembled pipeline", async () => {
     const { text, wasm } = await assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
-    expect(text).toContain("call $timer");
-    expect(text).toContain("call $oscilloscope");
-    expect(text).toContain("(param $ctx i32)");
-    expect(text).toContain("(param $in (ref $c1_f64))");
-    expect(text).toContain("(result (ref $array_c1_f64))");
+    expect(text).toContain("function timer(): void");
+    expect(text).toContain("function oscilloscope(v: f64): void");
+    expect(text).toContain("type c<T> = (v: T) => void");
     const memory = createSharedMemory();
     let now = Math.PI / 2;
     const gen = await instantiateGenerator(wasm, memory, () => now);
@@ -74,17 +72,15 @@ describe("binaryen generator", () => {
 
   it("tick writes samples through XML-typed block functions", async () => {
     const { text, wasm } = await assembleModule({ stages: ["sin"], delayMs: 0 });
-    expect(text).toContain("(func $timer");
-    expect(text).toContain("(param $in (ref $c1_f64))");
-    expect(text).toContain("(func $oscilloscope");
-    expect(text).toContain("(result (ref $array_c1_f64))");
+    expect(text).toContain("function timer(): void");
+    expect(text).toContain("function oscilloscope(v: f64): void");
     const memory = createSharedMemory();
     const gen = await instantiateGenerator(wasm, memory, () => 0.5);
     gen.tick();
     expect(readSamples(memory)[0]).toBeCloseTo(Math.sin(0.5));
   });
 
-    it("counts each c<f64> connector invocation in the runner, not the runtime", async () => {
+  it("counts each c<f64> connector invocation in the runner, not the runtime", async () => {
     const { wasm, connectors } = await assembleModule({ stages: ["quantizer", "sin"], delayMs: 10_000 });
     expect(connectors.length).toBeGreaterThan(0);
     const memory = createSharedMemory();
