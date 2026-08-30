@@ -220,7 +220,7 @@ describe("AppState run", () => {
     expect(app.isScopeLive(scopeId)).toBe(false);
   });
 
-  it("seeds connector frequency on run and measures tap counts", async () => {
+  it("seeds connector frequency on run and measures runner intercepts", async () => {
     const app = new AppState();
     const { timerId } = wireCsPipeline(app);
     await app.runDiagram();

@@ -1,6 +1,17 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, css, html, unsafeCSS } from "lit";
 import { jumpoverLinkBounds, translateJumpover, type Point, type RoutedLink } from "./geometry";
-import { flowPeriodMs } from "$lib/runtime/flow";
+import { FLOW_PERIODS_MS, flowStyleIndex } from "$lib/runtime/flow";
+
+const flowStyleRules = unsafeCSS(
+  FLOW_PERIODS_MS.map(
+    (ms, style) => `
+      :host([data-flow="${style}"]) .path-stroke {
+        stroke-dasharray: 8 6;
+        animation: bld-flow-dash ${ms}ms linear infinite;
+      }
+    `,
+  ).join(""),
+);
 
 export class BldConnector extends LitElement {
   static override properties = {
@@ -65,10 +76,7 @@ export class BldConnector extends LitElement {
     :host([data-preview]) .path-hit {
       pointer-events: none;
     }
-    :host([data-flow]) .path-stroke {
-      stroke-dasharray: 8 6;
-      animation: bld-flow-dash var(--flow-period, 400ms) linear infinite;
-    }
+    ${flowStyleRules}
     @keyframes bld-flow-dash {
       to {
         stroke-dashoffset: -14;
@@ -99,15 +107,13 @@ export class BldConnector extends LitElement {
     this.style.width = `${box.width}px`;
     this.style.height = `${box.height}px`;
     this.dataset.testid = this.preview ? "connector-preview" : "connector";
-    const flowing = !this.preview && this.hz > 0;
-    if (flowing) {
-      this.setAttribute("data-flow", "");
+    const style = !this.preview ? flowStyleIndex(this.hz) : null;
+    if (style !== null) {
+      this.setAttribute("data-flow", String(style));
       this.dataset.hz = String(Math.round(this.hz));
-      this.style.setProperty("--flow-period", `${flowPeriodMs(this.hz)}ms`);
     } else {
       this.removeAttribute("data-flow");
       delete this.dataset.hz;
-      this.style.removeProperty("--flow-period");
     }
   }
 

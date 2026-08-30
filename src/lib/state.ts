@@ -277,7 +277,7 @@ export class AppState extends EventTarget {
     return this.#linkHz.get(key) ?? 0;
   }
 
-  /** Sample shared-memory tap counters and update per-connector Hertz. */
+  /** Sample runner intercept counts and update per-connector Hertz. */
   sampleFlowRates(now = performance.now()): void {
     if (!this.running || this.#generators.size === 0) {
       return;

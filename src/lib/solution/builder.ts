@@ -3,7 +3,7 @@ import type { SolutionView, SolutionViewConnector } from "./view";
 export interface SolutionAssembly {
   wasm: Uint8Array;
   text: string;
-  /** Consumer wires in the assembled subgraph, in tap-counter order. */
+  /** Consumer wires in the assembled subgraph, in runner frequency-counter order. */
   connectors: readonly SolutionViewConnector[];
 }
 

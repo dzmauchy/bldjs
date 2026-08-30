@@ -6,7 +6,6 @@ import { addTimer } from "./blocks/timer";
 import { addImports } from "./imports";
 import { addPush } from "./push";
 import { addStopped } from "./stopped";
-import { addTap } from "./tap";
 import type { WasmBlockEmit } from "./consumer";
 import type { WasmCatalogTypes } from "./gc-types";
 import type binaryen from "binaryen";
@@ -15,7 +14,6 @@ export type { WasmBlockEmit } from "./consumer";
 export type { WasmCatalogTypes } from "./gc-types";
 export { addCatalogTypes, GC_FEATURES, nopConsumer } from "./gc-types";
 export { addFork } from "./fork";
-export { addTap } from "./tap";
 
 type BlockScript = (module: binaryen.Module, types: WasmCatalogTypes, opts?: WasmBlockEmit) => number;
 

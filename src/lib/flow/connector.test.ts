@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { BldConnector } from "./connector";
+import { FLOW_PERIODS_MS } from "$lib/runtime/flow";
 import "./connector";
 
 async function mountConnector(init: Partial<BldConnector>): Promise<BldConnector> {
@@ -13,6 +14,11 @@ async function mountConnector(init: Partial<BldConnector>): Promise<BldConnector
 describe("BldConnector", () => {
   beforeAll(() => {
     expect(customElements.get("bld-connector")).toBeDefined();
+    const cssText = (BldConnector.styles as { cssText: string }).cssText;
+    for (let style = 0; style < 10; style += 1) {
+      expect(cssText).toContain(`[data-flow="${style}"]`);
+      expect(cssText).toContain(`${FLOW_PERIODS_MS[style]}ms`);
+    }
   });
 
   afterEach(() => {
@@ -31,15 +37,22 @@ describe("BldConnector", () => {
     expect(link.hasAttribute("data-flow")).toBe(false);
   });
 
-  it("animates a dashed stroke from measured connector frequency", async () => {
+  it("picks a logarithmic animating style from measured connector frequency", async () => {
     const link = await mountConnector({ from: { x: 0, y: 0 }, to: { x: 80, y: 0 }, hz: 10 });
-    expect(link.hasAttribute("data-flow")).toBe(true);
+    expect(link.getAttribute("data-flow")).toBe("7");
     expect(link.dataset.hz).toBe("10");
-    expect(link.style.getPropertyValue("--flow-period")).toBe("100ms");
+    link.hz = 100;
+    await link.updateComplete;
+    expect(link.getAttribute("data-flow")).toBe("9");
+    link.hz = 0.1;
+    await link.updateComplete;
+    expect(link.getAttribute("data-flow")).toBe("0");
+    link.hz = 1;
+    await link.updateComplete;
+    expect(link.getAttribute("data-flow")).toBe("2");
     link.hz = 0;
     await link.updateComplete;
     expect(link.hasAttribute("data-flow")).toBe(false);
-    expect(link.style.getPropertyValue("--flow-period")).toBe("");
   });
 
   it("updates the path when an endpoint moves with its node", async () => {
