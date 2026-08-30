@@ -48,10 +48,6 @@ describe("block binaryen assembly", () => {
       const sig = blockSignature(cat.block(id)!);
       const names = localNames(id);
       expect(names[0], id).toBe("ctx");
-      if (id === "timer" || id === "oscilloscope") {
-        // Catalog ports are the push-model I/O; WASM still emits first-order samples.
-        continue;
-      }
       expect(names.slice(1), id).toEqual(sig.params.map((port) => port.name));
       const header = signatureWat(sig);
       expect(header, id).toContain(`(func $${id}`);

@@ -13,6 +13,7 @@ import {
   infer,
   isConsumerType,
   planGenerator,
+  type ScopeSeries,
 } from "./blocks";
 import { linksEqual } from "./blocks/diagram";
 import {
@@ -81,7 +82,7 @@ export class AppState extends EventTarget {
 
   #generators = new Map<number, GeneratorHandle>();
   #scopeToTimer = new Map<number, number>();
-  #scopeIndex = new Map<number, number>();
+  #scopeChannels = new Map<number, { label: string; ring: number }[]>();
   #runTopology = "";
   #runningOp = 0;
 
@@ -238,12 +239,22 @@ export class AppState extends EventTarget {
     this.scopeOpen = NONE_ID;
   }
 
-  async snapshotScope(id: number): Promise<number[]> {
+  async snapshotScope(id: number): Promise<ScopeSeries[]> {
     const timerId = this.#scopeToTimer.get(id);
-    if (timerId === undefined) {
+    const channels = this.#scopeChannels.get(id);
+    if (timerId === undefined || !channels?.length) {
       return [];
     }
-    return (await this.#generators.get(timerId)?.snapshot(this.#scopeIndex.get(id) ?? 0)) ?? [];
+    const handle = this.#generators.get(timerId);
+    if (!handle) {
+      return [];
+    }
+    return Promise.all(
+      channels.map(async (channel) => ({
+        label: channel.label,
+        samples: await handle.snapshot(channel.ring),
+      })),
+    );
   }
 
   /** Block ids, definitions, and links — not positions — so moving a block does not restart generators. */
@@ -274,7 +285,7 @@ export class AppState extends EventTarget {
     }
     this.#generators.clear();
     this.#scopeToTimer.clear();
-    this.#scopeIndex.clear();
+    this.#scopeChannels.clear();
     this.#runTopology = "";
     this.running = false;
     if (this.scopeOpen !== NONE_ID && !this.isScopeLive(this.scopeOpen)) {
@@ -287,7 +298,7 @@ export class AppState extends EventTarget {
     const plans = this.plannedGenerators();
     this.stopRun();
     if (plans.length === 0) {
-      this.runError = "Wire an Oscilloscope through to a Timer, then Run.";
+      this.runError = "Wire a Timer through to an Oscilloscope, then Run.";
       return;
     }
     const op = this.#runningOp;
@@ -300,9 +311,11 @@ export class AppState extends EventTarget {
           return;
         }
         this.#generators.set(plan.timerId, handle);
-        plan.scopeIds.forEach((scopeId, index) => {
-          this.#scopeToTimer.set(scopeId, plan.timerId);
-          this.#scopeIndex.set(scopeId, index);
+        plan.channels.forEach((channel, index) => {
+          this.#scopeToTimer.set(channel.scopeId, plan.timerId);
+          const series = this.#scopeChannels.get(channel.scopeId) ?? [];
+          series.push({ label: channel.label, ring: index });
+          this.#scopeChannels.set(channel.scopeId, series);
         });
       }
       this.#runTopology = topology;
