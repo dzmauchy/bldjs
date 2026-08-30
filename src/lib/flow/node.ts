@@ -24,7 +24,7 @@ export class BldNode extends LitElement {
   static override styles = css`
     :host {
       --port-size: 12px;
-      --port-outset: calc(var(--port-size) / 2);
+      --port-outset: calc(var(--port-size) / 2 - 1px);
       --port-stub: 2px;
       --port-rail: 2px;
       display: flex;
@@ -42,11 +42,17 @@ export class BldNode extends LitElement {
       color: var(--bs-body-color, #dee2e6);
       font-size: 12px;
     }
+    @keyframes node-selected-fade {
+      0%,
+      100% {
+        background-color: #23282d;
+      }
+      50% {
+        background-color: #14191e;
+      }
+    }
     :host([data-selected]) .flow-node {
-      border-color: var(--bs-primary, #0d6efd);
-      box-shadow:
-        inset 3px 0 0 var(--block-accent, #0d6efd),
-        0 0 0 1px rgba(13, 110, 253, 0.55);
+      animation: node-selected-fade 1.8s ease-in-out infinite;
     }
     :host([data-dragging]) {
       z-index: 4;
@@ -78,7 +84,7 @@ export class BldNode extends LitElement {
       min-width: 5.5rem;
       min-height: 4.5rem;
       overflow: visible;
-      background: #23282d;
+      background-color: #23282d;
       border: 1px solid var(--bs-border-color, #495057);
       border-radius: 8px;
       box-shadow: inset 3px 0 0 var(--block-accent, #0d6efd);
@@ -91,6 +97,16 @@ export class BldNode extends LitElement {
       gap: 4px;
       padding: 10px 8px;
       min-width: 32px;
+    }
+    .flow-node-title {
+      font-size: 0.6rem;
+      line-height: 1.15;
+      text-align: center;
+      max-width: 7rem;
+      color: var(--bs-secondary-color, #adb5bd);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .flow-node-icon {
       color: var(--block-accent, #0d6efd);
@@ -194,8 +210,33 @@ export class BldNode extends LitElement {
       font-size: 0.7rem;
       color: var(--bs-secondary-color, #adb5bd);
     }
+    .block-port-anchor {
+      position: relative;
+      display: inline-flex;
+      width: var(--port-size);
+      height: var(--port-size);
+      flex: 0 0 var(--port-size);
+    }
+    .block-port-row.is-in:not(.is-vector) .block-port-anchor {
+      left: calc(-1 * var(--port-outset));
+      margin-right: calc(-1 * var(--port-outset));
+    }
+    .block-port-row.is-out:not(.is-vector) .block-port-anchor {
+      left: var(--port-outset);
+      margin-left: calc(-1 * var(--port-outset));
+    }
     .block-port-type {
+      position: absolute;
+      top: calc(100% + 2px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 6;
+      pointer-events: none;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: rgba(20, 23, 26, 0.72);
       font-size: 0.62rem;
+      line-height: 1.2;
       color: var(--bs-info, #0dcaf0);
       font-family: var(--bs-font-monospace, ui-monospace, monospace);
       white-space: nowrap;
@@ -212,14 +253,6 @@ export class BldNode extends LitElement {
       background: #14171a;
       flex: 0 0 var(--port-size);
       position: relative;
-    }
-    .block-port-row.is-in:not(.is-vector) .block-port {
-      left: calc(-1 * var(--port-outset));
-      margin-right: calc(-1 * var(--port-outset));
-    }
-    .block-port-row.is-out:not(.is-vector) .block-port {
-      left: var(--port-outset);
-      margin-left: calc(-1 * var(--port-outset));
     }
     .block-port-row.is-grounded .block-port,
     .block-port-row.is-linking .block-port {
@@ -389,20 +422,24 @@ export class BldNode extends LitElement {
       .join(" ");
   }
 
-  #renderHandle() {
-    return html`<span class="block-port" data-handle></span>`;
+  #renderHandle(typeLabel?: string, typeTestId?: string) {
+    return html`
+      <span class="block-port-anchor">
+        <span class="block-port" data-handle></span>
+        ${typeLabel && typeTestId
+          ? html`<span class="block-port-type" data-testid=${typeTestId}>${typeLabel}</span>`
+          : nothing}
+      </span>
+    `;
   }
 
-  #renderMeta(label: string | undefined, typeLabel: string | undefined, typeTestId: string | undefined) {
-    if (!label && !(typeLabel && typeTestId)) {
+  #renderMeta(label: string | undefined) {
+    if (!label) {
       return nothing;
     }
     return html`
       <span class="block-port-meta">
-        ${label ? html`<span class="block-port-name">${label}</span>` : nothing}
-        ${typeLabel && typeTestId
-          ? html`<span class="block-port-type" data-testid=${typeTestId}>${typeLabel}</span>`
-          : nothing}
+        <span class="block-port-name">${label}</span>
       </span>
     `;
   }
@@ -411,7 +448,7 @@ export class BldNode extends LitElement {
     return group.ports.find((port) => port.showType);
   }
 
-  #renderPin(port: PortView, side: PortSide, vectorized: boolean) {
+  #renderPin(port: PortView, side: PortSide, vectorized: boolean, typeLabel?: string, typeTestId?: string) {
     return html`
       <button
         class=${this.#portClass(port, side, vectorized)}
@@ -422,7 +459,7 @@ export class BldNode extends LitElement {
         data-testid=${this.#portTestId(side, port.name)}
         title=${port.typeLabel}
       >
-        ${this.#renderHandle()}
+        ${this.#renderHandle(typeLabel, typeTestId)}
       </button>
     `;
   }
@@ -430,7 +467,7 @@ export class BldNode extends LitElement {
   #renderGroup(group: PortGroup, side: PortSide, showName: boolean) {
     const typed = this.#typedSlot(group);
     const typeTestId = typed ? `${this.#portTestId(side, group.catalogName)}-type` : undefined;
-    const meta = this.#renderMeta(showName ? group.label : undefined, typed?.typeLabel, typeTestId);
+    const meta = this.#renderMeta(showName ? group.label : undefined);
     if (!group.vectorized) {
       const port = group.ports[0];
       if (!port) {
@@ -446,14 +483,22 @@ export class BldNode extends LitElement {
           data-testid=${this.#portTestId(side, port.name)}
           title=${port.typeLabel}
         >
-          ${this.#renderHandle()} ${meta}
+          ${this.#renderHandle(typed?.typeLabel, typeTestId)} ${meta}
         </button>
       `;
     }
     return html`
       <div class="block-port-vector is-${side}" data-vector=${group.catalogName}>
         <div class="block-port-vector-pins">
-          ${group.ports.map((port) => this.#renderPin(port, side, true))}
+          ${group.ports.map((port) =>
+            this.#renderPin(
+              port,
+              side,
+              true,
+              port.showType ? port.typeLabel : undefined,
+              port.showType ? typeTestId : undefined,
+            ),
+          )}
         </div>
         <span class="block-port-vector-rail" aria-hidden="true"></span>
         ${meta}
@@ -480,6 +525,7 @@ export class BldNode extends LitElement {
           ${inputs.map((group) => this.#renderGroup(group, "in", inputs.length > 1))}
         </div>
         <div class="flow-node-body">
+          <span class="flow-node-title">${view.name}</span>
           <span class="flow-node-icon" aria-hidden="true">
             ${unsafeSVG(renderIconSvg(view.icon))}
           </span>

@@ -72,6 +72,10 @@ test.describe("wiring", () => {
     expect(await portTypeText(page, "quantizer", "output-out")).toBeNull();
     expect(await portTypeText(page, "timer", "input-in")).toBeNull();
 
+    const scopeBox = await boxOf(nodeHost(page, "oscilloscope"));
+    const quantBox = await boxOf(nodeHost(page, "quantizer"));
+    const timerBox = await boxOf(nodeHost(page, "timer"));
+
     await clickPortHandle(page, "oscilloscope", "output-out");
     await expect
       .poll(async () => portTypeText(page, "oscilloscope", "output-out"))
@@ -79,6 +83,29 @@ test.describe("wiring", () => {
     expect(await portTypeText(page, "quantizer", "input-in")).toBe("c<f64>");
     expect(await portTypeText(page, "timer", "input-in")).toBe("c<f64>");
     expect(await portTypeText(page, "quantizer", "output-out")).toBeNull();
+
+    const scopeAfter = await boxOf(nodeHost(page, "oscilloscope"));
+    const quantAfter = await boxOf(nodeHost(page, "quantizer"));
+    const timerAfter = await boxOf(nodeHost(page, "timer"));
+    expect(scopeAfter.width).toBe(scopeBox.width);
+    expect(scopeAfter.height).toBe(scopeBox.height);
+    expect(quantAfter.width).toBe(quantBox.width);
+    expect(quantAfter.height).toBe(quantBox.height);
+    expect(timerAfter.width).toBe(timerBox.width);
+    expect(timerAfter.height).toBe(timerBox.height);
+
+    const outHandle = await boxOf(nodeHost(page, "oscilloscope").locator('[data-testid="output-out"] [data-handle]'));
+    const outType = nodeHost(page, "oscilloscope").locator('[data-testid="output-out-type"]');
+    const outTypeBox = await boxOf(outType);
+    expect(outTypeBox.y).toBeGreaterThanOrEqual(outHandle.y + outHandle.height - 1);
+    const typeBg = await outType.evaluate((el) => {
+      const color = getComputedStyle(el).backgroundColor;
+      const parts = color.match(/[\d.]+/g)?.map(Number) ?? [];
+      return { color, alpha: parts.length >= 4 ? parts[3]! : 1 };
+    });
+    expect(typeBg.color).toMatch(/rgba?\(/);
+    expect(typeBg.alpha).toBeGreaterThan(0);
+    expect(typeBg.alpha).toBeLessThan(1);
 
     await clickPortHandle(page, "quantizer", "input-in");
     await waitForLinks(page, "1 link");

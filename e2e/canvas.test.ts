@@ -137,6 +137,13 @@ test.describe("canvas", () => {
     const before = await statusBlocks(page);
     expect(before).not.toBe("0 blocks");
     await nodeHost(page, "quantizer").click();
+    const selected = nodeHost(page, "quantizer").locator(".flow-node");
+    const idle = nodeHost(page, "timer").locator(".flow-node");
+    expect(await selected.evaluate((el) => getComputedStyle(el).animationName)).toContain("node-selected-fade");
+    expect(await idle.evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
+    expect(await selected.evaluate((el) => getComputedStyle(el).borderColor)).toBe(
+      await idle.evaluate((el) => getComputedStyle(el).borderColor),
+    );
     await pressDelete(page);
     await expect(page.locator('[data-testid="status-blocks"]')).not.toHaveText(before);
     await expect(diagramRoot(page).locator('bld-node[data-block-def="quantizer"]')).toHaveCount(0);
@@ -149,12 +156,14 @@ test.describe("canvas", () => {
     expect(await statusBlocks(page)).toBe("1 block");
   });
 
-  test("renders a nameless block with a 32px icon and edge circles", async () => {
+  test("renders a labeled block with a 32px icon and inset edge circles", async () => {
     await newCanvas(page);
     await placeBlock(page, "sin");
     const host = nodeHost(page, "sin");
-    await expect(host.locator(".flow-node-title")).toHaveCount(0);
-    expect((await host.innerText()).toLowerCase()).not.toContain("sin");
+    await expect(host.locator(".flow-node-title")).toHaveText("Sin");
+    const titleSize = await host.locator(".flow-node-title").evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    expect(titleSize).toBeGreaterThan(0);
+    expect(titleSize).toBeLessThanOrEqual(11);
     await expect(host.locator(".flow-node")).toHaveAttribute("title", "Sin");
     const icon = host.locator(".flow-node-icon svg");
     const iconBox = await boxOf(icon);
@@ -167,8 +176,10 @@ test.describe("canvas", () => {
     const outBox = await boxOf(host.locator('[data-testid="output-out"] [data-handle]'));
     const inCenter = inBox.x + inBox.width / 2;
     const outCenter = outBox.x + outBox.width / 2;
-    expect(Math.abs(inCenter - nodeBox.x)).toBeLessThan(4);
-    expect(Math.abs(outCenter - (nodeBox.x + nodeBox.width))).toBeLessThan(4);
+    expect(inCenter - nodeBox.x).toBeGreaterThanOrEqual(0.5);
+    expect(inCenter - nodeBox.x).toBeLessThan(4);
+    expect(nodeBox.x + nodeBox.width - outCenter).toBeGreaterThanOrEqual(0.5);
+    expect(nodeBox.x + nodeBox.width - outCenter).toBeLessThan(4);
     await expect(host.locator(".block-port-name")).toHaveCount(0);
     await expect(host.locator('[data-testid="input-in"]')).toHaveAttribute("title", "c<f64>");
   });
