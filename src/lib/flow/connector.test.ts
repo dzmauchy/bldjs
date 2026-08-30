@@ -23,9 +23,10 @@ describe("BldConnector", () => {
     const link = await mountConnector({ from: { x: 10, y: 20 }, to: { x: 120, y: 40 } });
     const d = link.shadowRoot?.querySelector(".path-stroke")?.getAttribute("d") ?? "";
     expect(d.startsWith("M ")).toBe(true);
+    expect(d).toContain("L ");
     expect(link.shadowRoot?.querySelector("svg")).not.toBeNull();
     expect(Number.parseFloat(link.style.width)).toBeGreaterThan(0);
-    expect(Number.parseFloat(link.style.height)).toBeGreaterThan(0);
+    expect(Number.parseFloat(link.style.height)).toBeGreaterThan(20);
     expect(link.style.left).toMatch(/px$/);
   });
 
