@@ -4,6 +4,7 @@ import {
   arrayOf,
   displayType,
   extendsBound,
+  typeToString,
   generic,
   named,
   parseVariance,
@@ -476,8 +477,11 @@ describe("blocks", () => {
   });
 
   it("displays common types in compact form", () => {
-    expect(displayType(g("c1", [t("f64")]), true)).toBe("c1<f64>");
-    expect(displayType(g("c1", [g("c1", [t("f64")])]), true)).toBe("c1<c1<f64>>");
+    expect(displayType(g("c1", [t("f64")]), true)).toBe("c<f64>");
+    expect(displayType(g("c1", [g("c1", [t("f64")])]), true)).toBe("c<c<f64>>");
+    expect(displayType(g("c1", [g("c1", [g("c1", [t("f64")])])]), true)).toBe("c<c<c<f64>>>");
+    expect(typeToString(g("c1", [g("c1", [g("c1", [t("f64")])])]))).toBe("c<c<c<f64>>>");
+    expect(displayType(g("c1", [g("c1", [g("c1", [t("f64")])])]), false)).toBe("c1<c1<c1<f64>>>");
     expect(displayType(g("f1", [t("i32"), t("str")]), true)).toBe("f1<i32, str>");
     expect(displayType(g("f2", [t("i32"), t("i64"), t("bool")]), true)).toBe("f2<i32, i64, bool>");
     expect(displayType(g("s", [t("f64")]), true)).toBe("s<f64>");
@@ -493,15 +497,20 @@ describe("blocks", () => {
     const cat = catalog();
     const timerBlock = cat.block("timer")!;
     expect(timerBlock.inputs.length).toBe(0);
-    expect(displayType(timerBlock.outputs.find((port) => port.name === "out")!.ty, true)).toBe("f64");
+    expect(displayType(timerBlock.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<c<c<f64>>>");
+    expect(timerBlock.outputs.find((port) => port.name === "out")!.attributes.find((a) => a.name === "wasm")?.value).toBe(
+      "f64",
+    );
     expect(timerBlock.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
     const scope = cat.block("oscilloscope")!;
     expect(scope.outputs.length).toBe(0);
-    expect(displayType(scope.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
-    expect(displayType(cat.block("quantizer")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
-    expect(displayType(cat.block("quantizer")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("f64");
-    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
-    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("f64");
+    expect(displayType(scope.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
+    expect(displayType(cat.block("quantizer")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe(
+      "c<c<c<f64>>>",
+    );
+    expect(displayType(cat.block("quantizer")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<c<f64>>");
+    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<c<f64>>");
+    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
     expect(cat.namespaceLabel("cs")).toBe("Control Systems");
     expect(cat.findType("f64")).toBeDefined();
     expect(cat.findType("c1")).toBeDefined();
@@ -610,21 +619,30 @@ describe("blocks", () => {
     diagram.addLink(sinId, "out", scopeId, "in");
 
     const timerResolved = diagram.resolveNode(timerId)!;
-    expect(displayType(timerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("f64");
+    expect(displayType(timerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<c<c<f64>>>");
 
     const quantizerResolved = diagram.resolveNode(quantizerId)!;
     expect(quantizerResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(quantizerResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
-    expect(displayType(quantizerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("f64");
+    expect(displayType(quantizerResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<c<c<f64>>>");
+    expect(displayType(quantizerResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<c<f64>>");
 
     const sinResolved = diagram.resolveNode(sinId)!;
     expect(sinResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
-    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("f64");
+    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<c<f64>>");
+    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
 
     const scopeResolved = diagram.resolveNode(scopeId)!;
     expect(scopeResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(scopeResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("f64");
+    expect(displayType(scopeResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
+  });
+
+  it("skipping a nested consumer layer is incompatible", () => {
+    const diagram = new Diagram("cs", "Skip");
+    associateBuiltinModels(diagram);
+    const timerId = diagram.addNode("timer");
+    const scopeId = diagram.addNode("oscilloscope");
+    diagram.addLink(timerId, "out", scopeId, "in");
+    expect(diagram.resolveNode(scopeId)!.compatible.get("in")).toBe(false);
   });
 
   it("array is incompatible with an f64 sample port", () => {

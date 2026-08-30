@@ -11,11 +11,13 @@ export type F64Func = Func<number>;
 export type F64Source = Func<F64Func>;
 
 /**
- * Nested consumers kept for in-process tests.
- * XML ports are first-order values; WASM maps:
- *   timer() : s<f64>          (result f64)
- *   quantizer / sin : f1<f64, f64>
- *   oscilloscope : c1<f64>
+ * Nested consumers match the catalog (compact display writes c1 as c):
+ *   Nested<3> = c<c<c<f64>>>  (Timer)
+ *   Nested<2> = c<c<f64>>     (Quantizer)
+ *   Nested<1> = c<f64>        (Sin / Oscilloscope)
+ *
+ * The WASM runtime still lowers each sample port to first-order f64
+ * (timer : s<f64>, quantizer/sin : f1<f64, f64>, oscilloscope : c1<f64>).
  */
 export interface Nested<D extends 1 | 2 | 3> {
   readonly depth: D;

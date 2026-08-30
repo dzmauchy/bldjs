@@ -113,11 +113,11 @@ describe("wiring", () => {
     const timerHost = await nodeHost(driver, "timer");
     const timerRoot = await timerHost.getShadowRoot();
     const timerOut = await timerRoot.findElement(By.css('[data-testid="output-out"]'));
-    expect(await timerOut.getAttribute("title")).toBe("f64");
+    expect(await timerOut.getAttribute("title")).toBe("c<c<c<f64>>>");
     const timerHint = await timerRoot.findElement(By.css('[data-testid="output-out-type"]'));
     await driver.actions({ async: true }).move({ origin: timerOut }).perform();
     await driver.wait(async () => (await timerHint.getCssValue("visibility")) === "visible", 5000);
-    expect(await timerHint.getText()).toBe("f64");
+    expect(await timerHint.getText()).toBe("c<c<c<f64>>>");
     const timerIcon = await timerRoot.findElement(By.css(".flow-node-icon svg"));
     expect(await timerIcon.isDisplayed()).toBe(true);
     const glyphNs = await driver.executeScript(

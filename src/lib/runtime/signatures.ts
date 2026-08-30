@@ -1,4 +1,4 @@
-import { type BlockDef, type TypeExpr, displayType, isArrayType } from "$lib/blocks/ast";
+import { type BlockDef, type PortDef, type TypeExpr, displayType, isArrayType } from "$lib/blocks/ast";
 
 /** WASM value type emitted for a language-agnostic XML type expression. */
 export type WasmVal = string;
@@ -75,13 +75,18 @@ export interface WasmSignature {
   results: { name: string; type: WasmVal }[];
 }
 
+function portWasmVal(port: PortDef): WasmVal {
+  const override = port.attributes.find((attribute) => attribute.name === "wasm")?.value;
+  return override ?? wasmValType(port.ty);
+}
+
 /** XML `<in>` ports are WASM params; `<out>` ports are WASM results. */
 export function blockSignature(block: BlockDef): WasmSignature {
   return {
     id: block.id,
     name: block.name,
-    params: block.inputs.map((port) => ({ name: port.name, type: wasmValType(port.ty) })),
-    results: block.outputs.map((port) => ({ name: port.name, type: wasmValType(port.ty) })),
+    params: block.inputs.map((port) => ({ name: port.name, type: portWasmVal(port) })),
+    results: block.outputs.map((port) => ({ name: port.name, type: portWasmVal(port) })),
   };
 }
 
