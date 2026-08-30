@@ -261,7 +261,7 @@ export class BldDiagram extends LitElement {
         continue;
       }
       const key = host.getAttribute("data-link");
-      host.hz = key && this.app.running ? this.app.connectorHzForKey(key) : 0;
+      host.hz = key && this.app.runBusy() ? this.app.connectorHzForKey(key) : 0;
     }
   }
 
@@ -687,7 +687,7 @@ export class BldDiagram extends LitElement {
                 .points=${item.points}
                 .crossings=${item.crossings}
                 .selected=${item.selected}
-                .hz=${app.running ? app.connectorHz(item.link) : 0}
+                .hz=${app.runBusy() ? app.connectorHz(item.link) : 0}
                 @linkpointerdown=${() => this.#onLinkPointerDown(item.link)}
               ></bld-connector>
             `,

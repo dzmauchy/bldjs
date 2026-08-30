@@ -24,6 +24,19 @@ export interface WasmBuildOptions {
   timerId?: number;
   /** Shared memory + atomics. Off when the page is not cross-origin isolated. */
   sharedMemory?: boolean;
+  /** WAT text is expensive; skip it on the Run hot path. */
+  emitText?: boolean;
+}
+
+let assemblerPreload: Promise<unknown> | undefined;
+
+/** Start loading binaryen.js before the user presses Run. */
+export function preloadAssembler(): void {
+  assemblerPreload ??= Promise.all([
+    import("binaryen"),
+    import("../../resources/binaryen"),
+    import("../../resources/binaryen/util"),
+  ]);
 }
 
 function builtinCatalog(): Catalog {
@@ -127,6 +140,7 @@ export class WasmSolutionBuilder implements SolutionBuilder {
       delayMs,
       timerId,
       sharedMemory: options.sharedMemory ?? canShareMemory(),
+      emitText: options.emitText,
     });
   }
 }
@@ -134,9 +148,10 @@ export class WasmSolutionBuilder implements SolutionBuilder {
 async function emitWasm(
   catalog: Catalog,
   view: SolutionView,
-  options: { delayMs: number; timerId?: number; sharedMemory: boolean },
+  options: { delayMs: number; timerId?: number; sharedMemory: boolean; emitText?: boolean },
 ): Promise<SolutionAssembly> {
-    const [{ default: binaryen }, scripts, { nameLocals }] = await Promise.all([
+  preloadAssembler();
+  const [{ default: binaryen }, scripts, { nameLocals }] = await Promise.all([
     import("binaryen"),
     import("../../resources/binaryen"),
     import("../../resources/binaryen/util"),
@@ -279,11 +294,15 @@ async function emitWasm(
     if (!module.validate()) {
       throw new Error("binaryen rejected the assembled generator module");
     }
+    const wasm = module.emitBinary().slice();
+    if (options.emitText === false) {
+      return { wasm, text: "", connectors: view.connectors };
+    }
     const text = module.emitText();
     if (!text.includes(`i32.const ${SAMPLE_CAP}`)) {
       throw new Error(`push script must use SAMPLE_CAP=${SAMPLE_CAP}`);
     }
-    return { wasm: module.emitBinary().slice(), text, connectors: view.connectors };
+    return { wasm, text, connectors: view.connectors };
   } finally {
     module.dispose();
   }

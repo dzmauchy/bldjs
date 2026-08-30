@@ -12,6 +12,7 @@ import {
   assembleGenerator,
   infer,
   planGenerator,
+  type GeneratorPlan,
   type ScopeSeries,
   acceptsManyInputs,
   allocateIncomingSlot,
@@ -35,7 +36,18 @@ import {
 } from "./model";
 import { type GeneratorHandle, startGenerator } from "./runtime/generator";
 import { hzFromDelta, intervalMs } from "./runtime/flow";
-import { connectorKey } from "./solution/view";
+import { connectorKey, solutionViewFrom, subgraphFromTimer } from "./solution/view";
+import { preloadAssembler } from "./solution/wasm";
+
+function yieldForPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => resolve());
+      return;
+    }
+    setTimeout(resolve, 0);
+  });
+}
 
 export interface BlockInstance {
   id: number;
@@ -158,6 +170,7 @@ export class AppState extends EventTarget {
     this.blocks = [...this.blocks, { id, defId, x, y }];
     this.selectBlock(id);
     this.#invalidateRun();
+    this.#maybePreloadAssembler();
   }
 
   addBlockAtViewCenter(defId: string): void {
@@ -235,7 +248,7 @@ export class AppState extends EventTarget {
   }
 
   isScopeLive(id: number): boolean {
-    return this.running && this.#scopeToTimer.has(id);
+    return this.runBusy() && this.#scopeToTimer.has(id);
   }
 
   openOscilloscope(id: number): void {
@@ -362,10 +375,17 @@ export class AppState extends EventTarget {
       return;
     }
     this.stopRun();
+    const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
+    this.#runTopology = topology;
+    this.#armLiveUi(plans, nodes);
     this.starting = true;
     const op = this.#runningOp;
     try {
-      const nodes: NodeSpec[] = this.blocks.map((block) => ({ id: block.id, defId: block.defId }));
+      // Let Chart / flow styles paint before binaryen blocks the main thread.
+      await yieldForPaint();
+      if (op !== this.#runningOp) {
+        return;
+      }
       for (const plan of plans) {
         const { wasm, connectors } = await assembleGenerator(plan, nodes, this.links);
         const handle = await startGenerator({ wasm, delayMs: plan.delayMs, connectors });
@@ -378,12 +398,6 @@ export class AppState extends EventTarget {
         for (const link of connectors) {
           this.#linkHz.set(connectorKey(link), nominalHz);
         }
-        plan.channels.forEach((channel, index) => {
-          this.#scopeToTimer.set(channel.scopeId, plan.timerId);
-          const series = this.#scopeChannels.get(channel.scopeId) ?? [];
-          series.push({ label: channel.label, ring: index });
-          this.#scopeChannels.set(channel.scopeId, series);
-        });
       }
       if (op !== this.#runningOp) {
         return;
@@ -398,6 +412,23 @@ export class AppState extends EventTarget {
     }
   }
 
+  /** Enable Chart and seeded wire animation from the plan, before WASM is ready. */
+  #armLiveUi(plans: GeneratorPlan[], nodes: NodeSpec[]): void {
+    const view = solutionViewFrom(nodes, this.links);
+    for (const plan of plans) {
+      const nominalHz = 1000 / intervalMs(plan.delayMs);
+      for (const link of subgraphFromTimer(view, plan.timerId).connectors) {
+        this.#linkHz.set(connectorKey(link), nominalHz);
+      }
+      plan.channels.forEach((channel, index) => {
+        this.#scopeToTimer.set(channel.scopeId, plan.timerId);
+        const series = this.#scopeChannels.get(channel.scopeId) ?? [];
+        series.push({ label: channel.label, ring: index });
+        this.#scopeChannels.set(channel.scopeId, series);
+      });
+    }
+  }
+
   #invalidateRun(): void {
     if (!this.runBusy() && this.#generators.size === 0) {
       return;
@@ -406,6 +437,12 @@ export class AppState extends EventTarget {
       return;
     }
     this.stopRun();
+  }
+
+  #maybePreloadAssembler(): void {
+    if (this.canRun()) {
+      preloadAssembler();
+    }
   }
 
   toggleLink(fromBlock: number, fromOut: string, toBlock: number, toIn: string): void {
@@ -432,6 +469,7 @@ export class AppState extends EventTarget {
     };
     this.#replaceLinks([...next, link]);
     this.#invalidateRun();
+    this.#maybePreloadAssembler();
   }
 
   #replaceLinks(remaining: Link[], removed?: Link): void {

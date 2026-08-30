@@ -299,7 +299,12 @@ test.describe("wiring", () => {
 
     const chart = nodeHost(page, "oscilloscope").locator('[data-testid^="chart-"]');
     await expect(chart).toBeDisabled();
-    await runDiagram(page);
+    await page.locator('[data-testid="toolbar-run"]').click();
+    await expect(chart).toBeEnabled({ timeout: 2_000 });
+    await expect
+      .poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count(), { timeout: 2_000 })
+      .toBe(3);
+    await expect(page.locator('[data-testid="status-run"]')).toHaveText("Running", { timeout: 15_000 });
     const run = page.locator('[data-testid="toolbar-run"]');
     await expect(run).toBeDisabled();
     await expect(chart).toBeEnabled();
