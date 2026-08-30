@@ -1,7 +1,9 @@
 import type { Link } from "./diagram";
 import { catalogPortName, portSlotIndex } from "./ports";
-import { type ComposeTree, type Stage, assembleModule, assembleWasm } from "../runtime/assemble";
+import { type Stage, assembleModule } from "../runtime/assemble";
 import { SAMPLE_CAP } from "../runtime/memory";
+import { solutionViewFrom } from "../solution/view";
+import { WasmSolutionBuilder } from "../solution/wasm";
 
 export const QUANTIZER_DELAY_MS = 10;
 
@@ -249,27 +251,17 @@ export function planGenerator(timerId: number, nodes: NodeSpec[], links: Link[])
   return { timerId, scopeId: scopeIds[0], scopeIds, channels, delayMs, stages, tree };
 }
 
-export function toComposeTree(tree: ConsumerTree, next = { n: 0 }): ComposeTree {
-  if (tree.kind === "scope") {
-    const index = next.n;
-    next.n += 1;
-    return { kind: "scope", index };
-  }
-  if (tree.kind === "stage") {
-    return { kind: "stage", stage: tree.stage, inner: toComposeTree(tree.inner, next) };
-  }
-  return { kind: "fork", inner: tree.inner.map((child) => toComposeTree(child, next)) };
-}
-
-/** Run each block's binaryen.js script and emit wasm for this pipeline. */
+/** Run each XML-matching WASM builder block and wire SolutionViewConnectors. */
 export async function assembleGenerator(
-  plan: Pick<GeneratorPlan, "stages" | "delayMs" | "tree" | "scopeIds">,
+  plan: Pick<GeneratorPlan, "delayMs" | "timerId">,
+  nodes: NodeSpec[],
+  links: Link[],
 ): Promise<Uint8Array> {
-  return assembleWasm({
-    stages: plan.stages,
+  const assembled = await new WasmSolutionBuilder().build(solutionViewFrom(nodes, links), {
     delayMs: plan.delayMs,
-    tree: plan.tree ? toComposeTree(plan.tree) : undefined,
+    timerId: plan.timerId,
   });
+  return assembled.wasm;
 }
 
 /**
@@ -285,10 +277,9 @@ export async function compileGenerator(
   if (!plan) {
     return undefined;
   }
-  const assembled = await assembleModule({
-    stages: plan.stages,
+  const assembled = await new WasmSolutionBuilder().build(solutionViewFrom(nodes, links), {
     delayMs: plan.delayMs,
-    tree: toComposeTree(plan.tree),
+    timerId: plan.timerId,
   });
   return { ...plan, text: assembled.text, wasm: assembled.wasm };
 }

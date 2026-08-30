@@ -7,15 +7,25 @@ import { addImports } from "./imports";
 import { addPark } from "./park";
 import { addPush } from "./push";
 import { addStopped } from "./stopped";
+import type { WasmBlockEmit } from "./consumer";
+import type { WasmCatalogTypes } from "./gc-types";
+import type binaryen from "binaryen";
+
+export type { WasmBlockEmit } from "./consumer";
+export type { WasmCatalogTypes } from "./gc-types";
+export { addCatalogTypes, GC_FEATURES, nopConsumer } from "./gc-types";
+export { addFork } from "./fork";
+
+type BlockScript = (module: binaryen.Module, types: WasmCatalogTypes, opts?: WasmBlockEmit) => number;
 
 /** One binaryen.js script per runtime block, keyed by XML block id. */
-export const BLOCK_SCRIPTS = {
+export const BLOCK_SCRIPTS: Record<string, BlockScript> = {
   timer: addTimer,
   quantizer: addQuantizer,
   sin: addSin,
   cos: addCos,
   oscilloscope: addOscilloscope,
-} as const;
+};
 
 export const RUNTIME_SCRIPTS = {
   imports: addImports,

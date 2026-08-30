@@ -9,7 +9,7 @@ export {
   typeToString,
 } from "./ast";
 export { associateBuiltinModels, associateFixtureModels } from "./builtin";
-export { blockSignature, signatureWat, wasmValType } from "../runtime/signatures";
+export { blockSignature, signatureWat, wasmValType, wasmHeapTypeName } from "../runtime/signatures";
 export { assembleModule, assembleWasm, assembleWat } from "../runtime/assemble";
 export { Catalog } from "./catalog";
 export {
@@ -39,6 +39,14 @@ export {
   stop,
   timer,
 } from "./cs";
+export {
+  type SolutionView,
+  type SolutionViewBlock,
+  type SolutionViewConnector,
+  type SolutionBuilder,
+  WasmSolutionBuilder,
+  solutionViewFrom,
+} from "../solution";
 export { Diagram, type Link, type XmlSource, infer } from "./diagram";
 export {
   type PortSlot,

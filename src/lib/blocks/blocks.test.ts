@@ -218,6 +218,7 @@ describe("blocks", () => {
     expect(cat.findType("c1")).toBeDefined();
     expect(cat.findType("f64")).toBeDefined();
     expect(cat.findType("[]")).toBeDefined();
+    expect(cat.findType("[]")?.attributes.find((attribute) => attribute.name === "dynamic")?.value).toBe("true");
     expect(cat.findType("str")).toBeDefined();
     expect(cat.findType("bool")).toBeDefined();
     expect(cat.findType("str")?.attributes.find((attribute) => attribute.name === "wasm")?.value).toBe("js-string");
@@ -522,13 +523,14 @@ describe("blocks", () => {
     expect(timerBlock.inputs.length).toBe(1);
     expect(timerBlock.outputs.length).toBe(0);
     expect(displayType(timerBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
-    expect(timerBlock.inputs.find((port) => port.name === "in")!.attributes.find((a) => a.name === "wasm")?.value).toBe(
-      "f64",
-    );
+    expect(timerBlock.inputs.find((port) => port.name === "in")!.attributes.find((a) => a.name === "wasm")).toBeUndefined();
     expect(timerBlock.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
     const scope = cat.block("oscilloscope")!;
     expect(scope.inputs.length).toBe(0);
     expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>[]");
+    expect(scope.outputs.find((port) => port.name === "out")!.attributes.find((a) => a.name === "dynamic")?.value).toBe(
+      "true",
+    );
     expect(displayType(cat.block("quantizer")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("quantizer")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
@@ -704,19 +706,21 @@ describe("blocks", () => {
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.scopeId).toBe(1);
     expect(compiled.delayMs).toBe(QUANTIZER_DELAY_MS);
-    expect(compiled.text).toContain("(type $fn_timer (func (param i32) (result f64)))");
-    expect(compiled.text).toContain("(type $fn_quantizer (func (param i32 f64) (result f64)))");
-    expect(compiled.text).toContain("(type $fn_oscilloscope (func (param i32 f64)))");
-    expect(compiled.text).toContain("(func $timer (type $fn_timer) (param $ctx i32) (result f64)");
+    expect(compiled.text).toContain("(type $c1_f64 (func (param f64)))");
+    expect(compiled.text).toContain("(type $array_c1_f64 (array (mut (ref $c1_f64))))");
+    expect(compiled.text).toContain("(func $timer");
+    expect(compiled.text).toContain("(param $ctx i32) (param $in (ref $c1_f64))");
     expect(compiled.text).toContain("(func $quantizer");
-    expect(compiled.text).toContain("(param $ctx i32) (param $in f64) (result f64)");
+    expect(compiled.text).toContain("(result (ref $c1_f64))");
     expect(compiled.text).toContain("(func $sin");
-    expect(compiled.text).toContain("(func $cos");
-    expect(compiled.text).toContain("(func $oscilloscope (type $fn_oscilloscope) (param $ctx i32) (param $in f64)");
-    expect(compiled.text).toContain("call_ref $fn_timer");
-    expect(compiled.text).toContain("ref.func $quantizer");
-    expect(compiled.text).toContain("ref.func $sin");
-    expect(compiled.text).toContain("call_ref $fn_oscilloscope");
+    expect(compiled.text).toContain("(func $oscilloscope");
+    expect(compiled.text).toContain("(result (ref $array_c1_f64))");
+    expect(compiled.text).toContain("array.new_fixed $array_c1_f64");
+    expect(compiled.text).toContain("call $timer");
+    expect(compiled.text).toContain("call $quantizer");
+    expect(compiled.text).toContain("call $sin");
+    expect(compiled.text).toContain("call $oscilloscope");
+    expect(compiled.text).toContain("call_ref $c1_f64");
     expect(compiled.text).toContain("memory.atomic.wait32");
     expect(compiled.text).toContain('(export "run"');
     expect(compiled.text).not.toContain("setTimeout");
@@ -757,7 +761,8 @@ describe("blocks", () => {
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.stages).toEqual(["cos"]);
-    expect(compiled.text).toContain("ref.func $cos");
+    expect(compiled.text).toContain("(func $cos");
+    expect(compiled.text).toContain("call $cos");
   });
 
   it("compile generator emits a fork into two push rings", async () => {
@@ -772,7 +777,9 @@ describe("blocks", () => {
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.scopeIds).toEqual([1, 2]);
-    expect(compiled.text).toContain("call_ref $fn_oscilloscope");
+    expect(compiled.text).toContain("call $oscilloscope_1");
+    expect(compiled.text).toContain("call $oscilloscope_2");
+    expect(compiled.text).toContain("(func $fork_4_in");
     expect(compiled.text).toContain("call $push_at");
     expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
   });
@@ -963,11 +970,11 @@ describe("blocks", () => {
 
   it("generator text uses typed func types even without stages", async () => {
     const text = await generatorText([]);
-    expect(text).toContain("(type $fn_timer (func (param i32) (result f64)))");
+    expect(text).toContain("(type $c1_f64 (func (param f64)))");
     expect(text).toContain("(func $tick");
     expect(text).toContain('(export "tick"');
-    expect(text).toContain("call_ref $fn_timer");
-    expect(text).toContain("call_ref $fn_oscilloscope");
-    expect(text).not.toContain("ref.func $sin");
+    expect(text).toContain("call $timer");
+    expect(text).toContain("call $oscilloscope");
+    expect(text).not.toContain("(func $sin");
   });
 });

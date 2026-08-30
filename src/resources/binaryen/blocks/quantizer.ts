@@ -1,20 +1,15 @@
 import binaryen from "binaryen";
-import { exportFunc, nameLocals } from "../util";
+import { addConsumerWrap, type WasmBlockEmit } from "../consumer";
+import type { WasmCatalogTypes } from "../gc-types";
 
 /**
- * quantizer — Control Systems.
- * inputs: $ctx, $in f64; outputs: $out f64
- * Parks from $ctx.delay_ns when the worker run-loop asks it to wait.
+ * quantizer — XML `c<f64> → c<f64>`.
+ * Passes samples through; the run loop parks from `$ctx.delay_ns`.
  */
-export function addQuantizer(module: binaryen.Module): binaryen.FunctionRef {
-  const fn = module.addFunction(
-    "quantizer",
-    binaryen.createType([binaryen.i32, binaryen.f64]),
-    binaryen.f64,
-    [],
-    module.local.get(1, binaryen.f64),
-  );
-  nameLocals(fn, ["ctx", "in"]);
-  exportFunc(module, "quantizer");
-  return fn;
+export function addQuantizer(
+  module: binaryen.Module,
+  types: WasmCatalogTypes,
+  opts: WasmBlockEmit = {},
+): binaryen.FunctionRef {
+  return addConsumerWrap(module, types, opts.name ?? "quantizer", (value) => value);
 }

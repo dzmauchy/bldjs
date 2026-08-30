@@ -12,14 +12,15 @@
       timer(c)           : c<f64> → void
       quantizer(c)       : c<f64> → c<f64>
       sin(c) / cos(c)    : c<f64> → c<f64>
-      oscilloscope()     : c<f64>[]          (vector of plot sinks)
+      oscilloscope()     : c<f64>[]          (dynamically sized vector of plot sinks)
 
     Composition: timer(sin(quantizer(plot[0])))
 
-    The WASM runtime still lowers each sample port to first-order f64.
+    Each <in> / <out> is the WASM signature for that block. Arrays are
+    dynamically sized from the number of outgoing connectors.
 
     Each block is a binaryen.js script in resources/binaryen/blocks.
-    Run assembles those scripts and emits the module.
+    SolutionBuilder wires those scripts from the connected SolutionView.
     Every function receives runtime $ctx (i32 pointer: time, delay_ns).
   -->
 
@@ -30,7 +31,6 @@
     <attribute name="description">Push source. Accepts c&lt;f64&gt; and writes timestamps while running.</attribute>
     <factory id="timer"/>
     <in name="in" type="c1">
-      <attribute name="wasm">f64</attribute>
       <t type="f64"/>
     </in>
   </block>
@@ -40,11 +40,9 @@
     <attribute name="description">c&lt;f64&gt; → c&lt;f64&gt;. Parks 10 ms per sample via memory.atomic.wait32.</attribute>
     <factory id="quantizer"/>
     <in name="in" type="c1">
-      <attribute name="wasm">f64</attribute>
       <t type="f64"/>
     </in>
     <out name="out" type="c1">
-      <attribute name="wasm">f64</attribute>
       <t type="f64"/>
     </out>
   </block>
@@ -54,11 +52,9 @@
     <attribute name="description">c&lt;f64&gt; → c&lt;f64&gt;. Maps each sample through f64.sin (host).</attribute>
     <factory id="f64.sin"/>
     <in name="in" type="c1">
-      <attribute name="wasm">f64</attribute>
       <t type="f64"/>
     </in>
     <out name="out" type="c1">
-      <attribute name="wasm">f64</attribute>
       <t type="f64"/>
     </out>
   </block>
@@ -68,21 +64,19 @@
     <attribute name="description">c&lt;f64&gt; → c&lt;f64&gt;. Maps each sample through f64.cos (host).</attribute>
     <factory id="f64.cos"/>
     <in name="in" type="c1">
-      <attribute name="wasm">f64</attribute>
       <t type="f64"/>
     </in>
     <out name="out" type="c1">
-      <attribute name="wasm">f64</attribute>
       <t type="f64"/>
     </out>
   </block>
 
   <block id="oscilloscope" name="Oscilloscope" ns="com.dauch.cs.sink" icon="scope">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Plot sink. Returns a vector of c&lt;f64&gt;. Wire into Sin/Cos/Quantizer, then into Timer. After Run, Chart is a multi-axis plot.</attribute>
+    <attribute name="description">Plot sink. Returns a dynamically sized vector of c&lt;f64&gt;. Wire into Sin/Cos/Quantizer, then into Timer. After Run, Chart is a multi-axis plot.</attribute>
     <factory id="oscilloscope"/>
     <out name="out" type="[]">
-      <attribute name="wasm">f64</attribute>
+      <attribute name="dynamic">true</attribute>
       <t type="c1">
         <t type="f64"/>
       </t>

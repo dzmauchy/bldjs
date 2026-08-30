@@ -1,16 +1,14 @@
 import binaryen from "binaryen";
-import { exportFunc, nameLocals } from "../util";
+import { addConsumerWrap, type WasmBlockEmit } from "../consumer";
+import type { WasmCatalogTypes } from "../gc-types";
 
-/** cos — Control Systems. inputs: $ctx, $in f64; outputs: $out f64 */
-export function addCos(module: binaryen.Module): binaryen.FunctionRef {
-  const fn = module.addFunction(
-    "cos",
-    binaryen.createType([binaryen.i32, binaryen.f64]),
-    binaryen.f64,
-    [],
-    module.call("host_cos", [module.local.get(1, binaryen.f64)], binaryen.f64),
+/** cos — XML `c<f64> → c<f64>`. Maps `$in` through host `f64.cos`. */
+export function addCos(
+  module: binaryen.Module,
+  types: WasmCatalogTypes,
+  opts: WasmBlockEmit = {},
+): binaryen.FunctionRef {
+  return addConsumerWrap(module, types, opts.name ?? "cos", (value) =>
+    module.call("host_cos", [value], binaryen.f64),
   );
-  nameLocals(fn, ["ctx", "in"]);
-  exportFunc(module, "cos");
-  return fn;
 }
