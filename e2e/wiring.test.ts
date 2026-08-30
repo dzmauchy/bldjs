@@ -46,23 +46,26 @@ describe("wiring", () => {
 
     const quantizerHost = await nodeHost(driver, "quantizer");
     const quantizerRoot = await quantizerHost.getShadowRoot();
+    await (await quantizerRoot.findElement(By.css(".flow-node-header"))).click();
     const out = await quantizerRoot.findElement(By.css('[data-testid="output-out"]'));
     const inn = await quantizerRoot.findElement(By.css('[data-testid="input-in"]'));
-    expect(await out.getText()).toContain("out");
+    expect(await (await out.findElement(By.css(".block-port-name"))).getText()).toBe("out");
+    expect(await (await inn.findElement(By.css(".block-port-name"))).getText()).toBe("in");
     expect(await out.getText()).not.toContain("c<f64>");
-    expect(await inn.getText()).toContain("in");
     expect(await inn.getText()).not.toContain("c<f64>");
     expect(await out.getAttribute("title")).toBe("c<f64>");
     expect(await inn.getAttribute("title")).toBe("c<f64>");
     const outHint = await quantizerRoot.findElement(By.css('[data-testid="output-out-type"]'));
+    const inHint = await quantizerRoot.findElement(By.css('[data-testid="input-in-type"]'));
     expect(await outHint.getCssValue("visibility")).toBe("hidden");
+    expect(await inHint.getCssValue("visibility")).toBe("hidden");
     await driver.actions({ async: true }).move({ origin: out }).perform();
     await driver.wait(async () => (await outHint.getCssValue("visibility")) === "visible", 5000);
     expect(await outHint.getText()).toBe("c<f64>");
-    await driver.actions({ async: true }).move({ origin: inn }).perform();
+    await (await quantizerRoot.findElement(By.css(".flow-node-header"))).click();
+    await driver.wait(async () => (await outHint.getCssValue("visibility")) === "hidden", 5000);
     await inn.click();
     await driver.wait(async () => (await inn.getAttribute("class")).includes("is-hint"), 5000);
-    const inHint = await quantizerRoot.findElement(By.css('[data-testid="input-in-type"]'));
     expect(await inHint.getText()).toBe("c<f64>");
     expect(await inHint.getCssValue("visibility")).toBe("visible");
 
