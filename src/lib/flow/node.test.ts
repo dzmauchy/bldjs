@@ -52,8 +52,10 @@ describe("BldNode", () => {
     expect(shadow!.querySelector('[data-testid="input-elems"] .block-port-name')?.textContent).toContain("elems");
     expect(shadow!.querySelector('[data-testid="output-result"] .block-port-name')?.textContent).toContain("result");
     expect(shadow!.querySelector('[data-testid="output-result"] .block-port-name')?.textContent).not.toContain("f64[]");
-    expect(shadow!.querySelector('[data-testid="output-result"] .block-port-type')?.textContent).toBe("f64[]");
-    expect(shadow!.querySelector('[data-testid="input-elems"] .block-port-type')?.textContent).toBe("f64");
+    expect(shadow!.querySelector('[data-testid="output-result"] .block-port-type')).toBeNull();
+    expect(shadow!.querySelector('[data-testid="input-elems"] .block-port-type')).toBeNull();
+    expect(shadow!.querySelector('[data-testid="output-result"] .block-port-name')?.textContent).toBe("result");
+    expect(shadow!.querySelector('[data-testid="input-elems"] .block-port-name')?.textContent).toBe("elems…");
     expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("f64[]");
     expect(shadow!.querySelector('[data-testid="input-elems"]')?.getAttribute("title")).toBe("f64");
     const outputHint = shadow!.querySelector('[data-testid="output-result-type"]') as HTMLElement | null;
@@ -139,8 +141,22 @@ describe("BldNode", () => {
     expect(opened).toBe(false);
     const hint = node.shadowRoot!.querySelector('[data-testid="output-out-type"]');
     expect(hint?.textContent).toBe("c<f64>");
-    expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-type')?.textContent).toBe("c<f64>");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-type')).toBeNull();
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-name')?.textContent).toBe("out");
     expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("c<f64>");
+  });
+
+  it("shows the port type hint on click", async () => {
+    const node = await mountNode(sampleState());
+    const output = node.shadowRoot!.querySelector('[data-testid="output-result"]') as HTMLButtonElement;
+    const hint = node.shadowRoot!.querySelector('[data-testid="output-result-type"]') as HTMLElement;
+    expect(output.classList.contains("is-hint")).toBe(false);
+    expect(getComputedStyle(hint).visibility).toBe("hidden");
+    output.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, clientX: 4, clientY: 8 }));
+    await node.updateComplete;
+    expect(output.classList.contains("is-hint")).toBe(true);
+    expect(hint.textContent).toBe("f64[]");
+    expect(getComputedStyle(hint).visibility).toBe("visible");
   });
 
   it("reports its measured size through noderesize", async () => {

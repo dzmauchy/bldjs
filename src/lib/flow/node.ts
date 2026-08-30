@@ -19,6 +19,7 @@ export class BldNode extends LitElement {
 
   #kindClass = "";
   #resize: ResizeObserver | null = null;
+  #hintPort: string | null = null;
 
   static override styles = css`
     :host {
@@ -185,7 +186,9 @@ export class BldNode extends LitElement {
       right: 0;
     }
     .block-port-row:hover .block-port-hint,
-    .block-port-row:focus-visible .block-port-hint {
+    .block-port-row:focus .block-port-hint,
+    .block-port-row:focus-visible .block-port-hint,
+    .block-port-row.is-hint .block-port-hint {
       visibility: visible;
       opacity: 1;
     }
@@ -201,12 +204,6 @@ export class BldNode extends LitElement {
     .block-port-name {
       font-size: 0.7rem;
       color: var(--bs-secondary-color, #adb5bd);
-    }
-    .block-port-type {
-      font-size: 0.62rem;
-      color: var(--bs-info, #0dcaf0);
-      font-family: var(--bs-font-monospace, ui-monospace, monospace);
-      white-space: nowrap;
     }
     .block-port {
       display: inline-block;
@@ -226,7 +223,7 @@ export class BldNode extends LitElement {
     .block-port-row.is-linking .block-port {
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--block-accent, #0d6efd) 55%, transparent);
     }
-    .block-port-row.is-bad .block-port-type {
+    .block-port-row.is-bad .block-port-hint {
       color: var(--bs-danger, #dc3545);
     }
     .block-port-row.is-bad .block-port {
@@ -288,14 +285,39 @@ export class BldNode extends LitElement {
     );
   }
 
+  #hintKey(side: PortSide, name: string): string {
+    return `${side}:${name}`;
+  }
+
+  #setHint(side: PortSide, name: string): void {
+    const next = this.#hintKey(side, name);
+    if (this.#hintPort === next) {
+      return;
+    }
+    this.#hintPort = next;
+    this.requestUpdate();
+  }
+
+  #clearHint(): void {
+    if (this.#hintPort === null) {
+      return;
+    }
+    this.#hintPort = null;
+    this.requestUpdate();
+  }
+
   #onPortPointer(event: PointerEvent, phase: "pointerdown" | "pointerup"): void {
     const hit = portFromComposedPath(event);
     if (!hit || hit.host !== this) {
+      if (phase === "pointerdown") {
+        this.#clearHint();
+      }
       return;
     }
     event.stopPropagation();
     if (phase === "pointerdown") {
       event.preventDefault();
+      this.#setHint(hit.side, hit.port);
     }
     const name = phase === "pointerdown" ? "portpointerdown" : "portpointerup";
     this.dispatchEvent(
@@ -333,6 +355,7 @@ export class BldNode extends LitElement {
       port.grounded ? "is-grounded" : "",
       port.linking ? "is-linking" : "",
       port.compatible === false ? "is-bad" : "",
+      this.#hintPort === this.#hintKey(side, port.name) ? "is-hint" : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -349,7 +372,6 @@ export class BldNode extends LitElement {
     const meta = html`
       <span class="block-port-meta">
         <span class="block-port-name">${port.vararg ? `${port.name}…` : port.name}</span>
-        <span class="block-port-type">${port.typeLabel}</span>
       </span>
     `;
     return html`

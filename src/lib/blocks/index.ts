@@ -1,5 +1,5 @@
 export { type BlockDef, arrayOf, blockAttribute, blockInput, blockOutput, displayType, typeToString } from "./ast";
-export { associateBuiltinModels } from "./builtin";
+export { associateBuiltinModels, associateFixtureModels } from "./builtin";
 export { blockSignature, signatureWat, wasmValType } from "../runtime/signatures";
 export { assembleModule, assembleWasm, assembleWat } from "../runtime/assemble";
 export { Catalog } from "./catalog";
