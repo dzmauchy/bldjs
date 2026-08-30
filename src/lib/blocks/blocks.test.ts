@@ -709,11 +709,11 @@ describe("blocks", () => {
       { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
       { fromBlock: 2, fromOut: "out", toBlock: 1, toIn: "in" },
     ];
-    const buffers = new Map<number, SampleBuf>([[1, new SampleBuf()]]);
+    const buffers = new Map<number, SampleBuf>([[0, new SampleBuf()]]);
     const compiled = (await compileTimer(4, nodes, links, buffers))!;
     compiled.emit(0);
     compiled.emit(Math.PI / 2);
-    const got = buffers.get(1)!.snapshot();
+    const got = buffers.get(0)!.snapshot();
     expect(Math.abs(got[0])).toBeLessThan(1e-9);
     expect(Math.abs(got[1] - 1)).toBeLessThan(1e-9);
     expect(compiled.delayMs).toBe(QUANTIZER_DELAY_MS);
@@ -847,13 +847,13 @@ describe("blocks", () => {
       { fromBlock: 4, fromOut: "out", toBlock: 2, toIn: "in" },
     ];
     const buffers = new Map<number, SampleBuf>([
+      [0, new SampleBuf()],
       [1, new SampleBuf()],
-      [2, new SampleBuf()],
     ]);
     const compiled = (await compileTimer(4, nodes, links, buffers))!;
     compiled.emit(3);
+    expect(buffers.get(0)!.snapshot()).toEqual([3]);
     expect(buffers.get(1)!.snapshot()).toEqual([3]);
-    expect(buffers.get(2)!.snapshot()).toEqual([3]);
   });
 
   it("compile timer writes two rings for one vararg oscilloscope", async () => {

@@ -321,7 +321,7 @@ export async function compileTimer(
     if (tree.kind === "scope") {
       const ring = next.n;
       next.n += 1;
-      const leaf = buffers.get(ring) ?? buffers.get(tree.id);
+      const leaf = buffers.get(ring);
       return (value) => leaf?.push(value);
     }
     if (tree.kind === "fork") {

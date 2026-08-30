@@ -81,7 +81,7 @@ describe("block binaryen assembly", () => {
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);
     expect(blockTypeWat(blockSignature(diagram.catalog().block("timer")!))).toContain(
-      "(type $fn_timer (func (param $ctx i32) (param $in f64)))",
+      "(type $fn_timer (func (param $ctx i32) (result $out f64)))",
     );
     expect(runtimeTypeWat()).toContain("(type $fn_timer (func (param $ctx i32) (result $out f64)))");
   });
