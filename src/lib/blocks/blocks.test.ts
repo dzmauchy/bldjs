@@ -4,6 +4,7 @@ import {
   arrayOf,
   displayType,
   extendsBound,
+  isConsumerType,
   typeToString,
   generic,
   named,
@@ -25,8 +26,10 @@ import {
   SampleBuf,
   compileGenerator,
   compileTimer,
+  fork,
   cos,
   generatorText,
+  planGenerator,
   oscilloscope,
   quantizer,
   sin,
@@ -569,6 +572,46 @@ describe("blocks", () => {
     expect(isCompatible(cat, [], leaf, leaf)).toBe(true);
   });
 
+  it("c1 is a consumer type that can be forked into one input", () => {
+    expect(isConsumerType(g("c1", [t("f64")]))).toBe(true);
+    expect(isConsumerType(t("f64"))).toBe(false);
+    expect(isConsumerType(g("f1", [t("f64"), t("f64")]))).toBe(false);
+  });
+
+  it("fork forwards each sample to every downstream", () => {
+    const left: number[] = [];
+    const right: number[] = [];
+    const both = fork(
+      (value) => left.push(value),
+      (value) => right.push(value),
+    );
+    both(1);
+    both(2);
+    expect(left).toEqual([1, 2]);
+    expect(right).toEqual([1, 2]);
+  });
+
+  it("plans a hidden fork when two oscilloscopes share a timer input", () => {
+    const nodes = [
+      { id: 1, defId: "oscilloscope" },
+      { id: 2, defId: "oscilloscope" },
+      { id: 4, defId: "timer" },
+    ];
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+    ];
+    const plan = planGenerator(4, nodes, links)!;
+    expect(plan.tree).toEqual({
+      kind: "fork",
+      inner: [
+        { kind: "scope", id: 1 },
+        { kind: "scope", id: 2 },
+      ],
+    });
+    expect(plan.scopeIds).toEqual([1, 2]);
+  });
+
   it("sin maps samples", () => {
     const out: number[] = [];
     const mapped = sinFunc((value) => out.push(value));
@@ -658,6 +701,23 @@ describe("blocks", () => {
     expect(compiled.text).toContain("ref.func $cos");
   });
 
+  it("compile generator emits a fork into two push rings", async () => {
+    const nodes = [
+      { id: 1, defId: "oscilloscope" },
+      { id: 2, defId: "oscilloscope" },
+      { id: 4, defId: "timer" },
+    ];
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+    ];
+    const compiled = (await compileGenerator(4, nodes, links))!;
+    expect(compiled.scopeIds).toEqual([1, 2]);
+    expect(compiled.text).toContain("call_ref $fn_oscilloscope");
+    expect(compiled.text).toContain("call $push_at");
+    expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
+  });
+
   it("compile timer needs oscilloscope", async () => {
     const nodes = [
       { id: 3, defId: "quantizer" },
@@ -697,6 +757,18 @@ describe("blocks", () => {
     expect(displayType(scopeResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
   });
 
+  it("two oscilloscopes may ground the same c<f64> input", () => {
+    const diagram = new Diagram("cs", "Fork");
+    associateBuiltinModels(diagram);
+    const scopeA = diagram.addNode("oscilloscope");
+    const scopeB = diagram.addNode("oscilloscope");
+    const sinId = diagram.addNode("sin");
+    diagram.addLink(scopeA, "out", sinId, "in");
+    diagram.addLink(scopeB, "out", sinId, "in");
+    expect(diagram.links()).toHaveLength(2);
+    expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
+  });
+
   it("oscilloscope wires to sin because both ports are c<f64>", () => {
     const diagram = new Diagram("cs", "Same");
     associateBuiltinModels(diagram);
@@ -715,6 +787,40 @@ describe("blocks", () => {
 
     const sinResolved = diagram.resolveNode(sinId)!;
     expect(sinResolved.compatible.get("in")).toBe(false);
+  });
+
+  it("interprets a forked pair as timer(fork(plot, plot))", () => {
+    const left: number[] = [];
+    const right: number[] = [];
+    let live = true;
+    const running = () => {
+      const next = live;
+      live = false;
+      return next;
+    };
+    timer(fork(oscilloscope((value) => left.push(value)), oscilloscope((value) => right.push(value))), running, () => 4);
+    expect(left).toEqual([4]);
+    expect(right).toEqual([4]);
+  });
+
+  it("compile timer forks into two scope buffers", async () => {
+    const nodes = [
+      { id: 1, defId: "oscilloscope" },
+      { id: 2, defId: "oscilloscope" },
+      { id: 4, defId: "timer" },
+    ];
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+    ];
+    const buffers = new Map<number, SampleBuf>([
+      [1, new SampleBuf()],
+      [2, new SampleBuf()],
+    ]);
+    const compiled = (await compileTimer(4, nodes, links, buffers))!;
+    compiled.emit(3);
+    expect(buffers.get(1)!.snapshot()).toEqual([3]);
+    expect(buffers.get(2)!.snapshot()).toEqual([3]);
   });
 
   it("interprets the wired chain as timer(sin(quantizer(plot)))", () => {

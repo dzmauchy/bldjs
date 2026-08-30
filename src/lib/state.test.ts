@@ -39,6 +39,23 @@ describe("AppState placement", () => {
 });
 
 describe("AppState wiring", () => {
+  it("keeps multiple c<f64> wires into one input", () => {
+    const app = new AppState();
+    const scopeA = app.nextId;
+    app.addBlock("oscilloscope", 0, 0);
+    const scopeB = app.nextId;
+    app.addBlock("oscilloscope", 0, 120);
+    const timerId = app.nextId;
+    app.addBlock("timer", 300, 0);
+    app.toggleLink(scopeA, "out", timerId, "in");
+    app.toggleLink(scopeB, "out", timerId, "in");
+    expect(app.links).toEqual([
+      { fromBlock: scopeA, fromOut: "out", toBlock: timerId, toIn: "in" },
+      { fromBlock: scopeB, fromOut: "out", toBlock: timerId, toIn: "in" },
+    ]);
+    expect(app.canRun()).toBe(true);
+  });
+
   it("grounds oscilloscope into quantizer", () => {
     const app = new AppState();
     const scopeId = app.nextId;

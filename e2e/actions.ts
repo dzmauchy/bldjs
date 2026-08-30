@@ -122,8 +122,16 @@ export async function waitForBlock(driver: WebDriver, defId: string): Promise<vo
   }, 10000);
 }
 
-export async function nodeHost(driver: WebDriver, defId: string) {
-  return waitDeep(driver, `bld-node[data-block-def="${defId}"]`);
+export async function nodeHost(driver: WebDriver, defId: string, index = 0) {
+  if (index === 0) {
+    return waitDeep(driver, `bld-node[data-block-def="${defId}"]`);
+  }
+  await waitForBlock(driver, defId);
+  const nodes = await queryDeepAll(driver, `bld-node[data-block-def="${defId}"]`);
+  if (!nodes[index]) {
+    throw new Error(`nodeHost: ${defId}[${index}] not found`);
+  }
+  return nodes[index];
 }
 
 export async function portTypeText(
@@ -140,8 +148,13 @@ export async function portTypeText(
   return hints[0].getText();
 }
 
-export async function clickPortHandle(driver: WebDriver, blockDef: string, testId: string): Promise<void> {
-  const host = await nodeHost(driver, blockDef);
+export async function clickPortHandle(
+  driver: WebDriver,
+  blockDef: string,
+  testId: string,
+  index = 0,
+): Promise<void> {
+  const host = await nodeHost(driver, blockDef, index);
   const nodeShadow = await host.getShadowRoot();
   const handle = await nodeShadow.findElement(By.css(`[data-testid="${testId}"]`));
   await driver.wait(until.elementIsVisible(handle), 5000);

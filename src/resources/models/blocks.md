@@ -132,7 +132,15 @@ sin(c) / cos(c)    : c<f64> → c<f64>
 oscilloscope()     : c<f64>            (the plot sink)
 ```
 
-Composition is `timer(sin(quantizer(plot)))`. Wire Oscilloscope → Quantizer → Sin (or Cos) → Timer.
+Composition is `timer(sin(quantizer(plot)))`. Wire Oscilloscope → Quantizer → Sin (or Cos) → Timer. Several `c<f64>` outputs may share one input; the runtime inserts a hidden `fork`:
+
+```
+c<f64> fork(c<f64>... downstreams) {
+  return v -> { for (c in downstreams) c(v); };
+}
+```
+
+So two plots on one timer compile as `timer(fork(plot1, plot2))`.
 
 ```xml
 <type name="c1">

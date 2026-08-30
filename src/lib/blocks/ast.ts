@@ -227,6 +227,11 @@ export function rawName(expr: TypeExpr): string | undefined {
   return expr.kind === "type" ? expr.name : undefined;
 }
 
+/** Catalog consumer `c1<T>` / compact `c<T>`. Multiple such outputs may share one input via a hidden fork. */
+export function isConsumerType(expr: TypeExpr): boolean {
+  return expr.kind === "type" && rawTypeName(expr.name) === "c1";
+}
+
 export function typeArgs(expr: TypeExpr): TypeExpr[] {
   return expr.kind === "type" ? expr.args : [];
 }

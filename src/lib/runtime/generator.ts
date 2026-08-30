@@ -2,7 +2,7 @@ import { createHost } from "./host";
 import { createSharedMemory, readSamples, requestStop } from "./memory";
 
 export interface GeneratorHandle {
-  snapshot(): Promise<number[]>;
+  snapshot(scopeIndex?: number): Promise<number[]>;
   stop(): void;
   tick?(): void;
 }
@@ -46,7 +46,7 @@ export async function startLocalGenerator(options: StartGeneratorOptions): Promi
     gen.tick();
   }
   return {
-    snapshot: async () => readSamples(memory),
+    snapshot: async (scopeIndex = 0) => readSamples(memory, scopeIndex),
     stop() {
       requestStop(memory);
     },
@@ -60,7 +60,7 @@ export async function startWorkerGenerator(options: StartGeneratorOptions): Prom
   const copy = options.wasm.slice();
   worker.postMessage({ type: "start", wasm: copy.buffer, memory }, [copy.buffer]);
   return {
-    snapshot: async () => readSamples(memory),
+    snapshot: async (scopeIndex = 0) => readSamples(memory, scopeIndex),
     stop() {
       requestStop(memory);
       worker.postMessage({ type: "stop" });

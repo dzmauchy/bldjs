@@ -13,6 +13,17 @@ export const CTX = MEM.samples + SAMPLE_CAP * 8;
 export const CTX_TIME = CTX;
 export const CTX_DELAY = CTX + 8;
 
+/** Extra rings start after `$ctx` (`time` + `delay_ns`). */
+export const RING_STRIDE = 8 + SAMPLE_CAP * 8;
+
+export function scopeCountAddr(index: number): number {
+  return index <= 0 ? MEM.count : CTX + 16 + (index - 1) * RING_STRIDE;
+}
+
+export function scopeSamplesAddr(index: number): number {
+  return index <= 0 ? MEM.samples : scopeCountAddr(index) + 8;
+}
+
 export const MEMORY_PAGES = 1;
 
 export function createSharedMemory(): WebAssembly.Memory {
@@ -29,9 +40,11 @@ export function requestStop(memory: WebAssembly.Memory): void {
   Atomics.notify(flags, MEM.wait / 4);
 }
 
-export function readSamples(memory: WebAssembly.Memory): number[] {
+export function readSamples(memory: WebAssembly.Memory, scopeIndex = 0): number[] {
   const view = new DataView(memory.buffer);
-  const count = view.getInt32(MEM.count, true);
+  const countAddr = scopeCountAddr(scopeIndex);
+  const samplesAddr = scopeSamplesAddr(scopeIndex);
+  const count = view.getInt32(countAddr, true);
   if (count <= 0) {
     return [];
   }
@@ -40,7 +53,7 @@ export function readSamples(memory: WebAssembly.Memory): number[] {
   const out: number[] = [];
   for (let i = 0; i < n; i += 1) {
     const slot = (start + i) % SAMPLE_CAP;
-    out.push(view.getFloat64(MEM.samples + slot * 8, true));
+    out.push(view.getFloat64(samplesAddr + slot * 8, true));
   }
   return out;
 }

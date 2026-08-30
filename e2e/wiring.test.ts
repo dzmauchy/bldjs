@@ -69,6 +69,18 @@ describe("wiring", () => {
     expect(await diagram.getAttribute("data-worker")).toBe("true");
   });
 
+  it("keeps a second c<f64> wire on the same input", async () => {
+    await placeBlock(driver, "oscilloscope");
+    await placeBlock(driver, "oscilloscope");
+    await placeBlock(driver, "timer");
+    await clickPortHandle(driver, "oscilloscope", "output-out", 0);
+    await clickPortHandle(driver, "timer", "input-in");
+    await waitForLinks(driver, "1 link");
+    await clickPortHandle(driver, "oscilloscope", "output-out", 1);
+    await clickPortHandle(driver, "timer", "input-in");
+    await waitForLinks(driver, "2 links");
+  });
+
   it("toggles the same wire off", async () => {
     await placeBlock(driver, "oscilloscope");
     await placeBlock(driver, "quantizer");

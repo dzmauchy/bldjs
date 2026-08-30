@@ -1,10 +1,20 @@
-export { type BlockDef, arrayOf, blockAttribute, blockInput, blockOutput, displayType, typeToString } from "./ast";
+export {
+  type BlockDef,
+  arrayOf,
+  blockAttribute,
+  blockInput,
+  blockOutput,
+  displayType,
+  isConsumerType,
+  typeToString,
+} from "./ast";
 export { associateBuiltinModels, associateFixtureModels } from "./builtin";
 export { blockSignature, signatureWat, wasmValType } from "../runtime/signatures";
 export { assembleModule, assembleWasm, assembleWat } from "../runtime/assemble";
 export { Catalog } from "./catalog";
 export {
   type CompiledGenerator,
+  type ConsumerTree,
   type GeneratorPlan,
   type DoubleConsumer,
   type DoubleSource,
@@ -15,6 +25,7 @@ export {
   assembleGenerator,
   compileGenerator,
   compileTimer,
+  fork,
   generatorText,
   generatorWat,
   planGenerator,
