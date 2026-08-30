@@ -41,6 +41,20 @@ describe("BldConnector", () => {
     expect(link.dataset.points).toMatch(/10,20/);
   });
 
+  it("clips a rounded jumpover corner instead of a sharp elbow", async () => {
+    const link = await mountConnector({
+      from: { x: 0, y: 10 },
+      to: { x: 200, y: 80 },
+      points: [
+        { x: 80, y: 10 },
+        { x: 80, y: 80 },
+      ],
+    });
+    const clip = strokeClip(link);
+    expect(clip.startsWith("polygon(")).toBe(true);
+    expect((clip.match(/px/g) ?? []).length).toBeGreaterThan(8);
+  });
+
   it("applies animation duration from measured frequency via inline style", async () => {
     const link = await mountConnector({ from: { x: 0, y: 0 }, to: { x: 80, y: 0 }, hz: 10 });
     expect(link.hasAttribute("data-flow")).toBe(true);

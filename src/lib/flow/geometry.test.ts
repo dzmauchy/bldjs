@@ -5,7 +5,8 @@ import {
   connectorPolyline,
   connectorWorldPolyline,
   cssPolygon,
-  insertOrthogonalJumps,
+  JUMPOVER,
+  jumpoverLinkPath,
   jumpoverUnderlays,
   linkKey,
   orthogonalLink,
@@ -148,33 +149,66 @@ describe("flow geometry", () => {
     expect(Math.max(...ys)).toBe(11);
   });
 
-  it("inserts an orthogonal hop where two routes cross", () => {
-    const from = { x: 0, y: 50 };
-    const to = { x: 200, y: 50 };
-    const plain = connectorWorldPolyline(from, to, []);
-    expect(plain).toEqual([from, to]);
-    const jumped = connectorWorldPolyline(from, to, [], [[{ x: 100, y: 0 }, { x: 100, y: 100 }]]);
-    expect(jumped.length).toBeGreaterThan(plain.length);
-    expectOrthogonal(jumped);
-    expect(jumped.some((point) => point.y === 40)).toBe(true);
+  it("builds a JointJS jumpover path with rounded orthogonal corners", () => {
+    expect(JUMPOVER).toEqual({ size: 5, radius: 5, jump: "cubic" });
+    const from = { x: 0, y: 10 };
+    const to = { x: 200, y: 80 };
+    const straight = jumpoverLinkPath(from, to, []);
+    expect(straight.startsWith("M 0 10")).toBe(true);
+    expect(straight).toContain("C ");
+    const routed = jumpoverLinkPath(from, to, [
+      { x: 80, y: 10 },
+      { x: 80, y: 80 },
+    ]);
+    expect(routed).toContain("L ");
+    expect(routed).toContain("C ");
+    expect(routed).not.toBe(straight);
+    const samples = connectorWorldPolyline(from, to, [
+      { x: 80, y: 10 },
+      { x: 80, y: 80 },
+    ]);
+    expect(samples[0]).toEqual(from);
+    expect(samples.at(-1)).toEqual(to);
+    expect(samples.some((point) => point.x === 80 && point.y === 10)).toBe(false);
   });
 
-  it("only the later crossing wire hops so both lines do not overlap", () => {
-    const horizontal = [
-      { x: 0, y: 50 },
-      { x: 200, y: 50 },
-    ];
-    const vertical = [
-      { x: 100, y: 0 },
-      { x: 100, y: 100 },
-    ];
+  it("inserts a cubic jump of size 5 where two routes cross", () => {
+    const from = { x: 0, y: 50 };
+    const to = { x: 200, y: 50 };
+    const plain = jumpoverLinkPath(from, to, []);
+    expect(plain).not.toContain("C ");
+    const jumped = jumpoverLinkPath(from, to, [], [
+      { from: { x: 100, y: 0 }, to: { x: 100, y: 100 }, route: [] },
+    ]);
+    expect((jumped.match(/C /g) ?? []).length).toBe(1);
+    expect(jumped).not.toBe(plain);
+    const samples = connectorWorldPolyline(from, to, [], [
+      { from: { x: 100, y: 0 }, to: { x: 100, y: 100 }, route: [] },
+    ]);
+    const peak = Math.min(...samples.map((point) => point.y));
+    expect(peak).toBeLessThan(50 - 4);
+    expect(peak).toBeGreaterThan(50 - 10);
+  });
+
+  it("only the later crossing wire jumps so both lines do not overlap hoops", () => {
+    const horizontal = { from: { x: 0, y: 50 }, to: { x: 200, y: 50 }, route: [] as { x: number; y: number }[] };
+    const vertical = { from: { x: 100, y: 0 }, to: { x: 100, y: 100 }, route: [] as { x: number; y: number }[] };
     const wires = [horizontal, vertical];
-    const under = insertOrthogonalJumps(wires[0]!, jumpoverUnderlays(wires, 0));
-    const over = insertOrthogonalJumps(wires[1]!, jumpoverUnderlays(wires, 1));
+    const under = jumpoverLinkPath(
+      wires[0]!.from,
+      wires[0]!.to,
+      wires[0]!.route,
+      jumpoverUnderlays(wires, 0),
+    );
+    const over = jumpoverLinkPath(
+      wires[1]!.from,
+      wires[1]!.to,
+      wires[1]!.route,
+      jumpoverUnderlays(wires, 1),
+    );
     expect(jumpoverUnderlays(wires, 0)).toEqual([]);
     expect(jumpoverUnderlays(wires, 1)).toEqual([horizontal]);
-    expect(under).toEqual(horizontal);
-    expect(over.length).toBeGreaterThan(vertical.length);
-    expectOrthogonal(over);
+    expect(under).not.toContain("C ");
+    expect(over).toContain("C ");
   });
 });
