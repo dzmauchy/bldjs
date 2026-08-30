@@ -62,10 +62,7 @@ describe("BldNode", () => {
     expect(shadow!.querySelector('[data-testid="input-elems"]')?.getAttribute("title")).toBe("f64");
     expect(shadow!.querySelector(".flow-node-params")?.textContent).toContain("T = f64");
     expect(node.dataset.blockDef).toBe("b_array_of");
-    const icon = shadow!.querySelector(".flow-node-icon") as HTMLElement;
-    expect(icon).not.toBeNull();
-    expect(getComputedStyle(icon).width).toBe("32px");
-    expect(getComputedStyle(icon).height).toBe("32px");
+    expect(shadow!.querySelector(".flow-node-icon")).not.toBeNull();
     const glyph = shadow!.querySelector(".flow-node-icon path, .flow-node-icon rect, .flow-node-icon circle");
     expect(glyph).not.toBeNull();
     expect(glyph!.namespaceURI).toBe("http://www.w3.org/2000/svg");

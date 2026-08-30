@@ -14,12 +14,14 @@ describe("groupPortViews", () => {
   });
 
   it("marks vararg and catalog-vector ports as rails", () => {
-    expect(groupPortViews([port("elems", { vararg: true, typeLabel: "f64" }]))[0]).toMatchObject({
+    const elems = groupPortViews([port("elems", { vararg: true, typeLabel: "f64" })]);
+    expect(elems[0]).toMatchObject({
       catalogName: "elems",
       label: "elems…",
       vectorized: true,
     });
-    expect(groupPortViews([port("out", { vectorized: true, typeLabel: "c<f64>[]" }]))[0]?.vectorized).toBe(true);
+    const vector = groupPortViews([port("out", { vectorized: true, typeLabel: "c<f64>[]" })]);
+    expect(vector[0]?.vectorized).toBe(true);
   });
 
   it("merges extra slots onto one named rail", () => {
