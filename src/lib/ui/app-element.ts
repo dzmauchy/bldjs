@@ -1,7 +1,7 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, css, html, nothing } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { AppController } from "$lib/context";
-import { isNoneId } from "$lib/model";
+import { COMPACT_UI_QUERY, isNoneId } from "$lib/model";
 import { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
 import "./about-modal";
@@ -14,6 +14,7 @@ import "./workspace";
 export class BldApp extends LitElement {
   readonly app = new AppState();
   #ctrl = new AppController(this, this.app);
+  #compact?: MediaQueryList;
 
   static override styles = [
     bootstrapStyles,
@@ -37,7 +38,17 @@ export class BldApp extends LitElement {
         display: flex;
         flex: 1 1 auto;
         min-height: 0;
+        position: relative;
         background: #121416;
+      }
+      .palette-backdrop {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        background: rgba(0, 0, 0, 0.4);
+      }
+      bld-palette {
+        z-index: 6;
       }
     `,
   ];
@@ -45,13 +56,23 @@ export class BldApp extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener("keydown", this.#onKey);
+    if (typeof window.matchMedia === "function") {
+      this.#compact = window.matchMedia(COMPACT_UI_QUERY);
+      this.app.compactUi = this.#compact.matches;
+      this.#compact.addEventListener("change", this.#onCompactChange);
+    }
   }
 
   disconnectedCallback(): void {
     this.app.stopRun();
     window.removeEventListener("keydown", this.#onKey);
+    this.#compact?.removeEventListener("change", this.#onCompactChange);
     super.disconnectedCallback();
   }
+
+  #onCompactChange = (event: MediaQueryListEvent): void => {
+    this.app.compactUi = event.matches;
+  };
 
   #onKey = (event: KeyboardEvent): void => {
     const app = this.app;
@@ -73,6 +94,7 @@ export class BldApp extends LitElement {
         app.aboutOpen = false;
         app.draggingDefId = null;
         app.linkingFrom = null;
+        app.closePalette();
         app.closeScope();
         break;
       case "0":
@@ -105,6 +127,14 @@ export class BldApp extends LitElement {
       <div class=${classMap({ "app-shell": true, "is-dragging": app.isDragging() })}>
         <bld-toolbar .app=${app}></bld-toolbar>
         <div class="app-body">
+          ${app.compactUi && app.paletteOpen
+            ? html`<div
+                class="palette-backdrop"
+                data-testid="palette-backdrop"
+                @pointerdown=${(event: PointerEvent) => event.stopPropagation()}
+                @click=${() => app.closePalette()}
+              ></div>`
+            : nothing}
           <bld-palette .app=${app}></bld-palette>
           <bld-workspace .app=${app}></bld-workspace>
         </div>

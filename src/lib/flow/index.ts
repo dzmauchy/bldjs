@@ -2,7 +2,7 @@ import "./connector";
 import "./diagram";
 import "./node";
 
-export { FLOW_MIME } from "./mime";
+export { FLOW_MIME, PALETTE_DROP_EVENT, type PaletteDropDetail } from "./mime";
 export {
   axisAlignedSegments,
   clientToWorld,

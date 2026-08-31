@@ -90,4 +90,20 @@ describe("BldToolbar", () => {
     expect(dropdown()?.querySelector('[data-testid="menu-new-canvas"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-zoom-in"]')).not.toBeNull();
   });
+
+  it("renders a Blocks toggle for the compact palette", async () => {
+    const bar = document.createElement("bld-toolbar") as BldToolbar;
+    bar.app = new AppState();
+    document.body.append(bar);
+    await bar.updateComplete;
+
+    const toggle = bar.shadowRoot?.querySelector('[data-testid="toolbar-palette"]') as HTMLButtonElement;
+    expect(toggle).not.toBeNull();
+    expect(toggle.getAttribute("aria-label")).toBe("Blocks");
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    toggle.click();
+    await bar.updateComplete;
+    expect(bar.app.paletteOpen).toBe(true);
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+  });
 });

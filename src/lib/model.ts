@@ -6,6 +6,9 @@ export const BLOCK_HEIGHT = 88.0;
 /** Spacing used when dropping a palette item at the view center. Wider than BLOCK_WIDTH so long inferred types do not overlap. */
 export const BLOCK_PLACE_WIDTH = 320.0;
 export const BLOCK_PLACE_HEIGHT = 130.0;
+/** Narrow viewports overlay the palette so the canvas can use the full width. */
+export const COMPACT_UI_MAX_WIDTH = 720;
+export const COMPACT_UI_QUERY = `(max-width: ${COMPACT_UI_MAX_WIDTH}px)`;
 export const PORT_HEADER = 34.0;
 export const PORT_PARAM = 18.0;
 export const PORT_ROW = 24.0;
@@ -14,6 +17,18 @@ export const NONE_ID = -1;
 
 export function isNoneId(id: number): boolean {
   return id === NONE_ID;
+}
+
+export function compactUiMatches(): boolean {
+  return typeof globalThis.matchMedia === "function" && globalThis.matchMedia(COMPACT_UI_QUERY).matches;
+}
+
+/** Top-left origin that puts the placed block's center on the drop point. */
+export function blockOriginFromDrop(worldX: number, worldY: number): { x: number; y: number } {
+  return {
+    x: worldX - BLOCK_WIDTH / 2,
+    y: worldY - BLOCK_HEIGHT / 2,
+  };
 }
 
 export const BLOCK_KINDS = ["Start", "Process", "Decision", "Data", "Output"] as const;
