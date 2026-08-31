@@ -5,7 +5,7 @@ import { associateBuiltinModels } from "$lib/blocks/builtin";
 import { Diagram } from "$lib/blocks/diagram";
 import { catalogPortName, portSlotIndex } from "$lib/blocks/ports";
 import { canShareMemory } from "$lib/isolation";
-import { SAMPLE_CAP } from "$lib/runtime/memory";
+import { CTX, MEM, SAMPLE_CAP } from "$lib/runtime/memory";
 import type { SolutionAssembly, SolutionBuilder } from "./builder";
 import {
   type SolutionView,
@@ -24,29 +24,19 @@ export interface WasmBuildOptions {
   timerId?: number;
   /** Shared memory + atomics. Off when the page is not cross-origin isolated. */
   sharedMemory?: boolean;
-  /** AssemblyScript source is cheap; skip it only when the caller asks. */
+  /** WAT text is expensive; skip it on the Run hot path. */
   emitText?: boolean;
 }
 
-type CompileString = (
-  sources: string,
-  options?: Record<string, unknown>,
-) => Promise<{ error: Error | null; binary: Uint8Array | null; stderr: { toString(): string } }>;
-
 let assemblerPreload: Promise<unknown> | undefined;
 
-function compileStringOf(mod: unknown): CompileString {
-  const rec = mod as { compileString?: CompileString; default?: { compileString?: CompileString } };
-  const compileString = rec.compileString ?? rec.default?.compileString;
-  if (!compileString) {
-    throw new Error("assemblyscript/asc is missing compileString");
-  }
-  return compileString;
-}
-
-/** Start loading the AssemblyScript compiler before the user presses Run. */
+/** Start loading binaryen.js before the user presses Run. */
 export function preloadAssembler(): void {
-  assemblerPreload ??= import("assemblyscript/asc");
+  assemblerPreload ??= Promise.all([
+    import("binaryen"),
+    import("../../resources/binaryen"),
+    import("../../resources/binaryen/util"),
+  ]);
 }
 
 function builtinCatalog(): Catalog {
@@ -99,124 +89,44 @@ export function assignRings(view: SolutionView, timerId: number): Map<string, nu
   return rings;
 }
 
-function arrayOutLength(view: SolutionView, blockId: number, def: BlockDef): number {
-  const arrayOut = def.outputs.find((port) => isArrayType(port.ty));
-  if (!arrayOut) {
-    return 1;
-  }
-  return Math.max(outgoingConnectors(view, blockId, arrayOut.name).length, 1);
-}
-
-function slotConsumer(
-  view: SolutionView,
-  catalog: Catalog,
-  names: Map<number, string>,
-  link: { fromBlock: number; fromOut: string },
-): string {
-  const srcName = names.get(link.fromBlock);
-  if (!srcName) {
-    return "nop";
-  }
-  const srcDef = catalog.block(defIdOf(view, link.fromBlock) ?? "");
-  if (!srcDef) {
-    return "nop";
-  }
-  const catalogOut = catalogPortName(link.fromOut);
-  const srcPort = srcDef.outputs.find((port) => port.name === catalogOut);
-  if (srcPort && isArrayType(srcPort.ty)) {
-    const length = arrayOutLength(view, link.fromBlock, srcDef);
-    const slot = portSlotIndex(link.fromOut);
-    return length === 1 ? srcName : `${srcName}_${slot}`;
-  }
-  return srcName;
-}
-
-function portConsumer(
-  view: SolutionView,
-  catalog: Catalog,
-  names: Map<number, string>,
-  block: SolutionViewBlock,
-  portName: string,
-): { inner: string; fork?: { name: string; inners: string[] } } {
-  const incoming = incomingConnectors(view, block.id, portName);
-  if (incoming.length === 0) {
-    return { inner: "nop" };
-  }
-  const pieces = incoming.map((link) => slotConsumer(view, catalog, names, link));
-  if (pieces.length === 1) {
-    return { inner: pieces[0] ?? "nop" };
-  }
-  return { inner: `fork_${block.id}_${portName}`, fork: { name: `fork_${block.id}_${portName}`, inners: pieces } };
-}
-
-/** AssemblyScript source for one connected SolutionView (type aliases, block functions, tick). */
-export function emitSolutionAs(
-  catalog: Catalog,
-  view: SolutionView,
-  options: { delayMs: number; timerId?: number },
-  scripts: typeof import("../../resources/assemblyscript"),
-): string {
-  const delayNs = BigInt(Math.max(options.delayMs, 1)) * 1_000_000n;
-  const rings = options.timerId !== undefined ? assignRings(view, options.timerId) : new Map<string, number>();
-  const names = new Map<number, string>();
-  for (const block of view.blocks) {
-    if (scripts.BLOCK_AS[block.defId]) {
-      names.set(block.id, instanceName(view, block));
-    }
-  }
-
-  const parts: string[] = [scripts.preambleAs()];
-  const forks = new Map<string, string[]>();
-  const inners = new Map<number, string>();
-
-  for (const block of view.blocks) {
+function topoBlocks(view: SolutionView, catalog: Catalog): SolutionViewBlock[] {
+  const remaining = new Map(view.blocks.map((block) => [block.id, block]));
+  const ready: SolutionViewBlock[] = [];
+  const emitted = new Set<number>();
+  const depsOf = (block: SolutionViewBlock): number[] => {
     const def = catalog.block(block.defId);
-    if (!def || !names.has(block.id)) {
-      continue;
+    if (!def) {
+      return [];
     }
+    const deps = new Set<number>();
     for (const port of def.inputs) {
-      const wired = portConsumer(view, catalog, names, block, port.name);
-      inners.set(block.id, wired.inner);
-      if (wired.fork && !forks.has(wired.fork.name)) {
-        forks.set(wired.fork.name, wired.fork.inners);
+      for (const link of incomingConnectors(view, block.id, port.name)) {
+        deps.add(link.fromBlock);
       }
     }
-  }
-
-  for (const [forkName, forkInners] of forks) {
-    parts.push(scripts.emitFork(forkName, forkInners));
-  }
-
-  for (const block of view.blocks) {
-    const def = catalog.block(block.defId);
-    const name = names.get(block.id);
-    if (!def || !name) {
-      continue;
+    return [...deps];
+  };
+  while (remaining.size > 0) {
+    let progress = false;
+    for (const [id, block] of remaining) {
+      if (depsOf(block).every((dep) => emitted.has(dep) || !remaining.has(dep))) {
+        ready.push(block);
+        remaining.delete(id);
+        emitted.add(id);
+        progress = true;
+      }
     }
-    const arrayOut = def.outputs.find((port) => isArrayType(port.ty));
-    if (arrayOut) {
-      const length = arrayOutLength(view, block.id, def);
-      const slotRings = Array.from({ length }, (_, slot) => rings.get(`${block.id}:${slot}`) ?? slot);
-      parts.push(scripts.emitBlockInstance(block.defId, { name, length, rings: slotRings }));
-      continue;
+    if (!progress) {
+      ready.push(...remaining.values());
+      break;
     }
-    parts.push(scripts.emitBlockInstance(block.defId, { name, inner: inners.get(block.id) ?? "nop" }));
   }
-
-  const timers = view.blocks.filter((block) => block.defId === "timer" && names.has(block.id));
-  const ticks = timers.map((block) => `  ${names.get(block.id)}();`).join("\n");
-  parts.push(`export function tick(): void {
-  store<f64>(CTX, now());
-  store<i64>(CTX + 8, ${delayNs.toString()});
-${ticks || "  nop(0);"}
-}
-`);
-  return parts.join("\n");
+  return ready;
 }
 
 /**
- * WASM SolutionBuilder: one XML-matching AssemblyScript function per SolutionViewBlock,
- * then SolutionViewConnectors to wire the module (vector slots, fork, direct calls).
+ * WASM SolutionBuilder: one XML-matching builder block per SolutionViewBlock,
+ * then SolutionViewConnectors to wire the module (array.get, fork, call).
  */
 export class WasmSolutionBuilder implements SolutionBuilder {
   constructor(private readonly catalog: Catalog = builtinCatalog()) {}
@@ -241,26 +151,169 @@ async function emitWasm(
   options: { delayMs: number; timerId?: number; sharedMemory: boolean; emitText?: boolean },
 ): Promise<SolutionAssembly> {
   preloadAssembler();
-  const [ascMod, scripts] = await Promise.all([
-    assemblerPreload ?? import("assemblyscript/asc"),
-    import("../../resources/assemblyscript"),
+  const [{ default: binaryen }, scripts, { nameLocals }] = await Promise.all([
+    import("binaryen"),
+    import("../../resources/binaryen"),
+    import("../../resources/binaryen/util"),
   ]);
-  const compileString = compileStringOf(ascMod);
-  const source = emitSolutionAs(catalog, view, options, scripts);
-  const result = await compileString(source, scripts.compileOptions({ sharedMemory: options.sharedMemory }));
-  const binary = result.binary;
-  if (result.error || !binary) {
-    const detail = result.stderr?.toString() || result.error?.message || "unknown error";
-    throw new Error(`AssemblyScript rejected the assembled generator module: ${detail}`);
+  const { BLOCK_SCRIPTS, RUNTIME_SCRIPTS, addCatalogTypes, wasmFeatures, nopConsumer, addFork } = scripts;
+  const delayNs = BigInt(Math.max(options.delayMs, 1)) * 1_000_000n;
+  const module = new binaryen.Module();
+  try {
+    module.setFeatures(wasmFeatures(binaryen));
+    const types = addCatalogTypes(binaryen, module);
+    RUNTIME_SCRIPTS.imports(module, options.sharedMemory);
+    RUNTIME_SCRIPTS.push(module, SAMPLE_CAP);
+    RUNTIME_SCRIPTS.failTag(module);
+    if (options.sharedMemory) {
+      RUNTIME_SCRIPTS.stopped(module);
+      RUNTIME_SCRIPTS.wait(module);
+      RUNTIME_SCRIPTS.notify(module);
+    }
+
+    const rings = options.timerId !== undefined ? assignRings(view, options.timerId) : new Map<string, number>();
+    const names = new Map<number, string>();
+    for (const block of view.blocks) {
+      const add = BLOCK_SCRIPTS[block.defId];
+      if (!add) {
+        continue;
+      }
+      const name = instanceName(view, block);
+      names.set(block.id, name);
+      const def = catalog.block(block.defId);
+      const arrayOut = def?.outputs.find((port) => isArrayType(port.ty));
+      const emit = { name, sharedMemory: options.sharedMemory };
+      if (arrayOut) {
+        const outgoing = outgoingConnectors(view, block.id, arrayOut.name);
+        const length = Math.max(outgoing.length, 1);
+        const slotRings = Array.from({ length }, (_, slot) => rings.get(`${block.id}:${slot}`) ?? slot);
+        add(module, types, { ...emit, length, rings: slotRings });
+      } else {
+        add(module, types, emit);
+      }
+    }
+
+    const forkNames = new Map<string, string>();
+    for (const block of view.blocks) {
+      const def = catalog.block(block.defId);
+      if (!def) {
+        continue;
+      }
+      for (const port of def.inputs) {
+        const incoming = incomingConnectors(view, block.id, port.name);
+        if (incoming.length <= 1) {
+          continue;
+        }
+        const forkName = `fork_${block.id}_${port.name}`;
+        addFork(module, types, forkName, incoming.length);
+        forkNames.set(`${block.id}:${port.name}`, forkName);
+      }
+    }
+
+    const order = topoBlocks(view, catalog);
+    const valueOf = new Map<number, { local: number; type: number }>();
+    const extraLocals: number[] = [];
+    let nextLocal = 1;
+    const alloc = (type: number): number => {
+      extraLocals.push(type);
+      const slot = nextLocal;
+      nextLocal += 1;
+      return slot;
+    };
+
+    const statements: number[] = [
+      module.memory.fill(module.i32.const(MEM.wait), module.i32.const(0), module.i32.const(4)),
+      module.local.set(0, module.i32.const(CTX)),
+      module.f64.store(0, 8, module.local.get(0, binaryen.i32), module.call("now", [], binaryen.f64)),
+      module.i64.store(8, 8, module.local.get(0, binaryen.i32), module.i64.const(delayNs)),
+    ];
+
+    const readPort = (link: { fromBlock: number; fromOut: string }, srcDef: BlockDef): number => {
+      const stored = valueOf.get(link.fromBlock);
+      if (!stored) {
+        return nopConsumer(module, types);
+      }
+      const catalogOut = catalogPortName(link.fromOut);
+      const srcPort = srcDef.outputs.find((port) => port.name === catalogOut);
+      if (srcPort && isArrayType(srcPort.ty)) {
+        return module.array.get(
+          module.local.get(stored.local, stored.type),
+          module.i32.const(portSlotIndex(link.fromOut)),
+          types.c1_f64,
+          false,
+        );
+      }
+      return module.local.get(stored.local, stored.type);
+    };
+
+    for (const block of order) {
+      const def = catalog.block(block.defId);
+      const name = names.get(block.id);
+      if (!def || !name) {
+        continue;
+      }
+      const args: number[] = [module.local.get(0, binaryen.i32)];
+      for (const port of def.inputs) {
+        const incoming = incomingConnectors(view, block.id, port.name);
+        const pieces = incoming.map((link) => {
+          const srcDef = catalog.block(defIdOf(view, link.fromBlock) ?? "");
+          return srcDef ? readPort(link, srcDef) : nopConsumer(module, types);
+        });
+        if (pieces.length === 0) {
+          args.push(nopConsumer(module, types));
+        } else if (pieces.length === 1) {
+          args.push(pieces[0]);
+        } else {
+          const forkName = forkNames.get(`${block.id}:${port.name}`)!;
+          args.push(
+            module.call(forkName, [module.local.get(0, binaryen.i32), ...pieces], types.c1_f64),
+          );
+        }
+      }
+      const resultType = def.outputs[0]
+        ? isArrayType(def.outputs[0].ty)
+          ? types.array_c1_f64
+          : types.c1_f64
+        : binaryen.none;
+      if (def.outputs.length === 0) {
+        statements.push(module.call(name, args, binaryen.none));
+      } else {
+        const slot = alloc(resultType);
+        statements.push(module.local.set(slot, module.call(name, args, resultType)));
+        valueOf.set(block.id, { local: slot, type: resultType });
+      }
+    }
+
+    const tick = module.addFunction(
+      "tick",
+      binaryen.none,
+      binaryen.none,
+      [binaryen.i32, ...extraLocals],
+      module.block(null, statements),
+    );
+    nameLocals(tick, [
+      "ctx",
+      ...order
+        .filter((block) => (catalog.block(block.defId)?.outputs.length ?? 0) > 0 && names.has(block.id))
+        .map((block) => `b${block.id}`),
+    ]);
+    module.addFunctionExport("tick", "tick");
+
+    if (!module.validate()) {
+      throw new Error("binaryen rejected the assembled generator module");
+    }
+    const wasm = module.emitBinary().slice();
+    if (options.emitText === false) {
+      return { wasm, text: "", connectors: view.connectors };
+    }
+    const text = module.emitText();
+    if (!text.includes(`i32.const ${SAMPLE_CAP}`)) {
+      throw new Error(`push script must use SAMPLE_CAP=${SAMPLE_CAP}`);
+    }
+    return { wasm, text, connectors: view.connectors };
+  } finally {
+    module.dispose();
   }
-  const wasm = binary.slice();
-  if (options.emitText === false) {
-    return { wasm, text: "", connectors: view.connectors };
-  }
-  if (!source.includes(`SAMPLE_CAP: i32 = ${SAMPLE_CAP}`)) {
-    throw new Error(`push script must use SAMPLE_CAP=${SAMPLE_CAP}`);
-  }
-  return { wasm, text: source, connectors: view.connectors };
 }
 
 export function linearSolutionView(stages: readonly string[]): SolutionView {

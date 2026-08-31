@@ -10,15 +10,7 @@ export {
   typeToString,
 } from "./ast";
 export { associateBuiltinModels, associateFixtureModels } from "./builtin";
-export {
-  asIdent,
-  asSignature,
-  asValType,
-  blockSignature,
-  signatureWat,
-  wasmValType,
-  wasmHeapTypeName,
-} from "../runtime/signatures";
+export { blockSignature, signatureWat, wasmValType, wasmHeapTypeName } from "../runtime/signatures";
 export { assembleModule, assembleWasm, assembleWat } from "../runtime/assemble";
 export { Catalog } from "./catalog";
 export {

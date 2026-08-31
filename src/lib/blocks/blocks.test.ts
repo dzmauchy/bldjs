@@ -718,18 +718,24 @@ describe("blocks", () => {
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.scopeId).toBe(1);
     expect(compiled.delayMs).toBe(QUANTIZER_DELAY_MS);
-    expect(compiled.text).toContain("type c<T> = (v: T) => void");
-    expect(compiled.text).toContain("function timer(): void");
-    expect(compiled.text).toContain("function quantizer(v: f64): void");
-    expect(compiled.text).toContain("function sin(v: f64): void");
-    expect(compiled.text).toContain("function oscilloscope(v: f64): void");
-    expect(compiled.text).toContain("host_sin");
-    expect(compiled.text).toContain("push_at");
-    expect(compiled.text).toContain("export function tick(): void");
-    expect(compiled.text).not.toContain("call_ref");
-    expect(compiled.text).not.toContain("memory.atomic.wait32");
-    expect(compiled.text).not.toContain("function tap_0");
-    expect(compiled.text).not.toContain('export function run');
+    expect(compiled.text).toContain("(type $c1_f64 (func (param f64)))");
+    expect(compiled.text).toContain("(type $array_c1_f64 (array (mut (ref $c1_f64))))");
+    expect(compiled.text).toContain("(func $timer");
+    expect(compiled.text).toContain("(param $ctx i32) (param $in (ref $c1_f64))");
+    expect(compiled.text).toContain("(func $quantizer");
+    expect(compiled.text).toContain("(result (ref $c1_f64))");
+    expect(compiled.text).toContain("(func $sin");
+    expect(compiled.text).toContain("(func $oscilloscope");
+    expect(compiled.text).toContain("(result (ref $array_c1_f64))");
+    expect(compiled.text).toContain("array.new_fixed $array_c1_f64");
+    expect(compiled.text).toContain("call $timer");
+    expect(compiled.text).toContain("call $quantizer");
+    expect(compiled.text).toContain("call $sin");
+    expect(compiled.text).toContain("call $oscilloscope");
+    expect(compiled.text).toContain("call_ref $c1_f64");
+    expect(compiled.text).not.toContain("(func $tap_0");
+    expect(compiled.text).toContain('(export "tick"');
+    expect(compiled.text).not.toContain('(export "run"');
     expect(compiled.text).not.toContain("setTimeout");
     expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
   });
@@ -768,8 +774,8 @@ describe("blocks", () => {
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.stages).toEqual(["cos"]);
-    expect(compiled.text).toContain("function cos(v: f64): void");
-    expect(compiled.text).toContain("host_cos");
+    expect(compiled.text).toContain("(func $cos");
+    expect(compiled.text).toContain("call $cos");
   });
 
   it("compile generator emits a fork into two push rings", async () => {
@@ -784,10 +790,10 @@ describe("blocks", () => {
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.scopeIds).toEqual([1, 2]);
-    expect(compiled.text).toContain("function oscilloscope_1(v: f64): void");
-    expect(compiled.text).toContain("function oscilloscope_2(v: f64): void");
-    expect(compiled.text).toContain("function fork_4_in(v: f64): void");
-    expect(compiled.text).toContain("push_at");
+    expect(compiled.text).toContain("call $oscilloscope_1");
+    expect(compiled.text).toContain("call $oscilloscope_2");
+    expect(compiled.text).toContain("(func $fork_4_in");
+    expect(compiled.text).toContain("call $push_at");
     expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
   });
 
@@ -981,10 +987,11 @@ describe("blocks", () => {
 
   it("generator text uses typed func types even without stages", async () => {
     const text = await generatorText([]);
-    expect(text).toContain("type c<T> = (v: T) => void");
-    expect(text).toContain("export function tick(): void");
-    expect(text).toContain("function timer(): void");
-    expect(text).toContain("function oscilloscope(v: f64): void");
-    expect(text).not.toContain("function sin(");
+    expect(text).toContain("(type $c1_f64 (func (param f64)))");
+    expect(text).toContain("(func $tick");
+    expect(text).toContain('(export "tick"');
+    expect(text).toContain("call $timer");
+    expect(text).toContain("call $oscilloscope");
+    expect(text).not.toContain("(func $sin");
   });
 });
