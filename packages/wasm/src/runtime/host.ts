@@ -13,6 +13,7 @@ export function createHost(
       now,
       sin: Math.sin,
       cos: Math.cos,
+      random: Math.random,
     },
   };
 }

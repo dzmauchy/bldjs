@@ -400,10 +400,37 @@ export interface Factory {
   attributes: Attribute[];
 }
 
-export interface LibraryRef {
-  id: string;
+export const BLOCK_PARAMETER_KINDS = [
+  "integer-parameter",
+  "count-parameter",
+  "decimal-parameter",
+  "duration-parameter",
+  "date-parameter",
+  "time-parameter",
+  "date-time-parameter",
+  "integer-range-parameter",
+  "double-range-parameter",
+  "text-parameter",
+] as const;
+
+export type BlockParameterKind = (typeof BLOCK_PARAMETER_KINDS)[number];
+
+export function isBlockParameterKind(tag: string): tag is BlockParameterKind {
+  return (BLOCK_PARAMETER_KINDS as readonly string[]).includes(tag);
+}
+
+/** Catalog `<parameters>` entry — configurable constant input, not a type param. */
+export interface BlockParameterDef {
+  kind: BlockParameterKind;
   name: string;
-  version: string | null;
+  description: string | null;
+  default: string | null;
+  min: number | undefined;
+  max: number | undefined;
+  step: number | undefined;
+  minChars: number | undefined;
+  maxChars: number | undefined;
+  pattern: string | null;
   attributes: Attribute[];
 }
 
@@ -431,6 +458,7 @@ export interface BlockDef {
   ns: string;
   icon: string | null;
   params: ParamDef[];
+  parameters: BlockParameterDef[];
   factory: Factory | null;
   inputs: PortDef[];
   outputs: PortDef[];
@@ -455,7 +483,6 @@ export interface BlocksDoc {
   name: string;
   icon: string | null;
   attributes: Attribute[];
-  libraries: LibraryRef[];
   namespaces: Namespace[];
   types: TypeDef[];
   blocks: BlockDef[];

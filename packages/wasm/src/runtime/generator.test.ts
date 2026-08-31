@@ -6,15 +6,16 @@ import { instantiateGenerator, startLocalGenerator } from "./generator";
 
 describe("binaryen generator", () => {
   it("assembles block scripts into a valid wasm-gc module", async () => {
-    const wasm = await assembleWasm({ stages: ["quantizer", "sin"], delayMs: 10 });
+    const wasm = await assembleWasm({ generator: "sin", delayMs: 10 });
     expect([...wasm.slice(0, 4)]).toEqual([0, 97, 115, 109]);
     expect(WebAssembly.validate(wasm.slice().buffer)).toBe(true);
   });
 
   it("ticks sin(pi/2) through the assembled pipeline", async () => {
-    const { text, wasm } = await assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
-    expect(text).toContain("call $timer");
+    const { text, wasm } = await assembleModule({ generator: "sin", delayMs: 10 });
+    expect(text).toContain("call $sin");
     expect(text).toContain("call $scope");
+    expect(text).not.toContain("call $timer");
     expect(text).toContain("(param $ctx i32)");
     expect(text).toContain("(param $in (ref $c1_f64))");
     expect(text).toContain("(result (ref $array_c1_f64))");
@@ -31,20 +32,14 @@ describe("binaryen generator", () => {
     expect(Math.abs(samples[1])).toBeLessThan(1e-9);
   });
 
-  it("runs a compiled timer pipeline in-process", async () => {
+  it("runs a compiled sin pipeline in-process", async () => {
     const compiled = (await compileGenerator(
-      4,
+      2,
       [
         { id: 1, defId: "scope" },
         { id: 2, defId: "sin" },
-        { id: 3, defId: "quantizer" },
-        { id: 4, defId: "timer" },
       ],
-      [
-        { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" },
-        { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
-        { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
-      ],
+      [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }],
     ))!;
     const handle = await startLocalGenerator({
       wasm: compiled.wasm,
@@ -58,7 +53,7 @@ describe("binaryen generator", () => {
   });
 
   it("ticks on setInterval instead of parking", async () => {
-    const wasm = await assembleWasm({ stages: ["sin"], delayMs: 10 });
+    const wasm = await assembleWasm({ generator: "sin", delayMs: 10 });
     const handle = await startLocalGenerator({
       wasm,
       delayMs: 10,
@@ -73,8 +68,8 @@ describe("binaryen generator", () => {
   });
 
   it("tick writes samples through XML-typed block functions", async () => {
-    const { text, wasm } = await assembleModule({ stages: ["sin"], delayMs: 0 });
-    expect(text).toContain("(func $timer");
+    const { text, wasm } = await assembleModule({ generator: "sin", delayMs: 0 });
+    expect(text).toContain("(func $sin");
     expect(text).toContain("(param $in (ref $c1_f64))");
     expect(text).toContain("(func $scope");
     expect(text).toContain("(result (ref $array_c1_f64))");
@@ -84,8 +79,18 @@ describe("binaryen generator", () => {
     expect(readSamples(memory)[0]).toBeCloseTo(Math.sin(0.5));
   });
 
+  it("ticks a random generator into [0, 1)", async () => {
+    const wasm = await assembleWasm({ generator: "random", delayMs: 10 });
+    const memory = createSharedMemory();
+    const gen = await instantiateGenerator(wasm, memory, () => 0);
+    gen.tick();
+    const sample = readSamples(memory)[0]!;
+    expect(sample).toBeGreaterThanOrEqual(0);
+    expect(sample).toBeLessThan(1);
+  });
+
   it("counts each c<f64> connector invocation in the runner, not the runtime", async () => {
-    const { wasm, connectors } = await assembleModule({ stages: ["quantizer", "sin"], delayMs: 10_000 });
+    const { wasm, connectors } = await assembleModule({ generator: "sin", delayMs: 10_000 });
     expect(connectors.length).toBeGreaterThan(0);
     const memory = createSharedMemory();
     const gen = await instantiateGenerator(wasm, memory, () => 0);

@@ -1,15 +1,17 @@
-import { type Link, type NodeSpec, planGenerator, type GeneratorPlan } from "./blocks";
+import { type Link, type NodeSpec, isGeneratorId, planGenerator, type GeneratorPlan } from "./blocks";
 
-export function nodeSpecsFrom(blocks: readonly { id: number; defId: string }[]): NodeSpec[] {
-  return blocks.map((block) => ({ id: block.id, defId: block.defId }));
+export function nodeSpecsFrom(
+  blocks: readonly { id: number; defId: string; periodMs?: number }[],
+): NodeSpec[] {
+  return blocks.map((block) => ({ id: block.id, defId: block.defId, periodMs: block.periodMs }));
 }
 
-/** Block ids, definitions, and links — not positions — so moving a block does not restart generators. */
+/** Block ids, definitions, period, and links — not positions — so moving a block does not restart generators. */
 export function topologyKey(
-  blocks: readonly { id: number; defId: string }[],
+  blocks: readonly { id: number; defId: string; periodMs?: number }[],
   links: readonly Link[],
 ): string {
-  const nodes = blocks.map((block) => `${block.id}:${block.defId}`).join(",");
+  const nodes = blocks.map((block) => `${block.id}:${block.defId}:${block.periodMs ?? ""}`).join(",");
   const wires = links
     .map((link) => `${link.fromBlock}:${link.fromOut}->${link.toBlock}:${link.toIn}`)
     .join(",");
@@ -17,13 +19,13 @@ export function topologyKey(
 }
 
 export function plannedGenerators(
-  blocks: readonly { id: number; defId: string }[],
+  blocks: readonly { id: number; defId: string; periodMs?: number }[],
   links: readonly Link[],
 ): GeneratorPlan[] {
   const nodes = nodeSpecsFrom(blocks);
   const wires = [...links];
   return blocks
-    .filter((block) => block.defId === "timer")
+    .filter((block) => isGeneratorId(block.defId))
     .map((block) => planGenerator(block.id, nodes, wires))
     .filter((item): item is GeneratorPlan => item !== undefined);
 }

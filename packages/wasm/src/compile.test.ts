@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  QUANTIZER_DELAY_MS,
-  associateBuiltinModels,
-  Diagram,
-  loadDiagramSolution,
-  serializeCanvas,
-  type Link,
-} from "@bld/xml";
+import { DEFAULT_PERIOD_MS, associateBuiltinModels, Diagram, loadDiagramSolution, serializeCanvas, type Link } from "@bld/xml";
 import { compileGenerator, generatorText } from "./compile";
 
 function catalog() {
@@ -20,32 +13,22 @@ describe("compileGenerator", () => {
     const nodes = [
       { id: 1, defId: "scope" },
       { id: 2, defId: "sin" },
-      { id: 3, defId: "quantizer" },
-      { id: 4, defId: "timer" },
     ];
-    const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" },
-      { fromBlock: 3, fromOut: "out", toBlock: 2, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
-    ];
-    const compiled = (await compileGenerator(4, nodes, links))!;
+    const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
+    const compiled = (await compileGenerator(2, nodes, links))!;
     expect(compiled.scopeId).toBe(1);
-    expect(compiled.delayMs).toBe(QUANTIZER_DELAY_MS);
+    expect(compiled.delayMs).toBe(DEFAULT_PERIOD_MS);
     expect(compiled.text).toContain("(type $c1_f64 (func (param f64)))");
     expect(compiled.text).toContain("(type $array_c1_f64 (array (mut (ref $c1_f64))))");
-    expect(compiled.text).toContain("(func $timer");
-    expect(compiled.text).toContain("(param $ctx i32) (param $in (ref $c1_f64))");
-    expect(compiled.text).toContain("(func $quantizer");
-    expect(compiled.text).toContain("(result (ref $c1_f64))");
     expect(compiled.text).toContain("(func $sin");
+    expect(compiled.text).toContain("(param $ctx i32) (param $in (ref $c1_f64))");
     expect(compiled.text).toContain("(func $scope");
     expect(compiled.text).toContain("(result (ref $array_c1_f64))");
     expect(compiled.text).toContain("array.new_fixed $array_c1_f64");
-    expect(compiled.text).toContain("call $timer");
-    expect(compiled.text).toContain("call $quantizer");
     expect(compiled.text).toContain("call $sin");
     expect(compiled.text).toContain("call $scope");
     expect(compiled.text).toContain("call_ref $c1_f64");
+    expect(compiled.text).not.toContain("(func $quantizer");
     expect(compiled.text).not.toContain("(func $tap_0");
     expect(compiled.text).toContain('(export "tick"');
     expect(compiled.text).not.toContain('(export "run"');
@@ -53,18 +36,14 @@ describe("compileGenerator", () => {
     expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
   });
 
-  it("walks a cos stage", async () => {
+  it("walks a cos generator", async () => {
     const nodes = [
       { id: 1, defId: "scope" },
       { id: 2, defId: "cos" },
-      { id: 4, defId: "timer" },
     ];
-    const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
-    ];
-    const compiled = (await compileGenerator(4, nodes, links))!;
-    expect(compiled.stages).toEqual(["cos"]);
+    const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
+    const compiled = (await compileGenerator(2, nodes, links))!;
+    expect(compiled.defId).toBe("cos");
     expect(compiled.text).toContain("(func $cos");
     expect(compiled.text).toContain("call $cos");
   });
@@ -89,16 +68,12 @@ describe("compileGenerator", () => {
   });
 
   it("needs a scope", async () => {
-    const nodes = [
-      { id: 3, defId: "quantizer" },
-      { id: 4, defId: "timer" },
-    ];
-    const links: Link[] = [{ fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" }];
-    expect(await compileGenerator(4, nodes, links)).toBeUndefined();
+    const nodes = [{ id: 4, defId: "timer" }];
+    expect(await compileGenerator(4, nodes, [])).toBeUndefined();
   });
 
   it("uses typed func types even without stages", async () => {
-    const text = await generatorText([]);
+    const text = await generatorText("timer");
     expect(text).toContain("(type $c1_f64 (func (param f64)))");
     expect(text).toContain("(func $tick");
     expect(text).toContain('(export "tick"');
@@ -115,18 +90,12 @@ describe("compileGenerator", () => {
       updatedAt: "2026-08-31T05:30:00Z",
       blocks: [
         { id: 1, defId: "scope", x: 0, y: 0 },
-        { id: 2, defId: "quantizer", x: 180, y: 0 },
-        { id: 3, defId: "sin", x: 360, y: 0 },
-        { id: 4, defId: "timer", x: 540, y: 0 },
+        { id: 2, defId: "sin", x: 180, y: 0 },
       ],
-      links: [
-        { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
-        { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
-        { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" },
-      ],
+      links: [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }],
     });
     const solution = loadDiagramSolution(xml, catalog());
-    const compiled = await compileGenerator(4, solution.nodes, solution.links);
+    const compiled = await compileGenerator(2, solution.nodes, solution.links);
     expect(compiled?.wasm[0]).toBe(0);
     expect(String.fromCharCode(compiled!.wasm[1]!, compiled!.wasm[2]!, compiled!.wasm[3]!)).toBe("asm");
   });

@@ -27,15 +27,9 @@ function csCanvas() {
     updatedAt: "2026-08-31T05:30:00Z",
     blocks: [
       { id: 1, defId: "scope", x: 0, y: 0 },
-      { id: 2, defId: "quantizer", x: 180, y: 0 },
-      { id: 3, defId: "sin", x: 360, y: 0 },
-      { id: 4, defId: "timer", x: 540, y: 0 },
+      { id: 2, defId: "sin", x: 180, y: 0 },
     ],
-    links: [
-      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
-      { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" },
-    ],
+    links: [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }],
   };
 }
 
@@ -181,10 +175,10 @@ describe("diagram compile pipeline", () => {
   it("builds XML first, then infers types", () => {
     const xml = serializeCanvas(csCanvas());
     const solution = loadDiagramSolution(xml, catalog());
-    expect(solution.doc.blocks.map((block) => block.type)).toEqual(["scope", "quantizer", "sin", "timer"]);
-    const timer = solution.inferred.get(4);
-    expect(timer?.defId).toBe("timer");
-    expect(displayType(timer!.inputs[0]!.ty, true)).toBe("c<f64>");
+    expect(solution.doc.blocks.map((block) => block.type)).toEqual(["scope", "sin"]);
+    const sin = solution.inferred.get(2);
+    expect(sin?.defId).toBe("sin");
+    expect(displayType(sin!.inputs[0]!.ty, true)).toBe("c<f64>");
   });
 
   it("rejects unknown catalog types before wasm", () => {

@@ -5,8 +5,6 @@
 
     <!-- THIS IS AN EXAMPLE -->
 
-    <library id="dsp_core" name="DSP Core Library" version="1.0.0"/>
-
     <namespace id="com.dsp" name="DSP"/>
     <namespace id="com.dsp.source" name="Sources" parent="com.dsp"/>
     <namespace id="com.dsp.transform" name="Transforms" parent="com.dsp"/>

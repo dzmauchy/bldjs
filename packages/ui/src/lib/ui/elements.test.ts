@@ -60,6 +60,7 @@ describe("custom elements", () => {
     expect(customElements.get("bld-about-modal")).toBeDefined();
     expect(customElements.get("bld-diagram-io-modal")).toBeDefined();
     expect(customElements.get("bld-scope-modal")).toBeDefined();
+    expect(customElements.get("bld-inputs-modal")).toBeDefined();
     expect(customElements.get("bld-diagram")).toBeDefined();
     expect(customElements.get("bld-node")).toBeDefined();
     expect(customElements.get("bld-connector")).toBeDefined();

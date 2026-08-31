@@ -66,32 +66,32 @@ test.describe("wiring", () => {
 
   test("shows port types only on the source output and compatible inputs while linking", async () => {
     await placeBlock(page, "scope");
-    await placeBlock(page, "quantizer");
+    await placeBlock(page, "sin");
     await placeBlock(page, "timer");
     expect(await portTypeText(page, "scope", "output-out")).toBeNull();
-    expect(await portTypeText(page, "quantizer", "input-in")).toBeNull();
-    expect(await portTypeText(page, "quantizer", "output-out")).toBeNull();
+    expect(await portTypeText(page, "sin", "input-in")).toBeNull();
+    expect(await portTypeText(page, "sin", "output-out")).toBeNull();
     expect(await portTypeText(page, "timer", "input-in")).toBeNull();
 
     const scopeBox = await boxOf(nodeHost(page, "scope"));
-    const quantBox = await boxOf(nodeHost(page, "quantizer"));
+    const sinBox = await boxOf(nodeHost(page, "sin"));
     const timerBox = await boxOf(nodeHost(page, "timer"));
 
     await clickPortHandle(page, "scope", "output-out");
     await expect
       .poll(async () => portTypeText(page, "scope", "output-out"))
       .toBe("c<f64>");
-    expect(await portTypeText(page, "quantizer", "input-in")).toBe("c<f64>");
+    expect(await portTypeText(page, "sin", "input-in")).toBe("c<f64>");
     expect(await portTypeText(page, "timer", "input-in")).toBe("c<f64>");
-    expect(await portTypeText(page, "quantizer", "output-out")).toBeNull();
+    expect(await portTypeText(page, "sin", "output-out")).toBeNull();
 
     const scopeAfter = await boxOf(nodeHost(page, "scope"));
-    const quantAfter = await boxOf(nodeHost(page, "quantizer"));
+    const sinAfter = await boxOf(nodeHost(page, "sin"));
     const timerAfter = await boxOf(nodeHost(page, "timer"));
     expect(scopeAfter.width).toBe(scopeBox.width);
     expect(scopeAfter.height).toBe(scopeBox.height);
-    expect(quantAfter.width).toBe(quantBox.width);
-    expect(quantAfter.height).toBe(quantBox.height);
+    expect(sinAfter.width).toBe(sinBox.width);
+    expect(sinAfter.height).toBe(sinBox.height);
     expect(timerAfter.width).toBe(timerBox.width);
     expect(timerAfter.height).toBe(timerBox.height);
 
@@ -108,11 +108,11 @@ test.describe("wiring", () => {
     expect(typeBg.alpha).toBeGreaterThan(0);
     expect(typeBg.alpha).toBeLessThan(1);
 
-    await clickPortHandle(page, "quantizer", "input-in");
+    await clickPortHandle(page, "sin", "input-in");
     await waitForLinks(page, "1 link");
     await waitForAvoidRouter(page);
     expect(await portTypeText(page, "scope", "output-out")).toBeNull();
-    expect(await portTypeText(page, "quantizer", "input-in")).toBeNull();
+    expect(await portTypeText(page, "sin", "input-in")).toBeNull();
     expect(await portTypeText(page, "timer", "input-in")).toBeNull();
 
     const path = await connectorPath(page);
@@ -139,7 +139,6 @@ test.describe("wiring", () => {
     await placeBlock(page, "scope");
     await placeBlock(page, "sin");
     await placeBlock(page, "cos");
-    await placeBlock(page, "timer");
 
     async function portNames(defId: string, side: "in" | "out"): Promise<string[]> {
       return nodeHost(page, defId)
@@ -171,52 +170,28 @@ test.describe("wiring", () => {
     await expect(diagramRoot(page).locator('[data-testid="connector-preview"]')).toHaveCount(0);
     expect(await portTypeText(page, "scope", "output-out")).toBeNull();
 
-    await clickPortHandle(page, "sin", "output-out");
-    await clickPortHandle(page, "timer", "input-in");
-    await waitForLinks(page, "3 links");
-    expect(await portNames("timer", "in")).toEqual(["in"]);
-
-    await clickPortHandle(page, "cos", "output-out");
-    await clickPortHandle(page, "timer", "input-in");
-    await waitForLinks(page, "4 links");
-    expect(await portNames("timer", "in")).toEqual(["in", "in[1]"]);
-    const timer = nodeHost(page, "timer");
-    await expect(timer.locator('[data-vector="in"] .block-port-vector-rail')).toHaveCount(1);
-    await expect(timer.locator('[data-vector="in"] [data-handle]')).toHaveCount(2);
-    await expect(timer.locator('[data-vector="in"] .block-port-name')).toHaveCount(0);
-
     await clickPortHandle(page, "scope", "output-out[1]");
     await clickPortHandle(page, "cos", "input-in");
-    await waitForLinks(page, "3 links");
+    await waitForLinks(page, "1 link");
     expect(await portNames("scope", "out")).toEqual(["out"]);
-
-    await clickPortHandle(page, "cos", "output-out");
-    await clickPortHandle(page, "timer", "input-in[1]");
-    await waitForLinks(page, "2 links");
-    expect(await portNames("timer", "in")).toEqual(["in"]);
   });
 
   test("keeps two inputs on distinct connector approaches", async () => {
-    await placeBlock(page, "cos");
-    await placeBlock(page, "sin");
-    await placeBlock(page, "quantizer");
+    await placeBlock(page, "scope");
+    await placeBlock(page, "scope");
+    await placeBlock(page, "timer");
 
-    const cosBox = await boxOf(nodeHost(page, "cos"));
-    const sinBox = await boxOf(nodeHost(page, "sin"));
-    const quantizerBox = await boxOf(nodeHost(page, "quantizer"));
-    await dragNodeBy(page, "sin", cosBox.x - sinBox.x, cosBox.y + cosBox.height + 36 - sinBox.y);
-    await dragNodeBy(
-      page,
-      "quantizer",
-      cosBox.x + cosBox.width + 96 - quantizerBox.x,
-      cosBox.y - quantizerBox.y,
-    );
+    const upperBox = await boxOf(nodeHost(page, "scope", 0));
+    const lowerBox = await boxOf(nodeHost(page, "scope", 1));
+    const timerBox = await boxOf(nodeHost(page, "timer"));
+    await dragNodeBy(page, "scope", upperBox.x - lowerBox.x, upperBox.y + upperBox.height + 36 - lowerBox.y, 1);
+    await dragNodeBy(page, "timer", upperBox.x + upperBox.width + 96 - timerBox.x, upperBox.y - timerBox.y);
 
-    await clickPortHandle(page, "cos", "output-out");
-    await clickPortHandle(page, "quantizer", "input-in");
+    await clickPortHandle(page, "scope", "output-out", 0);
+    await clickPortHandle(page, "timer", "input-in");
     await waitForLinks(page, "1 link");
-    await clickPortHandle(page, "sin", "output-out");
-    await clickPortHandle(page, "quantizer", "input-in");
+    await clickPortHandle(page, "scope", "output-out", 1);
+    await clickPortHandle(page, "timer", "input-in");
     await waitForLinks(page, "2 links");
     await waitForAvoidRouter(page);
     await expect
@@ -237,48 +212,48 @@ test.describe("wiring", () => {
   });
 
   test("inserts a new input above when the new source is above", async () => {
-    await placeBlock(page, "cos");
-    await placeBlock(page, "sin");
+    await placeBlock(page, "scope");
+    await placeBlock(page, "scope");
     await placeBlock(page, "timer");
 
-    const cosBox = await boxOf(nodeHost(page, "cos"));
-    const sinBox = await boxOf(nodeHost(page, "sin"));
+    const upperBox = await boxOf(nodeHost(page, "scope", 0));
+    const lowerBox = await boxOf(nodeHost(page, "scope", 1));
     const timerBox = await boxOf(nodeHost(page, "timer"));
-    await dragNodeBy(page, "sin", cosBox.x - sinBox.x, cosBox.y + cosBox.height + 36 - sinBox.y);
-    await dragNodeBy(page, "timer", cosBox.x + cosBox.width + 96 - timerBox.x, cosBox.y - timerBox.y);
+    await dragNodeBy(page, "scope", upperBox.x - lowerBox.x, upperBox.y + upperBox.height + 36 - lowerBox.y, 1);
+    await dragNodeBy(page, "timer", upperBox.x + upperBox.width + 96 - timerBox.x, upperBox.y - timerBox.y);
 
-    await clickPortHandle(page, "sin", "output-out");
+    await clickPortHandle(page, "scope", "output-out", 1);
     await clickPortHandle(page, "timer", "input-in");
     await waitForLinks(page, "1 link");
-    await clickPortHandle(page, "cos", "output-out");
+    await clickPortHandle(page, "scope", "output-out", 0);
     await clickPortHandle(page, "timer", "input-in");
     await waitForLinks(page, "2 links");
 
-    const sinId = await nodeHost(page, "sin").getAttribute("data-block-id");
-    const cosId = await nodeHost(page, "cos").getAttribute("data-block-id");
+    const lowerId = await nodeHost(page, "scope", 1).getAttribute("data-block-id");
+    const upperId = await nodeHost(page, "scope", 0).getAttribute("data-block-id");
     const timerId = await nodeHost(page, "timer").getAttribute("data-block-id");
     const links = await page.locator("bld-connector[data-link]").evaluateAll((els) =>
       els.map((el) => el.getAttribute("data-link") ?? ""),
     );
-    expect(links.sort()).toEqual([`${cosId}:out->${timerId}:in`, `${sinId}:out->${timerId}:in[1]`].sort());
+    expect(links.sort()).toEqual([`${upperId}:out->${timerId}:in`, `${lowerId}:out->${timerId}:in[1]`].sort());
   });
 
   test("toggles the same wire off", async () => {
     await placeBlock(page, "scope");
-    await placeBlock(page, "quantizer");
+    await placeBlock(page, "sin");
     await clickPortHandle(page, "scope", "output-out");
-    await clickPortHandle(page, "quantizer", "input-in");
+    await clickPortHandle(page, "sin", "input-in");
     await waitForLinks(page, "1 link");
     await clickPortHandle(page, "scope", "output-out");
-    await clickPortHandle(page, "quantizer", "input-in");
+    await clickPortHandle(page, "sin", "input-in");
     await waitForLinks(page, "0 links");
   });
 
   test("deletes a selected connector", async () => {
     await placeBlock(page, "scope");
-    await placeBlock(page, "quantizer");
+    await placeBlock(page, "sin");
     await clickPortHandle(page, "scope", "output-out");
-    await clickPortHandle(page, "quantizer", "input-in");
+    await clickPortHandle(page, "sin", "input-in");
     await waitForLinks(page, "1 link");
     await clickConnector(page);
     await pressDelete(page);
@@ -295,8 +270,8 @@ test.describe("wiring", () => {
     expect(await statusLinks(page)).toBe("0 links");
   });
 
-  test("wires Scope → Quantizer → Sin → Timer and opens the chart", async () => {
-    for (const id of ["timer", "quantizer", "sin", "cos", "scope"] as const) {
+  test("wires Scope → Sin and opens the chart", async () => {
+    for (const id of ["timer", "sin", "cos", "random", "scope"] as const) {
       await placeBlock(page, id);
     }
 
@@ -305,14 +280,12 @@ test.describe("wiring", () => {
     expect(await timerIn.innerText()).not.toContain("c<f64>");
     await expect(nodeHost(page, "scope").locator('[data-testid="output-out"]')).toHaveAttribute("title", "c<f64>");
     const sinIn = nodeHost(page, "sin").locator('[data-testid="input-in"]');
-    const sinOut = nodeHost(page, "sin").locator('[data-testid="output-out"]');
     expect(await sinIn.innerText()).not.toContain("c<f64>");
-    expect(await sinOut.innerText()).not.toContain("c<f64>");
-    await expect(sinOut).toHaveAttribute("title", "c<f64>");
+    await expect(sinIn).toHaveAttribute("title", "c<f64>");
+    await expect(nodeHost(page, "sin").locator('[data-testid="output-out"]')).toHaveCount(0);
     const cosIn = nodeHost(page, "cos").locator('[data-testid="input-in"]');
-    const cosOut = nodeHost(page, "cos").locator('[data-testid="output-out"]');
     expect(await cosIn.innerText()).not.toContain("c<f64>");
-    expect(await cosOut.innerText()).not.toContain("c<f64>");
+    await expect(nodeHost(page, "cos").locator('[data-testid="output-out"]')).toHaveCount(0);
     expect(await portTypeText(page, "timer", "input-in")).toBeNull();
     const timerIcon = nodeHost(page, "timer").locator(".flow-node-icon svg");
     await expect(timerIcon).toBeVisible();
@@ -322,15 +295,9 @@ test.describe("wiring", () => {
     });
     expect(glyphNs).toBe("http://www.w3.org/2000/svg");
 
-    async function wire(fromDef: string, fromPort: string, toDef: string, toPort: string, expected: string): Promise<void> {
-      await clickPortHandle(page, fromDef, `output-${fromPort}`);
-      await clickPortHandle(page, toDef, `input-${toPort}`);
-      await waitForLinks(page, expected);
-    }
-
-    await wire("scope", "out", "quantizer", "in", "1 link");
-    await wire("quantizer", "out", "sin", "in", "2 links");
-    await wire("sin", "out", "timer", "in", "3 links");
+    await clickPortHandle(page, "scope", "output-out");
+    await clickPortHandle(page, "sin", "input-in");
+    await waitForLinks(page, "1 link");
 
     const chart = nodeHost(page, "scope").locator('[data-testid^="chart-"]');
     await expect(chart).toBeDisabled();
@@ -338,7 +305,7 @@ test.describe("wiring", () => {
     await expect(chart).toBeEnabled({ timeout: 2_000 });
     await expect
       .poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count(), { timeout: 2_000 })
-      .toBe(3);
+      .toBe(1);
     await expect(page.locator('[data-testid="status-run"]')).toHaveText("Running", { timeout: 15_000 });
     const stop = page.locator('[data-testid="toolbar-stop"]');
     await expect(page.locator('[data-testid="toolbar-run"]')).toHaveCount(0);
@@ -372,7 +339,7 @@ test.describe("wiring", () => {
     await expect.poll(async () => scopeChartHasInk(page), { timeout: 2_000 }).toBe(true);
     await page.locator('[data-testid="scope-close"]').click();
     await expect(page.locator('[data-testid="scope-modal"]')).toHaveCount(0);
-    await expect.poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count()).toBe(3);
+    await expect.poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count()).toBe(1);
     const duration = await page.locator("bld-connector:not([data-preview])[data-flow]").first().evaluate((el) => {
       return getComputedStyle(el).getPropertyValue("--flow-period").trim();
     });
@@ -381,7 +348,7 @@ test.describe("wiring", () => {
     expect(periodMs).toBeGreaterThanOrEqual(200);
     expect(periodMs).toBeLessThanOrEqual(2500);
     const flow = page.locator("bld-connector:not([data-preview])[data-flow]");
-    await expect(flow).toHaveCount(3);
+    await expect(flow).toHaveCount(1);
     const directions = await flow.evaluateAll((els) =>
       els.map((el) => {
         const push = el.hasAttribute("data-push");
@@ -392,11 +359,7 @@ test.describe("wiring", () => {
         };
       }),
     );
-    expect(directions).toEqual([
-      { push: true, direction: "reverse" },
-      { push: true, direction: "reverse" },
-      { push: true, direction: "reverse" },
-    ]);
+    expect(directions).toEqual([{ push: true, direction: "reverse" }]);
     await page.locator('[data-testid="toolbar-stop"]').click();
     await expect(page.locator('[data-testid="toolbar-run"]')).toBeEnabled();
     await expect(page.locator("bld-connector:not([data-preview])[data-flow]")).toHaveCount(0);
@@ -406,19 +369,12 @@ test.describe("wiring", () => {
     await placeBlock(page, "scope");
     await placeBlock(page, "sin");
     await placeBlock(page, "cos");
-    await placeBlock(page, "timer");
     await clickPortHandle(page, "scope", "output-out");
     await clickPortHandle(page, "sin", "input-in");
     await waitForLinks(page, "1 link");
     await clickPortHandle(page, "scope", "output-out");
     await clickPortHandle(page, "cos", "input-in");
     await waitForLinks(page, "2 links");
-    await clickPortHandle(page, "sin", "output-out");
-    await clickPortHandle(page, "timer", "input-in");
-    await waitForLinks(page, "3 links");
-    await clickPortHandle(page, "cos", "output-out");
-    await clickPortHandle(page, "timer", "input-in");
-    await waitForLinks(page, "4 links");
 
     const chart = nodeHost(page, "scope").locator('[data-testid^="chart-"]');
     await runDiagram(page);
@@ -446,9 +402,9 @@ test.describe("wiring", () => {
 
   test("moves the connector when a wired node is dragged", async () => {
     await placeBlock(page, "scope");
-    await placeBlock(page, "quantizer");
+    await placeBlock(page, "sin");
     await clickPortHandle(page, "scope", "output-out");
-    await clickPortHandle(page, "quantizer", "input-in");
+    await clickPortHandle(page, "sin", "input-in");
     await waitForLinks(page, "1 link");
     const before = await connectorPath(page);
     await dragNodeBy(page, "scope", 90, 30);

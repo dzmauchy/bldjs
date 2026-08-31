@@ -8,6 +8,7 @@ import "./about-modal";
 import "./diagram-io-modal";
 import "./toolbar";
 import "./scope-modal";
+import "./inputs-modal";
 import "./palette";
 import "./status-bar";
 import "./workspace";
@@ -94,7 +95,7 @@ export class BldApp extends LitElement {
     switch (event.key) {
       case "Delete":
       case "Backspace":
-        if (app.aboutOpen || app.ioMode !== "closed" || !isNoneId(app.scopeOpen)) {
+        if (app.aboutOpen || app.ioMode !== "closed" || !isNoneId(app.scopeOpen) || !isNoneId(app.inputsOpen)) {
           break;
         }
         if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
@@ -114,6 +115,7 @@ export class BldApp extends LitElement {
         app.linkingFrom = null;
         app.closePalette();
         app.closeScope();
+        app.closeInputs();
         break;
       case "0":
         if (meta) {
@@ -161,6 +163,7 @@ export class BldApp extends LitElement {
       <bld-about-modal .app=${app}></bld-about-modal>
       <bld-diagram-io-modal .app=${app}></bld-diagram-io-modal>
       <bld-scope-modal .app=${app}></bld-scope-modal>
+      <bld-inputs-modal .app=${app}></bld-inputs-modal>
     `;
   }
 }

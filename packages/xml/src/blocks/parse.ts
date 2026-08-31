@@ -1,9 +1,9 @@
 import {
   type Attribute,
   type BlockDef,
+  type BlockParameterDef,
   type BlocksDoc,
   type Factory,
-  type LibraryRef,
   type Namespace,
   type ParamDef,
   type PortDef,
@@ -13,6 +13,7 @@ import {
   NamedType,
   SelfType,
   intersectionOf,
+  isBlockParameterKind,
   parseVariance,
   unbounded,
   unionOf,
@@ -121,15 +122,6 @@ export function parseTexpr(node: XmlElem): TypeExpr {
   return wrapVariance(inner, variance);
 }
 
-function parseLibrary(node: XmlElem): LibraryRef {
-  return {
-    id: node.req("id"),
-    name: node.req("name"),
-    version: node.opt("version") ?? null,
-    attributes: node.attributes(),
-  };
-}
-
 function parseNamespace(node: XmlElem): Namespace {
   return {
     id: node.req("id"),
@@ -225,9 +217,40 @@ function parseTypeDef(node: XmlElem, file: string): TypeDef {
   };
 }
 
+function parseParameterDef(node: XmlElem): BlockParameterDef {
+  if (!isBlockParameterKind(node.tag)) {
+    node.fail(`unsupported parameter <${node.tag}>`);
+  }
+  return {
+    kind: node.tag,
+    name: node.req("name"),
+    description: node.opt("description") ?? null,
+    default: node.opt("default") ?? null,
+    min: node.num("min", false),
+    max: node.num("max", false),
+    step: node.num("step", false),
+    minChars: node.num("minChars", false),
+    maxChars: node.num("maxChars", false),
+    pattern: node.opt("pattern") ?? null,
+    attributes: node.attributes(),
+  };
+}
+
+function parseParameters(node: XmlElem): BlockParameterDef[] {
+  const parameters: BlockParameterDef[] = [];
+  for (const child of node.kids()) {
+    if (child.tag === "attribute") {
+      continue;
+    }
+    parameters.push(parseParameterDef(child));
+  }
+  return parameters;
+}
+
 function parseBlock(node: XmlElem, file: string): BlockDef {
   const attributes: Attribute[] = [];
   const params: ParamDef[] = [];
+  const parameters: BlockParameterDef[] = [];
   let factory: Factory | null = null;
   const inputs: PortDef[] = [];
   const outputs: PortDef[] = [];
@@ -238,6 +261,12 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
         break;
       case "param":
         params.push(parseParam(child));
+        break;
+      case "parameters":
+        if (parameters.length > 0) {
+          child.fail("block already has parameters");
+        }
+        parameters.push(...parseParameters(child));
         break;
       case "factory":
         if (factory !== null) {
@@ -261,6 +290,7 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
     ns: node.req("ns"),
     icon: node.opt("icon") ?? null,
     params,
+    parameters,
     factory,
     inputs,
     outputs,
@@ -276,7 +306,6 @@ export function parseBlocks(file: string, xml: string): BlocksDoc {
     name: root.req("name"),
     icon: root.opt("icon") ?? null,
     attributes: [],
-    libraries: [],
     namespaces: [],
     types: [],
     blocks: [],
@@ -286,9 +315,6 @@ export function parseBlocks(file: string, xml: string): BlocksDoc {
     switch (child.tag) {
       case "attribute":
         doc.attributes.push({ name: child.req("name"), value: child.text() });
-        break;
-      case "library":
-        doc.libraries.push(parseLibrary(child));
         break;
       case "namespace":
         doc.namespaces.push(parseNamespace(child));

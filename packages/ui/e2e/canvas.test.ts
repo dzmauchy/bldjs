@@ -61,6 +61,8 @@ test.describe("canvas", () => {
     const paletteItem = await waitDeep(page, '[data-testid="palette-timer"]');
     expect(await paletteItem.innerText()).toContain("Timer");
     expect(await paletteItem.innerText()).not.toContain("→");
+    await expect(page.locator('[data-testid="palette-random"]')).toContainText("Random");
+    await expect(page.locator('[data-testid="palette-quantizer"]')).toHaveCount(0);
     const paletteIcon = page.locator('[data-testid="palette-timer"] bld-block-icon svg');
     await expect(paletteIcon).toBeVisible();
     const glyphNs = await paletteIcon.evaluate((svg) => {
@@ -89,13 +91,13 @@ test.describe("canvas", () => {
 
   test("places nodes as flex-sized custom elements", async () => {
     await placeBlock(page, "timer");
-    await placeBlock(page, "quantizer");
+    await placeBlock(page, "sin");
     const timerBox = await boxOf(nodeHost(page, "timer"));
-    const quantizerBox = await boxOf(nodeHost(page, "quantizer"));
+    const sinBox = await boxOf(nodeHost(page, "sin"));
     expect(timerBox.width).toBeGreaterThan(80);
     expect(timerBox.height).toBeGreaterThan(40);
-    expect(quantizerBox.width).toBeGreaterThan(80);
-    expect(quantizerBox.height).toBeGreaterThan(40);
+    expect(sinBox.width).toBeGreaterThan(80);
+    expect(sinBox.height).toBeGreaterThan(40);
     expect((await nodeHost(page, "timer").evaluate((el) => el.tagName)).toLowerCase()).toBe("bld-node");
   });
 
@@ -195,8 +197,8 @@ test.describe("canvas", () => {
   test("deletes the selected block with Delete", async () => {
     const before = await statusBlocks(page);
     expect(before).not.toBe("0 blocks");
-    await nodeHost(page, "quantizer").click();
-    const selected = nodeHost(page, "quantizer").locator(".flow-node");
+    await nodeHost(page, "sin").click();
+    const selected = nodeHost(page, "sin").locator(".flow-node");
     const idle = nodeHost(page, "timer").locator(".flow-node");
     expect(await selected.evaluate((el) => getComputedStyle(el).animationName)).toContain("node-selected-fade");
     expect(await idle.evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
@@ -205,7 +207,7 @@ test.describe("canvas", () => {
     );
     await pressDelete(page);
     await expect(page.locator('[data-testid="status-blocks"]')).not.toHaveText(before);
-    await expect(diagramRoot(page).locator('bld-node[data-block-def="quantizer"]')).toHaveCount(0);
+    await expect(diagramRoot(page).locator('bld-node[data-block-def="sin"]')).toHaveCount(0);
   });
 
   test("drops a palette item onto the canvas", async () => {
@@ -247,14 +249,26 @@ test.describe("canvas", () => {
     expect(iconBox.height).toBeLessThanOrEqual(34);
     const nodeBox = await boxOf(host);
     const inBox = await boxOf(host.locator('[data-testid="input-in"] [data-handle]'));
-    const outBox = await boxOf(host.locator('[data-testid="output-out"] [data-handle]'));
     const inCenter = inBox.x + inBox.width / 2;
-    const outCenter = outBox.x + outBox.width / 2;
     expect(inCenter - nodeBox.x).toBeGreaterThanOrEqual(0.5);
     expect(inCenter - nodeBox.x).toBeLessThan(4);
-    expect(nodeBox.x + nodeBox.width - outCenter).toBeGreaterThanOrEqual(0.5);
-    expect(nodeBox.x + nodeBox.width - outCenter).toBeLessThan(4);
+    await expect(host.locator('[data-testid="output-out"]')).toHaveCount(0);
     await expect(host.locator(".block-port-name")).toHaveCount(0);
     await expect(host.locator('[data-testid="input-in"]')).toHaveAttribute("title", "c<f64>");
+    await expect(host.locator('[data-testid^="inputs-"]')).toBeVisible();
+  });
+
+  test("opens generator inputs and defaults period to 10 ms", async () => {
+    await newCanvas(page);
+    await placeBlock(page, "timer");
+    await nodeHost(page, "timer").locator('[data-testid^="inputs-"]').click();
+    await expect(page.locator('[data-testid="inputs-modal"]')).toBeVisible();
+    await expect(page.locator('[data-testid="input-value-period"]')).toHaveText("10 ms");
+    await page.locator('[data-testid="input-range-period"]').fill("25");
+    await expect(page.locator('[data-testid="input-value-period"]')).toHaveText("25 ms");
+    await page.locator('[data-testid="inputs-close"]').click();
+    await expect(page.locator('[data-testid="inputs-modal"]')).toHaveCount(0);
+    await placeBlock(page, "scope");
+    await expect(nodeHost(page, "scope").locator('[data-testid^="inputs-"]')).toHaveCount(0);
   });
 });

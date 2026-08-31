@@ -144,6 +144,29 @@ export class BldNode extends LitElement {
       opacity: 0.4;
       cursor: default;
     }
+    .flow-node-config {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.35rem;
+      height: 1.35rem;
+      padding: 0;
+      border: 1px solid color-mix(in srgb, var(--bs-secondary-color, #adb5bd) 55%, transparent);
+      background: transparent;
+      color: var(--bs-secondary-color, #adb5bd);
+      border-radius: 4px;
+      cursor: pointer;
+      line-height: 0;
+    }
+    .flow-node-config:hover,
+    .flow-node-config:focus-visible {
+      color: var(--bs-info, #0dcaf0);
+      border-color: var(--bs-info, #0dcaf0);
+    }
+    .flow-node-config svg {
+      width: 12px;
+      height: 12px;
+    }
     .flow-node-params {
       color: var(--bs-info, #0dcaf0);
       font-family: var(--bs-font-monospace, ui-monospace, monospace);
@@ -349,6 +372,10 @@ export class BldNode extends LitElement {
       font-size: 0.55rem;
       padding: 0 4px;
     }
+    :host([data-compact]) .flow-node-config {
+      width: 1.1rem;
+      height: 1.1rem;
+    }
     :host([data-compact]) .flow-node-port-col {
       gap: 4px;
       padding: 5px 0;
@@ -446,6 +473,11 @@ export class BldNode extends LitElement {
       return;
     }
     this.dispatchEvent(new CustomEvent("chartclick", { bubbles: true, composed: true }));
+  };
+
+  #onInputsClick = (event: MouseEvent): void => {
+    event.stopPropagation();
+    this.dispatchEvent(new CustomEvent("inputsclick", { bubbles: true, composed: true }));
   };
 
   #portTestId(side: PortSide, name: string): string {
@@ -574,6 +606,23 @@ export class BldNode extends LitElement {
             ${unsafeSVG(renderIconSvg(view.icon))}
           </span>
           ${view.paramsLine ? html`<div class="flow-node-params">${view.paramsLine}</div>` : nothing}
+          ${view.showInputs
+            ? html`
+                <button
+                  class="flow-node-config"
+                  type="button"
+                  title="Configure inputs"
+                  data-testid=${`inputs-${view.blockId}`}
+                  @pointerdown=${(event: PointerEvent) => event.stopPropagation()}
+                  @click=${this.#onInputsClick}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="8" cy="8" r="2.1"/>
+                    <path d="M8 2.4v1.5M8 12.1v1.5M2.4 8h1.5M12.1 8h1.5M4 4l1.1 1.1M10.9 10.9 12 12M4 12l1.1-1.1M10.9 5.1 12 4"/>
+                  </svg>
+                </button>
+              `
+            : nothing}
           ${view.showChart
             ? html`
                 <button

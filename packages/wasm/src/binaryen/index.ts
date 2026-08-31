@@ -1,8 +1,5 @@
-import { addCos } from "./blocks/cos";
+import { addCos, addRandom, addSin, addTimer } from "./blocks/generator";
 import { addScope } from "./blocks/scope";
-import { addQuantizer } from "./blocks/quantizer";
-import { addSin } from "./blocks/sin";
-import { addTimer } from "./blocks/timer";
 import { addFailTag } from "./exceptions";
 import { addImports } from "./imports";
 import { addPush } from "./push";
@@ -20,16 +17,16 @@ export { addFork } from "./fork";
 export { addJsStringBuiltins, JS_STRING_MODULE } from "./strings";
 export { addFailTag, FAIL_TAG } from "./exceptions";
 export { addWait, addNotify } from "./wait";
-export { QUANTIZER_PERIOD_NS } from "./blocks/quantizer";
+export { QUANTIZER_PERIOD_NS, Generator } from "./blocks/generator";
 
 type BlockScript = (module: binaryen.Module, types: WasmCatalogTypes, opts?: WasmBlockEmit) => number;
 
 /** One binaryen.js script per runtime block, keyed by XML block id. */
 export const BLOCK_SCRIPTS: Record<string, BlockScript> = {
   timer: addTimer,
-  quantizer: addQuantizer,
   sin: addSin,
   cos: addCos,
+  random: addRandom,
   scope: addScope,
 };
 

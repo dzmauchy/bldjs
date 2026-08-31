@@ -29,6 +29,7 @@ export function yieldForPaint(): Promise<void> {
 export interface ScopeChannelBinding {
   label: string;
   ring: number;
+  generatorId: number;
 }
 
 export class DiagramRunCancelled extends Error {
@@ -38,12 +39,11 @@ export class DiagramRunCancelled extends Error {
   }
 }
 
-export const EMPTY_RUN_MESSAGE = "Wire a Scope through to a Timer, then Run.";
+export const EMPTY_RUN_MESSAGE = "Wire a Scope into a generator, then Run.";
 
 /** Live generator session: handles, scope bindings, and connector Hertz. */
 export class RunningDiagram implements RunnerSession {
   readonly generators = new Map<number, GeneratorHandle>();
-  readonly scopeToTimer = new Map<number, number>();
   readonly scopeChannels = new Map<number, ScopeChannelBinding[]>();
   readonly linkHz = new Map<string, number>();
   readonly topology: string;
@@ -64,7 +64,6 @@ export class RunningDiagram implements RunnerSession {
       handle.stop();
     }
     this.generators.clear();
-    this.scopeToTimer.clear();
     this.scopeChannels.clear();
     this.linkHz.clear();
     this.#flowPrev.clear();
@@ -72,7 +71,7 @@ export class RunningDiagram implements RunnerSession {
   }
 
   isScopeLive(id: number): boolean {
-    return this.scopeToTimer.has(id);
+    return (this.scopeChannels.get(id)?.length ?? 0) > 0;
   }
 
   connectorHz(link: { fromBlock: number; fromOut: string; toBlock: number; toIn: string }): number {
@@ -84,18 +83,13 @@ export class RunningDiagram implements RunnerSession {
   }
 
   snapshotScope(id: number): ScopeSeries[] {
-    const timerId = this.scopeToTimer.get(id);
     const channels = this.scopeChannels.get(id);
-    if (timerId === undefined || !channels?.length) {
-      return [];
-    }
-    const handle = this.generators.get(timerId);
-    if (!handle) {
+    if (!channels?.length) {
       return [];
     }
     return channels.map((channel) => ({
       label: channel.label,
-      samples: handle.snapshot(channel.ring),
+      samples: this.generators.get(channel.generatorId)?.snapshot(channel.ring) ?? [],
     }));
   }
 
@@ -132,13 +126,12 @@ export class RunningDiagram implements RunnerSession {
     const view = solutionViewFrom(nodes, links);
     for (const plan of plans) {
       const nominalHz = 1000 / intervalMs(plan.delayMs);
-      for (const link of view.subgraphFromTimer(plan.timerId).connectors) {
+      for (const link of view.subgraphFromGenerator(plan.generatorId).connectors) {
         this.linkHz.set(connectorKey(link), nominalHz);
       }
       plan.channels.forEach((channel, index) => {
-        this.scopeToTimer.set(channel.scopeId, plan.timerId);
         const series = this.scopeChannels.get(channel.scopeId) ?? [];
-        series.push({ label: channel.label, ring: index });
+        series.push({ label: channel.label, ring: index, generatorId: plan.generatorId });
         this.scopeChannels.set(channel.scopeId, series);
       });
     }
@@ -190,7 +183,7 @@ export class DiagramRunner implements Runner {
         handle.stop();
         throw new DiagramRunCancelled();
       }
-      session.generators.set(plan.timerId, handle);
+      session.generators.set(plan.generatorId, handle);
       const nominalHz = 1000 / intervalMs(plan.delayMs);
       for (const link of connectors) {
         session.linkHz.set(connectorKey(link), nominalHz);
