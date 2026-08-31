@@ -1,29 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const chartState = vi.hoisted(() => ({
-  configs: [] as Array<{ data?: { datasets?: unknown[] } }>,
-  resizeCount: 0,
-}));
-
-vi.mock("chart.js/auto", () => ({
-  Chart: class {
-    data = { datasets: [] as unknown[], labels: [] as unknown[] };
-    options = { scales: {}, plugins: { legend: {} } };
-    constructor(_canvas: unknown, config: { data?: { datasets?: unknown[]; labels?: unknown[] } }) {
-      chartState.configs.push(config);
-      if (config?.data) {
-        this.data.datasets = config.data.datasets ?? [];
-        this.data.labels = config.data.labels ?? [];
-      }
-    }
-    update(): void {}
-    destroy(): void {}
-    resize(): void {
-      chartState.resizeCount += 1;
-    }
-  },
-}));
-
 import "$lib/ui/app-element";
 import { AppState } from "$lib/state";
 import { BldApp } from "./app-element";
@@ -35,6 +11,42 @@ function litChangeInUpdateWarnings(spy: ReturnType<typeof vi.spyOn>): string[] {
   return spy.mock.calls
     .map((args: unknown[]) => String(args[0] ?? ""))
     .filter((message: string) => message.includes("scheduled an update"));
+}
+
+function stubScopeCanvas(): { fillRect: ReturnType<typeof vi.fn> } {
+  const fillRect = vi.fn();
+  const ctx = {
+    fillStyle: "",
+    strokeStyle: "",
+    lineWidth: 1,
+    lineJoin: "",
+    lineCap: "",
+    font: "",
+    textAlign: "",
+    textBaseline: "",
+    fillRect,
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    stroke: vi.fn(),
+    fillText: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    rect: vi.fn(),
+    clip: vi.fn(),
+    setTransform: vi.fn(),
+    measureText: (text: string) => ({ width: text.length * 6 }),
+  };
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
+  Object.defineProperty(HTMLCanvasElement.prototype, "clientWidth", {
+    configurable: true,
+    get: () => 640,
+  });
+  Object.defineProperty(HTMLCanvasElement.prototype, "clientHeight", {
+    configurable: true,
+    get: () => 280,
+  });
+  return { fillRect };
 }
 
 describe("custom elements", () => {
@@ -75,9 +87,9 @@ describe("BldBlockIcon", () => {
 describe("Lit update scheduling", () => {
   afterEach(() => {
     document.body.replaceChildren();
-    chartState.configs = [];
-    chartState.resizeCount = 0;
     vi.restoreAllMocks();
+    delete (HTMLCanvasElement.prototype as { clientWidth?: number }).clientWidth;
+    delete (HTMLCanvasElement.prototype as { clientHeight?: number }).clientHeight;
   });
 
   it("does not schedule a follow-up update from bld-workspace on first paint", async () => {
@@ -95,6 +107,7 @@ describe("Lit update scheduling", () => {
 
   it("does not schedule a follow-up update from bld-scope-modal when opening and closing", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { fillRect } = stubScopeCanvas();
     const chart = document.createElement("bld-scope-modal") as BldScopeModal;
     const app = new AppState();
     const id = app.nextId;
@@ -112,6 +125,7 @@ describe("Lit update scheduling", () => {
     const host = chart.renderRoot.querySelector("[data-testid=scope-chart]");
     const close = chart.renderRoot.querySelector("[data-testid=scope-close]");
     const caption = chart.renderRoot.querySelector("[data-testid=scope-caption]");
+    const canvas = host?.querySelector("canvas");
     expect(chart.hasAttribute("open")).toBe(true);
     expect(chart.renderRoot.querySelector(".modal-title")).toBeNull();
     expect(host?.querySelector("[data-testid=scope-close]")).toBeNull();
@@ -121,8 +135,10 @@ describe("Lit update scheduling", () => {
     expect(caption?.textContent?.trim()).toBe(`blk_${id}`);
     expect(caption?.textContent).not.toContain("timer(");
     expect(host?.getAttribute("data-series-count")).toBe("2");
-    expect(chartState.configs[0]?.data?.datasets).toHaveLength(2);
-    expect(chartState.resizeCount).toBeGreaterThan(0);
+    expect(host?.getAttribute("data-sample-count")).toBe("2");
+    expect(host?.getAttribute("data-painted")).toBe("true");
+    expect(canvas).not.toBeNull();
+    expect(fillRect).toHaveBeenCalled();
 
     (close as HTMLButtonElement).click();
     await chart.updateComplete;
@@ -137,6 +153,7 @@ describe("Lit update scheduling", () => {
   });
 
   it("labels the scope footer with the instance name when one exists", async () => {
+    stubScopeCanvas();
     const chart = document.createElement("bld-scope-modal") as BldScopeModal;
     const app = new AppState();
     expect(

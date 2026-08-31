@@ -1,11 +1,10 @@
-import { Chart } from "chart.js/auto";
 import { LitElement, css, html, nothing } from "lit";
 import { createRef, ref } from "lit/directives/ref.js";
 import { AppController } from "$lib/context";
 import { isNoneId } from "$lib/model";
 import type { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
-import { buildScopeChartConfig, longestIndexLabels, scopeChartDatasets, scopeChartScales } from "./scope-chart";
+import { ScopeCanvasPlot } from "./scope-chart";
 
 export class BldScopeModal extends LitElement {
   static override properties = {
@@ -16,10 +15,12 @@ export class BldScopeModal extends LitElement {
 
   #ctrl?: AppController;
   #canvas = createRef<HTMLCanvasElement>();
-  #chart: Chart<"line"> | null = null;
+  #plot: ScopeCanvasPlot | null = null;
   #tick: ReturnType<typeof setInterval> | null = null;
   #openId = -1;
   #seriesCount = 0;
+  #sampleCount = 0;
+  #painted = false;
 
   static override styles = [
     bootstrapStyles,
@@ -78,6 +79,8 @@ export class BldScopeModal extends LitElement {
       }
       canvas {
         display: block;
+        position: absolute;
+        inset: 0;
         width: 100%;
         height: 100%;
       }
@@ -95,7 +98,7 @@ export class BldScopeModal extends LitElement {
   }
 
   disconnectedCallback(): void {
-    this.#destroyChart();
+    this.#destroyPlot();
     super.disconnectedCallback();
   }
 
@@ -108,15 +111,15 @@ export class BldScopeModal extends LitElement {
     const id = this.app?.scopeOpen ?? -1;
     const canvas = this.#canvas.value;
     if (!canvas || isNoneId(id)) {
-      this.#destroyChart();
+      this.#destroyPlot();
       return;
     }
-    if (this.#chart && this.#openId === id) {
+    if (this.#plot && this.#openId === id) {
       return;
     }
-    this.#destroyChart();
+    this.#destroyPlot();
     this.#openId = id;
-    this.#startChart(canvas, id);
+    this.#startPlot(canvas, id);
   }
 
   #bindApp(): void {
@@ -126,71 +129,49 @@ export class BldScopeModal extends LitElement {
     this.#ctrl = new AppController(this, this.app);
   }
 
-  #destroyChart(): void {
+  #destroyPlot(): void {
     if (this.#tick !== null) {
       clearInterval(this.#tick);
       this.#tick = null;
     }
-    this.#chart?.destroy();
-    this.#chart = null;
+    this.#plot?.destroy();
+    this.#plot = null;
     this.#openId = -1;
-    this.#writeSeriesCount(0);
+    this.#writeSeriesCount(0, 0, false);
   }
 
-  #writeSeriesCount(count: number): void {
+  #writeSeriesCount(count: number, sampleCount: number, painted: boolean): void {
     this.#seriesCount = count;
+    this.#sampleCount = sampleCount;
+    this.#painted = painted;
     const host = this.renderRoot.querySelector("[data-testid=scope-chart]");
     if (host instanceof HTMLElement) {
       host.dataset.seriesCount = String(count);
+      host.dataset.sampleCount = String(sampleCount);
+      host.dataset.painted = painted ? "true" : "false";
     }
   }
 
-  #applySeries(chart: Chart<"line">, series: ReturnType<AppState["snapshotScope"]>): void {
-    if (this.#seriesCount !== series.length) {
-      chart.data.datasets = scopeChartDatasets(series);
-      chart.options.scales = scopeChartScales(Math.max(series.length, 1));
-      if (chart.options.plugins?.legend) {
-        chart.options.plugins.legend.display = series.length > 1;
-      }
-    } else {
-      series.forEach((channel, index) => {
-        const dataset = chart.data.datasets[index];
-        if (dataset) {
-          dataset.data = channel.samples;
-          dataset.label = channel.label;
-        }
-      });
-    }
-    chart.data.labels = longestIndexLabels(series);
-    chart.update("none");
-    this.#writeSeriesCount(series.length);
+  #applySeries(plot: ScopeCanvasPlot, series: ReturnType<AppState["snapshotScope"]>): void {
+    const sampleCount = series.reduce((max, channel) => Math.max(max, channel.samples.length), 0);
+    this.#writeSeriesCount(series.length, sampleCount, plot.setSeries(series));
   }
 
-  #fitChart(chart: Chart<"line">): void {
-    const fit = (): void => {
-      if (this.#chart !== chart) {
+  #startPlot(canvas: HTMLCanvasElement, id: number): void {
+    const plot = new ScopeCanvasPlot(canvas, (painted) => {
+      if (this.#plot !== plot) {
         return;
       }
-      chart.resize();
-    };
-    fit();
-    requestAnimationFrame(() => {
-      fit();
-      requestAnimationFrame(fit);
+      this.#writeSeriesCount(plot.seriesCount, this.#sampleCount, painted);
     });
-  }
-
-  #startChart(canvas: HTMLCanvasElement, id: number): void {
-    const series = this.app.snapshotScope(id);
-    const chart = new Chart(canvas, buildScopeChartConfig(series));
-    this.#chart = chart;
-    this.#writeSeriesCount(series.length);
-    this.#fitChart(chart);
+    this.#plot = plot;
+    this.#applySeries(plot, this.app.snapshotScope(id));
+    plot.fit();
     const tick = (): void => {
-      if (this.#openId !== id || !this.#chart) {
+      if (this.#openId !== id || this.#plot !== plot) {
         return;
       }
-      this.#applySeries(chart, this.app.snapshotScope(id));
+      this.#applySeries(plot, this.app.snapshotScope(id));
     };
     this.#tick = setInterval(tick, 50);
   }
@@ -220,6 +201,8 @@ export class BldScopeModal extends LitElement {
                 class="scope-chart"
                 data-testid="scope-chart"
                 data-series-count=${this.#seriesCount}
+                data-sample-count=${this.#sampleCount}
+                data-painted=${this.#painted ? "true" : "false"}
               >
                 <canvas ${ref(this.#canvas)}></canvas>
               </div>

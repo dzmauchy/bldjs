@@ -66,7 +66,7 @@ function viewFromStages(stages: readonly string[]): SolutionView {
 
 /**
  * Assign a sample ring to each scope vector slot, walking incoming wires from the timer
- * (same order the UI uses for Chart.js datasets).
+ * (same order the UI uses for scope plot series).
  */
 export function assignRings(view: SolutionView, timerId: number): Map<string, number> {
   const rings = new Map<string, number>();

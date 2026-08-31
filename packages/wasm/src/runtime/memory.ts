@@ -1,6 +1,5 @@
-import { SAMPLE_CAP } from "@bld/xml";
-
-export { SAMPLE_CAP };
+/** Ring capacity. Keep in sync with the XML package sample ring. */
+export const SAMPLE_CAP = 480;
 
 /** Shared memory layout used by the assembled generator. */
 export const MEM = {
@@ -98,7 +97,13 @@ export function bumpFlowCounts(memory: WebAssembly.Memory, count: number): void 
 }
 
 export function readSamples(memory: WebAssembly.Memory, scopeIndex = 0): number[] {
-  const view = new DataView(memory.buffer);
+  const buffer = memory.buffer;
+  if (isSharedBuffer(buffer)) {
+    // Worker tick writes the ring, then Atomics.add on flow counts. Load that
+    // word first so this thread sees the samples.
+    Atomics.load(new Int32Array(buffer, FLOW_COUNTS, 1), 0);
+  }
+  const view = new DataView(buffer);
   const countAddr = scopeCountAddr(scopeIndex);
   const samplesAddr = scopeSamplesAddr(scopeIndex);
   const count = view.getInt32(countAddr, true);

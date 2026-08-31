@@ -13,6 +13,7 @@ import {
   openWorkspace,
   placeBlock,
   pressDelete,
+  scopeChartHasInk,
   statusLinks,
   waitDeep,
   runDiagram,
@@ -353,12 +354,22 @@ test.describe("wiring", () => {
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-series-count", "1", {
       timeout: 1_000,
     });
+    await expect(page.locator('[data-testid="scope-chart"] canvas')).toBeVisible();
+    await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-painted", "true", {
+      timeout: 1_000,
+    });
+    await expect
+      .poll(async () => Number(await page.locator('[data-testid="scope-chart"]').getAttribute("data-sample-count")), {
+        timeout: 2_000,
+      })
+      .toBeGreaterThan(1);
     await expect
       .poll(async () => {
         const box = await page.locator('[data-testid="scope-chart"]').boundingBox();
         return box?.width ?? 0;
       }, { timeout: 1_000 })
       .toBeGreaterThan(100);
+    await expect.poll(async () => scopeChartHasInk(page), { timeout: 2_000 }).toBe(true);
     await page.locator('[data-testid="scope-close"]').click();
     await expect(page.locator('[data-testid="scope-modal"]')).toHaveCount(0);
     await expect.poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count()).toBe(3);
@@ -421,6 +432,16 @@ test.describe("wiring", () => {
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-series-count", "2", {
       timeout: 1_000,
     });
+    await expect(page.locator('[data-testid="scope-chart"] canvas')).toBeVisible();
+    await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-painted", "true", {
+      timeout: 1_000,
+    });
+    await expect
+      .poll(async () => Number(await page.locator('[data-testid="scope-chart"]').getAttribute("data-sample-count")), {
+        timeout: 2_000,
+      })
+      .toBeGreaterThan(1);
+    await expect.poll(async () => scopeChartHasInk(page), { timeout: 2_000 }).toBe(true);
   });
 
   test("moves the connector when a wired node is dragged", async () => {
