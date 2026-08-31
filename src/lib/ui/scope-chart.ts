@@ -87,9 +87,7 @@ export function buildScopeChartConfig(series: readonly ScopeSeries[] = []): Char
       font: { family: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" },
       plugins: {
         title: {
-          display: true,
-          text: "Scope — Multi Axis",
-          color: DARK_TICK,
+          display: false,
         },
         legend: {
           display: series.length > 1,

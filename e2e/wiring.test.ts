@@ -339,11 +339,17 @@ test.describe("wiring", () => {
       .poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count(), { timeout: 2_000 })
       .toBe(3);
     await expect(page.locator('[data-testid="status-run"]')).toHaveText("Running", { timeout: 15_000 });
-    const run = page.locator('[data-testid="toolbar-run"]');
-    await expect(run).toBeDisabled();
+    const stop = page.locator('[data-testid="toolbar-stop"]');
+    await expect(page.locator('[data-testid="toolbar-run"]')).toHaveCount(0);
+    await expect(stop).toHaveAttribute("title", "Stop");
+    await expect(stop).toHaveAttribute("aria-label", "Stop");
     await expect(chart).toBeEnabled();
     await chart.click();
     await waitDeep(page, '[data-testid="scope-modal"]');
+    await expect(page.locator('[data-testid="scope-modal"] .modal-title')).toHaveCount(0);
+    await expect(page.locator('[data-testid="scope-caption"]')).toHaveText("blk_5");
+    await expect(page.locator('[data-testid="scope-caption"]')).not.toContainText("timer(");
+    await expect(page.locator('[data-testid="scope-close"]')).toBeVisible();
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-series-count", "1", {
       timeout: 1_000,
     });
@@ -353,7 +359,7 @@ test.describe("wiring", () => {
         return box?.width ?? 0;
       }, { timeout: 1_000 })
       .toBeGreaterThan(100);
-    await page.keyboard.press("Escape");
+    await page.locator('[data-testid="scope-close"]').click();
     await expect(page.locator('[data-testid="scope-modal"]')).toHaveCount(0);
     await expect.poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count()).toBe(3);
     const duration = await page.locator("bld-connector:not([data-preview])[data-flow]").first().evaluate((el) => {
@@ -381,7 +387,7 @@ test.describe("wiring", () => {
       { push: true, direction: "reverse" },
     ]);
     await page.locator('[data-testid="toolbar-stop"]').click();
-    await expect(run).toBeEnabled();
+    await expect(page.locator('[data-testid="toolbar-run"]')).toBeEnabled();
     await expect(page.locator("bld-connector:not([data-preview])[data-flow]")).toHaveCount(0);
   });
 
@@ -408,6 +414,10 @@ test.describe("wiring", () => {
     await expect(chart).toBeEnabled();
     await chart.click();
     await waitDeep(page, '[data-testid="scope-modal"]');
+    await expect(page.locator('[data-testid="scope-modal"] .modal-title')).toHaveCount(0);
+    await expect(page.locator('[data-testid="scope-caption"]')).toHaveText("blk_1");
+    await expect(page.locator('[data-testid="scope-caption"]')).not.toContainText("timer(");
+    await expect(page.locator('[data-testid="scope-close"]')).toBeVisible();
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-series-count", "2", {
       timeout: 1_000,
     });

@@ -110,10 +110,23 @@ describe("Lit update scheduling", () => {
     app.scopeOpen = id;
     await chart.updateComplete;
     const host = chart.renderRoot.querySelector("[data-testid=scope-chart]");
+    const close = chart.renderRoot.querySelector("[data-testid=scope-close]");
+    const caption = chart.renderRoot.querySelector("[data-testid=scope-caption]");
     expect(chart.hasAttribute("open")).toBe(true);
+    expect(chart.renderRoot.querySelector(".modal-title")).toBeNull();
+    expect(host?.querySelector("[data-testid=scope-close]")).toBeNull();
+    expect(close).not.toBeNull();
+    expect(close?.closest(".scope-footer")).not.toBeNull();
+    expect(close?.getAttribute("aria-label")).toBe("Close");
+    expect(caption?.textContent?.trim()).toBe(`blk_${id}`);
+    expect(caption?.textContent).not.toContain("timer(");
     expect(host?.getAttribute("data-series-count")).toBe("2");
     expect(chartState.configs[0]?.data?.datasets).toHaveLength(2);
     expect(chartState.resizeCount).toBeGreaterThan(0);
+
+    (close as HTMLButtonElement).click();
+    await chart.updateComplete;
+    expect(app.scopeOpen).toBe(-1);
 
     app.scopeOpen = -1;
     await chart.updateComplete;
@@ -121,5 +134,26 @@ describe("Lit update scheduling", () => {
     expect(chart.hasAttribute("open")).toBe(false);
 
     expect(litChangeInUpdateWarnings(warn)).toEqual([]);
+  });
+
+  it("labels the scope footer with the instance name when one exists", async () => {
+    const chart = document.createElement("bld-scope-modal") as BldScopeModal;
+    const app = new AppState();
+    expect(
+      app.loadDiagramXml(`<?xml version="1.0" encoding="UTF-8"?>
+<diagram id="diag_named" name="Named" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
+  <blocks>
+    <block id="blk_probe" type="scope" name="Probe" x="0" y="0" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>
+  </blocks>
+</diagram>`),
+    ).toBe(true);
+    const id = app.blocks[0]!.id;
+    vi.spyOn(app, "snapshotScope").mockReturnValue([{ label: "sin", samples: [0, 1] }]);
+    chart.app = app;
+    document.body.append(chart);
+    await chart.updateComplete;
+    app.scopeOpen = id;
+    await chart.updateComplete;
+    expect(chart.renderRoot.querySelector("[data-testid=scope-caption]")?.textContent?.trim()).toBe("Probe");
   });
 });

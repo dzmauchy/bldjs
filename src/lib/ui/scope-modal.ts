@@ -33,12 +33,48 @@ export class BldScopeModal extends LitElement {
         inset: 0;
         z-index: 1055;
       }
+      .modal-content {
+        overflow: hidden;
+      }
       .scope-chart {
         width: 100%;
         height: 280px;
         background: #14171a;
-        border-radius: 0.35rem;
         position: relative;
+      }
+      .scope-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.4rem 0.75rem;
+      }
+      .scope-caption {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .scope-close {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.7rem;
+        height: 1.7rem;
+        padding: 0;
+        border: 0;
+        border-radius: 0.25rem;
+        background: transparent;
+        color: var(--bs-secondary-color, #adb5bd);
+        font-size: 1.35rem;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .scope-close:hover,
+      .scope-close:focus-visible {
+        color: var(--bs-body-color, #f8f9fa);
+        background: var(--bs-tertiary-bg, rgba(255, 255, 255, 0.08));
       }
       canvas {
         display: block;
@@ -179,16 +215,7 @@ export class BldScopeModal extends LitElement {
       <div class="modal fade show d-block" tabindex="-1" role="dialog" data-testid="scope-modal">
         <div class="modal-dialog modal-lg modal-dialog-centered">
           <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Scope #${app.scopeOpen}</h5>
-              <button
-                type="button"
-                class="btn-close"
-                aria-label="Close"
-                @click=${() => app.closeScope()}
-              ></button>
-            </div>
-            <div class="modal-body p-3">
+            <div class="modal-body p-0">
               <div
                 class="scope-chart"
                 data-testid="scope-chart"
@@ -196,8 +223,20 @@ export class BldScopeModal extends LitElement {
               >
                 <canvas ${ref(this.#canvas)}></canvas>
               </div>
-              <div class="small text-secondary mt-2">
-                timer(fork(sin(plot[0]), cos(plot[1]))) · multi-axis
+              <div class="scope-footer">
+                <div class="scope-caption small text-secondary" data-testid="scope-caption">
+                  ${app.blockDisplayName(app.scopeOpen)}
+                </div>
+                <button
+                  type="button"
+                  class="scope-close"
+                  title="Close"
+                  aria-label="Close"
+                  data-testid="scope-close"
+                  @click=${() => app.closeScope()}
+                >
+                  ×
+                </button>
               </div>
             </div>
           </div>
