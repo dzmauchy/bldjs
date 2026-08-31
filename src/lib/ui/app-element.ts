@@ -5,6 +5,7 @@ import { COMPACT_UI_QUERY, compactUiMatches, isNoneId } from "$lib/model";
 import { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
 import "./about-modal";
+import "./diagram-io-modal";
 import "./toolbar";
 import "./scope-modal";
 import "./palette";
@@ -93,7 +94,7 @@ export class BldApp extends LitElement {
     switch (event.key) {
       case "Delete":
       case "Backspace":
-        if (app.aboutOpen || !isNoneId(app.scopeOpen)) {
+        if (app.aboutOpen || app.ioMode !== "closed" || !isNoneId(app.scopeOpen)) {
           break;
         }
         if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
@@ -103,6 +104,10 @@ export class BldApp extends LitElement {
         app.deleteSelected();
         break;
       case "Escape":
+        if (app.ioMode !== "closed") {
+          app.closeIo();
+          break;
+        }
         app.clearSelection();
         app.aboutOpen = false;
         app.draggingDefId = null;
@@ -154,6 +159,7 @@ export class BldApp extends LitElement {
         <bld-status-bar .app=${app}></bld-status-bar>
       </div>
       <bld-about-modal .app=${app}></bld-about-modal>
+      <bld-diagram-io-modal .app=${app}></bld-diagram-io-modal>
       <bld-scope-modal .app=${app}></bld-scope-modal>
     `;
   }

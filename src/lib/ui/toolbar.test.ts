@@ -88,6 +88,10 @@ describe("BldToolbar", () => {
     expect(dropdown()?.classList.contains("show")).toBe(true);
     expect(dropdown()?.querySelector('[data-testid="menu-about"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-new-canvas"]')).not.toBeNull();
+    expect(dropdown()?.querySelector('[data-testid="menu-save-diagram"]')).not.toBeNull();
+    expect(dropdown()?.querySelector('[data-testid="menu-open-diagram"]')).not.toBeNull();
+    expect(dropdown()?.querySelector('[data-testid="menu-import-xml"]')).not.toBeNull();
+    expect(dropdown()?.querySelector('[data-testid="menu-export-xml"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-zoom-in"]')).not.toBeNull();
   });
 

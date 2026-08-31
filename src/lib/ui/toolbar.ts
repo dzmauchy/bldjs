@@ -163,6 +163,29 @@ export class BldToolbar extends LitElement {
     this.requestUpdate();
   };
 
+  #importXml(): void {
+    this.#close();
+    const input = this.renderRoot.querySelector('[data-testid="import-xml-input"]');
+    if (input instanceof HTMLInputElement) {
+      input.value = "";
+      input.click();
+    }
+  }
+
+  async #onImportFile(event: Event): Promise<void> {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) {
+      return;
+    }
+    const xml = await file.text();
+    this.app.loadDiagramXml(xml);
+  }
+
   protected override render() {
     const app = this.app;
     if (!app) {
@@ -214,6 +237,13 @@ export class BldToolbar extends LitElement {
         >
           <bld-block-icon name="stop"></bld-block-icon>
         </button>
+        <input
+          type="file"
+          accept=".xml,text/xml,application/xml"
+          hidden
+          data-testid="import-xml-input"
+          @change=${(event: Event) => this.#onImportFile(event)}
+        />
 
         <div class="ms-auto position-relative">
           <button
@@ -256,6 +286,47 @@ export class BldToolbar extends LitElement {
               }}
             >
               New canvas
+            </button>
+            <button
+              class="dropdown-item"
+              type="button"
+              data-testid="menu-save-diagram"
+              @click=${() => {
+                app.openSaveDialog();
+                this.#close();
+              }}
+            >
+              Save…
+            </button>
+            <button
+              class="dropdown-item"
+              type="button"
+              data-testid="menu-open-diagram"
+              @click=${() => {
+                void app.openLibraryDialog();
+                this.#close();
+              }}
+            >
+              Open…
+            </button>
+            <button
+              class="dropdown-item"
+              type="button"
+              data-testid="menu-import-xml"
+              @click=${() => this.#importXml()}
+            >
+              Import XML…
+            </button>
+            <button
+              class="dropdown-item"
+              type="button"
+              data-testid="menu-export-xml"
+              @click=${() => {
+                app.exportDiagramXml();
+                this.#close();
+              }}
+            >
+              Export XML
             </button>
             <button
               class="dropdown-item"
