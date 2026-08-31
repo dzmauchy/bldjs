@@ -123,7 +123,7 @@ When defining a `<param>`, use `<extends>` and `<super>` to bound the generic va
 
 ## 5. Modeling functions, consumers, and arrays
 
-`<in>` ports and `<out>` ports carry language-agnostic types. Control Systems uses a pure push model: every consumer is `DoubleConsumer` (`c<f64>`). Compact display writes `c1` as `c`. WASM builder blocks use the same ports: `c1<T>` is `(ref $c1_T)`, and `T[]` is a dynamically sized `(array (mut T))` whose length is the number of outgoing connectors.
+`<in>` ports and `<out>` ports carry language-agnostic types. Control Systems uses a pure push model: every consumer is `DoubleConsumer` (`c<f64>`). Compact display writes `c1` as `c`. AssemblyScript builder blocks use the same ports: `c1<T>` is the type alias `c<T> = (v: T) => void`, and `T[]` is a vector whose length is the number of outgoing connectors.
 
 ```
 timer(c)           : c<f64> → void
@@ -175,7 +175,7 @@ So two channels from one oscilloscope compile as `timer(fork(sin(plot[0]), cos(p
 </block>
 ```
 
-SolutionBuilder walks the connected SolutionView and runs the binaryen.js script for each XML block (`resources/binaryen/blocks`), then wires `SolutionViewConnector`s (`array.get` for vector slots, `fork` on fan-in) into one wasm-gc module (`call_ref`). Each Timer starts in its own worker thread; that thread drives `tick` with `setInterval`. The runner (not the WASM runtime) intercepts `c<?>` connector frequency after every tick so the canvas can pick one of ten logarithmic dash styles (`0` slowest … `9` fastest).
+SolutionBuilder walks the connected SolutionView and emits one AssemblyScript function per XML block (`resources/assemblyscript/blocks`), then wires `SolutionViewConnector`s (vector slots, `fork` on fan-in) into one module compiled by `asc`. Each Timer starts in its own worker thread; that thread drives `tick` with `setInterval`. The runner (not the WASM runtime) intercepts `c<?>` connector frequency after every tick so the canvas can pick one of ten logarithmic dash styles (`0` slowest … `9` fastest).
 
 ### A. Varargs (`array#of`)
 Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.

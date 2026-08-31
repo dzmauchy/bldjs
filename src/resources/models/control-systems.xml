@@ -19,9 +19,9 @@
     Each <in> / <out> is the WASM signature for that block. Arrays are
     dynamically sized from the number of outgoing connectors.
 
-    Each block is a binaryen.js script in resources/binaryen/blocks.
-    SolutionBuilder wires those scripts from the connected SolutionView.
-    Every function receives runtime $ctx (i32 pointer: time, delay_ns).
+    Each block is an AssemblyScript function in resources/assemblyscript/blocks.
+    SolutionBuilder wires those functions from the connected SolutionView.
+    Consumers use the type alias c<T> = (v: T) => void (no boxed GC refs).
   -->
 
   <block id="timer" name="Timer" ns="com.dauch.cs.gen" icon="timer">

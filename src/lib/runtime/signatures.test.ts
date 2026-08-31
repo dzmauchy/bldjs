@@ -1,28 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { associateBuiltinModels, associateFixtureModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
-import { blockSignature, signatureWat, wasmHeapTypeName, wasmValType } from "./signatures";
+import { asIdent, asSignature, asValType, blockSignature, wasmHeapTypeName } from "./signatures";
 import { arrayOf, displayType, named, generic } from "../blocks/ast";
 
-describe("XML ↔ WASM signatures", () => {
-  it("maps catalog primitives and function types", () => {
-    expect(wasmValType(named("f64"))).toBe("f64");
-    expect(wasmValType(named("i32"))).toBe("i32");
-    expect(wasmValType(named("bool"))).toBe("i32");
-    expect(wasmValType(named("str"))).toBe("externref");
-    expect(wasmValType(generic("c1", [named("f64")]))).toBe("(ref $c1_f64)");
-    expect(wasmValType(generic("s", [named("f64")]))).toBe("(ref $s_f64)");
-    expect(wasmValType(generic("f1", [named("i32"), named("str")]))).toBe("(ref $f1_i32_str)");
-    expect(wasmValType(generic("c2", [named("i32"), named("f64")]))).toBe("(ref $c2_i32_f64)");
-    expect(wasmValType(generic("f2", [named("i32"), named("i64"), named("bool")]))).toBe(
-      "(ref $f2_i32_i64_bool)",
+describe("XML ↔ AssemblyScript signatures", () => {
+  it("maps catalog primitives and function types to aliases", () => {
+    expect(asValType(named("f64"))).toBe("f64");
+    expect(asValType(named("i32"))).toBe("i32");
+    expect(asValType(named("bool"))).toBe("bool");
+    expect(asValType(named("str"))).toBe("string");
+    expect(asValType(generic("c1", [named("f64")]))).toBe("c<f64>");
+    expect(asValType(generic("s", [named("f64")]))).toBe("s<f64>");
+    expect(asValType(generic("f1", [named("i32"), named("str")]))).toBe("f1<i32, string>");
+    expect(asValType(generic("c2", [named("i32"), named("f64")]))).toBe("c2<i32, f64>");
+    expect(asValType(generic("f2", [named("i32"), named("i64"), named("bool")]))).toBe(
+      "f2<i32, i64, bool>",
     );
-    expect(wasmValType(arrayOf(named("i32")))).toBe("(ref $array_i32)");
-    expect(wasmValType(arrayOf(generic("c1", [named("f64")])))).toBe("(ref $array_c1_f64)");
-    expect(wasmHeapTypeName(arrayOf(generic("c1", [named("f64")])))).toBe("array_c1_f64");
+    expect(asValType(arrayOf(named("i32")))).toBe("i32[]");
+    expect(asValType(arrayOf(generic("c1", [named("f64")])))).toBe("c<f64>[]");
+    expect(wasmHeapTypeName(arrayOf(generic("c1", [named("f64")])))).toBe("c_f64");
+    expect(asIdent("in")).toBe("inn");
   });
 
-  it("control-system blocks match XML ports as WASM params and results", () => {
+  it("control-system blocks match XML ports as AssemblyScript params and results", () => {
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);
     const cat = diagram.catalog();
@@ -30,32 +31,32 @@ describe("XML ↔ WASM signatures", () => {
     expect(blockSignature(cat.block("timer")!)).toEqual({
       id: "timer",
       name: "Timer",
-      params: [{ name: "in", type: "(ref $c1_f64)" }],
+      params: [{ name: "inn", type: "c<f64>" }],
       results: [],
     });
     expect(blockSignature(cat.block("quantizer")!)).toEqual({
       id: "quantizer",
       name: "Quantizer",
-      params: [{ name: "in", type: "(ref $c1_f64)" }],
-      results: [{ name: "out", type: "(ref $c1_f64)" }],
+      params: [{ name: "inn", type: "c<f64>" }],
+      results: [{ name: "out", type: "c<f64>" }],
     });
     expect(blockSignature(cat.block("sin")!)).toEqual({
       id: "sin",
       name: "Sin",
-      params: [{ name: "in", type: "(ref $c1_f64)" }],
-      results: [{ name: "out", type: "(ref $c1_f64)" }],
+      params: [{ name: "inn", type: "c<f64>" }],
+      results: [{ name: "out", type: "c<f64>" }],
     });
     expect(blockSignature(cat.block("cos")!)).toEqual({
       id: "cos",
       name: "Cos",
-      params: [{ name: "in", type: "(ref $c1_f64)" }],
-      results: [{ name: "out", type: "(ref $c1_f64)" }],
+      params: [{ name: "inn", type: "c<f64>" }],
+      results: [{ name: "out", type: "c<f64>" }],
     });
     expect(blockSignature(cat.block("oscilloscope")!)).toEqual({
       id: "oscilloscope",
       name: "Oscilloscope",
       params: [],
-      results: [{ name: "out", type: "(ref $array_c1_f64)" }],
+      results: [{ name: "out", type: "c<f64>[]" }],
     });
     expect(displayType(cat.block("timer")!.inputs[0].ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("quantizer")!.outputs[0].ty, true)).toBe("c<f64>");
@@ -79,40 +80,36 @@ describe("XML ↔ WASM signatures", () => {
       id: "b_bool",
       name: "bool",
       params: [],
-      results: [{ name: "value", type: "i32" }],
+      results: [{ name: "value", type: "bool" }],
     });
     expect(blockSignature(cat.block("b_str")!)).toEqual({
       id: "b_str",
       name: "str",
       params: [],
-      results: [{ name: "value", type: "externref" }],
+      results: [{ name: "value", type: "string" }],
     });
     expect(blockSignature(cat.block("b_array_get")!)).toEqual({
       id: "b_array_get",
       name: "array.get",
       params: [
-        { name: "array", type: "(ref $array_T)" },
+        { name: "array", type: "T[]" },
         { name: "index", type: "i32" },
       ],
-      results: [{ name: "elem", type: "externref" }],
+      results: [{ name: "elem", type: "T" }],
     });
   });
 
-  it("emits named params, named results, and a runtime $ctx", () => {
+  it("emits named params and results without a boxed ctx pointer", () => {
     const diagram = new Diagram("ws", "Workspace");
     associateFixtureModels(diagram);
     const cat = diagram.catalog();
-    expect(signatureWat(blockSignature(cat.block("timer")!))).toBe(
-      "(func $timer (param $ctx i32) (param $in (ref $c1_f64))",
+    expect(asSignature(blockSignature(cat.block("timer")!))).toBe("function timer(inn: c<f64>): void");
+    expect(asSignature(blockSignature(cat.block("sin")!))).toBe("function sin(inn: c<f64>): c<f64>");
+    expect(asSignature(blockSignature(cat.block("oscilloscope")!))).toBe(
+      "function oscilloscope(): c<f64>[]",
     );
-    expect(signatureWat(blockSignature(cat.block("sin")!))).toBe(
-      "(func $sin (param $ctx i32) (param $in (ref $c1_f64)) (result $out (ref $c1_f64))",
-    );
-    expect(signatureWat(blockSignature(cat.block("oscilloscope")!))).toBe(
-      "(func $oscilloscope (param $ctx i32) (result $out (ref $array_c1_f64))",
-    );
-    expect(signatureWat(blockSignature(cat.block("b_decision")!), false)).toBe(
-      "(func $b_decision (param $in externref) (result $true externref) (result $false externref)",
+    expect(asSignature(blockSignature(cat.block("b_decision")!))).toBe(
+      "function b_decision(inn: T): T, T",
     );
   });
 });

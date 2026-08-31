@@ -82,7 +82,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ["binaryen"],
+    include: ["assemblyscript", "assemblyscript/asc", "binaryen"],
     exclude: ["libavoid-js", "@joint/router-avoid"],
   },
   server: {
