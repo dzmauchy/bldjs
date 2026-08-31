@@ -1,5 +1,5 @@
 import binaryen from "binaryen";
-import { CTX, MEMORY_PAGES } from "../../lib/runtime/memory";
+import { CTX, MEMORY_PAGES } from "../runtime/memory";
 
 /** Memory import and host services used by every assembled generator. */
 export function addImports(module: binaryen.Module, shared = true): void {

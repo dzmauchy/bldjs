@@ -1,5 +1,5 @@
 import binaryen from "binaryen";
-import { CTX, MEM, RING_STRIDE, SAMPLE_CAP } from "../../lib/runtime/memory";
+import { CTX, MEM, RING_STRIDE, SAMPLE_CAP } from "../runtime/memory";
 import { nameLocals } from "./util";
 
 /** Push a sample into ring 0 (count at 4, samples at 16). */
