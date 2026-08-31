@@ -1,5 +1,5 @@
 import binaryen from "binaryen";
-import { MEM } from "../../lib/runtime/memory";
+import { MEM } from "../../runtime/memory";
 import { nameLocals } from "./util";
 
 /**

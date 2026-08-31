@@ -1,7 +1,7 @@
 import binaryen from "binaryen";
 import { describe, expect, it } from "vitest";
-import { BLOCK_SCRIPTS, addCatalogTypes, wasmFeatures } from "../../resources/binaryen";
-import { localNames as functionLocalNames } from "../../resources/binaryen/util";
+import { BLOCK_SCRIPTS, addCatalogTypes, wasmFeatures } from "../resources/binaryen";
+import { localNames as functionLocalNames } from "../resources/binaryen/util";
 import { associateBuiltinModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
 import { assembleModule, blockTypeWat, runtimeTypeWat } from "./assemble";

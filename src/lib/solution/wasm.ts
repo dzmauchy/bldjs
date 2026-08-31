@@ -34,8 +34,8 @@ let assemblerPreload: Promise<unknown> | undefined;
 export function preloadAssembler(): void {
   assemblerPreload ??= Promise.all([
     import("binaryen"),
-    import("../../resources/binaryen"),
-    import("../../resources/binaryen/util"),
+    import("$lib/resources/binaryen"),
+    import("$lib/resources/binaryen/util"),
   ]);
 }
 
@@ -153,8 +153,8 @@ async function emitWasm(
   preloadAssembler();
   const [{ default: binaryen }, scripts, { nameLocals }] = await Promise.all([
     import("binaryen"),
-    import("../../resources/binaryen"),
-    import("../../resources/binaryen/util"),
+    import("$lib/resources/binaryen"),
+    import("$lib/resources/binaryen/util"),
   ]);
   const { BLOCK_SCRIPTS, RUNTIME_SCRIPTS, addCatalogTypes, wasmFeatures, nopConsumer, addFork } = scripts;
   const delayNs = BigInt(Math.max(options.delayMs, 1)) * 1_000_000n;

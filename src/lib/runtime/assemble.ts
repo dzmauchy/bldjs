@@ -6,7 +6,7 @@ import { blockSignature, blockTypeWat } from "./signatures";
 
 export type Stage = "sin" | "cos" | "quantizer";
 
-export type { BlockScriptId } from "../../resources/binaryen";
+export type { BlockScriptId } from "../resources/binaryen";
 export { blockTypeWat } from "./signatures";
 export type { SolutionView } from "../solution/view";
 

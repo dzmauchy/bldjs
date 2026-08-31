@@ -175,7 +175,7 @@ So two channels from one oscilloscope compile as `timer(fork(sin(plot[0]), cos(p
 </block>
 ```
 
-SolutionBuilder walks the connected SolutionView and emits one Binaryen function per XML block (`resources/binaryen/blocks`) using the same `<in>` / `<out>` ports plus runtime `$ctx` (`timer(ctx, in: c<f64>)`, `sin(ctx, in: c<f64>) → c<f64>`, `oscilloscope(ctx) → c<f64>[]`). Consumers are typed funcrefs (`call_ref`); oscilloscope `out` is a GC array sized from outgoing connectors; fan-in inserts a hidden `fork`. Each Timer starts in its own worker thread; that thread drives `tick` with `setInterval`. The runner (not the WASM runtime) intercepts `c<?>` connector frequency after every tick so the canvas can pick one of ten logarithmic dash styles (`0` slowest … `9` fastest).
+SolutionBuilder walks the connected SolutionView and emits one Binaryen function per XML block (`src/lib/resources/binaryen/blocks`) using the same `<in>` / `<out>` ports plus runtime `$ctx` (`timer(ctx, in: c<f64>)`, `sin(ctx, in: c<f64>) → c<f64>`, `oscilloscope(ctx) → c<f64>[]`). Consumers are typed funcrefs (`call_ref`); oscilloscope `out` is a GC array sized from outgoing connectors; fan-in inserts a hidden `fork`. Each Timer starts in its own worker thread; that thread drives `tick` with `setInterval`. The runner (not the WASM runtime) intercepts `c<?>` connector frequency after every tick so the canvas can pick one of ten logarithmic dash styles (`0` slowest … `9` fastest).
 
 ### A. Varargs (`array#of`)
 Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.
