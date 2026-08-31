@@ -116,12 +116,28 @@ test.describe("phone landscape", () => {
       if (!(list instanceof HTMLElement)) {
         throw new Error("palette-list missing");
       }
-      const before = { scrollHeight: list.scrollHeight, clientHeight: list.clientHeight, scrollTop: list.scrollTop };
-      list.scrollTop = Math.min(160, list.scrollHeight);
-      return { ...before, after: list.scrollTop };
+      const style = getComputedStyle(list);
+      const spacer = document.createElement("div");
+      spacer.style.height = "800px";
+      list.append(spacer);
+      const clientHeight = list.clientHeight;
+      const scrollHeight = list.scrollHeight;
+      list.scrollTop = 240;
+      const after = list.scrollTop;
+      spacer.remove();
+      return {
+        overflowY: style.overflowY,
+        hostHeight: host.getBoundingClientRect().height,
+        clientHeight,
+        scrollHeight,
+        after,
+      };
     });
-    expect(scroll.scrollHeight).toBeGreaterThan(scroll.clientHeight);
-    expect(scroll.after).toBeGreaterThan(scroll.scrollTop);
+    expect(["auto", "scroll"]).toContain(scroll.overflowY);
+    expect(scroll.hostHeight).toBeLessThan(360);
+    expect(scroll.clientHeight).toBeLessThan(scroll.hostHeight);
+    expect(scroll.scrollHeight).toBeGreaterThan(scroll.clientHeight + 400);
+    expect(scroll.after).toBeGreaterThan(100);
   });
 
   test("pans the canvas from a touch drag", async ({ page }) => {
