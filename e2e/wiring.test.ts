@@ -309,7 +309,15 @@ test.describe("wiring", () => {
     await expect(chart).toBeEnabled();
     await chart.click();
     await waitDeep(page, '[data-testid="oscilloscope-modal"]');
-    await expect(page.locator('[data-testid="oscilloscope-chart"]')).toHaveAttribute("data-series-count", "1");
+    await expect(page.locator('[data-testid="oscilloscope-chart"]')).toHaveAttribute("data-series-count", "1", {
+      timeout: 1_000,
+    });
+    await expect
+      .poll(async () => {
+        const box = await page.locator('[data-testid="oscilloscope-chart"]').boundingBox();
+        return box?.width ?? 0;
+      }, { timeout: 1_000 })
+      .toBeGreaterThan(100);
     await page.keyboard.press("Escape");
     await expect(page.locator('[data-testid="oscilloscope-modal"]')).toHaveCount(0);
     await expect.poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count()).toBe(3);
@@ -365,7 +373,9 @@ test.describe("wiring", () => {
     await expect(chart).toBeEnabled();
     await chart.click();
     await waitDeep(page, '[data-testid="oscilloscope-modal"]');
-    await expect(page.locator('[data-testid="oscilloscope-chart"]')).toHaveAttribute("data-series-count", "2");
+    await expect(page.locator('[data-testid="oscilloscope-chart"]')).toHaveAttribute("data-series-count", "2", {
+      timeout: 1_000,
+    });
   });
 
   test("moves the connector when a wired node is dragged", async () => {

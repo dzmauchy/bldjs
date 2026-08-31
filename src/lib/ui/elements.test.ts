@@ -1,11 +1,26 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const chartState = vi.hoisted(() => ({
+  configs: [] as Array<{ data?: { datasets?: unknown[] } }>,
+  resizeCount: 0,
+}));
+
 vi.mock("chart.js/auto", () => ({
   Chart: class {
     data = { datasets: [] as unknown[], labels: [] as unknown[] };
     options = { scales: {}, plugins: { legend: {} } };
+    constructor(_canvas: unknown, config: { data?: { datasets?: unknown[]; labels?: unknown[] } }) {
+      chartState.configs.push(config);
+      if (config?.data) {
+        this.data.datasets = config.data.datasets ?? [];
+        this.data.labels = config.data.labels ?? [];
+      }
+    }
     update(): void {}
     destroy(): void {}
+    resize(): void {
+      chartState.resizeCount += 1;
+    }
   },
 }));
 
@@ -59,6 +74,8 @@ describe("BldBlockIcon", () => {
 describe("Lit update scheduling", () => {
   afterEach(() => {
     document.body.replaceChildren();
+    chartState.configs = [];
+    chartState.resizeCount = 0;
     vi.restoreAllMocks();
   });
 
@@ -81,7 +98,7 @@ describe("Lit update scheduling", () => {
     const app = new AppState();
     const id = app.nextId;
     app.addBlock("oscilloscope", 0, 0);
-    vi.spyOn(app, "snapshotScope").mockResolvedValue([
+    vi.spyOn(app, "snapshotScope").mockReturnValue([
       { label: "sin", samples: [0, 1] },
       { label: "cos", samples: [1, 0] },
     ]);
@@ -91,14 +108,16 @@ describe("Lit update scheduling", () => {
 
     app.scopeOpen = id;
     await chart.updateComplete;
-    await vi.waitFor(() => {
-      const host = chart.renderRoot.querySelector("[data-testid=oscilloscope-chart]");
-      expect(host?.getAttribute("data-series-count")).toBe("2");
-    });
+    const host = chart.renderRoot.querySelector("[data-testid=oscilloscope-chart]");
+    expect(chart.hasAttribute("open")).toBe(true);
+    expect(host?.getAttribute("data-series-count")).toBe("2");
+    expect(chartState.configs[0]?.data?.datasets).toHaveLength(2);
+    expect(chartState.resizeCount).toBeGreaterThan(0);
 
     app.scopeOpen = -1;
     await chart.updateComplete;
     await chart.updateComplete;
+    expect(chart.hasAttribute("open")).toBe(false);
 
     expect(litChangeInUpdateWarnings(warn)).toEqual([]);
   });

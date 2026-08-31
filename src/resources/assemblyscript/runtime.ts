@@ -46,7 +46,8 @@ export function compileOptions(options: CompileAsOptions): Record<string, unknow
     initialMemory: 1,
     maximumMemory: 1,
     zeroFilledMemory: true,
-    optimizeLevel: 3,
+    // O3 is far too slow in the browser; the generator is tiny.
+    optimizeLevel: 1,
     noAssert: true,
     noColors: true,
     ...(options.sharedMemory ? { sharedMemory: true, enable: ["threads"] } : {}),

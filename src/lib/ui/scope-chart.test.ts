@@ -41,6 +41,8 @@ describe("scope multi-axis chart", () => {
     expect(config.type).toBe("line");
     expect(config.data.labels).toEqual([0, 1]);
     expect(config.data.datasets).toHaveLength(2);
+    expect(config.options?.animation).toBe(false);
+    expect(config.options?.resizeDelay).toBe(0);
     expect(config.options?.interaction).toEqual({ mode: "index", intersect: false });
     expect(config.options?.scales?.y).toMatchObject({ stacked: false, position: "left" });
     expect(config.options?.plugins?.title?.text).toBe("Oscilloscope — Multi Axis");

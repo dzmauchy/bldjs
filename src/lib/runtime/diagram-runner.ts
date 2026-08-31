@@ -71,7 +71,7 @@ export class RunningDiagram {
     return this.linkHz.get(key) ?? 0;
   }
 
-  async snapshotScope(id: number): Promise<ScopeSeries[]> {
+  snapshotScope(id: number): ScopeSeries[] {
     const timerId = this.scopeToTimer.get(id);
     const channels = this.scopeChannels.get(id);
     if (timerId === undefined || !channels?.length) {
@@ -81,12 +81,10 @@ export class RunningDiagram {
     if (!handle) {
       return [];
     }
-    return Promise.all(
-      channels.map(async (channel) => ({
-        label: channel.label,
-        samples: await handle.snapshot(channel.ring),
-      })),
-    );
+    return channels.map((channel) => ({
+      label: channel.label,
+      samples: handle.snapshot(channel.ring),
+    }));
   }
 
   sampleFlowRates(now = performance.now()): void {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BLOCK_AS, preambleAs } from "../../resources/assemblyscript";
+import { BLOCK_AS, compileOptions, preambleAs } from "../../resources/assemblyscript";
 import { associateBuiltinModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
 import { assembleModule, runtimeTypeAs } from "./assemble";
@@ -18,6 +18,7 @@ describe("block AssemblyScript assembly", () => {
     expect(BLOCK_AS.oscilloscope).toContain("function oscilloscope(v: f64): void");
     expect(BLOCK_AS.oscilloscope).not.toContain("function oscilloscope(inn:");
     expect(preambleAs()).toContain("type c<T> = (v: T) => void");
+    expect(compileOptions({ sharedMemory: false }).optimizeLevel).toBe(1);
   });
 
   it("matches XML port names in each block script", () => {

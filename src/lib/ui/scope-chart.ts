@@ -77,6 +77,7 @@ export function buildScopeChartConfig(series: readonly ScopeSeries[] = []): Char
     options: {
       animation: false,
       responsive: true,
+      resizeDelay: 0,
       maintainAspectRatio: false,
       interaction: {
         mode: "index",

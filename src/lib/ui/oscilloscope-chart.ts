@@ -25,7 +25,13 @@ export class BldOscilloscopeChart extends LitElement {
     bootstrapStyles,
     css`
       :host {
-        display: contents;
+        display: none;
+      }
+      :host([open]) {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 1055;
       }
       .scope-chart {
         width: 100%;
@@ -33,6 +39,11 @@ export class BldOscilloscopeChart extends LitElement {
         background: #14171a;
         border-radius: 0.35rem;
         position: relative;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
       }
     `,
   ];
@@ -54,6 +65,7 @@ export class BldOscilloscopeChart extends LitElement {
 
   protected override willUpdate(): void {
     this.#bindApp();
+    this.toggleAttribute("open", !isNoneId(this.app?.scopeOpen ?? -1));
   }
 
   protected override updated(): void {
@@ -97,35 +109,53 @@ export class BldOscilloscopeChart extends LitElement {
     }
   }
 
-  #startChart(canvas: HTMLCanvasElement, id: number): void {
-    const chart = new Chart(canvas, buildScopeChartConfig());
-    const tick = (): void => {
-      void this.app.snapshotScope(id).then((series) => {
-        if (this.#openId !== id || !this.#chart) {
-          return;
+  #applySeries(chart: Chart<"line">, series: ReturnType<AppState["snapshotScope"]>): void {
+    if (this.#seriesCount !== series.length) {
+      chart.data.datasets = scopeChartDatasets(series);
+      chart.options.scales = scopeChartScales(Math.max(series.length, 1));
+      if (chart.options.plugins?.legend) {
+        chart.options.plugins.legend.display = series.length > 1;
+      }
+    } else {
+      series.forEach((channel, index) => {
+        const dataset = chart.data.datasets[index];
+        if (dataset) {
+          dataset.data = channel.samples;
+          dataset.label = channel.label;
         }
-        if (this.#seriesCount !== series.length) {
-          chart.data.datasets = scopeChartDatasets(series);
-          chart.options.scales = scopeChartScales(Math.max(series.length, 1));
-          if (chart.options.plugins?.legend) {
-            chart.options.plugins.legend.display = series.length > 1;
-          }
-        } else {
-          series.forEach((channel, index) => {
-            const dataset = chart.data.datasets[index];
-            if (dataset) {
-              dataset.data = channel.samples;
-              dataset.label = channel.label;
-            }
-          });
-        }
-        chart.data.labels = longestIndexLabels(series);
-        chart.update("none");
-        this.#writeSeriesCount(series.length);
       });
+    }
+    chart.data.labels = longestIndexLabels(series);
+    chart.update("none");
+    this.#writeSeriesCount(series.length);
+  }
+
+  #fitChart(chart: Chart<"line">): void {
+    const fit = (): void => {
+      if (this.#chart !== chart) {
+        return;
+      }
+      chart.resize();
     };
+    fit();
+    requestAnimationFrame(() => {
+      fit();
+      requestAnimationFrame(fit);
+    });
+  }
+
+  #startChart(canvas: HTMLCanvasElement, id: number): void {
+    const series = this.app.snapshotScope(id);
+    const chart = new Chart(canvas, buildScopeChartConfig(series));
     this.#chart = chart;
-    tick();
+    this.#writeSeriesCount(series.length);
+    this.#fitChart(chart);
+    const tick = (): void => {
+      if (this.#openId !== id || !this.#chart) {
+        return;
+      }
+      this.#applySeries(chart, this.app.snapshotScope(id));
+    };
     this.#tick = setInterval(tick, 50);
   }
 
