@@ -278,7 +278,7 @@ export interface CanvasDiagram {
   createdAt: string;
   updatedAt: string;
   attributes: Attribute[];
-  catalogs?: string[];
+  catalogs: string[];
   blocks: BlockInstance[];
   links: Link[];
   extras: Map<number, BlockExtras>;
