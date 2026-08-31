@@ -12,11 +12,11 @@ describe("block AssemblyScript assembly", () => {
     expect(Object.keys(BLOCK_AS).sort()).toEqual(["cos", "oscilloscope", "quantizer", "sin", "timer"]);
     expect(BLOCK_AS.timer).toContain("function timer(inn: c<f64>): void");
     expect(BLOCK_AS.timer).not.toContain("): c<");
-    expect(BLOCK_AS.quantizer).toContain("function quantizer(period: i32, in: c<f64>): c<f64>");
-    expect(BLOCK_AS.quantizer).toContain("return atomic.wait<i32>(WAIT, 0, i64(period) * 1_000_000);");
-    expect(BLOCK_AS.sin).toContain("function sin(inn: c<f64>, v: f64): void");
-    expect(BLOCK_AS.cos).toContain("function cos(inn: c<f64>, v: f64): void");
-    expect(BLOCK_AS.oscilloscope).toContain("function oscilloscope(v: f64): void");
+    expect(BLOCK_AS.quantizer).toContain("function quantizer(inn: c<f64>): c<f64>");
+    expect(BLOCK_AS.quantizer).toContain("return atomic.wait<i32>(WAIT, 0, load<i64>(CTX + 8));");
+    expect(BLOCK_AS.sin).toContain("function sin(inn: c<f64>): c<f64>");
+    expect(BLOCK_AS.cos).toContain("function cos(inn: c<f64>): c<f64>");
+    expect(BLOCK_AS.oscilloscope).toContain("function oscilloscope(): c<f64>[]");
     expect(BLOCK_AS.oscilloscope).not.toContain("function oscilloscope(inn:");
     expect(preambleAs()).toContain("type c<T> = (v: T) => void");
     expect(compileOptions({ sharedMemory: false }).optimizeLevel).toBe(1);
@@ -29,6 +29,7 @@ describe("block AssemblyScript assembly", () => {
     for (const id of Object.keys(BLOCK_AS)) {
       const sig = blockSignature(cat.block(id)!);
       const header = asSignature(sig);
+      expect(BLOCK_AS[id], id).toContain(header);
       expect(header, id).toContain(`function ${id}(`);
       for (const port of sig.params) {
         expect(header, id).toContain(`${port.name}: ${port.type}`);
@@ -39,10 +40,12 @@ describe("block AssemblyScript assembly", () => {
   it("assembles every block function into the final module", async () => {
     const { text, wasm } = await assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
     expect(text).toContain("type c<T> = (v: T) => void");
-    expect(text).toContain("function timer(): void");
-    expect(text).toContain("function quantizer(v: f64): void");
-    expect(text).toContain("function sin(v: f64): void");
-    expect(text).toContain("function oscilloscope(v: f64): void");
+    expect(text).toContain("function timer(inn: c<f64>): void");
+    expect(text).toContain("function quantizer(inn: c<f64>): c<f64>");
+    expect(text).toContain("function sin(inn: c<f64>): c<f64>");
+    expect(text).toContain("function oscilloscope(): c<f64>[]");
+    expect(text).toContain("timer(nop);");
+    expect(text).toContain("quantizer_apply(host_sin(v));");
     expect(text).toContain("host_sin");
     expect(text).toContain("push_at");
     expect(text).toContain("export function tick(): void");

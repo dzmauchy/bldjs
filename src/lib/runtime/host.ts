@@ -4,7 +4,11 @@ export function createHost(
   now: () => number = () => Date.now() / 1000,
 ): WebAssembly.Imports {
   return {
-    env: { memory },
+    env: {
+      memory,
+      /** AssemblyScript stub abort (used when indexing `c<f64>[]` plot vectors). */
+      abort(_msg?: number, _file?: number, _line?: number, _column?: number): void {},
+    },
     host: {
       now,
       sin: Math.sin,

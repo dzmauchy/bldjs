@@ -13,8 +13,8 @@ describe("AssemblyScript generator", () => {
 
   it("ticks sin(pi/2) through the assembled pipeline", async () => {
     const { text, wasm } = await assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
-    expect(text).toContain("function timer(): void");
-    expect(text).toContain("function oscilloscope(v: f64): void");
+    expect(text).toContain("function timer(inn: c<f64>): void");
+    expect(text).toContain("function oscilloscope(): c<f64>[]");
     expect(text).toContain("type c<T> = (v: T) => void");
     const memory = createSharedMemory();
     let now = Math.PI / 2;
@@ -72,8 +72,8 @@ describe("AssemblyScript generator", () => {
 
   it("tick writes samples through XML-typed block functions", async () => {
     const { text, wasm } = await assembleModule({ stages: ["sin"], delayMs: 0 });
-    expect(text).toContain("function timer(): void");
-    expect(text).toContain("function oscilloscope(v: f64): void");
+    expect(text).toContain("function timer(inn: c<f64>): void");
+    expect(text).toContain("function oscilloscope(): c<f64>[]");
     const memory = createSharedMemory();
     const gen = await instantiateGenerator(wasm, memory, () => 0.5);
     gen.tick();

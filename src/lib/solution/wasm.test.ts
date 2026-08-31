@@ -64,10 +64,13 @@ describe("WasmSolutionBuilder", () => {
     const { text, wasm } = await new WasmSolutionBuilder().build(view, { timerId: 4, delayMs: 0 });
     expect(text).toContain("function oscilloscope_0(v: f64): void");
     expect(text).toContain("function oscilloscope_1(v: f64): void");
-    expect(text).toContain("function fork_4_in(v: f64): void");
-    expect(text).toContain("function sin(v: f64): void");
+    expect(text).toContain("function oscilloscope(): c<f64>[]");
+    expect(text).toContain("function fork_4_in(inn0: c<f64>, inn1: c<f64>): c<f64>");
+    expect(text).toContain("function sin(inn: c<f64>): c<f64>");
     expect(text).toContain("host_sin");
-    expect(text).toContain("function timer(): void");
+    expect(text).toContain("function timer(inn: c<f64>): void");
+    expect(text).toContain("timer(nop);");
+    expect(text).toContain("function fork_4_in(inn0: c<f64>, inn1: c<f64>): c<f64>");
     expect(text).not.toContain("inn: f64");
     expect(text).not.toContain("function tap_0");
     expect(WebAssembly.validate(wasm.slice().buffer)).toBe(true);
@@ -77,6 +80,11 @@ describe("WasmSolutionBuilder", () => {
     gen.tick();
     expect(Math.abs(readSamples(memory, 0)[0])).toBeLessThan(1e-9);
     expect(Math.abs(readSamples(memory, 1)[0] - 1)).toBeLessThan(1e-9);
+    for (let i = 0; i < 40; i += 1) {
+      gen.tick();
+    }
+    expect(readSamples(memory, 0).length).toBeGreaterThan(1);
+    expect(readSamples(memory, 1).length).toBeGreaterThan(1);
   });
 
   it("compiles the same pipeline as compileGenerator", async () => {
@@ -90,8 +98,9 @@ describe("WasmSolutionBuilder", () => {
       { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
-    expect(compiled.text).toContain("function sin(v: f64): void");
-    expect(compiled.text).toContain("function timer(): void");
-    expect(compiled.text).toContain("oscilloscope(v: f64)");
+    expect(compiled.text).toContain("function sin(inn: c<f64>): c<f64>");
+    expect(compiled.text).toContain("function timer(inn: c<f64>): void");
+    expect(compiled.text).toContain("function oscilloscope(): c<f64>[]");
+    expect(compiled.text).toContain("timer(nop);");
   });
 });
