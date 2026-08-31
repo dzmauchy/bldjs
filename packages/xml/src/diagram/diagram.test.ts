@@ -124,7 +124,6 @@ describe("diagram XML", () => {
     expect(empty).toContain("<catalogs/>");
     expect(parseDiagramXml(empty).catalogs).toEqual([]);
   });
-  });
 
   it("serializes canvas blocks and slotted wires to diagram XML", () => {
     const xml = serializeCanvas({
