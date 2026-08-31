@@ -2,7 +2,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { type BlockDef } from "@bld/xml";
 import { AppController } from "$lib/context";
-import { FLOW_MIME, PALETTE_DROP_EVENT, type PaletteDropDetail } from "$lib/flow";
+import { FLOW_MIME, PALETTE_DROP_EVENT, type PaletteDropDetail } from "$lib/flow/mime";
 import type { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
 import { type PaletteGroup, buildPaletteTree, paletteGroupIds } from "./palette-tree";

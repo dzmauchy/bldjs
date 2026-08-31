@@ -86,7 +86,8 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ["binaryen"],
+    // Do not include binaryen. Forcing it into the dep optimizer waits on
+    // the 15MB assembler before the first page can load.
     exclude: ["libavoid-js", "@joint/router-avoid", "@bld/xml", "@bld/wasm"],
   },
   server: {

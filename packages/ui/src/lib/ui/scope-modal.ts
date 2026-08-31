@@ -1,6 +1,6 @@
-import { Chart } from "chart.js/auto";
 import { LitElement, css, html, nothing } from "lit";
 import { createRef, ref } from "lit/directives/ref.js";
+import type { Chart } from "chart.js";
 import { AppController } from "$lib/context";
 import { isNoneId } from "$lib/model";
 import type { AppState } from "$lib/state";
@@ -181,18 +181,28 @@ export class BldScopeModal extends LitElement {
   }
 
   #startChart(canvas: HTMLCanvasElement, id: number): void {
-    const series = this.app.snapshotScope(id);
-    const chart = new Chart(canvas, buildScopeChartConfig(series));
-    this.#chart = chart;
-    this.#writeSeriesCount(series.length);
-    this.#fitChart(chart);
-    const tick = (): void => {
-      if (this.#openId !== id || !this.#chart) {
+    void import("chart.js/auto").then(({ Chart }) => {
+      if (this.#openId !== id || this.#canvas.value !== canvas || !this.app) {
         return;
       }
-      this.#applySeries(chart, this.app.snapshotScope(id));
-    };
-    this.#tick = setInterval(tick, 50);
+      if (this.#tick !== null) {
+        clearInterval(this.#tick);
+        this.#tick = null;
+      }
+      this.#chart?.destroy();
+      const series = this.app.snapshotScope(id);
+      const chart = new Chart(canvas, buildScopeChartConfig(series));
+      this.#chart = chart;
+      this.#writeSeriesCount(series.length);
+      this.#fitChart(chart);
+      const tick = (): void => {
+        if (this.#openId !== id || !this.#chart) {
+          return;
+        }
+        this.#applySeries(chart, this.app.snapshotScope(id));
+      };
+      this.#tick = setInterval(tick, 50);
+    });
   }
 
   protected override render() {

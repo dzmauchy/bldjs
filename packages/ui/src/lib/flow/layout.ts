@@ -1,4 +1,4 @@
-import type { Point } from "./geometry";
+import type { Point } from "./geometry/coordinates";
 import type { NodeLayout, PortSide } from "./types";
 
 export function worldPort(

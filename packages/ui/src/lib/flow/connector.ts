@@ -1,17 +1,9 @@
 import { LitElement, css, html } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { styleMap } from "lit/directives/style-map.js";
-import {
-  connectorWorldBounds,
-  connectorWorldPolyline,
-  cssPolygon,
-  formatPolyline,
-  strokePolygon,
-  strokeRuns,
-  translatePolyline,
-  type Point,
-  type RoutedLink,
-} from "./geometry";
+import { formatPolyline, polylineBounds, translatePolyline, type Point, type RoutedLink } from "./geometry/coordinates";
+import { connectorPolyline } from "./geometry/routing";
+import { cssPolygon, strokePolygon, strokeRuns } from "./geometry/stroke";
 import { flowPeriodMs } from "@bld/xml";
 
 const PAD = 16;
@@ -21,6 +13,20 @@ const SELECTED_WIDTH = 3;
 const DASH = 8;
 const GAP = 6;
 const DASH_CYCLE = DASH + GAP;
+
+type Jumpover = typeof import("./geometry/connectors");
+
+let jumpover: Jumpover | undefined;
+let jumpoverLoading: Promise<Jumpover> | undefined;
+
+/** Load JointJS jumpover geometry. First paint uses orthogonal polylines instead. */
+export function preloadJumpover(): Promise<Jumpover> {
+  jumpoverLoading ??= import("./geometry/connectors").then((mod) => {
+    jumpover = mod;
+    return mod;
+  });
+  return jumpoverLoading;
+}
 
 export class BldConnector extends LitElement {
   static override properties = {
@@ -120,11 +126,18 @@ export class BldConnector extends LitElement {
   }
 
   #polyline(): Point[] {
-    return connectorWorldPolyline(this.from, this.to, this.points, this.crossings);
+    if (jumpover) {
+      return jumpover.connectorWorldPolyline(this.from, this.to, this.points, this.crossings);
+    }
+    void preloadJumpover().then(() => this.requestUpdate());
+    return connectorPolyline(this.from, this.to, this.points);
   }
 
   #box() {
-    return connectorWorldBounds(this.from, this.to, this.points, this.crossings, PAD);
+    if (jumpover) {
+      return jumpover.connectorWorldBounds(this.from, this.to, this.points, this.crossings, PAD);
+    }
+    return polylineBounds(this.#polyline(), PAD);
   }
 
   protected override willUpdate(): void {

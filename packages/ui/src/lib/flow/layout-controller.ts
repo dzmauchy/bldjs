@@ -1,6 +1,6 @@
 import type { Link } from "@bld/xml";
 import type { BlockInstance } from "$lib/diagram-model";
-import { connectorFromLink, obstacleFromBlock, type RouteConnector, type RouteObstacle } from "./avoid-router";
+import { connectorFromLink, obstacleFromBlock, type RouteConnector, type RouteObstacle } from "./route-model";
 import type { NodeLayout } from "./types";
 
 export class DiagramLayoutController {

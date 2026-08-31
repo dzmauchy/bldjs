@@ -6,8 +6,8 @@ import { AppController } from "$lib/context";
 import { GRID_SIZE, blockOriginFromDrop, wheelZoomFactor } from "$lib/model";
 import { type AppState } from "$lib/state";
 import { FLOW_MIME, PALETTE_DROP_EVENT, type PaletteDropDetail } from "./mime";
-import { clientToWorld, type Point } from "./geometry";
-import { AvoidRouteEngine } from "./avoid-router";
+import { clientToWorld, type Point } from "./geometry/coordinates";
+import type { AvoidRouteEngine } from "./avoid-router";
 import { DiagramInteractionController } from "./interaction";
 import { DiagramLayoutController } from "./layout-controller";
 import { buildConnectorViews, buildNodeState, linkPushes, previewFromPort } from "./views";
@@ -26,7 +26,8 @@ export class BldDiagram extends LitElement {
   #interaction: DiagramInteractionController;
   #layout = new DiagramLayoutController();
   #resize: ResizeObserver | null = null;
-  #avoid = new AvoidRouteEngine();
+  #avoid: AvoidRouteEngine | null = null;
+  #avoidStarting = false;
   #routes = new Map<string, Point[]>();
   #flowTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -189,7 +190,7 @@ export class BldDiagram extends LitElement {
       this.#resize.observe(this);
     }
     void this.updateComplete.then(() => this.#syncHostSize());
-    void this.#startAvoidRouter();
+    this.#maybeStartAvoidRouter();
     this.#flowTimer = setInterval(() => this.#syncFlowRates(), 100);
   }
 
@@ -201,7 +202,8 @@ export class BldDiagram extends LitElement {
     window.removeEventListener(PALETTE_DROP_EVENT, this.#onPaletteDrop);
     this.#resize?.disconnect();
     this.#resize = null;
-    this.#avoid.destroy();
+    this.#avoid?.destroy();
+    this.#avoid = null;
     if (this.#flowTimer !== null) {
       clearInterval(this.#flowTimer);
       this.#flowTimer = null;
@@ -211,6 +213,7 @@ export class BldDiagram extends LitElement {
 
   protected override willUpdate(): void {
     this.#bindApp();
+    this.#maybeStartAvoidRouter();
     this.#syncRoutes();
   }
 
@@ -225,26 +228,51 @@ export class BldDiagram extends LitElement {
     this.#ctrl = new AppController(this, this.app);
   }
 
-  async #startAvoidRouter(): Promise<void> {
-    this.#avoid.onRoutesChanged(() => {
-      this.#routes = new Map(this.#avoid.routes);
-      this.requestUpdate();
-    });
-    try {
-      await this.#avoid.start({ worker: true });
-    } catch (error) {
-      console.warn("avoid router failed to load", error);
+  #maybeStartAvoidRouter(): void {
+    if (!this.app) {
       return;
     }
-    this.dataset.router = "avoid";
-    this.dataset.worker = this.#avoid.worker ? "true" : "false";
-    this.dataset.connector = "jumpover";
-    this.#syncRoutes();
-    this.requestUpdate();
+    if (this.app.blocks.length === 0 && this.app.links.length === 0 && this.app.linkingFrom === null) {
+      return;
+    }
+    void this.#ensureAvoidRouter();
+  }
+
+  async #ensureAvoidRouter(): Promise<void> {
+    if (this.#avoid || this.#avoidStarting) {
+      return;
+    }
+    this.#avoidStarting = true;
+    try {
+      const { AvoidRouteEngine } = await import("./avoid-router");
+      if (!this.isConnected) {
+        return;
+      }
+      const engine = new AvoidRouteEngine();
+      engine.onRoutesChanged(() => {
+        this.#routes = new Map(engine.routes);
+        this.requestUpdate();
+      });
+      await engine.start({ worker: true });
+      if (!this.isConnected) {
+        engine.destroy();
+        return;
+      }
+      this.#avoid = engine;
+      this.dataset.router = "avoid";
+      this.dataset.worker = engine.worker ? "true" : "false";
+      this.dataset.connector = "jumpover";
+      this.#syncRoutes();
+      this.requestUpdate();
+    } catch (error) {
+      console.warn("avoid router failed to load", error);
+    } finally {
+      this.#avoidStarting = false;
+    }
   }
 
   #syncRoutes(): void {
-    if (!this.app || !this.#avoid.ready) {
+    if (!this.app || !this.#avoid?.ready) {
       return;
     }
     const { obstacles, connectors } = this.#layout.routePayload(this.app.blocks, this.app.links);

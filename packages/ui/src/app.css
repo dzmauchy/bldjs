@@ -3,6 +3,8 @@ body {
   height: 100%;
   margin: 0;
   overflow: hidden;
+  background: #121416;
+  color: #dee2e6;
   overscroll-behavior: none;
   touch-action: manipulation;
   -webkit-text-size-adjust: 100%;

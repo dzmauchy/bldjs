@@ -10,7 +10,9 @@ export {
   translatePolyline,
   type Point,
   type Rect,
+  type RoutedLink,
 } from "./coordinates";
+export { cssPolygon, strokePolygon, strokeRuns, type StrokeRun } from "./stroke";
 export {
   connectorPolyline,
   ensureHorizontalStubs,
@@ -28,11 +30,6 @@ export {
   JUMPOVER,
   connectorWorldBounds,
   connectorWorldPolyline,
-  cssPolygon,
   jumpoverLinkPath,
   jumpoverPath,
-  strokePolygon,
-  strokeRuns,
-  type RoutedLink,
-  type StrokeRun,
 } from "./connectors";

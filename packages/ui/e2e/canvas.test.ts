@@ -12,7 +12,6 @@ import {
   statusBlocks,
   statusZoom,
   waitDeep,
-  waitForAvoidRouter,
   waitForBlock,
 } from "./actions";
 
@@ -75,7 +74,6 @@ test.describe("canvas", () => {
       !!customElements.get("bld-connector"),
     ]);
     expect(defined).toEqual([true, true, true, true]);
-    await waitForAvoidRouter(page);
   });
 
   test("zooms from the canvas toolbar", async () => {

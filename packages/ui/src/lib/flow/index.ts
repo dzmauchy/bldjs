@@ -31,14 +31,11 @@ export {
   type RoutedLink,
 } from "./geometry";
 export {
-  AvoidRouteEngine,
-  LIBAVOID_WASM,
   connectorFromLink,
-  elementFromObstacle,
   jointPortId,
-  linkFromConnector,
   obstacleFromBlock,
-} from "./avoid-router";
+} from "./route-model";
+export { AvoidRouteEngine, LIBAVOID_WASM, elementFromObstacle, linkFromConnector } from "./avoid-router";
 export { iconKey, iconSvgInner, renderBrandSvg, renderIconSvg } from "./icons";
 export {
   measureHostLayout,

@@ -110,6 +110,9 @@ describe("Lit update scheduling", () => {
     app.scopeOpen = id;
     await chart.updateComplete;
     const host = chart.renderRoot.querySelector("[data-testid=scope-chart]");
+    await vi.waitFor(() => {
+      expect(host?.getAttribute("data-series-count")).toBe("2");
+    });
     const close = chart.renderRoot.querySelector("[data-testid=scope-close]");
     const caption = chart.renderRoot.querySelector("[data-testid=scope-caption]");
     expect(chart.hasAttribute("open")).toBe(true);

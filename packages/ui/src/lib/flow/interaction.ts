@@ -3,7 +3,7 @@ import type { AppState } from "$lib/state";
 import { nodeFromClientPoint, nodeFromComposedPath, portFromClientPoint, portFromComposedPath } from "./layout";
 import { uniqueCompatibleDropPort } from "./link-types";
 import { capturePointer, isCanvasPointer, releasePointer } from "./pointer";
-import type { Point } from "./geometry";
+import type { Point } from "./geometry/coordinates";
 import type { PortPointerDetail } from "./types";
 
 export const LINK_DRAG = 8;

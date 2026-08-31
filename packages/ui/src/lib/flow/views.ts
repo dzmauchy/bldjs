@@ -16,7 +16,8 @@ import type { BlockInstance } from "$lib/diagram-model";
 import type { BlockKindInfo } from "$lib/model";
 import { shouldShowPortType } from "./link-types";
 import { worldPort } from "./layout";
-import { jumpoverUnderlays, linkKey, type Point, type RoutedLink } from "./geometry";
+import { jumpoverUnderlays } from "./geometry/intersections";
+import { linkKey, type Point, type RoutedLink } from "./geometry/coordinates";
 import type { BldNodeState, NodeLayout } from "./types";
 
 export interface ConnectorView {

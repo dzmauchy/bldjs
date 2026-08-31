@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { BldConnector } from "./connector";
+import { BldConnector, preloadJumpover } from "./connector";
 import { FLOW_PERIOD_MIN_MS, flowPeriodMs } from "@bld/xml";
 import "./connector";
 
@@ -16,7 +16,8 @@ function strokeClip(link: BldConnector): string {
 }
 
 describe("BldConnector", () => {
-  beforeAll(() => {
+  beforeAll(async () => {
+    await preloadJumpover();
     expect(customElements.get("bld-connector")).toBeDefined();
     const cssText = (BldConnector.styles as { cssText: string }).cssText;
     expect(cssText).not.toContain("[data-flow=");

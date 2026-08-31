@@ -5,6 +5,12 @@ export interface Point {
   y: number;
 }
 
+export interface RoutedLink {
+  from: Point;
+  to: Point;
+  route?: Point[];
+}
+
 export interface Rect {
   left: number;
   top: number;
