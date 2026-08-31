@@ -33,7 +33,11 @@ export interface WasmBuildOptions {
 
 let assemblerPreload: Promise<unknown> | undefined;
 
-/** Start loading binaryen.js before the user presses Run. */
+/**
+ * Start loading binaryen.js before the user presses Run.
+ * Callers must keep this a dynamic import: a static import of binaryen or
+ * `../binaryen` from the public package entry puts 15MB on first paint.
+ */
 export function preloadAssembler(): void {
   assemblerPreload ??= Promise.all([
     import("binaryen"),
