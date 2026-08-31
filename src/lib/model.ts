@@ -9,6 +9,8 @@ export const BLOCK_PLACE_HEIGHT = 130.0;
 /** Narrow viewports overlay the palette so the canvas can use the full width. */
 export const COMPACT_UI_MAX_WIDTH = 720;
 export const COMPACT_UI_QUERY = `(max-width: ${COMPACT_UI_MAX_WIDTH}px)`;
+/** Shrink the whole UI on phones via the viewport meta `initial-scale`. Desktop browsers ignore it. */
+export const PHONE_VIEWPORT_SCALE = 0.7;
 export const PORT_HEADER = 34.0;
 export const PORT_PARAM = 18.0;
 export const PORT_ROW = 24.0;
@@ -20,7 +22,37 @@ export function isNoneId(id: number): boolean {
 }
 
 export function compactUiMatches(): boolean {
-  return typeof globalThis.matchMedia === "function" && globalThis.matchMedia(COMPACT_UI_QUERY).matches;
+  return (
+    phoneScreenMatches() ||
+    (typeof globalThis.matchMedia === "function" && globalThis.matchMedia(COMPACT_UI_QUERY).matches)
+  );
+}
+
+/** Shortest screen edge is phone-sized. Used so viewport scale does not fight compact-UI media queries. */
+export function phoneScreenMatches(): boolean {
+  const width = globalThis.screen?.width;
+  const height = globalThis.screen?.height;
+  if (typeof width !== "number" || typeof height !== "number" || width <= 0 || height <= 0) {
+    return false;
+  }
+  return Math.min(width, height) <= COMPACT_UI_MAX_WIDTH;
+}
+
+export function viewportMetaContent(scale = 1): string {
+  return `width=device-width, initial-scale=${scale}, viewport-fit=cover`;
+}
+
+/** Apply a smaller `initial-scale` on phones so toolbar, palette, and blocks all shrink together. */
+export function applyPhoneViewportScale(): void {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const meta = document.querySelector('meta[name="viewport"]');
+  if (!(meta instanceof HTMLMetaElement)) {
+    return;
+  }
+  const scale = phoneScreenMatches() ? PHONE_VIEWPORT_SCALE : 1;
+  meta.content = viewportMetaContent(scale);
 }
 
 /** Top-left origin that puts the placed block's center on the drop point. */

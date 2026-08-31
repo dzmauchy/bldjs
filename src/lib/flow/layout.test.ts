@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { portFromClientPoint, worldPort } from "./layout";
+import { portFromClientPoint, nodeFromComposedPath, worldPort } from "./layout";
 import type { NodeLayout } from "./types";
 
 describe("node layout", () => {
@@ -31,5 +31,12 @@ describe("node layout", () => {
 
   it("finds no port when the client point misses every handle", () => {
     expect(portFromClientPoint(-4000, -4000)).toBeUndefined();
+  });
+
+  it("finds a node host in the composed path", () => {
+    const node = document.createElement("bld-node");
+    const inner = document.createElement("div");
+    expect(nodeFromComposedPath({ composedPath: () => [inner, node] } as unknown as Event)).toBe(node);
+    expect(nodeFromComposedPath({ composedPath: () => [inner] } as unknown as Event)).toBeUndefined();
   });
 });

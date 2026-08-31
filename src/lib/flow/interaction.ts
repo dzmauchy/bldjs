@@ -1,6 +1,7 @@
 import type { Link } from "$lib/blocks";
 import type { AppState } from "$lib/state";
-import { portFromClientPoint, portFromComposedPath } from "./layout";
+import { nodeFromClientPoint, nodeFromComposedPath, portFromClientPoint, portFromComposedPath } from "./layout";
+import { uniqueCompatibleDropPort } from "./link-types";
 import { capturePointer, isCanvasPointer, releasePointer } from "./pointer";
 import type { Point } from "./geometry";
 import type { PortPointerDetail } from "./types";
@@ -136,6 +137,13 @@ export class DiagramInteractionController {
         this.finishLink(Number(hit.host.dataset.blockId), hit.port);
         return;
       }
+      const node = nodeFromComposedPath(event) ?? nodeFromClientPoint(event.clientX, event.clientY);
+      const toBlock = node ? Number(node.dataset.blockId) : Number.NaN;
+      const port = Number.isFinite(toBlock) ? uniqueCompatibleDropPort(app, toBlock) : undefined;
+      if (port) {
+        this.finishLink(toBlock, port);
+        return;
+      }
       if (this.session?.kind === "link" && this.session.dragged) {
         app.linkingFrom = null;
         this.previewTo = null;
@@ -159,7 +167,7 @@ export class DiagramInteractionController {
     const node = path.find((item) => item instanceof HTMLElement && item.localName === "bld-node");
     const app = this.#app();
     if (node instanceof HTMLElement) {
-      if (portFromComposedPath(event)) {
+      if (portFromComposedPath(event) || app.linkingFrom) {
         return;
       }
       event.preventDefault();
