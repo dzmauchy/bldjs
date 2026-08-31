@@ -10,12 +10,14 @@ export class BldNode extends LitElement {
     view: { attribute: false },
     x: { type: Number },
     y: { type: Number },
+    compact: { type: Boolean, reflect: true, attribute: "data-compact" },
     dragging: { type: Boolean, reflect: true, attribute: "data-dragging" },
   };
 
   declare view: BldNodeState | null;
   declare x: number;
   declare y: number;
+  declare compact: boolean;
   declare dragging: boolean;
 
   #kindClass = "";
@@ -315,6 +317,46 @@ export class BldNode extends LitElement {
     .block-port-row.is-vector.is-out .block-port::before {
       right: 100%;
     }
+    :host([data-compact]) {
+      --port-size: 10px;
+      font-size: 10px;
+      min-width: 4.4rem;
+    }
+    :host([data-compact]) .flow-node {
+      min-width: 4.4rem;
+      min-height: 3.4rem;
+      border-radius: 6px;
+    }
+    :host([data-compact]) .flow-node-body {
+      padding: 6px 4px;
+      gap: 2px;
+    }
+    :host([data-compact]) .flow-node-icon {
+      width: 22px;
+      height: 22px;
+      flex-basis: 22px;
+    }
+    :host([data-compact]) .flow-node-icon svg {
+      width: 22px;
+      height: 22px;
+    }
+    :host([data-compact]) .flow-node-title,
+    :host([data-compact]) .flow-node-params {
+      font-size: 0.55rem;
+      max-width: 5.5rem;
+    }
+    :host([data-compact]) .flow-node-chart {
+      font-size: 0.55rem;
+      padding: 0 4px;
+    }
+    :host([data-compact]) .flow-node-port-col {
+      gap: 4px;
+      padding: 5px 0;
+    }
+    :host([data-compact]) .block-port-name,
+    :host([data-compact]) .block-port-type {
+      font-size: 0.55rem;
+    }
   `;
 
   constructor() {
@@ -322,6 +364,7 @@ export class BldNode extends LitElement {
     this.view = null;
     this.x = 0;
     this.y = 0;
+    this.compact = false;
     this.dragging = false;
   }
 

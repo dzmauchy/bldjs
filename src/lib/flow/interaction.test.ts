@@ -67,6 +67,26 @@ describe("DiagramInteractionController", () => {
     expect(interaction.previewTo).toEqual(world);
     interaction.onPointerMove(pointer({ clientX: LINK_DRAG + 1, clientY: 0, pointerId: 1 }));
     expect(interaction.session).toMatchObject({ kind: "link", dragged: true });
+    interaction.endPointer();
+  });
+
+  it("keeps panning when pointer capture is lost while the finger is down", () => {
+    const app = new AppState();
+    const host = {
+      app,
+      toWorld: () => ({ x: 0, y: 0 }),
+      viewportElement: () => null,
+      requestUpdate: vi.fn(),
+    };
+    const interaction = new DiagramInteractionController(host);
+    interaction.onViewportPointerDown(pointer({ clientX: 40, clientY: 50 }));
+    expect(interaction.session?.kind).toBe("pan");
+    interaction.onLostPointerCapture(pointer({ clientX: 40, clientY: 50, buttons: 1 }));
+    expect(interaction.session?.kind).toBe("pan");
+    interaction.onPointerMove(pointer({ clientX: 52, clientY: 58, buttons: 1 }));
+    expect(app.panX).toBe(60);
+    expect(app.panY).toBe(56);
+    interaction.endPointer();
   });
 
   it("connects a dragged wire dropped on a block with one compatible input", () => {
@@ -98,6 +118,38 @@ describe("DiagramInteractionController", () => {
       expect.objectContaining({ fromBlock: sinId, fromOut: "out", toBlock: timerId, toIn: "in" }),
     ]);
     expect(app.linkingFrom).toBeNull();
+  });
+
+  it("keeps a click-started wire until the next pointer up on a block", () => {
+    const app = new AppState();
+    app.addBlock("sin", 0, 0);
+    app.addBlock("timer", 240, 0);
+    const sinId = app.blocks.find((block) => block.defId === "sin")!.id;
+    const timerId = app.blocks.find((block) => block.defId === "timer")!.id;
+    const host = {
+      app,
+      toWorld: () => ({ x: 0, y: 0 }),
+      viewportElement: () => null,
+      requestUpdate: vi.fn(),
+    };
+    const interaction = new DiagramInteractionController(host);
+    interaction.onPortDown({
+      side: "out",
+      blockId: sinId,
+      port: "out",
+      clientX: 0,
+      clientY: 0,
+      pointerId: 1,
+    });
+    interaction.onPointerUp(pointer({ pointerId: 1, composedPath: () => [] }));
+    expect(app.linkingFrom).toEqual({ blockId: sinId, port: "out" });
+    const timer = document.createElement("bld-node");
+    timer.dataset.blockId = String(timerId);
+    interaction.onPointerUp(pointer({ pointerId: 2, composedPath: () => [timer] }));
+    expect(app.links).toEqual([
+      expect.objectContaining({ fromBlock: sinId, fromOut: "out", toBlock: timerId, toIn: "in" }),
+    ]);
+    interaction.dispose();
   });
 
   it("does not start a move when tapping a block while a wire is in progress", () => {

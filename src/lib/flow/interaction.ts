@@ -23,6 +23,7 @@ export interface DiagramInteractionHost {
 export class DiagramInteractionController {
   session: PointerSession | null = null;
   previewTo: Point | null = null;
+  #listening = false;
 
   constructor(private readonly host: DiagramInteractionHost) {}
 
@@ -45,18 +46,66 @@ export class DiagramInteractionController {
 
   capture(event: PointerEvent): void {
     capturePointer(this.host.viewportElement(), event.pointerId);
+    this.#listenWindow();
+  }
+
+  #listenWindow(): void {
+    if (this.#listening) {
+      return;
+    }
+    this.#listening = true;
+    window.addEventListener("pointermove", this.#onWindowPointerMove);
+    window.addEventListener("pointerup", this.#onWindowPointerUp);
+    window.addEventListener("pointercancel", this.#onWindowPointerUp);
+    window.addEventListener("touchmove", this.#onWindowTouchMove, { passive: false });
+  }
+
+  #unlistenWindow(): void {
+    if (!this.#listening) {
+      return;
+    }
+    this.#listening = false;
+    window.removeEventListener("pointermove", this.#onWindowPointerMove);
+    window.removeEventListener("pointerup", this.#onWindowPointerUp);
+    window.removeEventListener("pointercancel", this.#onWindowPointerUp);
+    window.removeEventListener("touchmove", this.#onWindowTouchMove);
+  }
+
+  #onWindowPointerMove = (event: PointerEvent): void => {
+    if (this.session && this.session.pointerId === event.pointerId) {
+      event.preventDefault();
+    }
+    this.onPointerMove(event);
+  };
+
+  #onWindowPointerUp = (event: PointerEvent): void => {
+    this.onPointerUp(event);
+  };
+
+  #onWindowTouchMove = (event: TouchEvent): void => {
+    if (this.session) {
+      event.preventDefault();
+    }
+  };
+
+  dispose(): void {
+    this.session = null;
+    this.previewTo = null;
+    this.#unlistenWindow();
   }
 
   endPointer(pointerId?: number): void {
     const session = this.session;
-    if (!session) {
+    if (session && pointerId !== undefined && session.pointerId !== pointerId) {
       return;
     }
-    if (pointerId !== undefined && session.pointerId !== pointerId) {
-      return;
+    if (session) {
+      releasePointer(this.host.viewportElement(), session.pointerId);
+      this.session = null;
     }
-    releasePointer(this.host.viewportElement(), session.pointerId);
-    this.session = null;
+    if (!this.#app().linkingFrom) {
+      this.#unlistenWindow();
+    }
   }
 
   onPortDown(detail: PortPointerDetail): void {
@@ -74,6 +123,7 @@ export class DiagramInteractionController {
         dragged: false,
       };
       capturePointer(this.host.viewportElement(), detail.pointerId);
+      this.#listenWindow();
       this.host.requestUpdate();
       return;
     }
@@ -154,6 +204,13 @@ export class DiagramInteractionController {
     }
     this.endPointer(event.pointerId);
     this.host.requestUpdate();
+  }
+
+  onLostPointerCapture(event: PointerEvent): void {
+    if (event.buttons !== 0) {
+      return;
+    }
+    this.onPointerUp(event);
   }
 
   onViewportPointerDown(event: PointerEvent): void {

@@ -9,13 +9,15 @@ import {
   blockKindFromDragKey,
   blockOriginFromDrop,
   clampZoom,
+  compactUiMatches,
+  COMPACT_UI_MAX_HEIGHT,
+  COMPACT_UI_QUERY,
   isNoneId,
   kindDragKey,
-  PHONE_VIEWPORT_SCALE,
   phoneScreenMatches,
   screenToWorld,
   viewportMetaContent,
-  applyPhoneViewportScale,
+  applyViewportMeta,
   wheelZoomFactor,
   worldToScreen,
   zoomToward,
@@ -93,11 +95,10 @@ describe("model", () => {
     });
   });
 
-  it("builds a viewport meta that shrinks phones", () => {
-    expect(viewportMetaContent(PHONE_VIEWPORT_SCALE)).toBe(
-      `width=device-width, initial-scale=${PHONE_VIEWPORT_SCALE}, viewport-fit=cover`,
+  it("locks the viewport meta at scale 1", () => {
+    expect(viewportMetaContent()).toBe(
+      "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
     );
-    expect(viewportMetaContent(1)).toContain("initial-scale=1");
   });
 
   it("treats a short screen edge as a phone", () => {
@@ -117,19 +118,58 @@ describe("model", () => {
     Object.defineProperty(globalThis, "screen", { configurable: true, value: original });
   });
 
-  it("writes the phone viewport scale onto the document meta tag", () => {
-    const original = globalThis.screen;
+  it("keeps compact UI on a landscape phone viewport", () => {
+    const originalScreen = globalThis.screen;
+    const originalMatch = globalThis.matchMedia;
+    const restore = () => {
+      Object.defineProperty(globalThis, "screen", { configurable: true, value: originalScreen });
+      globalThis.matchMedia = originalMatch;
+    };
+    const mock = (width: number, height: number, screenW: number, screenH: number) => {
+      Object.defineProperty(globalThis, "screen", {
+        configurable: true,
+        value: { width: screenW, height: screenH },
+      });
+      globalThis.matchMedia = ((query: string) => {
+        const matches = query.split(",").some((part) => {
+          const maxWidth = /max-width:\s*(\d+)/.exec(part);
+          if (maxWidth) {
+            return width <= Number(maxWidth[1]);
+          }
+          const maxHeight = /max-height:\s*(\d+)/.exec(part);
+          return maxHeight ? height <= Number(maxHeight[1]) : false;
+        });
+        return {
+          matches,
+          media: query,
+          onchange: null,
+          addEventListener() {},
+          removeEventListener() {},
+          addListener() {},
+          removeListener() {},
+          dispatchEvent() {
+            return false;
+          },
+        } as MediaQueryList;
+      }) as typeof matchMedia;
+    };
+    expect(COMPACT_UI_QUERY).toContain(`max-height: ${COMPACT_UI_MAX_HEIGHT}px`);
+    mock(844, 390, 1440, 900);
+    expect(compactUiMatches()).toBe(true);
+    mock(1400, 900, 1440, 900);
+    expect(compactUiMatches()).toBe(false);
+    mock(844, 390, 844, 390);
+    expect(compactUiMatches()).toBe(true);
+    restore();
+  });
+
+  it("writes the locked viewport meta onto the document tag", () => {
     const meta = document.createElement("meta");
     meta.name = "viewport";
-    meta.content = viewportMetaContent(1);
+    meta.content = "width=device-width, initial-scale=0.7";
     document.head.append(meta);
-    Object.defineProperty(globalThis, "screen", { configurable: true, value: { width: 390, height: 844 } });
-    applyPhoneViewportScale();
-    expect(meta.content).toBe(viewportMetaContent(PHONE_VIEWPORT_SCALE));
-    Object.defineProperty(globalThis, "screen", { configurable: true, value: { width: 1440, height: 900 } });
-    applyPhoneViewportScale();
-    expect(meta.content).toBe(viewportMetaContent(1));
+    applyViewportMeta();
+    expect(meta.content).toBe(viewportMetaContent());
     meta.remove();
-    Object.defineProperty(globalThis, "screen", { configurable: true, value: original });
   });
 });

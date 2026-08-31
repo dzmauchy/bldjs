@@ -4,11 +4,13 @@ import {
   clickPortHandle,
   diagramCss,
   dropOnDiagram,
+  fireCanvasPan,
   nodeHost,
   statusBlocks,
   waitDeep,
   waitForBlock,
   waitForLinks,
+  worldPan,
 } from "./actions";
 
 test.describe.configure({ mode: "serial" });
@@ -33,15 +35,28 @@ test.describe("phone canvas", () => {
     await page?.close();
   });
 
-  test("gives the canvas the full phone width with the palette closed", async () => {
+  test("gives the canvas the full phone width with compact chrome", async () => {
     const content = await page.locator('meta[name="viewport"]').getAttribute("content");
-    expect(content).toContain("initial-scale=0.7");
+    expect(content).toContain("initial-scale=1");
+    expect(content).toContain("maximum-scale=1");
+    const fontSize = await page.evaluate(() => getComputedStyle(document.documentElement).fontSize);
+    expect(parseFloat(fontSize)).toBeLessThan(16);
+    const toolbar = await boxOf(page.locator('[data-testid="app-toolbar"]'));
+    expect(toolbar.height).toBeLessThan(40);
     const canvas = diagramCss(page, '[data-testid="diagram-canvas"]');
     const box = await boxOf(canvas);
     const inner = await page.evaluate(() => window.innerWidth);
     expect(box.width).toBeGreaterThan(inner * 0.85);
     await expect(page.locator('[data-testid="toolbar-palette"]')).toBeVisible();
     await expect(page.locator('[data-testid="palette-timer"]')).toBeHidden();
+  });
+
+  test("pans the canvas from a touch drag", async () => {
+    const before = await worldPan(page);
+    await fireCanvasPan(page, 48, 30);
+    const after = await worldPan(page);
+    expect(after.x).toBe(before.x + 48);
+    expect(after.y).toBe(before.y + 30);
   });
 
   test("opens the blocks overlay from the toolbar", async () => {
@@ -77,5 +92,61 @@ test.describe("phone canvas", () => {
     await clickPortHandle(page, "sin", "output-out");
     await nodeHost(page, "timer").locator(".flow-node-icon").tap();
     await waitForLinks(page, "1 link");
+  });
+});
+
+test.describe("phone landscape", () => {
+  test.use({
+    viewport: { width: 844, height: 390 },
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test("keeps the palette overlay and lets it scroll", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("bld-diagram").waitFor();
+    await expect(page.locator('[data-testid="toolbar-palette"]')).toBeVisible();
+    await page.locator('[data-testid="toolbar-palette"]').click();
+    const item = await waitDeep(page, '[data-testid="palette-timer"]');
+    await expect(item).toBeVisible();
+    const palette = page.locator("bld-palette");
+    await expect(palette).toHaveAttribute("data-compact", "");
+    const scroll = await palette.evaluate((host) => {
+      const list = host.shadowRoot?.querySelector('[data-testid="palette-list"]');
+      if (!(list instanceof HTMLElement)) {
+        throw new Error("palette-list missing");
+      }
+      const style = getComputedStyle(list);
+      const spacer = document.createElement("div");
+      spacer.style.height = "800px";
+      list.append(spacer);
+      const clientHeight = list.clientHeight;
+      const scrollHeight = list.scrollHeight;
+      list.scrollTop = 240;
+      const after = list.scrollTop;
+      spacer.remove();
+      return {
+        overflowY: style.overflowY,
+        hostHeight: host.getBoundingClientRect().height,
+        clientHeight,
+        scrollHeight,
+        after,
+      };
+    });
+    expect(["auto", "scroll"]).toContain(scroll.overflowY);
+    expect(scroll.hostHeight).toBeLessThan(360);
+    expect(scroll.clientHeight).toBeLessThan(scroll.hostHeight);
+    expect(scroll.scrollHeight).toBeGreaterThan(scroll.clientHeight + 400);
+    expect(scroll.after).toBeGreaterThan(100);
+  });
+
+  test("pans the canvas from a touch drag", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('[data-testid="diagram-canvas"]').waitFor();
+    const before = await worldPan(page);
+    await fireCanvasPan(page, 36, 22);
+    const after = await worldPan(page);
+    expect(after.x).toBe(before.x + 36);
+    expect(after.y).toBe(before.y + 22);
   });
 });

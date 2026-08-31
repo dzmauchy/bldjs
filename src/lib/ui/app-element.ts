@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { AppController } from "$lib/context";
-import { COMPACT_UI_QUERY, isNoneId } from "$lib/model";
+import { COMPACT_UI_QUERY, compactUiMatches, isNoneId } from "$lib/model";
 import { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
 import "./about-modal";
@@ -41,6 +41,9 @@ export class BldApp extends LitElement {
         position: relative;
         background: #121416;
       }
+      :host([data-compact]) {
+        font-size: 13px;
+      }
       .palette-backdrop {
         position: absolute;
         inset: 0;
@@ -56,22 +59,32 @@ export class BldApp extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener("keydown", this.#onKey);
+    window.addEventListener("orientationchange", this.#syncCompact);
+    window.addEventListener("resize", this.#syncCompact);
     if (typeof window.matchMedia === "function") {
       this.#compact = window.matchMedia(COMPACT_UI_QUERY);
-      this.app.compactUi = this.#compact.matches;
-      this.#compact.addEventListener("change", this.#onCompactChange);
+      this.#compact.addEventListener("change", this.#syncCompact);
     }
+    this.#syncCompact();
   }
 
   disconnectedCallback(): void {
     this.app.stopRun();
     window.removeEventListener("keydown", this.#onKey);
-    this.#compact?.removeEventListener("change", this.#onCompactChange);
+    window.removeEventListener("orientationchange", this.#syncCompact);
+    window.removeEventListener("resize", this.#syncCompact);
+    this.#compact?.removeEventListener("change", this.#syncCompact);
+    document.documentElement.classList.remove("compact-ui");
     super.disconnectedCallback();
   }
 
-  #onCompactChange = (event: MediaQueryListEvent): void => {
-    this.app.compactUi = event.matches;
+  protected override updated(): void {
+    this.toggleAttribute("data-compact", this.app.compactUi);
+    document.documentElement.classList.toggle("compact-ui", this.app.compactUi);
+  }
+
+  #syncCompact = (): void => {
+    this.app.compactUi = compactUiMatches();
   };
 
   #onKey = (event: KeyboardEvent): void => {

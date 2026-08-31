@@ -105,5 +105,9 @@ describe("BldToolbar", () => {
     await bar.updateComplete;
     expect(bar.app.paletteOpen).toBe(true);
     expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(bar.hasAttribute("data-compact")).toBe(false);
+    bar.app.compactUi = true;
+    await bar.updateComplete;
+    expect(bar.hasAttribute("data-compact")).toBe(true);
   });
 });
