@@ -18,8 +18,8 @@ import { BldWorkspace } from "./workspace";
 
 function litChangeInUpdateWarnings(spy: ReturnType<typeof vi.spyOn>): string[] {
   return spy.mock.calls
-    .map((args) => String(args[0] ?? ""))
-    .filter((message) => message.includes("scheduled an update"));
+    .map((args: unknown[]) => String(args[0] ?? ""))
+    .filter((message: string) => message.includes("scheduled an update"));
 }
 
 describe("custom elements", () => {
