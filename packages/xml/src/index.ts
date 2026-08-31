@@ -68,23 +68,23 @@ export {
   resolvedOutput,
 } from "./blocks/resolve";
 export { ParseError } from "./blocks/parse";
-export type { DiagramSolution } from "./diagram-xml/compile";
-export { DiagramCompileError, loadDiagramSolution } from "./diagram-xml/compile";
-export { allocateNumericIds, blockXmlId, newDiagramId } from "./diagram-xml/ids";
+export type { DiagramSolution } from "./diagram/compile";
+export { DiagramCompileError, loadDiagramSolution } from "./diagram/compile";
+export { allocateNumericIds, blockXmlId, newDiagramId } from "./diagram/ids";
 export {
   defaultDiagramRepository,
   IndexedDbDiagramRepository,
   MemoryDiagramRepository,
   type DiagramRepository,
   type StoredDiagram,
-} from "./diagram-xml/store";
+} from "./diagram/store";
 export type {
   BlockExtras,
   BlockInstance,
   DiagramDocument,
   ParameterValue,
-} from "./diagram-xml/types";
-export { diagramFilename, downloadTextFile } from "./diagram-xml/download";
+} from "./diagram/types";
+export { diagramFilename, downloadTextFile } from "./diagram/download";
 export {
   canvasToDocument,
   documentToCanvas,
@@ -92,7 +92,7 @@ export {
   parseDiagramXml,
   serializeCanvas,
   serializeDiagramXml,
-} from "./diagram-xml/xml";
+} from "./diagram/xml";
 export type { SolutionAssembly, SolutionBuilder } from "./solution/builder";
 export {
   SolutionView,
