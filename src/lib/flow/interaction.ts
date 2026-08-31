@@ -88,18 +88,24 @@ export class DiagramInteractionController {
     }
   };
 
+  dispose(): void {
+    this.session = null;
+    this.previewTo = null;
+    this.#unlistenWindow();
+  }
+
   endPointer(pointerId?: number): void {
     const session = this.session;
-    if (!session) {
+    if (session && pointerId !== undefined && session.pointerId !== pointerId) {
+      return;
+    }
+    if (session) {
+      releasePointer(this.host.viewportElement(), session.pointerId);
+      this.session = null;
+    }
+    if (!this.#app().linkingFrom) {
       this.#unlistenWindow();
-      return;
     }
-    if (pointerId !== undefined && session.pointerId !== pointerId) {
-      return;
-    }
-    this.#unlistenWindow();
-    releasePointer(this.host.viewportElement(), session.pointerId);
-    this.session = null;
   }
 
   onPortDown(detail: PortPointerDetail): void {

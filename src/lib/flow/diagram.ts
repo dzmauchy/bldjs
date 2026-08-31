@@ -194,7 +194,7 @@ export class BldDiagram extends LitElement {
   }
 
   disconnectedCallback(): void {
-    this.#interaction.endPointer();
+    this.#interaction.dispose();
     this.removeEventListener("dragover", this.#onHostDragOver);
     this.removeEventListener("drop", this.#onHostDrop);
     this.removeEventListener("wheel", this.#onWheel);

@@ -120,6 +120,38 @@ describe("DiagramInteractionController", () => {
     expect(app.linkingFrom).toBeNull();
   });
 
+  it("keeps a click-started wire until the next pointer up on a block", () => {
+    const app = new AppState();
+    app.addBlock("sin", 0, 0);
+    app.addBlock("timer", 240, 0);
+    const sinId = app.blocks.find((block) => block.defId === "sin")!.id;
+    const timerId = app.blocks.find((block) => block.defId === "timer")!.id;
+    const host = {
+      app,
+      toWorld: () => ({ x: 0, y: 0 }),
+      viewportElement: () => null,
+      requestUpdate: vi.fn(),
+    };
+    const interaction = new DiagramInteractionController(host);
+    interaction.onPortDown({
+      side: "out",
+      blockId: sinId,
+      port: "out",
+      clientX: 0,
+      clientY: 0,
+      pointerId: 1,
+    });
+    interaction.onPointerUp(pointer({ pointerId: 1, composedPath: () => [] }));
+    expect(app.linkingFrom).toEqual({ blockId: sinId, port: "out" });
+    const timer = document.createElement("bld-node");
+    timer.dataset.blockId = String(timerId);
+    interaction.onPointerUp(pointer({ pointerId: 2, composedPath: () => [timer] }));
+    expect(app.links).toEqual([
+      expect.objectContaining({ fromBlock: sinId, fromOut: "out", toBlock: timerId, toIn: "in" }),
+    ]);
+    interaction.dispose();
+  });
+
   it("does not start a move when tapping a block while a wire is in progress", () => {
     const app = new AppState();
     app.addBlock("sin", 0, 0);
