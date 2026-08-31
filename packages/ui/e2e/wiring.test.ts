@@ -248,7 +248,6 @@ test.describe("wiring", () => {
     await clickPortHandle(page, "sin", "input-in");
     await waitForLinks(page, "0 links");
   });
-  });
 
   test("deletes a selected connector", async () => {
     await placeBlock(page, "scope");
