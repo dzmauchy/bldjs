@@ -4,25 +4,6 @@
   <namespace id="com.dauch.cs.gen" name="Gen" parent="com.dauch.cs"/>
   <namespace id="com.dauch.cs.sink" name="Sink" parent="com.dauch.cs"/>
 
-  <!--
-    Pure push. Every generator is c<f64> → void:
-
-      timer(c) / sin(c) / cos(c) / random(c)  : c<f64> → void
-      scope()                                    : c<f64>[]          (vector of plot sinks)
-
-    Composition: sin(plot[0])
-
-    Each generator uses an internal quantizer. The period input (ms) is an
-    integer range control, default 10 ms.
-
-    Each <in> / <out> is the WASM signature for that block. Arrays are
-    dynamically sized from the number of outgoing connectors.
-
-    Each block is a binaryen.js script in src/lib/resources/binaryen/blocks.
-    SolutionBuilder wires those scripts from the connected SolutionView.
-    Every function receives runtime $ctx (i32 pointer: time, delay_ns).
-  -->
-
   <block id="timer" name="Timer" ns="com.dauch.cs.gen" icon="timer">
     <attribute name="kind">Start</attribute>
     <attribute name="runnable">true</attribute>
