@@ -1,10 +1,26 @@
-/** @vitest-environment node */
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const entry = fileURLToPath(new URL("./index.ts", import.meta.url));
+const sources = import.meta.glob("./**/*.ts", {
+  query: "?raw",
+  eager: true,
+  import: "default",
+}) as Record<string, string>;
+
+function resolveRelative(fromFile: string, spec: string): string {
+  const parts = fromFile.split("/");
+  parts.pop();
+  for (const segment of spec.split("/")) {
+    if (segment === "." || segment === "") {
+      continue;
+    }
+    if (segment === "..") {
+      parts.pop();
+      continue;
+    }
+    parts.push(segment);
+  }
+  return parts.join("/");
+}
 
 function resolveSpec(fromFile: string, spec: string): string | undefined {
   if (spec === "binaryen") {
@@ -13,9 +29,9 @@ function resolveSpec(fromFile: string, spec: string): string | undefined {
   if (!spec.startsWith(".")) {
     return undefined;
   }
-  const base = resolve(dirname(fromFile), spec);
-  for (const candidate of [base, `${base}.ts`, resolve(base, "index.ts")]) {
-    if (existsSync(candidate) && candidate.endsWith(".ts")) {
+  const base = resolveRelative(fromFile, spec);
+  for (const candidate of [base, `${base}.ts`, `${base}/index.ts`]) {
+    if (candidate in sources) {
       return candidate;
     }
   }
@@ -42,7 +58,7 @@ function valueSpecs(source: string): string[] {
 
 describe("@bld/wasm public entry", () => {
   it("does not statically import binaryen.js", () => {
-    const queue = [entry];
+    const queue = ["./index.ts"];
     const seen = new Set<string>();
     const hits: string[] = [];
     while (queue.length > 0) {
@@ -55,7 +71,10 @@ describe("@bld/wasm public entry", () => {
         hits.push(file);
         continue;
       }
-      const source = readFileSync(file, "utf8");
+      const source = sources[file];
+      if (source === undefined) {
+        continue;
+      }
       for (const spec of valueSpecs(source)) {
         const resolved = resolveSpec(file, spec);
         if (resolved === "binaryen") {
