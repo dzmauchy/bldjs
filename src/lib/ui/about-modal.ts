@@ -79,7 +79,7 @@ export class BldAboutModal extends LitElement {
                 <li>Drag empty space to pan</li>
                 <li>Drag a placed block to move it</li>
                 <li>Click or drag from an output handle to an input handle to ground a type</li>
-                <li>Run builds the wasm assembly from the wired blocks (SolutionBuilder)</li>
+                <li>Run writes diagram XML, infers types, then builds the wasm assembly</li>
                 <li>Each Timer ticks with setInterval (a worker thread when the page is cross-origin isolated)</li>
                 <li>After Run, Chart on Scope reads samples from that buffer</li>
                 <li>Delete or Backspace removes the selection</li>

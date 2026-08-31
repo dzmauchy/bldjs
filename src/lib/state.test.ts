@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BLOCK_PLACE_HEIGHT, BLOCK_PLACE_WIDTH } from "./model";
 import { AppState } from "./state";
+import { MemoryDiagramRepository } from "./diagram-xml";
 
 function wireCsPipeline(app: AppState): { timerId: number; scopeId: number } {
   const timerId = app.nextId;
@@ -354,5 +355,53 @@ describe("AppState run", () => {
     app.toggleLink(app.blocks.find((block) => block.defId === "sin")!.id, "out", timerId, "in");
     expect(app.running).toBe(false);
     expect(app.canRun()).toBe(false);
+  });
+});
+
+describe("AppState diagram XML", () => {
+  it("exports and imports a wired canvas through diagram XML", () => {
+    const app = new AppState();
+    wireCsPipeline(app);
+    const xml = app.toDiagramXml();
+    expect(xml).toContain("<diagram");
+    expect(xml).toContain('type="timer"');
+    expect(xml).toContain("<connector");
+
+    const other = new AppState();
+    expect(other.loadDiagramXml(xml)).toBe(true);
+    expect(other.blocks.map((block) => block.defId)).toEqual(["timer", "quantizer", "sin", "scope"]);
+    expect(other.links).toHaveLength(3);
+    expect(other.canRun()).toBe(true);
+    expect(other.diagramName).toBe("Workspace");
+  });
+
+  it("rejects unknown block types on import", () => {
+    const app = new AppState();
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<diagram id="diag_bad" name="Bad" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
+  <blocks>
+    <block id="blk_1" type="sensor_source" x="0" y="0" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>
+  </blocks>
+</diagram>`;
+    expect(app.loadDiagramXml(xml)).toBe(false);
+    expect(app.ioError).toMatch(/unknown block type/);
+    expect(app.blocks).toHaveLength(0);
+  });
+
+  it("saves and loads diagrams from the library by hand", async () => {
+    const repo = new MemoryDiagramRepository();
+    const app = new AppState(repo);
+    wireCsPipeline(app);
+    expect(await app.saveToLibrary("Pipeline")).toBe(true);
+    expect(app.ioMode).toBe("closed");
+    expect((await repo.list()).map((item) => item.name)).toEqual(["Pipeline"]);
+
+    app.clearCanvas();
+    expect(app.blocks).toHaveLength(0);
+    const id = (await repo.list())[0]!.id;
+    expect(await app.loadFromLibrary(id)).toBe(true);
+    expect(app.blocks.map((block) => block.defId)).toEqual(["timer", "quantizer", "sin", "scope"]);
+    expect(app.diagramName).toBe("Pipeline");
+    expect(app.canRun()).toBe(true);
   });
 });

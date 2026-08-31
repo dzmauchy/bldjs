@@ -81,6 +81,7 @@ export class BldStatusBar extends LitElement {
         <span class="me-3" data-testid="status-zoom">${app.zoomPercent()}%</span>
         <span class="me-3" data-testid="status-run">${app.running ? "Running" : "Stopped"}</span>
         ${app.runError ? html`<span class="me-3 text-warning" data-testid="status-run-error">${app.runError}</span>` : nothing}
+        ${app.ioError ? html`<span class="me-3 text-warning" data-testid="status-io-error">${app.ioError}</span>` : nothing}
         <span class="ms-auto status-hint">
           ${app.linkingFrom
             ? "Click an input handle to ground its type · Esc cancels"

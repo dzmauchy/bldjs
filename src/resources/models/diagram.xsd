@@ -26,13 +26,21 @@
         </xs:restriction>
     </xs:simpleType>
 
+    <!-- Lifecycle attributes without `name`, so parameter values can require `name`. -->
+    <xs:attributeGroup name="LifecycleAttributes">
+        <xs:attribute name="id" type="xs:ID" use="required"/>
+        <xs:attribute name="createdAt" type="xs:dateTime" use="required"/>
+        <xs:attribute name="updatedAt" type="xs:dateTime" use="required"/>
+        <xs:attribute name="description" type="xs:string" use="optional"/>
+    </xs:attributeGroup>
+
     <!-- Base Value Definition for Concrete Parameters -->
     <xs:complexType name="ParamValueBaseDef" abstract="true">
         <xs:sequence>
             <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
         <xs:attribute name="name" type="xs:string" use="required"/>
-        <xs:attributeGroup ref="CommonEntityAttributes"/>
+        <xs:attributeGroup ref="LifecycleAttributes"/>
     </xs:complexType>
 
     <!-- 1. Integer Concrete Parameter Value -->
