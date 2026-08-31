@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SAMPLE_CAP as XML_SAMPLE_CAP } from "@bld/xml";
 import {
   SAMPLE_CAP,
   bumpFlowCounts,
@@ -22,6 +23,10 @@ function pushSample(memory: WebAssembly.Memory, value: number, ring = 0): void {
 }
 
 describe("runtime memory", () => {
+  it("keeps the sample ring capacity aligned with the XML package", () => {
+    expect(SAMPLE_CAP).toBe(XML_SAMPLE_CAP);
+  });
+
   it("uses atomics on shared memory", () => {
     const memory = createSharedMemory();
     expect(memory.buffer instanceof SharedArrayBuffer).toBe(true);

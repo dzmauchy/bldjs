@@ -1,5 +1,11 @@
-import { intervalMs } from "@bld/xml";
 import { bumpFlowCounts, isStopped, requestStop } from "./memory";
+
+function tickDelayMs(delayMs: number): number {
+  if (!Number.isFinite(delayMs)) {
+    return 1;
+  }
+  return Math.max(1, Math.trunc(delayMs));
+}
 
 /**
  * Count one invocation on each c<?> connector the runner just fired.
@@ -16,7 +22,7 @@ export function startTickLoop(
   delayMs: number,
   connectorCount: number,
 ): { stop: () => void; fire: () => void } {
-  const delay = intervalMs(delayMs);
+  const delay = tickDelayMs(delayMs);
   const fire = (): void => {
     if (isStopped(memory)) {
       return;
