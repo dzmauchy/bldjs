@@ -46,8 +46,9 @@ export class AppState extends ObservableState {
   declare panX: number;
   declare panY: number;
   declare zoom: number;
-  declare viewportW: number;
-  declare viewportH: number;
+  /** Layout size in CSS pixels. Written by the diagram without notifying. */
+  viewportW = 800;
+  viewportH = 600;
   declare aboutOpen: boolean;
   declare draggingDefId: string | null;
   declare linkingFrom: LinkingFrom | null;
@@ -72,8 +73,6 @@ export class AppState extends ObservableState {
       panX: 48,
       panY: 48,
       zoom: 1,
-      viewportW: 800,
-      viewportH: 600,
       aboutOpen: false,
       draggingDefId: null,
       linkingFrom: null,

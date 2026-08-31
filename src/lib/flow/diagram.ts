@@ -262,8 +262,14 @@ export class BldDiagram extends LitElement {
     if (!this.app) {
       return;
     }
-    this.app.viewportW = this.offsetWidth;
-    this.app.viewportH = this.offsetHeight;
+    const width = this.offsetWidth;
+    const height = this.offsetHeight;
+    if (width > 0) {
+      this.app.viewportW = width;
+    }
+    if (height > 0) {
+      this.app.viewportH = height;
+    }
   }
 
   #rememberLayout(blockId: number, layout: NodeLayout): void {

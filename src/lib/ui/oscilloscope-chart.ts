@@ -10,17 +10,16 @@ import { buildScopeChartConfig, longestIndexLabels, scopeChartDatasets, scopeCha
 export class BldOscilloscopeChart extends LitElement {
   static override properties = {
     app: { attribute: false },
-    seriesCount: { state: true },
   };
 
   declare app: AppState;
-  declare seriesCount: number;
 
   #ctrl?: AppController;
   #canvas = createRef<HTMLCanvasElement>();
   #chart: Chart<"line"> | null = null;
   #tick: ReturnType<typeof setInterval> | null = null;
   #openId = -1;
+  #seriesCount = 0;
 
   static override styles = [
     bootstrapStyles,
@@ -41,7 +40,6 @@ export class BldOscilloscopeChart extends LitElement {
   constructor() {
     super();
     this.app = undefined as unknown as AppState;
-    this.seriesCount = 0;
   }
 
   connectedCallback(): void {
@@ -88,7 +86,15 @@ export class BldOscilloscopeChart extends LitElement {
     this.#chart?.destroy();
     this.#chart = null;
     this.#openId = -1;
-    this.seriesCount = 0;
+    this.#writeSeriesCount(0);
+  }
+
+  #writeSeriesCount(count: number): void {
+    this.#seriesCount = count;
+    const host = this.renderRoot.querySelector("[data-testid=oscilloscope-chart]");
+    if (host instanceof HTMLElement) {
+      host.dataset.seriesCount = String(count);
+    }
   }
 
   #startChart(canvas: HTMLCanvasElement, id: number): void {
@@ -98,13 +104,12 @@ export class BldOscilloscopeChart extends LitElement {
         if (this.#openId !== id || !this.#chart) {
           return;
         }
-        if (this.seriesCount !== series.length) {
+        if (this.#seriesCount !== series.length) {
           chart.data.datasets = scopeChartDatasets(series);
           chart.options.scales = scopeChartScales(Math.max(series.length, 1));
           if (chart.options.plugins?.legend) {
             chart.options.plugins.legend.display = series.length > 1;
           }
-          this.seriesCount = series.length;
         } else {
           series.forEach((channel, index) => {
             const dataset = chart.data.datasets[index];
@@ -116,10 +121,11 @@ export class BldOscilloscopeChart extends LitElement {
         }
         chart.data.labels = longestIndexLabels(series);
         chart.update("none");
+        this.#writeSeriesCount(series.length);
       });
     };
-    tick();
     this.#chart = chart;
+    tick();
     this.#tick = setInterval(tick, 50);
   }
 
@@ -156,7 +162,7 @@ export class BldOscilloscopeChart extends LitElement {
               <div
                 class="scope-chart"
                 data-testid="oscilloscope-chart"
-                data-series-count=${this.seriesCount}
+                data-series-count=${this.#seriesCount}
               >
                 <canvas ${ref(this.#canvas)}></canvas>
               </div>

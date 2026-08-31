@@ -44,6 +44,19 @@ describe("AppState placement", () => {
       }
     }
   });
+
+  it("does not notify subscribers when the viewport size changes", () => {
+    const app = new AppState();
+    const seen: string[] = [];
+    app.subscribe(() => seen.push("change"));
+    app.viewportW = 1024;
+    app.viewportH = 768;
+    expect(seen).toEqual([]);
+    expect(app.viewportW).toBe(1024);
+    expect(app.viewportH).toBe(768);
+    app.zoom = 1.15;
+    expect(seen).toEqual(["change"]);
+  });
 });
 
 describe("AppState wiring", () => {
