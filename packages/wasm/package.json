@@ -1,0 +1,19 @@
+{
+  "name": "@bld/wasm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "description": "WASM block implementations and WASM runner",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@bld/xml": "0.1.0",
+    "binaryen": "^132.0.0"
+  }
+}

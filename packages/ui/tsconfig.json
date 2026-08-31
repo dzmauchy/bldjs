@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "$lib": ["./src/lib"],
+      "$lib/*": ["./src/lib/*"],
+      "@bld/xml": ["../xml/src/index.ts"],
+      "@bld/wasm": ["../wasm/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}
