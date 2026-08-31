@@ -67,8 +67,21 @@ export class BldToolbar extends LitElement {
       .toolbar-btn:disabled {
         opacity: 0.45;
       }
-      .toolbar-menu-btn {
-        padding: 0.2rem 0.45rem;
+      .toolbar-palette-btn {
+        display: none;
+      }
+      @media (max-width: 720px) {
+        :host {
+          height: calc(36px + env(safe-area-inset-top, 0px));
+          flex-basis: calc(36px + env(safe-area-inset-top, 0px));
+        }
+        .app-toolbar {
+          height: calc(36px + env(safe-area-inset-top, 0px));
+          padding-top: env(safe-area-inset-top, 0px);
+        }
+        .toolbar-palette-btn {
+          display: inline-flex;
+        }
       }
       .app-menu-dropdown {
         display: none;
@@ -142,6 +155,24 @@ export class BldToolbar extends LitElement {
     return html`
       <nav class="app-toolbar border-bottom d-flex align-items-center px-2" data-testid="app-toolbar">
         <span class="app-brand me-2" title="Bld" data-testid="app-brand">${unsafeSVG(renderBrandSvg())}</span>
+
+        <button
+          class=${classMap({
+            "toolbar-btn": true,
+            "toolbar-palette-btn": true,
+            btn: true,
+            "btn-sm": true,
+            active: app.paletteOpen,
+          })}
+          type="button"
+          title="Blocks"
+          aria-label="Blocks"
+          aria-pressed=${app.paletteOpen ? "true" : "false"}
+          data-testid="toolbar-palette"
+          @click=${() => app.togglePalette()}
+        >
+          <bld-block-icon name="list"></bld-block-icon>
+        </button>
 
         <button
           class="toolbar-btn btn btn-sm"

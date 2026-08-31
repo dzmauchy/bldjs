@@ -21,6 +21,7 @@ import {
   NONE_ID,
   type BlockKindInfo,
   blockKindFromName,
+  compactUiMatches,
   screenToWorld,
   zoomViewport,
 } from "./model";
@@ -50,6 +51,8 @@ export class AppState extends ObservableState {
   viewportW = 800;
   viewportH = 600;
   declare aboutOpen: boolean;
+  declare compactUi: boolean;
+  declare paletteOpen: boolean;
   declare draggingDefId: string | null;
   declare linkingFrom: LinkingFrom | null;
   declare scopeOpen: number;
@@ -74,6 +77,8 @@ export class AppState extends ObservableState {
       panY: 48,
       zoom: 1,
       aboutOpen: false,
+      compactUi: compactUiMatches(),
+      paletteOpen: false,
       draggingDefId: null,
       linkingFrom: null,
       scopeOpen: NONE_ID,
@@ -97,6 +102,18 @@ export class AppState extends ObservableState {
 
   isDragging(): boolean {
     return this.draggingDefId !== null;
+  }
+
+  paletteVisible(): boolean {
+    return !this.compactUi || this.paletteOpen || this.draggingDefId !== null;
+  }
+
+  togglePalette(): void {
+    this.paletteOpen = !this.paletteOpen;
+  }
+
+  closePalette(): void {
+    this.paletteOpen = false;
   }
 
   blockDef(defId: string): BlockDef | undefined {

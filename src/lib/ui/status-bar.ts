@@ -24,6 +24,20 @@ export class BldStatusBar extends LitElement {
         height: 28px;
         background: #1b1f22;
       }
+      @media (max-width: 720px) {
+        :host {
+          height: calc(24px + env(safe-area-inset-bottom, 0px));
+          flex-basis: calc(24px + env(safe-area-inset-bottom, 0px));
+        }
+        .app-statusbar {
+          height: calc(24px + env(safe-area-inset-bottom, 0px));
+          padding-bottom: env(safe-area-inset-bottom, 0px);
+          font-size: 0.7rem;
+        }
+        .status-hint {
+          display: none;
+        }
+      }
     `,
   ];
 
@@ -65,7 +79,7 @@ export class BldStatusBar extends LitElement {
         <span class="me-3" data-testid="status-zoom">${app.zoomPercent()}%</span>
         <span class="me-3" data-testid="status-run">${app.running ? "Running" : "Stopped"}</span>
         ${app.runError ? html`<span class="me-3 text-warning" data-testid="status-run-error">${app.runError}</span>` : nothing}
-        <span class="ms-auto">
+        <span class="ms-auto status-hint">
           ${app.linkingFrom
             ? "Click an input handle to ground its type · Esc cancels"
             : "Click or drag output → input handles · scroll to zoom"}

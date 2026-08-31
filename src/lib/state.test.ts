@@ -57,6 +57,21 @@ describe("AppState placement", () => {
     app.zoom = 1.15;
     expect(seen).toEqual(["change"]);
   });
+
+  it("hides the palette on compact screens until it is opened or a drag starts", () => {
+    const app = new AppState();
+    app.compactUi = false;
+    expect(app.paletteVisible()).toBe(true);
+    app.compactUi = true;
+    expect(app.paletteVisible()).toBe(false);
+    app.togglePalette();
+    expect(app.paletteOpen).toBe(true);
+    expect(app.paletteVisible()).toBe(true);
+    app.closePalette();
+    expect(app.paletteVisible()).toBe(false);
+    app.draggingDefId = "sin";
+    expect(app.paletteVisible()).toBe(true);
+  });
 });
 
 describe("AppState wiring", () => {

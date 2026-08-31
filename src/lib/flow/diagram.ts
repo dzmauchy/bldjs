@@ -3,9 +3,9 @@ import { classMap } from "lit/directives/class-map.js";
 import { repeat } from "lit/directives/repeat.js";
 import { styleMap } from "lit/directives/style-map.js";
 import { AppController } from "$lib/context";
-import { GRID_SIZE, wheelZoomFactor } from "$lib/model";
+import { GRID_SIZE, blockOriginFromDrop, wheelZoomFactor } from "$lib/model";
 import { type AppState } from "$lib/state";
-import { FLOW_MIME } from "./mime";
+import { FLOW_MIME, PALETTE_DROP_EVENT, type PaletteDropDetail } from "./mime";
 import { clientToWorld, type Point } from "./geometry";
 import { AvoidRouteEngine } from "./avoid-router";
 import { DiagramInteractionController } from "./interaction";
@@ -165,6 +165,7 @@ export class BldDiagram extends LitElement {
     this.addEventListener("dragover", this.#onHostDragOver);
     this.addEventListener("drop", this.#onHostDrop);
     this.addEventListener("wheel", this.#onWheel, { passive: false });
+    window.addEventListener(PALETTE_DROP_EVENT, this.#onPaletteDrop);
     if (typeof ResizeObserver === "function") {
       this.#resize = new ResizeObserver(() => this.#syncHostSize());
       this.#resize.observe(this);
@@ -178,6 +179,7 @@ export class BldDiagram extends LitElement {
     this.removeEventListener("dragover", this.#onHostDragOver);
     this.removeEventListener("drop", this.#onHostDrop);
     this.removeEventListener("wheel", this.#onWheel);
+    window.removeEventListener(PALETTE_DROP_EVENT, this.#onPaletteDrop);
     this.#resize?.disconnect();
     this.#resize = null;
     this.#avoid.destroy();
@@ -289,15 +291,39 @@ export class BldDiagram extends LitElement {
     event.preventDefault();
     const defId = this.app.draggingDefId ?? event.dataTransfer?.getData(FLOW_MIME) ?? null;
     this.app.draggingDefId = null;
+    if (this.app.compactUi) {
+      this.app.closePalette();
+    }
+    this.#placeBlock(defId, event.clientX, event.clientY);
+  };
+
+  #onPaletteDrop = (event: Event): void => {
+    const detail = (event as CustomEvent<PaletteDropDetail>).detail;
+    if (!detail?.defId) {
+      return;
+    }
+    this.app.draggingDefId = null;
+    if (this.app.compactUi) {
+      this.app.closePalette();
+    }
+    this.#placeBlock(detail.defId, detail.clientX, detail.clientY);
+  };
+
+  #placeBlock(defId: string | null, clientX: number, clientY: number): void {
     if (!defId || !this.app.blockDef(defId)) {
       return;
     }
-    const world = this.#toWorld(event.clientX, event.clientY);
+    const rect = this.#viewportRect();
+    if (!rect || clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+      return;
+    }
+    const world = this.#toWorld(clientX, clientY);
     if (!world) {
       return;
     }
-    this.app.addBlock(defId, world.x, world.y);
-  };
+    const origin = blockOriginFromDrop(world.x, world.y);
+    this.app.addBlock(defId, origin.x, origin.y);
+  }
 
   #onWheel = (event: WheelEvent): void => {
     event.preventDefault();
@@ -427,7 +453,11 @@ export class BldDiagram extends LitElement {
               <div class="hint">
                 <div class="hint-card">
                   <div class="hint-title">Drop blocks here</div>
-                  <div class="hint-copy">Drag from the left pane. Click or drag an output handle, then an input.</div>
+                  <div class="hint-copy">
+                    ${app.compactUi
+                      ? "Tap Blocks, then drag a block onto the canvas."
+                      : "Drag from the left pane. Click or drag an output handle, then an input."}
+                  </div>
                 </div>
               </div>
             `

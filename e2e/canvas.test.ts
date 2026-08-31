@@ -215,6 +215,21 @@ test.describe("canvas", () => {
     expect(await statusBlocks(page)).toBe("1 block");
   });
 
+  test("places a dropped block with its center on the drop point", async () => {
+    await newCanvas(page);
+    const canvas = diagramCss(page, '[data-testid="diagram-canvas"]');
+    const dropAt = await boxOf(canvas);
+    const dropX = dropAt.x + dropAt.width / 2;
+    const dropY = dropAt.y + dropAt.height / 2;
+    await dropOnDiagram(page, "sin");
+    await waitForBlock(page, "sin");
+    const node = await boxOf(nodeHost(page, "sin"));
+    const centerX = node.x + node.width / 2;
+    const centerY = node.y + node.height / 2;
+    expect(Math.abs(centerX - dropX)).toBeLessThan(Math.abs(node.x - dropX));
+    expect(Math.abs(centerY - dropY)).toBeLessThan(Math.abs(node.y - dropY));
+  });
+
   test("renders a labeled block with a 32px icon and inset edge circles", async () => {
     await newCanvas(page);
     await placeBlock(page, "sin");

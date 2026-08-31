@@ -7,6 +7,28 @@ body {
   touch-action: manipulation;
 }
 
+.bld-drag-ghost {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 180px;
+  height: 88px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid #495057;
+  border-left: 3px solid #0d6efd;
+  border-radius: 8px;
+  background: #23282d;
+  color: #dee2e6;
+  font: 600 0.8rem/1.2 system-ui, sans-serif;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, -50%);
+}
+
 bld-app {
   display: block;
   height: 100%;

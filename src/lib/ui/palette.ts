@@ -2,11 +2,22 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { type BlockDef } from "$lib/blocks";
 import { AppController } from "$lib/context";
-import { FLOW_MIME } from "$lib/flow";
+import { FLOW_MIME, PALETTE_DROP_EVENT, type PaletteDropDetail } from "$lib/flow";
 import type { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
 import { type PaletteGroup, buildPaletteTree, paletteGroupIds } from "./palette-tree";
 import "./block-icon";
+
+const PALETTE_DRAG = 10;
+
+interface PointerDrag {
+  pointerId: number;
+  defId: string;
+  startX: number;
+  startY: number;
+  dragged: boolean;
+  ghost: HTMLElement | null;
+}
 
 export class BldPalette extends LitElement {
   static override properties = {
@@ -17,6 +28,7 @@ export class BldPalette extends LitElement {
 
   #ctrl?: AppController;
   #open: Set<string> | null = null;
+  #drag: PointerDrag | null = null;
 
   static override styles = [
     bootstrapStyles,
@@ -30,6 +42,22 @@ export class BldPalette extends LitElement {
         width: 200px;
         flex: 0 0 200px;
         background: #1c2125;
+      }
+      .palette-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+      .palette-close {
+        display: none;
+        border: 0;
+        background: transparent;
+        color: var(--bs-secondary-color, #adb5bd);
+        padding: 0 0.15rem;
+        line-height: 1;
+        font-size: 1.35rem;
+        cursor: pointer;
       }
       .palette-list {
         padding: 0;
@@ -138,6 +166,44 @@ export class BldPalette extends LitElement {
       .block-kind-output {
         --block-accent: var(--bs-danger);
       }
+      @media (max-width: 720px) {
+        :host {
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: min(200px, 82vw);
+          flex: none;
+          z-index: 6;
+          display: none;
+          box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
+        }
+        :host([data-open]) {
+          display: flex;
+        }
+        :host([data-dragging]) {
+          opacity: 0.18;
+          pointer-events: none;
+        }
+        .palette,
+        :host {
+          width: min(200px, 82vw);
+        }
+        .palette-close {
+          display: inline-flex;
+        }
+        .palette-ns-toggle {
+          padding: 0.45rem 0.7rem;
+        }
+        .palette-ns-body {
+          gap: 4px;
+          padding: 6px;
+        }
+        .palette-item {
+          padding: 5px 7px;
+          font-size: 0.75rem;
+        }
+      }
     `,
   ];
 
@@ -151,8 +217,18 @@ export class BldPalette extends LitElement {
     this.#bindApp();
   }
 
+  disconnectedCallback(): void {
+    this.#cancelPointerDrag();
+    super.disconnectedCallback();
+  }
+
   protected override willUpdate(): void {
     this.#bindApp();
+  }
+
+  protected override updated(): void {
+    this.toggleAttribute("data-open", this.app?.paletteVisible() ?? false);
+    this.toggleAttribute("data-dragging", Boolean(this.app?.draggingDefId));
   }
 
   #bindApp(): void {
@@ -196,17 +272,20 @@ export class BldPalette extends LitElement {
         draggable="true"
         data-testid=${`palette-${def.id}`}
         title=${`${hint} — drag onto the canvas, or double-click to drop at the center`}
+        @pointerdown=${(event: PointerEvent) => this.#onItemPointerDown(event, def.id)}
         @dragstart=${(event: DragEvent) => this.#onDragStart(event, def.id)}
         @dragend=${() => this.#onDragEnd()}
         @keydown=${(event: KeyboardEvent) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             app.addBlockAtViewCenter(def.id);
+            app.closePalette();
           }
         }}
         @dblclick=${() => {
           app.draggingDefId = null;
           app.addBlockAtViewCenter(def.id);
+          app.closePalette();
         }}
       >
         <span class="palette-item-icon" aria-hidden="true">
@@ -243,6 +322,100 @@ export class BldPalette extends LitElement {
     `;
   }
 
+  #onItemPointerDown(event: PointerEvent, defId: string): void {
+    if (!event.isPrimary || event.pointerType === "mouse") {
+      return;
+    }
+    if (event.currentTarget instanceof HTMLElement) {
+      event.currentTarget.draggable = false;
+    }
+    this.#cancelPointerDrag();
+    this.#drag = {
+      pointerId: event.pointerId,
+      defId,
+      startX: event.clientX,
+      startY: event.clientY,
+      dragged: false,
+      ghost: null,
+    };
+    window.addEventListener("pointermove", this.#onWindowPointerMove);
+    window.addEventListener("pointerup", this.#onWindowPointerUp);
+    window.addEventListener("pointercancel", this.#onWindowPointerUp);
+  }
+
+  #onWindowPointerMove = (event: PointerEvent): void => {
+    const drag = this.#drag;
+    if (!drag || event.pointerId !== drag.pointerId) {
+      return;
+    }
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.dragged) {
+      if (Math.hypot(dx, dy) < PALETTE_DRAG) {
+        return;
+      }
+      if (Math.abs(dy) > Math.abs(dx)) {
+        this.#cancelPointerDrag();
+        return;
+      }
+      event.preventDefault();
+      drag.dragged = true;
+      this.app.draggingDefId = drag.defId;
+      drag.ghost = this.#ghostFor(drag.defId, event.clientX, event.clientY);
+      document.body.append(drag.ghost);
+      return;
+    }
+    event.preventDefault();
+    if (drag.ghost) {
+      drag.ghost.style.left = `${event.clientX}px`;
+      drag.ghost.style.top = `${event.clientY}px`;
+    }
+  };
+
+  #onWindowPointerUp = (event: PointerEvent): void => {
+    const drag = this.#drag;
+    if (!drag || event.pointerId !== drag.pointerId) {
+      return;
+    }
+    const { defId, dragged } = drag;
+    const clientX = event.clientX;
+    const clientY = event.clientY;
+    const cancelled = event.type === "pointercancel";
+    this.#cancelPointerDrag();
+    this.app.draggingDefId = null;
+    if (cancelled) {
+      return;
+    }
+    if (this.app.compactUi) {
+      this.app.closePalette();
+    }
+    if (dragged) {
+      const detail: PaletteDropDetail = { defId, clientX, clientY };
+      window.dispatchEvent(new CustomEvent(PALETTE_DROP_EVENT, { detail }));
+      return;
+    }
+    this.app.addBlockAtViewCenter(defId);
+  };
+
+  #ghostFor(defId: string, clientX: number, clientY: number): HTMLElement {
+    const ghost = document.createElement("div");
+    ghost.className = "bld-drag-ghost";
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.textContent = this.app.blockDef(defId)?.name ?? defId;
+    ghost.style.left = `${clientX}px`;
+    ghost.style.top = `${clientY}px`;
+    return ghost;
+  }
+
+  #cancelPointerDrag(): void {
+    const drag = this.#drag;
+    this.#drag = null;
+    window.removeEventListener("pointermove", this.#onWindowPointerMove);
+    window.removeEventListener("pointerup", this.#onWindowPointerUp);
+    window.removeEventListener("pointercancel", this.#onWindowPointerUp);
+    drag?.ghost?.remove();
+  }
+
   #onDragStart(event: DragEvent, defId: string): void {
     this.app.draggingDefId = defId;
     if (!event.dataTransfer) {
@@ -250,10 +423,17 @@ export class BldPalette extends LitElement {
     }
     event.dataTransfer.setData(FLOW_MIME, defId);
     event.dataTransfer.effectAllowed = "move";
+    const target = event.currentTarget;
+    if (target instanceof HTMLElement) {
+      event.dataTransfer.setDragImage(target, target.offsetWidth / 2, target.offsetHeight / 2);
+    }
   }
 
   #onDragEnd(): void {
     this.app.draggingDefId = null;
+    if (this.app.compactUi) {
+      this.app.closePalette();
+    }
   }
 
   protected override render() {
@@ -265,8 +445,20 @@ export class BldPalette extends LitElement {
     return html`
       <aside class="palette border-end d-flex flex-column">
         <div class="palette-header px-3 py-2 border-bottom">
-          <div class="small text-uppercase text-secondary fw-semibold">Blocks</div>
-          <div class="small text-secondary">Drag onto the canvas</div>
+          <div>
+            <div class="small text-uppercase text-secondary fw-semibold">Blocks</div>
+            <div class="small text-secondary">Drag onto the canvas</div>
+          </div>
+          <button
+            class="palette-close"
+            type="button"
+            title="Close blocks"
+            aria-label="Close blocks"
+            data-testid="palette-close"
+            @click=${() => app.closePalette()}
+          >
+            ×
+          </button>
         </div>
         <div class="palette-list flex-grow-1 overflow-auto">
           ${groups.map((group) => this.#renderGroup(group, groups, false))}

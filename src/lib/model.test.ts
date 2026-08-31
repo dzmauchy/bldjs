@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  BLOCK_HEIGHT,
+  BLOCK_WIDTH,
   MAX_ZOOM,
   MIN_ZOOM,
   NONE_ID,
   allBlockKinds,
   blockKindFromDragKey,
+  blockOriginFromDrop,
   clampZoom,
   isNoneId,
   kindDragKey,
@@ -73,5 +76,16 @@ describe("model", () => {
     expect(isNoneId(NONE_ID)).toBe(true);
     expect(isNoneId(0)).toBe(false);
     expect(isNoneId(1)).toBe(false);
+  });
+
+  it("centers a dropped block on the pointer", () => {
+    expect(blockOriginFromDrop(200, 120)).toEqual({
+      x: 200 - BLOCK_WIDTH / 2,
+      y: 120 - BLOCK_HEIGHT / 2,
+    });
+    expect(blockOriginFromDrop(0, 0)).toEqual({
+      x: -BLOCK_WIDTH / 2,
+      y: -BLOCK_HEIGHT / 2,
+    });
   });
 });
