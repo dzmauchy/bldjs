@@ -47,6 +47,32 @@ export function measureHostLayout(host: HTMLElement): NodeLayout {
   return { width, height, ports };
 }
 
+export function nodeFromComposedPath(event: Event): HTMLElement | undefined {
+  for (const item of event.composedPath()) {
+    if (item instanceof HTMLElement && item.localName === "bld-node") {
+      return item;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Hit-test a node by client coordinates. Pointer capture retargets events to the
+ * capturing node, so `composedPath()` no longer includes the block under the finger.
+ */
+export function nodeFromClientPoint(clientX: number, clientY: number): HTMLElement | undefined {
+  let node: Element | null = deepestElementFromPoint(clientX, clientY);
+  while (node) {
+    if (node instanceof HTMLElement && node.localName === "bld-node") {
+      return node;
+    }
+    const root = node.getRootNode();
+    node =
+      node.parentElement ?? (root instanceof ShadowRoot && root.host instanceof Element ? root.host : null);
+  }
+  return undefined;
+}
+
 export function portFromComposedPath(
   event: Event,
 ): { host: HTMLElement; side: PortSide; port: string } | undefined {

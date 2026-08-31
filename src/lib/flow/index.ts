@@ -40,7 +40,14 @@ export {
   obstacleFromBlock,
 } from "./avoid-router";
 export { iconKey, iconSvgInner, renderBrandSvg, renderIconSvg } from "./icons";
-export { measureHostLayout, portFromClientPoint, portFromComposedPath, worldPort } from "./layout";
+export {
+  measureHostLayout,
+  nodeFromClientPoint,
+  nodeFromComposedPath,
+  portFromClientPoint,
+  portFromComposedPath,
+  worldPort,
+} from "./layout";
 export { groupPortViews } from "./port-groups";
 export type { PortGroup } from "./port-groups";
 export type {
@@ -56,6 +63,7 @@ export { BldConnector } from "./connector";
 export { BldDiagram } from "./diagram";
 export { BldNode } from "./node";
 export { DiagramInteractionController, LINK_DRAG, type PointerSession } from "./interaction";
+export { uniqueCompatibleDropPort, uniqueCompatibleInput, shouldShowPortType } from "./link-types";
 export { DiagramLayoutController } from "./layout-controller";
 export {
   buildConnectorViews,
