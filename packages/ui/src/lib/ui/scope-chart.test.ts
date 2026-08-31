@@ -1,52 +1,142 @@
-import { describe, expect, it } from "vitest";
-import { buildScopeChartConfig, scopeAxisId, scopeChartDatasets, scopeChartScales } from "./scope-chart";
+import { describe, expect, it, vi } from "vitest";
+import {
+  drawScopePlot,
+  fitScopeCanvas,
+  formatTick,
+  niceTicks,
+  paintScopeCanvas,
+  scopeAxisId,
+  scopeAxisSide,
+  scopePlotLayout,
+  scopeSeriesColor,
+  seriesValueRange,
+  ScopeCanvasPlot,
+} from "./scope-chart";
 
-describe("scope multi-axis chart", () => {
-  it("assigns each series its own y-axis id like the Chart.js multi-axis sample", () => {
+type CtxCall = { name: string; args: unknown[] };
+
+function recordingContext(): CanvasRenderingContext2D & { calls: CtxCall[] } {
+  const calls: CtxCall[] = [];
+  const rec =
+    (name: string) =>
+    (...args: unknown[]) => {
+      calls.push({ name, args });
+    };
+  return {
+    calls,
+    fillStyle: "",
+    strokeStyle: "",
+    lineWidth: 1,
+    lineJoin: "",
+    lineCap: "",
+    font: "",
+    textAlign: "",
+    textBaseline: "",
+    fillRect: rec("fillRect"),
+    beginPath: rec("beginPath"),
+    moveTo: rec("moveTo"),
+    lineTo: rec("lineTo"),
+    stroke: rec("stroke"),
+    fillText: rec("fillText"),
+    save: rec("save"),
+    restore: rec("restore"),
+    rect: rec("rect"),
+    clip: rec("clip"),
+    setTransform: rec("setTransform"),
+    measureText: (text: string) => ({ width: text.length * 6 }) as TextMetrics,
+  } as unknown as CanvasRenderingContext2D & { calls: CtxCall[] };
+}
+
+describe("scope multi-axis canvas plot", () => {
+  it("assigns each series a y-axis id and alternating side", () => {
     expect(scopeAxisId(0)).toBe("y");
     expect(scopeAxisId(1)).toBe("y1");
-    const datasets = scopeChartDatasets([
-      { label: "sin", samples: [0, 1] },
-      { label: "cos", samples: [1, 0] },
-    ]);
-    expect(datasets).toHaveLength(2);
-    expect(datasets[0]).toMatchObject({
-      label: "sin",
-      yAxisID: "y",
-      borderColor: "rgb(255, 99, 132)",
-    });
-    expect(datasets[1]).toMatchObject({
-      label: "cos",
-      yAxisID: "y1",
-      borderColor: "rgb(54, 162, 235)",
-    });
+    expect(scopeAxisSide(0)).toBe("left");
+    expect(scopeAxisSide(1)).toBe("right");
+    expect(scopeSeriesColor(0).border).toBe("rgb(255, 99, 132)");
+    expect(scopeSeriesColor(1).border).toBe("rgb(54, 162, 235)");
   });
 
-  it("puts the second axis on the right without drawing a second grid", () => {
-    const scales = scopeChartScales(2)!;
-    expect(scales.y).toMatchObject({ type: "linear", display: true, position: "left" });
-    expect(scales.y1).toMatchObject({
-      type: "linear",
-      display: true,
-      position: "right",
-      grid: { drawOnChartArea: false },
-    });
+  it("puts the second axis on the right and reserves gutters", () => {
+    const layout = scopePlotLayout(640, 280, 2);
+    expect(layout.legend).toBe(true);
+    expect(layout.axes).toHaveLength(2);
+    expect(layout.axes[0]).toMatchObject({ side: "left" });
+    expect(layout.axes[1]).toMatchObject({ side: "right" });
+    expect(layout.plotLeft).toBeGreaterThan(40);
+    expect(layout.plotLeft + layout.plotWidth).toBeLessThan(640 - 40);
   });
 
-  it("builds a Chart.js multi-axis line config", () => {
-    const config = buildScopeChartConfig([
-      { label: "sin", samples: [0, 1] },
-      { label: "cos", samples: [1, -1] },
+  it("pads a constant series so the axis still has a span", () => {
+    expect(seriesValueRange([2, 2, 2])).toEqual({ min: 1.8, max: 2.2 });
+    expect(seriesValueRange([])).toEqual({ min: -1, max: 1 });
+    expect(seriesValueRange([Number.NaN])).toEqual({ min: -1, max: 1 });
+  });
+
+  it("builds even ticks across a range", () => {
+    const ticks = niceTicks(-1, 1, 5);
+    expect(ticks[0]).toBeLessThanOrEqual(-1 + 0.5);
+    expect(ticks.at(-1)).toBeGreaterThanOrEqual(0.5);
+    expect(formatTick(0.25)).toBe("0.25");
+    expect(formatTick(1e6)).toBe("1.0e+6");
+  });
+
+  it("fills the plot and strokes one path per series", () => {
+    const ctx = recordingContext();
+    drawScopePlot(ctx, 640, 280, [
+      { label: "sin", samples: [0, 1, 0, -1] },
+      { label: "cos", samples: [1, 0, -1, 0] },
     ]);
-    expect(config.type).toBe("line");
-    expect(config.data.labels).toEqual([0, 1]);
-    expect(config.data.datasets).toHaveLength(2);
-    expect(config.options?.animation).toBe(false);
-    expect(config.options?.resizeDelay).toBe(0);
-    expect(config.options?.interaction).toEqual({ mode: "index", intersect: false });
-    expect(config.options?.scales?.y).toMatchObject({ stacked: false, position: "left" });
-    expect(config.options?.plugins?.title?.display).toBe(false);
-    expect(config.options?.plugins?.legend?.display).toBe(true);
-    expect(config.options?.scales?.y1).toBeDefined();
+    expect(ctx.calls.some((call) => call.name === "fillRect")).toBe(true);
+    const strokes = ctx.calls.filter((call) => call.name === "stroke");
+    expect(strokes.length).toBeGreaterThan(2);
+    const labels = ctx.calls.filter((call) => call.name === "fillText").map((call) => call.args[0]);
+    expect(labels).toContain("sin");
+    expect(labels).toContain("cos");
+    expect(ctx.calls.some((call) => call.name === "clip")).toBe(true);
+  });
+
+  it("still paints axes when there are no samples yet", () => {
+    const ctx = recordingContext();
+    drawScopePlot(ctx, 400, 200, []);
+    expect(ctx.calls.some((call) => call.name === "fillRect")).toBe(true);
+    expect(ctx.calls.some((call) => call.name === "stroke")).toBe(true);
+  });
+
+  it("does not size a canvas before layout, then paints once it has a box", () => {
+    const canvas = document.createElement("canvas");
+    const ctx = recordingContext();
+    Object.defineProperty(canvas, "clientWidth", { configurable: true, get: () => 0 });
+    Object.defineProperty(canvas, "clientHeight", { configurable: true, get: () => 0 });
+    vi.spyOn(canvas, "getContext").mockReturnValue(ctx);
+    expect(fitScopeCanvas(canvas)).toBeNull();
+    expect(paintScopeCanvas(canvas, [{ label: "sin", samples: [0, 1] }])).toBe(false);
+    expect(ctx.calls).toEqual([]);
+
+    Object.defineProperty(canvas, "clientWidth", { configurable: true, get: () => 640 });
+    Object.defineProperty(canvas, "clientHeight", { configurable: true, get: () => 280 });
+    expect(paintScopeCanvas(canvas, [{ label: "sin", samples: [0, 1] }])).toBe(true);
+    expect(canvas.width).toBe(640);
+    expect(canvas.height).toBe(280);
+    expect(ctx.calls.some((call) => call.name === "setTransform")).toBe(true);
+    expect(ctx.calls.some((call) => call.name === "fillRect")).toBe(true);
+  });
+
+  it("retries a live plot after layout so the first zero-size paint is not the last", () => {
+    const canvas = document.createElement("canvas");
+    const parent = document.createElement("div");
+    parent.append(canvas);
+    const ctx = recordingContext();
+    let width = 0;
+    Object.defineProperty(canvas, "clientWidth", { configurable: true, get: () => width });
+    Object.defineProperty(canvas, "clientHeight", { configurable: true, get: () => (width === 0 ? 0 : 280) });
+    vi.spyOn(canvas, "getContext").mockReturnValue(ctx);
+    const plot = new ScopeCanvasPlot(canvas);
+    plot.setSeries([{ label: "sin", samples: [0, 1, 0] }]);
+    expect(plot.redraw()).toBe(false);
+    width = 640;
+    expect(plot.redraw()).toBe(true);
+    expect(plot.seriesCount).toBe(1);
+    plot.destroy();
   });
 });

@@ -122,7 +122,7 @@ export type ConsumerTree =
   | { kind: "stage"; stage: Stage; inner: ConsumerTree }
   | { kind: "fork"; inner: ConsumerTree[] };
 
-/** One ring / Chart.js dataset on an scope. */
+/** One ring / plot channel on a scope. */
 export interface ScopeChannel {
   scopeId: number;
   label: string;
