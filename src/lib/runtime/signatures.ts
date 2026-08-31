@@ -1,31 +1,9 @@
 import { type BlockDef, type PortDef, type TypeExpr, displayType, isArrayType } from "$lib/blocks/ast";
 
-/** AssemblyScript type emitted for a language-agnostic XML type expression. */
-export type AsVal = string;
+/** WASM value type emitted for a language-agnostic XML type expression. */
+export type WasmVal = string;
 
-const AS_PRIMITIVES = new Set(["i32", "i64", "f32", "f64", "bool"]);
-
-const AS_KEYWORDS = new Set([
-  "in",
-  "for",
-  "if",
-  "else",
-  "type",
-  "void",
-  "null",
-  "true",
-  "false",
-  "this",
-  "new",
-  "return",
-  "class",
-  "function",
-  "const",
-  "let",
-  "var",
-  "import",
-  "export",
-]);
+const WASM_PRIMITIVES = new Set(["i32", "i64", "f32", "f64"]);
 
 function rawName(expr: TypeExpr): string {
   if (expr.kind !== "type") {
@@ -34,129 +12,125 @@ function rawName(expr: TypeExpr): string {
   return expr.name.split(".").at(-1) ?? expr.name;
 }
 
-/**
- * AssemblyScript identifier for an XML port name.
- * Compact `in` is reserved, so it becomes `inn`.
- */
-export function asIdent(name: string): string {
-  if (name === "in") {
-    return "inn";
-  }
-  if (AS_KEYWORDS.has(name)) {
-    return `${name}_`;
-  }
-  return name;
-}
-
-/**
- * Map a language-agnostic XML type to an AssemblyScript type.
- *
- *   f64 / f32 / i32 / i64 / bool → themselves
- *   str                          → string
- *   c1<T>                        → c<T>     (type alias)
- *   c2<T1, T2>                   → c2<T1, T2>
- *   s<R>                         → s<R>
- *   f1<T, R>                     → f1<T, R>
- *   f2<T1, T2, R>                → f2<T1, T2, R>
- *   T[]                          → T[]
- */
-export function asValType(expr: TypeExpr): AsVal {
-  if (expr.kind !== "type") {
-    return "usize";
-  }
-  const name = rawName(expr);
-  if ((AS_PRIMITIVES.has(name) && expr.args.length === 0) || name === "T") {
-    return name;
-  }
-  if (name === "str" && expr.args.length === 0) {
-    return "string";
-  }
-  if (name === "c1" && expr.args.length === 1) {
-    return `c<${asValType(expr.args[0])}>`;
-  }
-  if (name === "c2" && expr.args.length === 2) {
-    return `c2<${asValType(expr.args[0])}, ${asValType(expr.args[1])}>`;
-  }
-  if (name === "s" && expr.args.length === 1) {
-    return `s<${asValType(expr.args[0])}>`;
-  }
-  if (name === "f1" && expr.args.length === 2) {
-    return `f1<${asValType(expr.args[0])}, ${asValType(expr.args[1])}>`;
-  }
-  if (name === "f2" && expr.args.length === 3) {
-    return `f2<${asValType(expr.args[0])}, ${asValType(expr.args[1])}, ${asValType(expr.args[2])}>`;
-  }
-  if (isArrayType(expr) && expr.args.length === 1) {
-    return `${asValType(expr.args[0])}[]`;
-  }
-  if (expr.args.length > 0) {
-    return `${name}<${expr.args.map(asValType).join(", ")}>`;
-  }
-  return name;
-}
-
-/** @deprecated Prefer {@link asValType}. */
-export function wasmValType(expr: TypeExpr): AsVal {
-  return asValType(expr);
-}
-
-/** @deprecated Prefer {@link asValType}; kept for unique type tokens. */
-export function wasmHeapTypeName(expr: TypeExpr): string {
-  return asValType(expr)
-    .replace(/[^A-Za-z0-9]+/g, "_")
-    .replace(/^_|_$/g, "");
+function typeToken(expr: TypeExpr): string {
+  return displayType(expr, true).replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "");
 }
 
 export function funcTypeId(expr: TypeExpr): string {
-  return wasmHeapTypeName(expr);
+  return typeToken(expr);
 }
 
-export interface AsSignature {
+/**
+ * Heap type name for an XML type (`c1_f64`, `array_c1_f64`).
+ * Array types keep the element constructor so `c<f64>[]` does not collapse to `c_f64`.
+ */
+export function wasmHeapTypeName(expr: TypeExpr): string {
+  if (expr.kind !== "type") {
+    return typeToken(expr);
+  }
+  const name = rawName(expr);
+  if (name === "c1" && expr.args.length === 1) {
+    return `c1_${typeToken(expr.args[0])}`;
+  }
+  if (name === "c2" && expr.args.length === 2) {
+    return `c2_${typeToken(expr.args[0])}_${typeToken(expr.args[1])}`;
+  }
+  if (name === "s" && expr.args.length === 1) {
+    return `s_${typeToken(expr.args[0])}`;
+  }
+  if (name === "f1" && expr.args.length === 2) {
+    return `f1_${typeToken(expr.args[0])}_${typeToken(expr.args[1])}`;
+  }
+  if (name === "f2" && expr.args.length === 3) {
+    return `f2_${typeToken(expr.args[0])}_${typeToken(expr.args[1])}_${typeToken(expr.args[2])}`;
+  }
+  if (isArrayType(expr) && expr.args.length === 1) {
+    return `array_${wasmHeapTypeName(expr.args[0])}`;
+  }
+  return typeToken(expr);
+}
+
+/**
+ * Map a language-agnostic XML type to a WASM valtype.
+ *
+ *   f64 / f32 / i32 / i64 → themselves
+ *   bool                  → i32
+ *   str                   → externref (js-string builtins)
+ *   c1<T>                 → (ref $c1_T)
+ *   c2<T1, T2>            → (ref $c2_T1_T2)
+ *   s<R>                  → (ref $s_R)
+ *   f1<T, R>              → (ref $f1_T_R)
+ *   f2<T1, T2, R>         → (ref $f2_T1_T2_R)
+ *   T[]                   → (ref $array_T)  (dynamically sized)
+ */
+export function wasmValType(expr: TypeExpr): WasmVal {
+  if (expr.kind !== "type") {
+    return "externref";
+  }
+  const name = rawName(expr);
+  if (WASM_PRIMITIVES.has(name) && expr.args.length === 0) {
+    return name;
+  }
+  if (name === "bool" && expr.args.length === 0) {
+    return "i32";
+  }
+  if (name === "str" && expr.args.length === 0) {
+    return "externref";
+  }
+  if (
+    (name === "c1" && expr.args.length === 1) ||
+    (name === "c2" && expr.args.length === 2) ||
+    (name === "s" && expr.args.length === 1) ||
+    (name === "f1" && expr.args.length === 2) ||
+    (name === "f2" && expr.args.length === 3) ||
+    (isArrayType(expr) && expr.args.length === 1)
+  ) {
+    return `(ref $${wasmHeapTypeName(expr)})`;
+  }
+  return "externref";
+}
+
+export interface WasmSignature {
   id: string;
   name: string;
-  params: { name: string; type: AsVal }[];
-  results: { name: string; type: AsVal }[];
+  params: { name: string; type: WasmVal }[];
+  results: { name: string; type: WasmVal }[];
 }
 
-/** @deprecated Prefer {@link AsSignature}. */
-export type WasmSignature = AsSignature;
-export type WasmVal = AsVal;
-
-function portAsVal(port: PortDef): AsVal {
-  return asValType(port.ty);
+function portWasmVal(port: PortDef): WasmVal {
+  return wasmValType(port.ty);
 }
 
-/** XML `<in>` ports are AS params; `<out>` ports are AS results. */
-export function blockSignature(block: BlockDef): AsSignature {
+/** XML `<in>` ports are WASM params; `<out>` ports are WASM results. */
+export function blockSignature(block: BlockDef): WasmSignature {
   return {
     id: block.id,
     name: block.name,
-    params: block.inputs.map((port) => ({ name: asIdent(port.name), type: portAsVal(port) })),
-    results: block.outputs.map((port) => ({ name: asIdent(port.name), type: portAsVal(port) })),
+    params: block.inputs.map((port) => ({ name: port.name, type: portWasmVal(port) })),
+    results: block.outputs.map((port) => ({ name: port.name, type: portWasmVal(port) })),
   };
 }
 
-/** XML ports as an AssemblyScript function header using `c<T>` aliases. */
-export function asSignature(sig: AsSignature): string {
-  const params = sig.params.map((port) => `${port.name}: ${port.type}`).join(", ");
-  const result = sig.results.length === 0 ? "void" : sig.results.map((port) => port.type).join(", ");
-  return `function ${sig.id}(${params}): ${result}`;
-}
+/** Injected by the runtime; not an XML port. */
+export const CTX_PARAM = { name: "ctx", type: "i32" } as const;
 
-/** @deprecated Prefer {@link asSignature}. */
-export function signatureWat(sig: AsSignature, _withCtx = true): string {
-  return asSignature(sig);
-}
-
-export function asBlockType(sig: AsSignature): string {
-  return asSignature(sig);
-}
-
-/** @deprecated Prefer {@link asBlockType}. */
-export function blockTypeWat(sig: AsSignature): string {
-  return asBlockType(sig);
+/** XML ports plus the optional runtime `$ctx` pointer. */
+export function signatureWat(sig: WasmSignature, withCtx = true): string {
+  const params = [...(withCtx ? [CTX_PARAM] : []), ...sig.params]
+    .map((port) => `(param $${port.name} ${port.type})`)
+    .join(" ");
+  const results = sig.results.map((port) => `(result $${port.name} ${port.type})`).join(" ");
+  return [`(func $${sig.id}`, params, results].filter((part) => part.length > 0).join(" ");
 }
 
 export function typeDecl(id: string, params: { name: string; type: string }[], results: { name: string; type: string }[]): string {
-  return asSignature({ id, name: id, params, results });
+  const inner = [
+    ...params.map((port) => `(param $${port.name} ${port.type})`),
+    ...results.map((port) => `(result $${port.name} ${port.type})`),
+  ].join(" ");
+  return `  (type $${id} (func${inner ? ` ${inner}` : ""}))`;
+}
+
+export function blockTypeWat(sig: WasmSignature): string {
+  return typeDecl(`fn_${sig.id}`, [CTX_PARAM, ...sig.params], sig.results);
 }

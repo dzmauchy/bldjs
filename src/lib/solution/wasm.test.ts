@@ -62,17 +62,17 @@ describe("WasmSolutionBuilder", () => {
       ],
     );
     const { text, wasm } = await new WasmSolutionBuilder().build(view, { timerId: 4, delayMs: 0 });
-    expect(text).toContain("function oscilloscope_0(v: f64): void");
-    expect(text).toContain("function oscilloscope_1(v: f64): void");
-    expect(text).toContain("function oscilloscope(): c<f64>[]");
-    expect(text).toContain("function fork_4_in(inn0: c<f64>, inn1: c<f64>): c<f64>");
-    expect(text).toContain("function sin(inn: c<f64>): c<f64>");
-    expect(text).toContain("host_sin");
-    expect(text).toContain("function timer(inn: c<f64>): void");
-    expect(text).toContain("timer(nop);");
-    expect(text).toContain("function fork_4_in(inn0: c<f64>, inn1: c<f64>): c<f64>");
-    expect(text).not.toContain("inn: f64");
-    expect(text).not.toContain("function tap_0");
+    expect(text).toContain("array.new_fixed $array_c1_f64 2");
+    expect(text).toContain("array.get $array_c1_f64");
+    expect(text).toContain("(func $fork_4_in");
+    expect(text).toContain("(func $oscilloscope");
+    expect(text).toContain("(result (ref $array_c1_f64))");
+    expect(text).toContain("(func $sin");
+    expect(text).toContain("(param $in (ref $c1_f64))");
+    expect(text).toContain("(result (ref $c1_f64))");
+    expect(text).toContain("(func $timer");
+    expect(text).not.toContain("(param $in f64)");
+    expect(text).not.toContain("(func $tap_0");
     expect(WebAssembly.validate(wasm.slice().buffer)).toBe(true);
 
     const memory = createSharedMemory();
@@ -98,9 +98,8 @@ describe("WasmSolutionBuilder", () => {
       { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
-    expect(compiled.text).toContain("function sin(inn: c<f64>): c<f64>");
-    expect(compiled.text).toContain("function timer(inn: c<f64>): void");
-    expect(compiled.text).toContain("function oscilloscope(): c<f64>[]");
-    expect(compiled.text).toContain("timer(nop);");
+    expect(compiled.text).toContain("call $sin");
+    expect(compiled.text).toContain("call $timer");
+    expect(compiled.text).toContain("array.get $array_c1_f64");
   });
 });

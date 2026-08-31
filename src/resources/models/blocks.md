@@ -123,7 +123,7 @@ When defining a `<param>`, use `<extends>` and `<super>` to bound the generic va
 
 ## 5. Modeling functions, consumers, and arrays
 
-`<in>` ports and `<out>` ports carry language-agnostic types. Control Systems uses a pure push model: every consumer is `DoubleConsumer` (`c<f64>`). Compact display writes `c1` as `c`. AssemblyScript builder blocks use the same ports: `c1<T>` is the type alias `c<T> = (v: T) => void`, and `T[]` is a vector whose length is the number of outgoing connectors.
+`<in>` ports and `<out>` ports carry language-agnostic types. Control Systems uses a pure push model: every consumer is `DoubleConsumer` (`c<f64>`). Compact display writes `c1` as `c`. Binaryen builder blocks use the same ports: `c1<T>` is a typed funcref `(ref $c1_T)`, and `T[]` is a GC array whose length is the number of outgoing connectors. Each block function also takes a runtime `$ctx i32` pointer.
 
 ```
 timer(c)           : c<f64> → void
@@ -175,7 +175,7 @@ So two channels from one oscilloscope compile as `timer(fork(sin(plot[0]), cos(p
 </block>
 ```
 
-SolutionBuilder walks the connected SolutionView and emits one AssemblyScript function per XML block (`resources/assemblyscript/blocks`) using the same `<in>` / `<out>` ports (`timer(inn: c<f64>): void`, `sin(inn: c<f64>): c<f64>`, `oscilloscope(): c<f64>[]`). Returned consumers are specialized to named applies (AssemblyScript has no closures) and wired as direct calls. Each Timer starts in its own worker thread; that thread drives `tick` with `setInterval`. The runner (not the WASM runtime) intercepts `c<?>` connector frequency after every tick so the canvas can pick one of ten logarithmic dash styles (`0` slowest … `9` fastest).
+SolutionBuilder walks the connected SolutionView and emits one Binaryen function per XML block (`resources/binaryen/blocks`) using the same `<in>` / `<out>` ports plus runtime `$ctx` (`timer(ctx, in: c<f64>)`, `sin(ctx, in: c<f64>) → c<f64>`, `oscilloscope(ctx) → c<f64>[]`). Consumers are typed funcrefs (`call_ref`); oscilloscope `out` is a GC array sized from outgoing connectors; fan-in inserts a hidden `fork`. Each Timer starts in its own worker thread; that thread drives `tick` with `setInterval`. The runner (not the WASM runtime) intercepts `c<?>` connector frequency after every tick so the canvas can pick one of ten logarithmic dash styles (`0` slowest … `9` fastest).
 
 ### A. Varargs (`array#of`)
 Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.
