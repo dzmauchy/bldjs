@@ -75,16 +75,12 @@ test.describe("menus", () => {
     expect(viewBox).toBe("0 0 512 512");
   });
 
-  test("shows Run and Stop on the toolbar with SVG icons", async () => {
+  test("shows a Run toggle on the toolbar with an SVG icon", async () => {
     const run = await waitDeep(page, '[data-testid="toolbar-run"]');
-    const stop = await waitDeep(page, '[data-testid="toolbar-stop"]');
     expect(await run.innerText()).not.toContain("Run");
-    expect(await stop.innerText()).not.toContain("Stop");
     await expect(run).toHaveAttribute("title", "Run");
-    await expect(stop).toHaveAttribute("title", "Stop");
     await expect(run).toHaveAttribute("aria-label", "Run");
-    await expect(stop).toHaveAttribute("aria-label", "Stop");
-    await expect(stop).toBeDisabled();
+    await expect(page.locator('[data-testid="toolbar-stop"]')).toHaveCount(0);
 
     async function svgNs(buttonTestId: string): Promise<string | null> {
       return page.evaluate((selector) => {
@@ -112,7 +108,6 @@ test.describe("menus", () => {
     }
 
     expect(await svgNs("toolbar-run")).toBe("http://www.w3.org/2000/svg");
-    expect(await svgNs("toolbar-stop")).toBe("http://www.w3.org/2000/svg");
     expect(await svgNs("toolbar-menu")).toBe("http://www.w3.org/2000/svg");
   });
 

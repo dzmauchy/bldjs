@@ -16,7 +16,7 @@ describe("BldToolbar", () => {
     document.body.replaceChildren();
   });
 
-  it("renders Run and Stop with SVG icons and a three-line menu button", async () => {
+  it("renders a Run toggle with an SVG icon and a three-line menu button", async () => {
     const bar = document.createElement("bld-toolbar") as BldToolbar;
     bar.app = new AppState();
     document.body.append(bar);
@@ -29,49 +29,54 @@ describe("BldToolbar", () => {
     expect(brand?.getAttribute("viewBox")).toBe("0 0 512 512");
     expect(brand?.getAttribute("aria-label")).toBe("Bld");
     expect(run?.textContent?.trim()).toBe("");
-    expect(stop?.textContent?.trim()).toBe("");
+    expect(stop).toBeNull();
     expect(run?.getAttribute("aria-label")).toBe("Run");
-    expect(stop?.getAttribute("aria-label")).toBe("Stop");
+    expect(run?.getAttribute("title")).toBe("Run");
     expect(run?.textContent).not.toContain("Bld");
-    expect((stop as HTMLButtonElement | null)?.disabled).toBe(true);
+    expect((run as HTMLButtonElement | null)?.disabled).toBe(false);
 
     const runSvg = await glyph(run);
-    const stopSvg = await glyph(stop);
     const menuSvg = await glyph(menu);
     expect(runSvg?.namespaceURI).toBe("http://www.w3.org/2000/svg");
-    expect(stopSvg?.namespaceURI).toBe("http://www.w3.org/2000/svg");
+    expect(runSvg?.querySelector("path")?.getAttribute("d")).toContain("M4 2.5v11L13.5 8Z");
     expect(menuSvg?.namespaceURI).toBe("http://www.w3.org/2000/svg");
     expect(menuSvg?.querySelectorAll("path")).toHaveLength(1);
     expect(menuSvg?.querySelector("path")?.getAttribute("d")).toContain("M2.5 4h11");
   });
 
-  it("disables Run while running and Stop while idle", async () => {
+  it("switches the Run button to Stop while the diagram is busy", async () => {
     const app = new AppState();
     const bar = document.createElement("bld-toolbar") as BldToolbar;
     bar.app = app;
     document.body.append(bar);
     await bar.updateComplete;
 
-    const runBtn = () => bar.shadowRoot?.querySelector('[data-testid="toolbar-run"]') as HTMLButtonElement;
-    const stopBtn = () => bar.shadowRoot?.querySelector('[data-testid="toolbar-stop"]') as HTMLButtonElement;
-    expect(runBtn().disabled).toBe(false);
-    expect(stopBtn().disabled).toBe(true);
+    const runBtn = () => bar.shadowRoot?.querySelector('[data-testid="toolbar-run"]') as HTMLButtonElement | null;
+    const stopBtn = () => bar.shadowRoot?.querySelector('[data-testid="toolbar-stop"]') as HTMLButtonElement | null;
+    expect(runBtn()).not.toBeNull();
+    expect(stopBtn()).toBeNull();
+    expect((await glyph(runBtn()))?.querySelector("path")?.getAttribute("d")).toContain("M4 2.5v11L13.5 8Z");
 
     app.starting = true;
     await bar.updateComplete;
-    expect(runBtn().disabled).toBe(true);
-    expect(stopBtn().disabled).toBe(false);
+    expect(runBtn()).toBeNull();
+    expect(stopBtn()?.getAttribute("aria-label")).toBe("Stop");
+    expect(stopBtn()?.getAttribute("title")).toBe("Stop");
+    expect(stopBtn()?.disabled).toBe(false);
+    expect((await glyph(stopBtn()))?.querySelector("rect")).not.toBeNull();
 
     app.starting = false;
     app.running = true;
     await bar.updateComplete;
-    expect(runBtn().disabled).toBe(true);
-    expect(stopBtn().disabled).toBe(false);
+    expect(runBtn()).toBeNull();
+    expect(stopBtn()?.getAttribute("aria-label")).toBe("Stop");
+    expect((await glyph(stopBtn()))?.querySelector("rect")).not.toBeNull();
 
     app.running = false;
     await bar.updateComplete;
-    expect(runBtn().disabled).toBe(false);
-    expect(stopBtn().disabled).toBe(true);
+    expect(stopBtn()).toBeNull();
+    expect(runBtn()?.getAttribute("aria-label")).toBe("Run");
+    expect((await glyph(runBtn()))?.querySelector("path")?.getAttribute("d")).toContain("M4 2.5v11L13.5 8Z");
   });
 
   it("opens the overflow menu from the three-line button", async () => {

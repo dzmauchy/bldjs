@@ -216,26 +216,18 @@ export class BldToolbar extends LitElement {
         <button
           class="toolbar-btn btn btn-sm"
           type="button"
-          title="Run"
-          aria-label="Run"
-          data-testid="toolbar-run"
-          ?disabled=${app.runBusy()}
+          title=${app.runBusy() ? "Stop" : "Run"}
+          aria-label=${app.runBusy() ? "Stop" : "Run"}
+          data-testid=${app.runBusy() ? "toolbar-stop" : "toolbar-run"}
           @click=${() => {
+            if (app.runBusy()) {
+              app.stopRun();
+              return;
+            }
             void app.runDiagram();
           }}
         >
-          <bld-block-icon name="run"></bld-block-icon>
-        </button>
-        <button
-          class="toolbar-btn btn btn-sm"
-          type="button"
-          title="Stop"
-          aria-label="Stop"
-          data-testid="toolbar-stop"
-          ?disabled=${!app.runBusy()}
-          @click=${() => app.stopRun()}
-        >
-          <bld-block-icon name="stop"></bld-block-icon>
+          <bld-block-icon name=${app.runBusy() ? "stop" : "run"}></bld-block-icon>
         </button>
         <input
           type="file"

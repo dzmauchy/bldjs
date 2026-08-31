@@ -110,10 +110,18 @@ describe("Lit update scheduling", () => {
     app.scopeOpen = id;
     await chart.updateComplete;
     const host = chart.renderRoot.querySelector("[data-testid=scope-chart]");
+    const close = chart.renderRoot.querySelector("[data-testid=scope-close]");
     expect(chart.hasAttribute("open")).toBe(true);
+    expect(chart.renderRoot.querySelector(".modal-title")).toBeNull();
+    expect(close).not.toBeNull();
+    expect(close?.getAttribute("aria-label")).toBe("Close");
     expect(host?.getAttribute("data-series-count")).toBe("2");
     expect(chartState.configs[0]?.data?.datasets).toHaveLength(2);
     expect(chartState.resizeCount).toBeGreaterThan(0);
+
+    (close as HTMLButtonElement).click();
+    await chart.updateComplete;
+    expect(app.scopeOpen).toBe(-1);
 
     app.scopeOpen = -1;
     await chart.updateComplete;

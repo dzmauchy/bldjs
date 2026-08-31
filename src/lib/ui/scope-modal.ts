@@ -33,12 +33,38 @@ export class BldScopeModal extends LitElement {
         inset: 0;
         z-index: 1055;
       }
+      .modal-content {
+        overflow: hidden;
+      }
       .scope-chart {
         width: 100%;
         height: 280px;
         background: #14171a;
-        border-radius: 0.35rem;
         position: relative;
+      }
+      .scope-close {
+        position: absolute;
+        top: 0.45rem;
+        right: 0.45rem;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.7rem;
+        height: 1.7rem;
+        padding: 0;
+        border: 0;
+        border-radius: 0.25rem;
+        background: rgba(20, 23, 26, 0.72);
+        color: #adb5bd;
+        font-size: 1.35rem;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .scope-close:hover,
+      .scope-close:focus-visible {
+        color: #f8f9fa;
+        background: rgba(20, 23, 26, 0.92);
       }
       canvas {
         display: block;
@@ -179,24 +205,25 @@ export class BldScopeModal extends LitElement {
       <div class="modal fade show d-block" tabindex="-1" role="dialog" data-testid="scope-modal">
         <div class="modal-dialog modal-lg modal-dialog-centered">
           <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Scope #${app.scopeOpen}</h5>
-              <button
-                type="button"
-                class="btn-close"
-                aria-label="Close"
-                @click=${() => app.closeScope()}
-              ></button>
-            </div>
-            <div class="modal-body p-3">
+            <div class="modal-body p-0">
               <div
                 class="scope-chart"
                 data-testid="scope-chart"
                 data-series-count=${this.#seriesCount}
               >
+                <button
+                  type="button"
+                  class="scope-close"
+                  title="Close"
+                  aria-label="Close"
+                  data-testid="scope-close"
+                  @click=${() => app.closeScope()}
+                >
+                  ×
+                </button>
                 <canvas ${ref(this.#canvas)}></canvas>
               </div>
-              <div class="small text-secondary mt-2">
+              <div class="small text-secondary px-3 py-2">
                 timer(fork(sin(plot[0]), cos(plot[1]))) · multi-axis
               </div>
             </div>

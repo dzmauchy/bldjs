@@ -45,7 +45,7 @@ describe("scope multi-axis chart", () => {
     expect(config.options?.resizeDelay).toBe(0);
     expect(config.options?.interaction).toEqual({ mode: "index", intersect: false });
     expect(config.options?.scales?.y).toMatchObject({ stacked: false, position: "left" });
-    expect(config.options?.plugins?.title?.text).toBe("Scope — Multi Axis");
+    expect(config.options?.plugins?.title?.display).toBe(false);
     expect(config.options?.plugins?.legend?.display).toBe(true);
     expect(config.options?.scales?.y1).toBeDefined();
   });
