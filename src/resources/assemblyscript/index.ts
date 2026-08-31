@@ -3,7 +3,6 @@ import { emitOscilloscope, OSCILLOSCOPE_AS, oscilloscopeSlotName } from "./block
 import { emitQuantizer, QUANTIZER_AS } from "./blocks/quantizer";
 import { emitSin, SIN_AS } from "./blocks/sin";
 import { emitTimer, TIMER_AS } from "./blocks/timer";
-import { emitFork } from "./fork";
 import { runtimeAs } from "./runtime";
 import { TYPE_ALIASES_AS } from "./types";
 

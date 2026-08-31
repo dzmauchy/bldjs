@@ -175,7 +175,7 @@ So two channels from one oscilloscope compile as `timer(fork(sin(plot[0]), cos(p
 </block>
 ```
 
-SolutionBuilder walks the connected SolutionView and emits one AssemblyScript function per XML block (`resources/assemblyscript/blocks`), then wires `SolutionViewConnector`s (vector slots, `fork` on fan-in) into one module compiled by `asc`. Each Timer starts in its own worker thread; that thread drives `tick` with `setInterval`. The runner (not the WASM runtime) intercepts `c<?>` connector frequency after every tick so the canvas can pick one of ten logarithmic dash styles (`0` slowest … `9` fastest).
+SolutionBuilder walks the connected SolutionView and emits one AssemblyScript function per XML block (`resources/assemblyscript/blocks`) using the same `<in>` / `<out>` ports (`timer(inn: c<f64>): void`, `sin(inn: c<f64>): c<f64>`, `oscilloscope(): c<f64>[]`). Returned consumers are specialized to named applies (AssemblyScript has no closures) and wired as direct calls. Each Timer starts in its own worker thread; that thread drives `tick` with `setInterval`. The runner (not the WASM runtime) intercepts `c<?>` connector frequency after every tick so the canvas can pick one of ten logarithmic dash styles (`0` slowest … `9` fastest).
 
 ### A. Varargs (`array#of`)
 Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.

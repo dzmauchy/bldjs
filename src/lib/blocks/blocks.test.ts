@@ -719,10 +719,12 @@ describe("blocks", () => {
     expect(compiled.scopeId).toBe(1);
     expect(compiled.delayMs).toBe(QUANTIZER_DELAY_MS);
     expect(compiled.text).toContain("type c<T> = (v: T) => void");
-    expect(compiled.text).toContain("function timer(): void");
-    expect(compiled.text).toContain("function quantizer(v: f64): void");
-    expect(compiled.text).toContain("function sin(v: f64): void");
-    expect(compiled.text).toContain("function oscilloscope(v: f64): void");
+    expect(compiled.text).toContain("function timer(inn: c<f64>): void");
+    expect(compiled.text).toContain("function quantizer(inn: c<f64>): c<f64>");
+    expect(compiled.text).toContain("function sin(inn: c<f64>): c<f64>");
+    expect(compiled.text).toContain("function oscilloscope(): c<f64>[]");
+    expect(compiled.text).toContain("timer(nop);");
+    expect(compiled.text).toContain("quantizer_apply(host_sin(v));");
     expect(compiled.text).toContain("host_sin");
     expect(compiled.text).toContain("push_at");
     expect(compiled.text).toContain("export function tick(): void");
@@ -768,7 +770,7 @@ describe("blocks", () => {
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.stages).toEqual(["cos"]);
-    expect(compiled.text).toContain("function cos(v: f64): void");
+    expect(compiled.text).toContain("function cos(inn: c<f64>): c<f64>");
     expect(compiled.text).toContain("host_cos");
   });
 
@@ -784,9 +786,13 @@ describe("blocks", () => {
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.scopeIds).toEqual([1, 2]);
-    expect(compiled.text).toContain("function oscilloscope_1(v: f64): void");
-    expect(compiled.text).toContain("function oscilloscope_2(v: f64): void");
-    expect(compiled.text).toContain("function fork_4_in(v: f64): void");
+    expect(compiled.text).toContain("function oscilloscope_1(): c<f64>[]");
+    expect(compiled.text).toContain("function oscilloscope_2(): c<f64>[]");
+    expect(compiled.text).toContain("function oscilloscope_1_0(v: f64): void");
+    expect(compiled.text).toContain("function oscilloscope_2_0(v: f64): void");
+    expect(compiled.text).toContain("function fork_4_in(inn0: c<f64>, inn1: c<f64>): c<f64>");
+    expect(compiled.text).toContain("timer(nop);");
+    expect(compiled.text).toContain("function fork_4_in(inn0: c<f64>, inn1: c<f64>): c<f64>");
     expect(compiled.text).toContain("push_at");
     expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
   });
@@ -983,8 +989,8 @@ describe("blocks", () => {
     const text = await generatorText([]);
     expect(text).toContain("type c<T> = (v: T) => void");
     expect(text).toContain("export function tick(): void");
-    expect(text).toContain("function timer(): void");
-    expect(text).toContain("function oscilloscope(v: f64): void");
+    expect(text).toContain("function timer(inn: c<f64>): void");
+    expect(text).toContain("function oscilloscope(): c<f64>[]");
     expect(text).not.toContain("function sin(");
   });
 });

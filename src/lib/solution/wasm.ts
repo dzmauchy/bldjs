@@ -107,46 +107,51 @@ function arrayOutLength(view: SolutionView, blockId: number, def: BlockDef): num
   return Math.max(outgoingConnectors(view, blockId, arrayOut.name).length, 1);
 }
 
-function slotConsumer(
+function forkName(blockId: number, portName: string): string {
+  return `fork_${blockId}_${portName}`;
+}
+
+function applyName(name: string): string {
+  return `${name}_apply`;
+}
+
+/** Specialized apply used inside a returned `c<f64>`. Plot slots are already applies. */
+function slotApply(
   view: SolutionView,
   catalog: Catalog,
   names: Map<number, string>,
   link: { fromBlock: number; fromOut: string },
 ): string {
   const srcName = names.get(link.fromBlock);
-  if (!srcName) {
-    return "nop";
-  }
   const srcDef = catalog.block(defIdOf(view, link.fromBlock) ?? "");
-  if (!srcDef) {
+  if (!srcName || !srcDef) {
     return "nop";
   }
   const catalogOut = catalogPortName(link.fromOut);
   const srcPort = srcDef.outputs.find((port) => port.name === catalogOut);
   if (srcPort && isArrayType(srcPort.ty)) {
-    const length = arrayOutLength(view, link.fromBlock, srcDef);
-    const slot = portSlotIndex(link.fromOut);
-    return length === 1 ? srcName : `${srcName}_${slot}`;
+    return `${srcName}_${portSlotIndex(link.fromOut)}`;
   }
-  return srcName;
+  return applyName(srcName);
 }
 
-function portConsumer(
+function portApply(
   view: SolutionView,
   catalog: Catalog,
   names: Map<number, string>,
-  block: SolutionViewBlock,
+  blockId: number,
   portName: string,
 ): { inner: string; fork?: { name: string; inners: string[] } } {
-  const incoming = incomingConnectors(view, block.id, portName);
+  const incoming = incomingConnectors(view, blockId, portName);
   if (incoming.length === 0) {
     return { inner: "nop" };
   }
-  const pieces = incoming.map((link) => slotConsumer(view, catalog, names, link));
+  const pieces = incoming.map((link) => slotApply(view, catalog, names, link));
   if (pieces.length === 1) {
     return { inner: pieces[0] ?? "nop" };
   }
-  return { inner: `fork_${block.id}_${portName}`, fork: { name: `fork_${block.id}_${portName}`, inners: pieces } };
+  const name = forkName(blockId, portName);
+  return { inner: applyName(name), fork: { name, inners: pieces } };
 }
 
 /** AssemblyScript source for one connected SolutionView (type aliases, block functions, tick). */
@@ -175,7 +180,7 @@ export function emitSolutionAs(
       continue;
     }
     for (const port of def.inputs) {
-      const wired = portConsumer(view, catalog, names, block, port.name);
+      const wired = portApply(view, catalog, names, block.id, port.name);
       inners.set(block.id, wired.inner);
       if (wired.fork && !forks.has(wired.fork.name)) {
         forks.set(wired.fork.name, wired.fork.inners);
@@ -183,8 +188,8 @@ export function emitSolutionAs(
     }
   }
 
-  for (const [forkName, forkInners] of forks) {
-    parts.push(scripts.emitFork(forkName, forkInners));
+  for (const [name, forkInners] of forks) {
+    parts.push(scripts.emitFork(name, forkInners));
   }
 
   for (const block of view.blocks) {
@@ -204,7 +209,7 @@ export function emitSolutionAs(
   }
 
   const timers = view.blocks.filter((block) => block.defId === "timer" && names.has(block.id));
-  const ticks = timers.map((block) => `  ${names.get(block.id)}();`).join("\n");
+  const ticks = timers.map((block) => `  ${names.get(block.id)}(nop);`).join("\n");
   parts.push(`export function tick(): void {
   store<f64>(CTX, now());
   store<i64>(CTX + 8, ${delayNs.toString()});
@@ -216,7 +221,7 @@ ${ticks || "  nop(0);"}
 
 /**
  * WASM SolutionBuilder: one XML-matching AssemblyScript function per SolutionViewBlock,
- * then SolutionViewConnectors to wire the module (vector slots, fork, direct calls).
+ * then SolutionViewConnectors to specialize returned `c<f64>` applies (vector slots, fork, direct calls).
  */
 export class WasmSolutionBuilder implements SolutionBuilder {
   constructor(private readonly catalog: Catalog = builtinCatalog()) {}
