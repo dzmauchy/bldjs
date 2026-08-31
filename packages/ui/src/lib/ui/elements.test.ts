@@ -88,6 +88,8 @@ describe("Lit update scheduling", () => {
   afterEach(() => {
     document.body.replaceChildren();
     vi.restoreAllMocks();
+    delete (HTMLCanvasElement.prototype as { clientWidth?: number }).clientWidth;
+    delete (HTMLCanvasElement.prototype as { clientHeight?: number }).clientHeight;
   });
 
   it("does not schedule a follow-up update from bld-workspace on first paint", async () => {
@@ -156,6 +158,10 @@ describe("Lit update scheduling", () => {
     expect(
       app.loadDiagramXml(`<?xml version="1.0" encoding="UTF-8"?>
 <diagram id="diag_named" name="Named" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
+  <catalogs>
+    <catalog>types.xml</catalog>
+    <catalog>control-systems.xml</catalog>
+  </catalogs>
   <blocks>
     <block id="blk_probe" type="scope" name="Probe" x="0" y="0" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>
   </blocks>
