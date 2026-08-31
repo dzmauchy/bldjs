@@ -119,8 +119,8 @@ export function buildNodeState(
     kindClass: kind.className,
     selected: ctx.selected === block.id,
     paramsLine: paramLine(resolved, block.id),
-    showChart: block.defId === "oscilloscope",
-    chartEnabled: block.defId === "oscilloscope" && ctx.isScopeLive(block.id),
+    showChart: block.defId === "scope",
+    chartEnabled: block.defId === "scope" && ctx.isScopeLive(block.id),
     inputs: inputSlotsFor(def.inputs, block.id, ctx.links).map((slot) => {
       const catalogPort = def.inputs.find((item) => item.name === slot.catalogName)!;
       const ty = resolvedBlock ? (resolvedInput(resolvedBlock, slot.name) ?? catalogPort.ty) : catalogPort.ty;

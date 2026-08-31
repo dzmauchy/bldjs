@@ -24,7 +24,7 @@ describe("topology", () => {
 
   it("plans generators from node specs without AppState", () => {
     const nodes = nodeSpecsFrom([
-      { id: 1, defId: "oscilloscope" },
+      { id: 1, defId: "scope" },
       { id: 2, defId: "quantizer" },
       { id: 3, defId: "sin" },
       { id: 4, defId: "timer" },

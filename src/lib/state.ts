@@ -194,16 +194,16 @@ export class AppState extends ObservableState {
     return this.runBusy() && (this.#runner.current?.isScopeLive(id) ?? false);
   }
 
-  openOscilloscope(id: number): void {
+  openScope(id: number): void {
     if (!this.isScopeLive(id)) {
       return;
     }
-    if (this.block(id)?.defId === "oscilloscope") {
+    if (this.block(id)?.defId === "scope") {
       this.scopeOpen = id;
     }
   }
 
-  closeOscilloscope(): void {
+  closeScope(): void {
     this.scopeOpen = NONE_ID;
   }
 
@@ -322,7 +322,10 @@ export class AppState extends ObservableState {
   }
 
   #replaceLinks(remaining: Link[], removed?: Link): void {
-    const compacted = compactLinkSlots(remaining);
+    const compacted = compactLinkSlots(remaining, (id) => {
+      const block = this.block(id);
+      return block ? { x: block.x, y: block.y } : undefined;
+    });
     this.selectedLink = remapSelectedLink(remaining, compacted, this.selectedLink, removed);
     this.links = compacted;
   }

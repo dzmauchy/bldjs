@@ -415,7 +415,7 @@ export class BldDiagram extends LitElement {
                     this.#interaction.onPortDown(event.detail)}
                   @portpointerup=${(event: CustomEvent<PortPointerDetail>) =>
                     this.#interaction.onPortUp(event.detail)}
-                  @chartclick=${() => app.openOscilloscope(block.id)}
+                  @chartclick=${() => app.openScope(block.id)}
                   @noderesize=${(event: CustomEvent<NodeLayout>) => this.#rememberLayout(block.id, event.detail)}
                 ></bld-node>
               `;

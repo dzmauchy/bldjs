@@ -26,7 +26,7 @@ export class DiagramRunCancelled extends Error {
   }
 }
 
-export const EMPTY_RUN_MESSAGE = "Wire an Oscilloscope through to a Timer, then Run.";
+export const EMPTY_RUN_MESSAGE = "Wire a Scope through to a Timer, then Run.";
 
 /** Live generator session: handles, scope bindings, and connector Hertz. */
 export class RunningDiagram {

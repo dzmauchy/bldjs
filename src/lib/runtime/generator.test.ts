@@ -14,7 +14,7 @@ describe("binaryen generator", () => {
   it("ticks sin(pi/2) through the assembled pipeline", async () => {
     const { text, wasm } = await assembleModule({ stages: ["quantizer", "sin"], delayMs: 10 });
     expect(text).toContain("call $timer");
-    expect(text).toContain("call $oscilloscope");
+    expect(text).toContain("call $scope");
     expect(text).toContain("(param $ctx i32)");
     expect(text).toContain("(param $in (ref $c1_f64))");
     expect(text).toContain("(result (ref $array_c1_f64))");
@@ -35,7 +35,7 @@ describe("binaryen generator", () => {
     const compiled = (await compileGenerator(
       4,
       [
-        { id: 1, defId: "oscilloscope" },
+        { id: 1, defId: "scope" },
         { id: 2, defId: "sin" },
         { id: 3, defId: "quantizer" },
         { id: 4, defId: "timer" },
@@ -76,7 +76,7 @@ describe("binaryen generator", () => {
     const { text, wasm } = await assembleModule({ stages: ["sin"], delayMs: 0 });
     expect(text).toContain("(func $timer");
     expect(text).toContain("(param $in (ref $c1_f64))");
-    expect(text).toContain("(func $oscilloscope");
+    expect(text).toContain("(func $scope");
     expect(text).toContain("(result (ref $array_c1_f64))");
     const memory = createSharedMemory();
     const gen = await instantiateGenerator(wasm, memory, () => 0.5);

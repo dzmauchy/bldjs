@@ -34,7 +34,7 @@ export async function openAppMenu(page: Page): Promise<void> {
 export async function newCanvas(page: Page): Promise<void> {
   await page.keyboard.press("Escape");
   await expect(
-    page.locator('[data-testid="oscilloscope-modal"], [data-testid="about-modal"]'),
+    page.locator('[data-testid="scope-modal"], [data-testid="about-modal"]'),
   ).toHaveCount(0);
   await openAppMenu(page);
   await page.locator('[data-testid="menu-new-canvas"]').click();

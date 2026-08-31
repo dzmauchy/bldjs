@@ -51,9 +51,9 @@ describe("XML ↔ WASM signatures", () => {
       params: [{ name: "in", type: "(ref $c1_f64)" }],
       results: [{ name: "out", type: "(ref $c1_f64)" }],
     });
-    expect(blockSignature(cat.block("oscilloscope")!)).toEqual({
-      id: "oscilloscope",
-      name: "Oscilloscope",
+    expect(blockSignature(cat.block("scope")!)).toEqual({
+      id: "scope",
+      name: "Scope",
       params: [],
       results: [{ name: "out", type: "(ref $array_c1_f64)" }],
     });
@@ -61,7 +61,7 @@ describe("XML ↔ WASM signatures", () => {
     expect(displayType(cat.block("quantizer")!.outputs[0].ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("sin")!.outputs[0].ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("cos")!.outputs[0].ty, true)).toBe("c<f64>");
-    expect(displayType(cat.block("oscilloscope")!.outputs[0].ty, true)).toBe("c<f64>[]");
+    expect(displayType(cat.block("scope")!.outputs[0].ty, true)).toBe("c<f64>[]");
   });
 
   it("fixture type blocks use arguments as inputs and results as outputs", () => {
@@ -108,8 +108,8 @@ describe("XML ↔ WASM signatures", () => {
     expect(signatureWat(blockSignature(cat.block("sin")!))).toBe(
       "(func $sin (param $ctx i32) (param $in (ref $c1_f64)) (result $out (ref $c1_f64))",
     );
-    expect(signatureWat(blockSignature(cat.block("oscilloscope")!))).toBe(
-      "(func $oscilloscope (param $ctx i32) (result $out (ref $array_c1_f64))",
+    expect(signatureWat(blockSignature(cat.block("scope")!))).toBe(
+      "(func $scope (param $ctx i32) (result $out (ref $array_c1_f64))",
     );
     expect(signatureWat(blockSignature(cat.block("b_decision")!), false)).toBe(
       "(func $b_decision (param $in externref) (result $true externref) (result $false externref)",

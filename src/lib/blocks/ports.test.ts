@@ -40,8 +40,8 @@ describe("port slot names", () => {
     expect(acceptsManyInputs(port("x", named("f64")))).toBe(false);
   });
 
-  it("unwraps extra consumer-vector output slots to the channel type", () => {
-    expect(slottedOutputType(vector, "out")).toEqual(vector);
+  it("unwraps every consumer-vector output pin to the channel type", () => {
+    expect(slottedOutputType(vector, "out")).toEqual(consumer);
     expect(slottedOutputType(vector, "out[1]")).toEqual(consumer);
     expect(slottedOutputType(arrayOf(named("f64")), "result[1]")).toEqual(arrayOf(named("f64")));
   });
@@ -72,6 +72,30 @@ describe("allocate and compact extra slots", () => {
     expect(compactLinkSlots(remaining)).toEqual([
       { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" },
       { fromBlock: 4, fromOut: "out", toBlock: 3, toIn: "in[1]" },
+    ]);
+  });
+
+  it("orders extra incoming slots by source Y so a higher block inserts above", () => {
+    const remaining: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in[1]" },
+    ];
+    const y = (id: number) => ({ 1: { x: 0, y: 120 }, 2: { x: 0, y: 0 }, 3: { x: 200, y: 40 } })[id];
+    expect(compactLinkSlots(remaining, y)).toEqual([
+      { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in[1]" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+    ]);
+  });
+
+  it("orders extra outgoing slots by target Y so a higher sink takes the upper pin", () => {
+    const remaining: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" },
+      { fromBlock: 1, fromOut: "out[1]", toBlock: 2, toIn: "in" },
+    ];
+    const y = (id: number) => ({ 1: { x: 0, y: 40 }, 2: { x: 180, y: 0 }, 3: { x: 180, y: 120 } })[id];
+    expect(compactLinkSlots(remaining, y)).toEqual([
+      { fromBlock: 1, fromOut: "out[1]", toBlock: 3, toIn: "in" },
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
     ]);
   });
 

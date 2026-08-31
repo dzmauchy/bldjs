@@ -4,15 +4,15 @@ import type { WasmCatalogTypes } from "../gc-types";
 import type { WasmBlockEmit } from "../consumer";
 
 /**
- * oscilloscope — XML `() → c<f64>[]`. Extra `$ctx i32`.
+ * scope — XML `() → c<f64>[]`. Extra `$ctx i32`.
  * Returns a dynamically sized array of plot sinks; `length` is the number of outgoing connectors.
  */
-export function addOscilloscope(
+export function addScope(
   module: binaryen.Module,
   types: WasmCatalogTypes,
   opts: WasmBlockEmit = {},
 ): binaryen.FunctionRef {
-  const name = opts.name ?? "oscilloscope";
+  const name = opts.name ?? "scope";
   const length = Math.max(opts.length ?? 1, 1);
   const rings = opts.rings ?? Array.from({ length }, (_, index) => index);
   const plots: number[] = [];

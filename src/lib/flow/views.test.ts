@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Link } from "$lib/blocks";
+import { associateBuiltinModels, infer, type Link } from "$lib/blocks";
 import type { BlockInstance } from "$lib/diagram-model";
-import { buildConnectorViews } from "./views";
+import { Diagram } from "$lib/blocks/diagram";
+import { blockKindFromName } from "$lib/model";
+import { buildConnectorViews, buildNodeState } from "./views";
 import type { NodeLayout } from "./types";
 
 function layout(): NodeLayout {
@@ -18,7 +20,7 @@ function layout(): NodeLayout {
 describe("buildConnectorViews", () => {
   it("builds endpoints from indexed blocks and reports earlier wires as underlays", () => {
     const blocks = new Map<number, BlockInstance>([
-      [1, { id: 1, defId: "oscilloscope", x: 0, y: 0 }],
+      [1, { id: 1, defId: "scope", x: 0, y: 0 }],
       [2, { id: 2, defId: "timer", x: 200, y: 0 }],
       [3, { id: 3, defId: "sin", x: 0, y: 80 }],
       [4, { id: 4, defId: "timer", x: 200, y: 80 }],
@@ -47,6 +49,35 @@ describe("buildConnectorViews", () => {
     expect(views[1]?.selected).toBe(true);
     expect(views[1]?.crossings).toEqual([
       { from: views[0]!.from, to: views[0]!.to, route: [] },
+    ]);
+  });
+});
+
+describe("buildNodeState", () => {
+  it("labels every expanded scope channel as c<f64>", () => {
+    const diagram = new Diagram("ws", "Workspace");
+    associateBuiltinModels(diagram);
+    const catalog = diagram.catalog();
+    const block: BlockInstance = { id: 1, defId: "scope", x: 0, y: 0 };
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 1, fromOut: "out[1]", toBlock: 3, toIn: "in" },
+    ];
+    const resolved = infer(catalog, [[1, "scope"] as const], links);
+    const state = buildNodeState(block, resolved, {
+      catalog,
+      links,
+      selected: -1,
+      linkingFrom: { blockId: 1, port: "out" },
+      isScopeLive: () => false,
+      inputIsGrounded: () => false,
+      blockDef: (defId) => catalog.block(defId),
+      kindOf: () => blockKindFromName("Output")!,
+    });
+    expect(state?.name).toBe("Scope");
+    expect(state?.outputs.map((port) => ({ name: port.name, typeLabel: port.typeLabel, showType: port.showType }))).toEqual([
+      { name: "out", typeLabel: "c<f64>", showType: true },
+      { name: "out[1]", typeLabel: "c<f64>", showType: false },
     ]);
   });
 });

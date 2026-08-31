@@ -129,10 +129,10 @@ When defining a `<param>`, use `<extends>` and `<super>` to bound the generic va
 timer(c)           : c<f64> → void
 quantizer(c)       : c<f64> → c<f64>
 sin(c) / cos(c)    : c<f64> → c<f64>
-oscilloscope()     : c<f64>[]          (dynamically sized vector of plot sinks)
+scope()     : c<f64>[]          (dynamically sized vector of plot sinks)
 ```
 
-Composition is `timer(sin(quantizer(plot[0])))`. Wire Oscilloscope → Quantizer → Sin (or Cos) → Timer. Oscilloscope `out` is a vector of `c<f64>`; each outgoing wire is one channel. Several `c<f64>` outputs may share one input; SolutionBuilder inserts a hidden `fork`:
+Composition is `timer(sin(quantizer(plot[0])))`. Wire Scope → Quantizer → Sin (or Cos) → Timer. Scope `out` is a vector of `c<f64>`; each outgoing wire is one channel. Several `c<f64>` outputs may share one input; SolutionBuilder inserts a hidden `fork`:
 
 ```
 c<f64> fork(c<f64>... downstreams) {
@@ -140,7 +140,7 @@ c<f64> fork(c<f64>... downstreams) {
 }
 ```
 
-So two channels from one oscilloscope compile as `timer(fork(sin(plot[0]), cos(plot[1])))`. After Run the chart is a [Chart.js multi-axis line](https://www.chartjs.org/docs/latest/samples/line/multi-axis.html).
+So two channels from one scope compile as `timer(fork(sin(plot[0]), cos(plot[1])))`. After Run the chart is a [Chart.js multi-axis line](https://www.chartjs.org/docs/latest/samples/line/multi-axis.html).
 
 ```xml
 <type name="c1">
@@ -164,8 +164,8 @@ So two channels from one oscilloscope compile as `timer(fork(sin(plot[0]), cos(p
   </out>
 </block>
 
-<block id="oscilloscope" name="Oscilloscope" ns="com.dauch.cs.sink">
-  <factory id="oscilloscope"/>
+<block id="scope" name="Scope" ns="com.dauch.cs.sink">
+  <factory id="scope"/>
   <out name="out" type="[]">
     <attribute name="dynamic">true</attribute>
     <t type="c1">
@@ -175,7 +175,7 @@ So two channels from one oscilloscope compile as `timer(fork(sin(plot[0]), cos(p
 </block>
 ```
 
-SolutionBuilder walks the connected SolutionView and emits one Binaryen function per XML block (`src/lib/resources/binaryen/blocks`) using the same `<in>` / `<out>` ports plus runtime `$ctx` (`timer(ctx, in: c<f64>)`, `sin(ctx, in: c<f64>) → c<f64>`, `oscilloscope(ctx) → c<f64>[]`). Consumers are typed funcrefs (`call_ref`); oscilloscope `out` is a GC array sized from outgoing connectors; fan-in inserts a hidden `fork`. Each Timer starts in its own worker thread; that thread drives `tick` with `setInterval`. The runner (not the WASM runtime) intercepts `c<?>` connector frequency after every tick so the canvas can pick one of ten logarithmic dash styles (`0` slowest … `9` fastest).
+SolutionBuilder walks the connected SolutionView and emits one Binaryen function per XML block (`src/lib/resources/binaryen/blocks`) using the same `<in>` / `<out>` ports plus runtime `$ctx` (`timer(ctx, in: c<f64>)`, `sin(ctx, in: c<f64>) → c<f64>`, `scope(ctx) → c<f64>[]`). Consumers are typed funcrefs (`call_ref`); scope `out` is a GC array sized from outgoing connectors; fan-in inserts a hidden `fork`. Each Timer starts in its own worker thread; that thread drives `tick` with `setInterval`. The runner (not the WASM runtime) intercepts `c<?>` connector frequency after every tick so the canvas can pick one of ten logarithmic dash styles (`0` slowest … `9` fastest).
 
 ### A. Varargs (`array#of`)
 Varargs (e.g., `T... elems`) are marked with the `vararg="true"` boolean attribute on the `<in>` port.

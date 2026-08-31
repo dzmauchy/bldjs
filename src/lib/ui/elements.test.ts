@@ -28,7 +28,7 @@ import "$lib/ui/app-element";
 import { AppState } from "$lib/state";
 import { BldApp } from "./app-element";
 import { BldBlockIcon } from "./block-icon";
-import { BldOscilloscopeChart } from "./oscilloscope-chart";
+import { BldScopeModal } from "./scope-modal";
 import { BldWorkspace } from "./workspace";
 
 function litChangeInUpdateWarnings(spy: ReturnType<typeof vi.spyOn>): string[] {
@@ -46,7 +46,7 @@ describe("custom elements", () => {
     expect(customElements.get("bld-workspace")).toBeDefined();
     expect(customElements.get("bld-status-bar")).toBeDefined();
     expect(customElements.get("bld-about-modal")).toBeDefined();
-    expect(customElements.get("bld-oscilloscope-chart")).toBeDefined();
+    expect(customElements.get("bld-scope-modal")).toBeDefined();
     expect(customElements.get("bld-diagram")).toBeDefined();
     expect(customElements.get("bld-node")).toBeDefined();
     expect(customElements.get("bld-connector")).toBeDefined();
@@ -92,12 +92,12 @@ describe("Lit update scheduling", () => {
     expect(litChangeInUpdateWarnings(warn)).toEqual([]);
   });
 
-  it("does not schedule a follow-up update from bld-oscilloscope-chart when opening and closing", async () => {
+  it("does not schedule a follow-up update from bld-scope-modal when opening and closing", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const chart = document.createElement("bld-oscilloscope-chart") as BldOscilloscopeChart;
+    const chart = document.createElement("bld-scope-modal") as BldScopeModal;
     const app = new AppState();
     const id = app.nextId;
-    app.addBlock("oscilloscope", 0, 0);
+    app.addBlock("scope", 0, 0);
     vi.spyOn(app, "snapshotScope").mockReturnValue([
       { label: "sin", samples: [0, 1] },
       { label: "cos", samples: [1, 0] },
@@ -108,7 +108,7 @@ describe("Lit update scheduling", () => {
 
     app.scopeOpen = id;
     await chart.updateComplete;
-    const host = chart.renderRoot.querySelector("[data-testid=oscilloscope-chart]");
+    const host = chart.renderRoot.querySelector("[data-testid=scope-chart]");
     expect(chart.hasAttribute("open")).toBe(true);
     expect(host?.getAttribute("data-series-count")).toBe("2");
     expect(chartState.configs[0]?.data?.datasets).toHaveLength(2);

@@ -10,7 +10,7 @@ function wireCsPipeline(app: AppState): { timerId: number; scopeId: number } {
   const sinId = app.nextId;
   app.addBlock("sin", 360, 0);
   const scopeId = app.nextId;
-  app.addBlock("oscilloscope", 540, 0);
+  app.addBlock("scope", 540, 0);
   app.toggleLink(scopeId, "out", quantizerId, "in");
   app.toggleLink(quantizerId, "out", sinId, "in");
   app.toggleLink(sinId, "out", timerId, "in");
@@ -30,7 +30,7 @@ describe("AppState placement", () => {
     const app = new AppState();
     app.viewportW = 800;
     app.viewportH = 600;
-    app.addBlockAtViewCenter("oscilloscope");
+    app.addBlockAtViewCenter("scope");
     app.addBlockAtViewCenter("quantizer");
     app.addBlockAtViewCenter("sin");
     app.addBlockAtViewCenter("timer");
@@ -63,9 +63,9 @@ describe("AppState wiring", () => {
   it("keeps multiple c<f64> wires into one input", () => {
     const app = new AppState();
     const scopeA = app.nextId;
-    app.addBlock("oscilloscope", 0, 0);
+    app.addBlock("scope", 0, 0);
     const scopeB = app.nextId;
-    app.addBlock("oscilloscope", 0, 120);
+    app.addBlock("scope", 0, 120);
     const timerId = app.nextId;
     app.addBlock("timer", 300, 0);
     app.toggleLink(scopeA, "out", timerId, "in");
@@ -77,10 +77,26 @@ describe("AppState wiring", () => {
     expect(app.canRun()).toBe(true);
   });
 
-  it("keeps two vector channels from one oscilloscope", () => {
+  it("inserts a new fan-in slot above when the source is above an existing wire", () => {
+    const app = new AppState();
+    const lower = app.nextId;
+    app.addBlock("sin", 0, 120);
+    const upper = app.nextId;
+    app.addBlock("cos", 0, 0);
+    const timerId = app.nextId;
+    app.addBlock("timer", 300, 40);
+    app.toggleLink(lower, "out", timerId, "in");
+    app.toggleLink(upper, "out", timerId, "in");
+    expect(app.links).toEqual([
+      { fromBlock: lower, fromOut: "out", toBlock: timerId, toIn: "in[1]" },
+      { fromBlock: upper, fromOut: "out", toBlock: timerId, toIn: "in" },
+    ]);
+  });
+
+  it("keeps two vector channels from one scope", () => {
     const app = new AppState();
     const scopeId = app.nextId;
-    app.addBlock("oscilloscope", 0, 0);
+    app.addBlock("scope", 0, 0);
     const sinId = app.nextId;
     app.addBlock("sin", 180, 0);
     const cosId = app.nextId;
@@ -107,7 +123,7 @@ describe("AppState wiring", () => {
   it("drops extra slots when an extra connector is removed", () => {
     const app = new AppState();
     const scopeId = app.nextId;
-    app.addBlock("oscilloscope", 0, 0);
+    app.addBlock("scope", 0, 0);
     const sinId = app.nextId;
     app.addBlock("sin", 180, 0);
     const cosId = app.nextId;
@@ -134,7 +150,7 @@ describe("AppState wiring", () => {
   it("compacts remaining slots after the first extra wire is removed", () => {
     const app = new AppState();
     const scopeId = app.nextId;
-    app.addBlock("oscilloscope", 0, 0);
+    app.addBlock("scope", 0, 0);
     const sinId = app.nextId;
     app.addBlock("sin", 180, 0);
     const cosId = app.nextId;
@@ -148,7 +164,7 @@ describe("AppState wiring", () => {
   it("toggles an extra slotted wire off from the catalog ports", () => {
     const app = new AppState();
     const scopeId = app.nextId;
-    app.addBlock("oscilloscope", 0, 0);
+    app.addBlock("scope", 0, 0);
     const sinId = app.nextId;
     app.addBlock("sin", 180, 0);
     const cosId = app.nextId;
@@ -159,10 +175,10 @@ describe("AppState wiring", () => {
     expect(app.links).toEqual([{ fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" }]);
   });
 
-  it("grounds oscilloscope into quantizer", () => {
+  it("grounds scope into quantizer", () => {
     const app = new AppState();
     const scopeId = app.nextId;
-    app.addBlock("oscilloscope", 0, 0);
+    app.addBlock("scope", 0, 0);
     const quantizerId = app.nextId;
     app.addBlock("quantizer", 300, 0);
     app.toggleLink(scopeId, "out", quantizerId, "in");
@@ -174,7 +190,7 @@ describe("AppState wiring", () => {
   it("deletes a selected connector without removing blocks", () => {
     const app = new AppState();
     const scopeId = app.nextId;
-    app.addBlock("oscilloscope", 0, 0);
+    app.addBlock("scope", 0, 0);
     const quantizerId = app.nextId;
     app.addBlock("quantizer", 300, 0);
     app.toggleLink(scopeId, "out", quantizerId, "in");
@@ -188,7 +204,7 @@ describe("AppState wiring", () => {
   it("removes a block and its links", () => {
     const app = new AppState();
     const scopeId = app.nextId;
-    app.addBlock("oscilloscope", 0, 0);
+    app.addBlock("scope", 0, 0);
     const quantizerId = app.nextId;
     app.addBlock("quantizer", 300, 0);
     app.toggleLink(scopeId, "out", quantizerId, "in");
@@ -213,11 +229,11 @@ describe("AppState run", () => {
     expect(app.running).toBe(false);
     expect(app.canRun()).toBe(true);
     expect(app.isScopeLive(scopeId)).toBe(false);
-    app.openOscilloscope(scopeId);
+    app.openScope(scopeId);
     expect(app.scopeOpen).toBe(-1);
   });
 
-  it("enables the oscilloscope chart and wire rates as soon as Run starts", async () => {
+  it("enables the scope chart and wire rates as soon as Run starts", async () => {
     const app = new AppState();
     const { timerId, scopeId } = wireCsPipeline(app);
     const link = app.links.find((item) => item.toBlock === timerId)!;
@@ -233,14 +249,14 @@ describe("AppState run", () => {
     app.stopRun();
   });
 
-  it("run compiles wasm and enables the oscilloscope chart", async () => {
+  it("run compiles wasm and enables the scope chart", async () => {
     const app = new AppState();
     const { timerId, scopeId } = wireCsPipeline(app);
     await app.runDiagram();
     expect(app.running).toBe(true);
     expect(app.runError).toBeNull();
     expect(app.isScopeLive(scopeId)).toBe(true);
-    app.openOscilloscope(scopeId);
+    app.openScope(scopeId);
     expect(app.scopeOpen).toBe(scopeId);
 
     app.moveBlockTo(timerId, 24, 16);
@@ -290,10 +306,10 @@ describe("AppState run", () => {
     app.stopRun();
   });
 
-  it("run snapshots two series for an oscilloscope vector", async () => {
+  it("run snapshots two series for an scope vector", async () => {
     const app = new AppState();
     const scopeId = app.nextId;
-    app.addBlock("oscilloscope", 0, 0);
+    app.addBlock("scope", 0, 0);
     const sinId = app.nextId;
     app.addBlock("sin", 180, 0);
     const cosId = app.nextId;
