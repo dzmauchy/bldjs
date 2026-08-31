@@ -386,6 +386,10 @@ describe("AppState diagram XML", () => {
     expect(
       app.loadDiagramXml(`<?xml version="1.0" encoding="UTF-8"?>
 <diagram id="diag_named" name="Named" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
+  <catalogs>
+    <catalog>types.xml</catalog>
+    <catalog>control-systems.xml</catalog>
+  </catalogs>
   <blocks>
     <block id="blk_probe" type="scope" name="Probe" x="0" y="0" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>
     <block id="blk_plain" type="scope" x="180" y="0" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>
@@ -440,6 +444,18 @@ describe("AppState diagram XML", () => {
     expect(app.sources.map((source) => source.name)).toEqual(["types.xml"]);
     expect(app.blockDef("timer")).toBeUndefined();
     expect(app.catalog.catalogs().map((item) => item.name)).toEqual(["Types"]);
+  });
+
+  it("loads no catalogs when the diagram omits them", () => {
+    const app = new AppState();
+    expect(app.blockDef("timer")).toBeDefined();
+    expect(
+      app.loadDiagramXml(`<?xml version="1.0" encoding="UTF-8"?>
+<diagram id="diag_none" name="None" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>`),
+    ).toBe(true);
+    expect(app.sources).toEqual([]);
+    expect(app.catalog.catalogs()).toEqual([]);
+    expect(app.blockDef("timer")).toBeUndefined();
   });
 
   it("rejects unknown catalog files on import", () => {

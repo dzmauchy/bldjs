@@ -121,8 +121,14 @@ describe("diagram XML", () => {
       blocks: [],
       links: [],
     });
-    expect(empty).toContain("<catalogs/>");
+    expect(empty).not.toContain("<catalogs");
     expect(parseDiagramXml(empty).catalogs).toEqual([]);
+  });
+
+  it("treats a missing catalogs element as none", () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<diagram id="diag_empty" name="Empty" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>`;
+    expect(parseDiagramXml(xml).catalogs).toEqual([]);
   });
 
   it("serializes canvas blocks and slotted wires to diagram XML", () => {

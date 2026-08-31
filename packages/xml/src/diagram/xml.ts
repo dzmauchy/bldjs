@@ -156,6 +156,7 @@ export function parseDiagramXml(xml: string, file = "diagram.xml"): DiagramDocum
   const root = XmlElem.parse(file, xml, "diagram");
   const doc: DiagramDocument = {
     ...parseEntity(root),
+    catalogs: [],
     blocks: [],
     connectors: [],
   };
@@ -164,9 +165,6 @@ export function parseDiagramXml(xml: string, file = "diagram.xml"): DiagramDocum
       case "attribute":
         break;
       case "catalogs":
-        if (doc.catalogs) {
-          child.fail("diagram already has <catalogs>");
-        }
         doc.catalogs = parseCatalogs(child);
         break;
       case "blocks":
@@ -224,16 +222,12 @@ export function serializeDiagramXml(doc: DiagramDocument): string {
   if (rootAttrs) {
     xml.line(rootAttrs);
   }
-  if (doc.catalogs) {
-    if (doc.catalogs.length === 0) {
-      xml.line("    <catalogs/>");
-    } else {
-      xml.line("    <catalogs>");
-      for (const file of doc.catalogs) {
-        xml.line(`        <catalog>${escapeText(catalogFileName(file))}</catalog>`);
-      }
-      xml.line("    </catalogs>");
+  if (doc.catalogs.length > 0) {
+    xml.line("    <catalogs>");
+    for (const file of doc.catalogs) {
+      xml.line(`        <catalog>${escapeText(catalogFileName(file))}</catalog>`);
     }
+    xml.line("    </catalogs>");
   }
   if (doc.blocks.length > 0) {
     xml.line("    <blocks>");
@@ -374,7 +368,7 @@ export function canvasToDocument(canvas: {
     createdAt: canvas.createdAt,
     updatedAt: canvas.updatedAt,
     attributes: canvas.attributes ?? [],
-    catalogs: canvas.catalogs,
+    catalogs: canvas.catalogs ?? [],
     blocks,
     connectors,
   };

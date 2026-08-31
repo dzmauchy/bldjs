@@ -21,7 +21,6 @@ export {
   associateCatalogFiles,
   associateFixtureModels,
   BUILTIN_CATALOGS,
-  DEFAULT_CATALOG_FILES,
   catalogFromFiles,
   catalogXml,
   xmlSourcesForFiles,

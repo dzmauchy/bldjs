@@ -8,7 +8,6 @@ import {
   type ScopeSeries,
   type XmlSource,
   BUILTIN_CATALOGS,
-  DEFAULT_CATALOG_FILES,
   associateBuiltinModels,
   blockAttribute,
   catalogFromFiles,
@@ -285,9 +284,8 @@ export class AppState extends ObservableState {
   loadDiagramXml(xml: string): boolean {
     try {
       const canvas = documentToCanvas(parseDiagramXml(xml));
-      const files = canvas.catalogs ?? [...DEFAULT_CATALOG_FILES];
-      const sources = xmlSourcesForFiles(files);
-      const catalog = catalogFromFiles(files);
+      const sources = xmlSourcesForFiles(canvas.catalogs);
+      const catalog = catalogFromFiles(canvas.catalogs);
       const unknown = canvas.blocks.find((block) => !catalog.block(block.defId));
       if (unknown) {
         throw new Error(`unknown block type \`${unknown.defId}\``);

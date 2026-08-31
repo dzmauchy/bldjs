@@ -24,8 +24,6 @@ export const BUILTIN_CATALOGS: readonly BuiltinCatalog[] = BUILTIN_MODELS.map(([
   return { file, xml, id: doc.id, name: doc.name };
 });
 
-export const DEFAULT_CATALOG_FILES: readonly string[] = BUILTIN_CATALOGS.map((catalog) => catalog.file);
-
 const BUILTIN_BY_FILE = new Map(BUILTIN_CATALOGS.map((catalog) => [catalog.file, catalog]));
 
 export function builtinCatalog(file: string): BuiltinCatalog | undefined {
@@ -55,7 +53,10 @@ export function catalogFromFiles(files: readonly string[]): Catalog {
 }
 
 export function associateBuiltinModels(diagram: Diagram): void {
-  associateCatalogFiles(diagram, DEFAULT_CATALOG_FILES);
+  associateCatalogFiles(
+    diagram,
+    BUILTIN_CATALOGS.map((catalog) => catalog.file),
+  );
 }
 
 export function associateCatalogFiles(diagram: Diagram, files: readonly string[]): void {
