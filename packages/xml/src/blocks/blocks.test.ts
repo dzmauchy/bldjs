@@ -22,6 +22,7 @@ import {
   TYPES_XML,
   associateBuiltinModels,
   associateFixtureModels,
+  xmlSourcesForFiles,
 } from "./builtin";
 import { Catalog } from "./catalog";
 import { isCompatible } from "./compat";
@@ -229,6 +230,16 @@ describe("blocks", () => {
       "(func (param T))",
     );
     expect(cat.sources().length).toBe(2);
+    expect(cat.catalogs().map((item) => [item.file, item.name])).toEqual([
+      ["types.xml", "Types"],
+      ["control-systems.xml", "Control Systems"],
+    ]);
+  });
+
+  it("looks up builtin catalogs by file name", () => {
+    expect(xmlSourcesForFiles(["types.xml"]).map((source) => source.name)).toEqual(["types.xml"]);
+    expect(() => xmlSourcesForFiles(["missing.xml"])).toThrow("unknown catalog");
+    expect(() => xmlSourcesForFiles(["models/types.xml"])).toThrow("unknown catalog");
   });
 
   it("array of f64 is compatible with array wildcard", () => {
@@ -495,6 +506,7 @@ describe("blocks", () => {
     expect(diagram.catalog().block("b_array_of")).toBeUndefined();
     expect(diagram.catalog().block("timer")).toBeDefined();
     expect(diagram.nodes().length).toBe(0);
+    expect(diagram.catalog().catalogs().map((item) => item.name)).toEqual(["Types", "Control Systems"]);
   });
 
   it("variance display", () => {

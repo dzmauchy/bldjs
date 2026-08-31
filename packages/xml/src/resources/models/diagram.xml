@@ -11,6 +11,10 @@
     <attribute name="version">2.4.0</attribute>
     <attribute name="environment">production</attribute>
 
+    <catalogs>
+        <catalog>blocks.xml</catalog>
+    </catalogs>
+
     <blocks>
         <!-- Block Instance 1: Sensor Ingest -->
         <block id="blk_sensor_in"

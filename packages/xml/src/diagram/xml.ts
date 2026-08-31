@@ -20,6 +20,17 @@ export { ParseError };
 
 const { attr, pad, escapeAttr, escapeText } = XmlWriter;
 
+const CATALOG_FILE = /^[A-Za-z0-9._-]+\.xml$/;
+
+/** Diagram catalogs are file names only (no directories or URIs). */
+export function catalogFileName(value: string): string {
+  const file = value.trim();
+  if (!CATALOG_FILE.test(file)) {
+    throw ParseError.new(`catalog must be a file name, got \`${value}\``);
+  }
+  return file;
+}
+
 function parseEntity(el: XmlElem): EntityMeta {
   return {
     id: el.req("id"),
@@ -121,6 +132,26 @@ function parseGroup(el: XmlElem, childTag: string, parentTag: string): XmlElem[]
   });
 }
 
+function parseCatalogFile(el: XmlElem): string {
+  const file = el.text();
+  if (!CATALOG_FILE.test(file)) {
+    el.fail(`catalog must be a file name, got \`${file}\``);
+  }
+  return file;
+}
+
+function parseCatalogs(el: XmlElem): string[] {
+  const files: string[] = [];
+  for (const child of parseGroup(el, "catalog", "catalogs")) {
+    const file = parseCatalogFile(child);
+    if (files.includes(file)) {
+      child.fail(`duplicate catalog \`${file}\``);
+    }
+    files.push(file);
+  }
+  return files;
+}
+
 export function parseDiagramXml(xml: string, file = "diagram.xml"): DiagramDocument {
   const root = XmlElem.parse(file, xml, "diagram");
   const doc: DiagramDocument = {
@@ -131,6 +162,12 @@ export function parseDiagramXml(xml: string, file = "diagram.xml"): DiagramDocum
   for (const child of root.kids()) {
     switch (child.tag) {
       case "attribute":
+        break;
+      case "catalogs":
+        if (doc.catalogs) {
+          child.fail("diagram already has <catalogs>");
+        }
+        doc.catalogs = parseCatalogs(child);
         break;
       case "blocks":
         doc.blocks.push(...parseGroup(child, "block", "blocks").map(parseBlock));
@@ -187,6 +224,17 @@ export function serializeDiagramXml(doc: DiagramDocument): string {
   if (rootAttrs) {
     xml.line(rootAttrs);
   }
+  if (doc.catalogs) {
+    if (doc.catalogs.length === 0) {
+      xml.line("    <catalogs/>");
+    } else {
+      xml.line("    <catalogs>");
+      for (const file of doc.catalogs) {
+        xml.line(`        <catalog>${escapeText(catalogFileName(file))}</catalog>`);
+      }
+      xml.line("    </catalogs>");
+    }
+  }
   if (doc.blocks.length > 0) {
     xml.line("    <blocks>");
     for (const block of doc.blocks) {
@@ -236,6 +284,7 @@ export interface CanvasDiagram {
   createdAt: string;
   updatedAt: string;
   attributes: Attribute[];
+  catalogs?: string[];
   blocks: BlockInstance[];
   links: Link[];
   extras: Map<number, BlockExtras>;
@@ -262,6 +311,7 @@ export function canvasToDocument(canvas: {
   createdAt: string;
   updatedAt: string;
   attributes?: Attribute[];
+  catalogs?: string[];
   blocks: readonly BlockInstance[];
   links: readonly Link[];
   extras?: Map<number, BlockExtras>;
@@ -324,6 +374,7 @@ export function canvasToDocument(canvas: {
     createdAt: canvas.createdAt,
     updatedAt: canvas.updatedAt,
     attributes: canvas.attributes ?? [],
+    catalogs: canvas.catalogs,
     blocks,
     connectors,
   };
@@ -376,6 +427,7 @@ export function documentToCanvas(doc: DiagramDocument): CanvasDiagram {
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
     attributes: doc.attributes,
+    catalogs: doc.catalogs,
     blocks,
     links,
     extras,

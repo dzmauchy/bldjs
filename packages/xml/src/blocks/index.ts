@@ -10,8 +10,8 @@ export {
   isPushType,
   typeToString,
 } from "./ast";
-export { associateBuiltinModels, associateFixtureModels } from "./builtin";
-export { Catalog } from "./catalog";
+export { associateBuiltinModels, associateCatalogFiles, associateFixtureModels } from "./builtin";
+export { Catalog, type CatalogRef } from "./catalog";
 export { isCompatible } from "./compat";
 export {
   type ConsumerTree,

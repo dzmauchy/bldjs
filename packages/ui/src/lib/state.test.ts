@@ -364,6 +364,8 @@ describe("AppState diagram XML", () => {
     wireCsPipeline(app);
     const xml = app.toDiagramXml();
     expect(xml).toContain("<diagram");
+    expect(xml).toContain("<catalog>types.xml</catalog>");
+    expect(xml).toContain("<catalog>control-systems.xml</catalog>");
     expect(xml).toContain('type="timer"');
     expect(xml).toContain("<connector");
 
@@ -407,6 +409,50 @@ describe("AppState diagram XML", () => {
     expect(app.loadDiagramXml(xml)).toBe(false);
     expect(app.ioError).toMatch(/unknown block type/);
     expect(app.blocks).toHaveLength(0);
+  });
+
+  it("toggles catalogs for the current solution by file name", () => {
+    const app = new AppState();
+    wireCsPipeline(app);
+    expect(app.catalogChoices().map((item) => [item.name, item.selected])).toEqual([
+      ["Types", true],
+      ["Control Systems", true],
+    ]);
+    app.toggleCatalog("control-systems.xml");
+    expect(app.blockDef("timer")).toBeUndefined();
+    expect(app.blocks).toHaveLength(0);
+    expect(app.catalogChoices().find((item) => item.file === "control-systems.xml")?.selected).toBe(false);
+    expect(app.toDiagramXml()).toContain("<catalog>types.xml</catalog>");
+    expect(app.toDiagramXml()).not.toContain("control-systems.xml");
+    app.toggleCatalog("control-systems.xml");
+    expect(app.blockDef("timer")).toBeDefined();
+  });
+
+  it("loads catalog files listed in diagram XML", () => {
+    const app = new AppState();
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<diagram id="diag_types" name="Types only" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
+  <catalogs>
+    <catalog>types.xml</catalog>
+  </catalogs>
+</diagram>`;
+    expect(app.loadDiagramXml(xml)).toBe(true);
+    expect(app.sources.map((source) => source.name)).toEqual(["types.xml"]);
+    expect(app.blockDef("timer")).toBeUndefined();
+    expect(app.catalog.catalogs().map((item) => item.name)).toEqual(["Types"]);
+  });
+
+  it("rejects unknown catalog files on import", () => {
+    const app = new AppState();
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<diagram id="diag_missing" name="Missing" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
+  <catalogs>
+    <catalog>missing.xml</catalog>
+  </catalogs>
+</diagram>`;
+    expect(app.loadDiagramXml(xml)).toBe(false);
+    expect(app.ioError).toMatch(/unknown catalog/);
+    expect(app.sources.map((source) => source.name)).toEqual(["types.xml", "control-systems.xml"]);
   });
 
   it("saves and loads diagrams from the library by hand", async () => {

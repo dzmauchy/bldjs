@@ -69,6 +69,8 @@ export interface DiagramConnector extends EntityMeta {
 }
 
 export interface DiagramDocument extends EntityMeta {
+  /** Catalog XML file names from `<catalogs>`. Omitted when the element is absent. */
+  catalogs?: string[];
   blocks: DiagramBlock[];
   connectors: DiagramConnector[];
 }
