@@ -207,7 +207,7 @@ export class AppState extends ObservableState {
     this.scopeOpen = NONE_ID;
   }
 
-  async snapshotScope(id: number): Promise<ScopeSeries[]> {
+  snapshotScope(id: number): ScopeSeries[] {
     return this.#runner.current?.snapshotScope(id) ?? [];
   }
 

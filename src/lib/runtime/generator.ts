@@ -7,7 +7,7 @@ import { startTickLoop } from "./runner";
 
 export interface GeneratorHandle {
   connectors: readonly SolutionViewConnector[];
-  snapshot(scopeIndex?: number): Promise<number[]>;
+  snapshot(scopeIndex?: number): number[];
   readFlowCounts(): number[];
   stop(): void;
   tick?(): void;
@@ -50,7 +50,7 @@ function bindHandle(
 ): GeneratorHandle {
   return {
     connectors,
-    snapshot: async (scopeIndex = 0) => readSamples(memory, scopeIndex),
+    snapshot: (scopeIndex = 0) => readSamples(memory, scopeIndex),
     readFlowCounts: () => readFlowCounts(memory, connectors.length),
     stop,
     tick,
