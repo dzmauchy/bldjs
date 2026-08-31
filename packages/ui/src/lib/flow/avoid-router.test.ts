@@ -10,7 +10,8 @@ import {
 } from "./avoid-router";
 import { collinearOverlapLength, connectorPolyline } from "./geometry";
 
-const wasmPath = `${(globalThis as { process?: { cwd?: () => string } }).process?.cwd?.() ?? ""}/node_modules/libavoid-js/dist/libavoid.wasm`;
+const cwd = (globalThis as { process?: { cwd?: () => string } }).process?.cwd?.() ?? "";
+const wasmPath = `${cwd}${cwd.endsWith("packages/ui") ? "/../.." : ""}/node_modules/libavoid-js/dist/libavoid.wasm`;
 
 function longestFlatY(points: { x: number; y: number }[]): number {
   let bestY = points[0]?.y ?? 0;

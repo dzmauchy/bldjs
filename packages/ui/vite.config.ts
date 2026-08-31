@@ -48,7 +48,9 @@ function crossOriginIsolation(): Plugin {
   };
 }
 
-const libavoidWasm = fileURLToPath(import.meta.resolve("libavoid-js/dist/libavoid.wasm"));
+const libavoidWasm = fileURLToPath(
+  new URL("../../node_modules/libavoid-js/dist/libavoid.wasm", import.meta.url),
+);
 
 function serveLibavoidWasm(): Plugin {
   return {
