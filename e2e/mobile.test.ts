@@ -71,11 +71,11 @@ test.describe("phone canvas", () => {
 
   test("connects a wire dropped on a block with one compatible input", async () => {
     await page.locator('[data-testid="toolbar-palette"]').click();
-    await waitDeep(page, '[data-testid="palette-timer"]');
-    await page.locator('[data-testid="palette-timer"]').click();
+    const timerItem = await waitDeep(page, '[data-testid="palette-timer"]');
+    await timerItem.tap();
     await waitForBlock(page, "timer");
     await clickPortHandle(page, "sin", "output-out");
-    await nodeHost(page, "timer").locator(".flow-node-icon").click();
+    await nodeHost(page, "timer").locator(".flow-node-icon").tap();
     await waitForLinks(page, "1 link");
   });
 });
