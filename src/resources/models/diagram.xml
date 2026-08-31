@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<diagram id="diag_telemetry_01"
+         name="Telemetry Signal Processing"
+         description="Real-time multi-channel sensor acquisition, scaling, and sink pipeline"
+         createdAt="2026-08-31T05:00:00Z"
+         updatedAt="2026-08-31T05:30:00Z"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="diagram.xsd">
+
+    <!-- Custom Diagram Attributes -->
+    <attribute name="version">2.4.0</attribute>
+    <attribute name="environment">production</attribute>
+
+    <blocks>
+        <!-- Block Instance 1: Sensor Ingest -->
+        <block id="blk_sensor_in"
+               type="sensor_source"
+               name="Sensor Ingest"
+               description="Receives multi-channel continuous stream data via broker"
+               x="120.0"
+               y="80.0"
+               width="240.0"
+               height="160.0"
+               createdAt="2026-08-31T05:00:00Z"
+               updatedAt="2026-08-31T05:15:00Z">
+
+            <attribute name="protocol">MQTT</attribute>
+
+            <parameters>
+                <!-- 1. Integer Concrete Value -->
+                <integer-parameter id="param_val_01"
+                                   name="bufferCapacity"
+                                   value="8192"
+                                   createdAt="2026-08-31T05:00:00Z"
+                                   updatedAt="2026-08-31T05:05:00Z">
+                    <attribute name="appliedOverride">true</attribute>
+                </integer-parameter>
+
+                <!-- 2. Count Concrete Value -->
+                <count-parameter id="param_val_02"
+                                 name="retryAttempts"
+                                 value="5"
+                                 createdAt="2026-08-31T05:00:00Z"
+                                 updatedAt="2026-08-31T05:05:00Z"/>
+
+                <!-- 4. Duration Concrete Value -->
+                <duration-parameter id="param_val_03"
+                                    name="sampleInterval"
+                                    value="50ms"
+                                    createdAt="2026-08-31T05:00:00Z"
+                                    updatedAt="2026-08-31T05:10:00Z"/>
+
+                <!-- 10. Text Concrete Value -->
+                <text-parameter id="param_val_04"
+                                name="sensorEndpoint"
+                                value="telemetry/turbine/vibration"
+                                createdAt="2026-08-31T05:00:00Z"
+                                updatedAt="2026-08-31T05:12:00Z"/>
+            </parameters>
+        </block>
+
+        <!-- Block Instance 2: Scaler -->
+        <block id="blk_scaler"
+               type="scaler"
+               name="Signal Scaler"
+               description="Applies linear transformation and baseline adjustment"
+               x="460.0"
+               y="80.0"
+               width="240.0"
+               height="180.0"
+               createdAt="2026-08-31T05:01:00Z"
+               updatedAt="2026-08-31T05:20:00Z">
+
+            <parameters>
+                <!-- 3. Decimal Concrete Value -->
+                <decimal-parameter id="param_val_05"
+                                   name="calibrationOffset"
+                                   value="0.0042"
+                                   createdAt="2026-08-31T05:01:00Z"
+                                   updatedAt="2026-08-31T05:18:00Z"/>
+
+                <!-- 8. Integer Range Concrete Value -->
+                <integer-range-parameter id="param_val_06"
+                                         name="smoothingWindow"
+                                         value="75"
+                                         createdAt="2026-08-31T05:01:00Z"
+                                         updatedAt="2026-08-31T05:19:00Z"/>
+
+                <!-- 9. Double Range Concrete Value -->
+                <double-range-parameter id="param_val_07"
+                                        name="gainFactor"
+                                        value="2.25"
+                                        createdAt="2026-08-31T05:01:00Z"
+                                        updatedAt="2026-08-31T05:20:00Z"/>
+            </parameters>
+        </block>
+
+        <!-- Block Instance 3: Timeseries Sink -->
+        <block id="blk_sink"
+               type="timeseries_sink"
+               name="Timeseries Sink"
+               description="Persists processed telemetry vectors to database"
+               x="800.0"
+               y="80.0"
+               width="240.0"
+               height="180.0"
+               createdAt="2026-08-31T05:02:00Z"
+               updatedAt="2026-08-31T05:25:00Z">
+
+            <parameters>
+                <!-- 5. Date Concrete Value (yyyy-MM-dd) -->
+                <date-parameter id="param_val_08"
+                                name="baselineDate"
+                                value="2026-08-31"
+                                createdAt="2026-08-31T05:02:00Z"
+                                updatedAt="2026-08-31T05:22:00Z"/>
+
+                <!-- 6. Time Concrete Value (hh:mm:ss) -->
+                <time-parameter id="param_val_09"
+                                name="shiftStartTime"
+                                value="06:30:00"
+                                createdAt="2026-08-31T05:02:00Z"
+                                updatedAt="2026-08-31T05:22:00Z"/>
+
+                <!-- 7. Date-Time Concrete Value (yyyy-MM-dd'T'hh:mm:ss) -->
+                <date-time-parameter id="param_val_10"
+                                     name="sessionEpoch"
+                                     value="2026-08-31T06:30:00"
+                                     createdAt="2026-08-31T05:02:00Z"
+                                     updatedAt="2026-08-31T05:24:00Z"/>
+            </parameters>
+        </block>
+    </blocks>
+
+    <!-- Connectors -->
+    <connectors>
+        <!-- Connector 1: Ingest -> Scaler (Channel 0) -->
+        <connector id="conn_01"
+                   name="SensorToScalerLink_Ch0"
+                   createdAt="2026-08-31T05:10:00Z"
+                   updatedAt="2026-08-31T05:25:00Z">
+
+            <attribute name="lineStyle">solid</attribute>
+            <attribute name="color">#007ACC</attribute>
+
+            <input id="ep_in_01"
+                   name="IngestOutputEndpoint"
+                   block="blk_sensor_in"
+                   port="data_out"
+                   index="0"
+                   createdAt="2026-08-31T05:10:00Z"
+                   updatedAt="2026-08-31T05:10:00Z">
+                <attribute name="dataType">f64</attribute>
+            </input>
+
+            <output id="ep_out_01"
+                    name="ScalerInputEndpoint"
+                    block="blk_scaler"
+                    port="raw_in"
+                    index="0"
+                    createdAt="2026-08-31T05:10:00Z"
+                    updatedAt="2026-08-31T05:10:00Z">
+                <attribute name="buffered">true</attribute>
+            </output>
+        </connector>
+
+        <!-- Connector 2: Scaler -> Sink (Channel 0) -->
+        <connector id="conn_02"
+                   name="ScalerToSinkLink"
+                   createdAt="2026-08-31T05:20:00Z"
+                   updatedAt="2026-08-31T05:26:00Z">
+
+            <attribute name="lineStyle">dashed</attribute>
+
+            <input id="ep_in_02"
+                   block="blk_scaler"
+                   port="scaled_out"
+                   index="0"
+                   createdAt="2026-08-31T05:20:00Z"
+                   updatedAt="2026-08-31T05:20:00Z">
+                <attribute name="dataType">f64</attribute>
+            </input>
+
+            <output id="ep_out_02"
+                    block="blk_sink"
+                    port="metrics_in"
+                    index="0"
+                    createdAt="2026-08-31T05:20:00Z"
+                    updatedAt="2026-08-31T05:20:00Z">
+                <attribute name="flushFrequency">10s</attribute>
+            </output>
+        </connector>
+    </connectors>
+
+</diagram>

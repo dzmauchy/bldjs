@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
+
+    <!-- Common Entity Attributes: id, createdAt, updatedAt (obligatory); name, description (optional) -->
+    <xs:attributeGroup name="CommonEntityAttributes">
+        <xs:attribute name="id" type="xs:ID" use="required"/>
+        <xs:attribute name="createdAt" type="xs:dateTime" use="required"/>
+        <xs:attribute name="updatedAt" type="xs:dateTime" use="required"/>
+        <xs:attribute name="name" type="xs:string" use="optional"/>
+        <xs:attribute name="description" type="xs:string" use="optional"/>
+    </xs:attributeGroup>
+
+    <!-- Custom Attribute Definition -->
+    <xs:complexType name="AttributeDef" mixed="true">
+        <xs:sequence>
+            <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+    </xs:complexType>
+
+    <!-- Duration Type (e.g. 100ms, 1s, 10000ns, 1d, 30m, 1h) -->
+    <xs:simpleType name="DurationType">
+        <xs:restriction base="xs:string">
+            <xs:pattern value="[0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h|d)"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Base Value Definition for Concrete Parameters -->
+    <xs:complexType name="ParamValueBaseDef" abstract="true">
+        <xs:sequence>
+            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attributeGroup ref="CommonEntityAttributes"/>
+    </xs:complexType>
+
+    <!-- 1. Integer Concrete Parameter Value -->
+    <xs:complexType name="IntegerParamValDef">
+        <xs:complexContent>
+            <xs:extension base="ParamValueBaseDef">
+                <xs:attribute name="value" type="xs:integer" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 2. Count Concrete Parameter Value -->
+    <xs:complexType name="CountParamValDef">
+        <xs:complexContent>
+            <xs:extension base="ParamValueBaseDef">
+                <xs:attribute name="value" type="xs:integer" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 3. Decimal Concrete Parameter Value -->
+    <xs:complexType name="DecimalParamValDef">
+        <xs:complexContent>
+            <xs:extension base="ParamValueBaseDef">
+                <xs:attribute name="value" type="xs:decimal" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 4. Duration Concrete Parameter Value -->
+    <xs:complexType name="DurationParamValDef">
+        <xs:complexContent>
+            <xs:extension base="ParamValueBaseDef">
+                <xs:attribute name="value" type="DurationType" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 5. Date Concrete Parameter Value (yyyy-MM-dd) -->
+    <xs:complexType name="DateParamValDef">
+        <xs:complexContent>
+            <xs:extension base="ParamValueBaseDef">
+                <xs:attribute name="value" type="xs:date" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 6. Time Concrete Parameter Value (hh:mm:ss) -->
+    <xs:complexType name="TimeParamValDef">
+        <xs:complexContent>
+            <xs:extension base="ParamValueBaseDef">
+                <xs:attribute name="value" type="xs:time" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 7. Date-Time Concrete Parameter Value (yyyy-MM-dd'T'hh:mm:ss) -->
+    <xs:complexType name="DateTimeParamValDef">
+        <xs:complexContent>
+            <xs:extension base="ParamValueBaseDef">
+                <xs:attribute name="value" type="xs:dateTime" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 8. Integer Range Concrete Parameter Value -->
+    <xs:complexType name="IntegerRangeParamValDef">
+        <xs:complexContent>
+            <xs:extension base="ParamValueBaseDef">
+                <xs:attribute name="value" type="xs:integer" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 9. Double Range Concrete Parameter Value -->
+    <xs:complexType name="DoubleRangeParamValDef">
+        <xs:complexContent>
+            <xs:extension base="ParamValueBaseDef">
+                <xs:attribute name="value" type="xs:double" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 10. Text Concrete Parameter Value -->
+    <xs:complexType name="TextParamValDef">
+        <xs:complexContent>
+            <xs:extension base="ParamValueBaseDef">
+                <xs:attribute name="value" type="xs:string" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- Container for Assigned Parameter Values -->
+    <xs:complexType name="ParameterValuesDef">
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="integer-parameter" type="IntegerParamValDef"/>
+            <xs:element name="count-parameter" type="CountParamValDef"/>
+            <xs:element name="decimal-parameter" type="DecimalParamValDef"/>
+            <xs:element name="duration-parameter" type="DurationParamValDef"/>
+            <xs:element name="date-parameter" type="DateParamValDef"/>
+            <xs:element name="time-parameter" type="TimeParamValDef"/>
+            <xs:element name="date-time-parameter" type="DateTimeParamValDef"/>
+            <xs:element name="integer-range-parameter" type="IntegerRangeParamValDef"/>
+            <xs:element name="double-range-parameter" type="DoubleRangeParamValDef"/>
+            <xs:element name="text-parameter" type="TextParamValDef"/>
+        </xs:choice>
+    </xs:complexType>
+
+    <!-- Block Instance in Diagram -->
+    <xs:complexType name="BlockInstanceDef">
+        <xs:sequence>
+            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="parameters" type="ParameterValuesDef" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="type" type="xs:string" use="required"/>
+        <xs:attribute name="x" type="xs:double" use="required"/>
+        <xs:attribute name="y" type="xs:double" use="required"/>
+        <xs:attribute name="width" type="xs:double"/>
+        <xs:attribute name="height" type="xs:double"/>
+        <xs:attributeGroup ref="CommonEntityAttributes"/>
+    </xs:complexType>
+
+    <!-- Connector Endpoints (Input & Output Ports on Blocks) -->
+    <xs:complexType name="ConnectorEndpointDef">
+        <xs:sequence>
+            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="block" type="xs:string" use="required"/>
+        <xs:attribute name="port" type="xs:string" use="optional"/>
+        <xs:attribute name="index" type="xs:nonNegativeInteger" default="0"/>
+        <xs:attributeGroup ref="CommonEntityAttributes"/>
+    </xs:complexType>
+
+    <!-- Connector Definition -->
+    <xs:complexType name="ConnectorDef">
+        <xs:sequence>
+            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="input" type="ConnectorEndpointDef"/>
+            <xs:element name="output" type="ConnectorEndpointDef"/>
+        </xs:sequence>
+        <xs:attributeGroup ref="CommonEntityAttributes"/>
+    </xs:complexType>
+
+    <!-- ROOT ELEMENT: diagram -->
+    <xs:element name="diagram">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="blocks" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="block" type="BlockInstanceDef" minOccurs="0" maxOccurs="unbounded"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="connectors" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="connector" type="ConnectorDef" minOccurs="0" maxOccurs="unbounded"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+            <xs:attributeGroup ref="CommonEntityAttributes"/>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>

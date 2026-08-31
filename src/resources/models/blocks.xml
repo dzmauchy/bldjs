@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blocks id="telemetry_catalog" name="Telemetry and Signal Processing Catalog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="blocks.xsd">
+
+    <!-- THIS IS AN EXAMPLE -->
+
+    <library id="dsp_core" name="DSP Core Library" version="1.0.0"/>
+
+    <namespace id="com.dsp" name="DSP"/>
+    <namespace id="com.dsp.source" name="Sources" parent="com.dsp"/>
+    <namespace id="com.dsp.transform" name="Transforms" parent="com.dsp"/>
+    <namespace id="com.dsp.sink" name="Sinks" parent="com.dsp"/>
+
+    <!-- Common Primitive Signal Types -->
+    <type name="f64" ns="com.dsp">
+        <attribute name="wasm">f64</attribute>
+    </type>
+
+    <type name="c1" ns="com.dsp">
+        <attribute name="wasm">(func (param T))</attribute>
+        <param name="T"/>
+    </type>
+
+    <type name="[]" ns="com.dsp">
+        <attribute name="wasm">array</attribute>
+        <param name="T"/>
+    </type>
+
+    <!-- Block 1: Sensor Ingest (Declares Integer, Count, Duration, and Text Parameters) -->
+    <block id="sensor_source" name="Sensor Source" ns="com.dsp.source" icon="sensor.svg">
+        <attribute name="category">Source</attribute>
+        <attribute name="runnable">true</attribute>
+
+        <factory id="sensor#create"/>
+
+        <parameters>
+            <integer-parameter name="bufferCapacity" description="Internal queue capacity" default="4096">
+                <attribute name="unit">bytes</attribute>
+            </integer-parameter>
+
+            <count-parameter name="retryAttempts" description="Max broker reconnect retries" min="0" max="10" step="1" default="3"/>
+
+            <duration-parameter name="sampleInterval" description="Polling duration interval" default="100ms"/>
+
+            <text-parameter name="sensorEndpoint" description="MQTT topic or broker URL" minChars="3" maxChars="128" pattern="^[a-zA-Z0-9/_]+$" default="telemetry/sensor/raw"/>
+        </parameters>
+
+        <out name="data_out" type="c1">
+            <t type="f64"/>
+        </out>
+    </block>
+
+    <!-- Block 2: Scaler (Declares Decimal, Integer Range, and Double Range Parameters) -->
+    <block id="scaler" name="Signal Scaler" ns="com.dsp.transform" icon="scaler.svg">
+        <attribute name="category">Transform</attribute>
+
+        <factory id="transform#scale"/>
+
+        <parameters>
+            <decimal-parameter name="calibrationOffset" description="Static zero-point offset adjustment" default="0.0025"/>
+
+            <integer-range-parameter name="smoothingWindow" description="Window size for moving average filter" min="10" max="200" step="5" default="50"/>
+
+            <double-range-parameter name="gainFactor" description="Signal amplification multiplier" min="0.1" max="5.0" step="0.05" default="1.75"/>
+        </parameters>
+
+        <in name="raw_in" type="c1">
+            <t type="f64"/>
+        </in>
+        <out name="scaled_out" type="c1">
+            <t type="f64"/>
+        </out>
+    </block>
+
+    <!-- Block 3: Timeseries Sink (Declares Date, Time, and Date-Time Parameters) -->
+    <block id="timeseries_sink" name="Timeseries Sink" ns="com.dsp.sink" icon="sink.svg">
+        <attribute name="category">Sink</attribute>
+
+        <factory id="sink#timeseries"/>
+
+        <parameters>
+            <date-parameter name="baselineDate" description="Reference baseline date for storage partition" default="2026-08-31"/>
+
+            <time-parameter name="shiftStartTime" description="Shift start time delimiter" default="08:00:00"/>
+
+            <date-time-parameter name="sessionEpoch" description="Timestamp marking session creation" default="2026-08-31T08:00:00"/>
+        </parameters>
+
+        <in name="metrics_in" type="c1">
+            <t type="f64"/>
+        </in>
+    </block>
+
+</blocks>

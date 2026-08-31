@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
 
     <xs:simpleType name="VarianceType">
         <xs:restriction base="xs:string">
             <xs:enumeration value="+"/>
             <xs:enumeration value="-"/>
             <xs:enumeration value="?"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Duration Type (e.g. 100ms, 1s, 10000ns, 1d, 30m, 1h) -->
+    <xs:simpleType name="DurationType">
+        <xs:restriction base="xs:string">
+            <xs:pattern value="[0-9]+(\.[0-9]+)?(ns|us|ms|s|m|h|d)"/>
         </xs:restriction>
     </xs:simpleType>
 
@@ -38,7 +46,8 @@
         <xs:attribute name="variance" type="VarianceType"/>
     </xs:complexType>
 
-    <xs:complexType name="ParamDef">
+    <!-- Generic Type Parameter Definition (e.g., <param name="T"/>) -->
+    <xs:complexType name="TypeParamDef">
         <xs:sequence>
             <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
             <xs:element name="extends" type="TExpr" minOccurs="0" maxOccurs="unbounded"/>
@@ -48,7 +57,7 @@
         <xs:attribute name="variance" type="VarianceType"/>
     </xs:complexType>
 
-    <!-- Port Definition -->
+    <!-- Port Definition (in/out) -->
     <xs:complexType name="PortDef">
         <xs:complexContent>
             <xs:extension base="TExpr">
@@ -57,6 +66,133 @@
                 <xs:attribute name="icon" type="xs:string"/>
             </xs:extension>
         </xs:complexContent>
+    </xs:complexType>
+
+    <!-- Base Parameter Definition for Configurable Block Constants -->
+    <xs:complexType name="ParamBaseDef" abstract="true">
+        <xs:sequence>
+            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="description" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- 1. Integer Parameter Declaration -->
+    <xs:complexType name="IntegerParamDef">
+        <xs:complexContent>
+            <xs:extension base="ParamBaseDef">
+                <xs:attribute name="default" type="xs:integer"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 2. Count Parameter Declaration (Up/Down control) -->
+    <xs:complexType name="CountParamDef">
+        <xs:complexContent>
+            <xs:extension base="ParamBaseDef">
+                <xs:attribute name="min" type="xs:integer" default="0"/>
+                <xs:attribute name="max" type="xs:integer"/>
+                <xs:attribute name="step" type="xs:integer" default="1"/>
+                <xs:attribute name="default" type="xs:integer"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 3. Decimal Parameter Declaration -->
+    <xs:complexType name="DecimalParamDef">
+        <xs:complexContent>
+            <xs:extension base="ParamBaseDef">
+                <xs:attribute name="default" type="xs:decimal"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 4. Duration Parameter Declaration -->
+    <xs:complexType name="DurationParamDef">
+        <xs:complexContent>
+            <xs:extension base="ParamBaseDef">
+                <xs:attribute name="default" type="DurationType"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 5. Date Parameter Declaration (yyyy-MM-dd) -->
+    <xs:complexType name="DateParamDef">
+        <xs:complexContent>
+            <xs:extension base="ParamBaseDef">
+                <xs:attribute name="default" type="xs:date"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 6. Time Parameter Declaration (hh:mm:ss) -->
+    <xs:complexType name="TimeParamDef">
+        <xs:complexContent>
+            <xs:extension base="ParamBaseDef">
+                <xs:attribute name="default" type="xs:time"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 7. Date-Time Parameter Declaration (yyyy-MM-dd'T'hh:mm:ss) -->
+    <xs:complexType name="DateTimeParamDef">
+        <xs:complexContent>
+            <xs:extension base="ParamBaseDef">
+                <xs:attribute name="default" type="xs:dateTime"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 8. Integer Range Parameter Declaration (Range control) -->
+    <xs:complexType name="IntegerRangeParamDef">
+        <xs:complexContent>
+            <xs:extension base="ParamBaseDef">
+                <xs:attribute name="min" type="xs:integer" use="required"/>
+                <xs:attribute name="max" type="xs:integer" use="required"/>
+                <xs:attribute name="step" type="xs:integer" default="1"/>
+                <xs:attribute name="default" type="xs:integer"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 9. Double Range Parameter Declaration (Range control) -->
+    <xs:complexType name="DoubleRangeParamDef">
+        <xs:complexContent>
+            <xs:extension base="ParamBaseDef">
+                <xs:attribute name="min" type="xs:double" use="required"/>
+                <xs:attribute name="max" type="xs:double" use="required"/>
+                <xs:attribute name="step" type="xs:double"/>
+                <xs:attribute name="default" type="xs:double"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- 10. Text Parameter Declaration (with validation rules) -->
+    <xs:complexType name="TextParamDef">
+        <xs:complexContent>
+            <xs:extension base="ParamBaseDef">
+                <xs:attribute name="minChars" type="xs:nonNegativeInteger"/>
+                <xs:attribute name="maxChars" type="xs:positiveInteger"/>
+                <xs:attribute name="pattern" type="xs:string"/>
+                <xs:attribute name="default" type="xs:string"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- Parameters Container for Blocks -->
+    <xs:complexType name="ParametersDef">
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="integer-parameter" type="IntegerParamDef"/>
+            <xs:element name="count-parameter" type="CountParamDef"/>
+            <xs:element name="decimal-parameter" type="DecimalParamDef"/>
+            <xs:element name="duration-parameter" type="DurationParamDef"/>
+            <xs:element name="date-parameter" type="DateParamDef"/>
+            <xs:element name="time-parameter" type="TimeParamDef"/>
+            <xs:element name="date-time-parameter" type="DateTimeParamDef"/>
+            <xs:element name="integer-range-parameter" type="IntegerRangeParamDef"/>
+            <xs:element name="double-range-parameter" type="DoubleRangeParamDef"/>
+            <xs:element name="text-parameter" type="TextParamDef"/>
+        </xs:choice>
     </xs:complexType>
 
     <!-- ROOT ELEMENT: blocks -->
@@ -94,7 +230,7 @@
                         <xs:complexType>
                             <xs:sequence>
                                 <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-                                <xs:element name="param" type="ParamDef" minOccurs="0" maxOccurs="unbounded"/>
+                                <xs:element name="param" type="TypeParamDef" minOccurs="0" maxOccurs="unbounded"/>
                                 <xs:element name="ancestor" type="TExpr" minOccurs="0" maxOccurs="unbounded"/>
                                 <xs:choice minOccurs="0">
                                     <xs:element name="union" type="TExpr"/>
@@ -110,7 +246,7 @@
                         <xs:complexType>
                             <xs:sequence>
                                 <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-                                <xs:element name="param" type="ParamDef" minOccurs="0" maxOccurs="unbounded"/>
+                                <xs:element name="param" type="TypeParamDef" minOccurs="0" maxOccurs="unbounded"/>
 
                                 <xs:element name="factory" minOccurs="0">
                                     <xs:complexType>
@@ -133,6 +269,8 @@
                                     </xs:complexType>
                                 </xs:element>
 
+                                <xs:element name="parameters" type="ParametersDef" minOccurs="0"/>
+
                                 <xs:element name="in" type="PortDef" minOccurs="0" maxOccurs="unbounded"/>
                                 <xs:element name="out" type="PortDef" minOccurs="0" maxOccurs="unbounded"/>
                             </xs:sequence>
@@ -151,4 +289,5 @@
             <xs:attribute name="icon" type="xs:string"/>
         </xs:complexType>
     </xs:element>
+
 </xs:schema>
