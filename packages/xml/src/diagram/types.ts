@@ -69,6 +69,7 @@ export interface DiagramConnector extends EntityMeta {
 }
 
 export interface DiagramDocument extends EntityMeta {
+  catalogs: string[];
   blocks: DiagramBlock[];
   connectors: DiagramConnector[];
 }

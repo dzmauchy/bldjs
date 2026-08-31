@@ -17,12 +17,24 @@ All primary diagram entities (`<diagram>`, `<block>`, `<connector>`, `<input>`, 
 
 ---
 
-## 2. Diagram Canvas & Block Instances
-The `<diagram>` element is the root. It contains an optional collection of `<blocks>` and `<connectors>`.
+## 2. Catalog Selection
+The diagram names the block catalogs it uses under `<catalogs>`. Each `<catalog>` is a file name only (no directories or URIs). The catalog display name comes from that file's `<blocks name="...">` attribute, not from the diagram. A diagram with no `<catalogs>` has no catalogs.
+
+```xml
+<catalogs>
+    <catalog>types.xml</catalog>
+    <catalog>control-systems.xml</catalog>
+</catalogs>
+```
+
+---
+
+## 3. Diagram Canvas & Block Instances
+The `<diagram>` element is the root. It contains an optional collection of `<catalogs>`, `<blocks>`, and `<connectors>`.
 
 ### Block Coordinates & Catalog Binding
 * Block coordinates (`x`, `y`) are strictly defined on the `<block>` element. Connectors do not define layout coordinates.
-* `type`: References the catalog block definition `id` from `blocks.xml`.
+* `type`: References the catalog block definition `id` from an associated catalog file listed under `<catalogs>`.
 * `width` / `height`: Optional canvas rendering dimensions.
 
 ```xml
@@ -43,7 +55,7 @@ The `<diagram>` element is the root. It contains an optional collection of `<blo
 
 ---
 
-## 3. Concrete Parameter Value Assignments
+## 4. Concrete Parameter Value Assignments
 Inside `<block>`, concrete values for the parameters defined in the catalog are specified under the `<parameters>` element. Each value assignment carries the obligatory lifecycle attributes (`id`, `createdAt`, `updatedAt`) and its assigned `value`.
 
 | Concrete Parameter Tag | Value Type | Valid Example |
@@ -85,7 +97,7 @@ Inside `<block>`, concrete values for the parameters defined in the catalog are 
 
 ---
 
-## 4. Connectors & Endpoints
+## 5. Connectors & Endpoints
 Connectors wire an output port of a source block to an input port of a destination block.
 
 ### Endpoint Structure (`<input>` and `<output>`)
@@ -132,5 +144,5 @@ Connectors wire an output port of a source block to an input port of a destinati
 
 ---
 
-## 5. Custom Extensibility
+## 6. Custom Extensibility
 Custom `<attribute name="...">value</attribute>` elements can be declared within `<diagram>`, `<block>`, `<parameters>`, `<connector>`, and connector `<input>`/`<output>` endpoints to attach arbitrary application-specific metadata.

@@ -145,4 +145,23 @@ test.describe("menus", () => {
     await page.locator('[data-testid="menu-delete-selected"]').click();
     await expect(page.locator('[data-testid="status-blocks"]')).toHaveText("0 blocks");
   });
+
+  test("lists catalogs by blocks.name and toggles the current solution", async () => {
+    await openAppMenu(page);
+    const types = page.locator('[data-testid="menu-catalog-types.xml"]');
+    const control = page.locator('[data-testid="menu-catalog-control-systems.xml"]');
+    await expect(page.locator('[data-testid="menu-catalogs"]')).toHaveText("Catalogs");
+    await expect(types).toContainText("Types");
+    await expect(control).toContainText("Control Systems");
+    await expect(types).toHaveAttribute("aria-checked", "true");
+    await expect(control).toHaveAttribute("aria-checked", "true");
+
+    await control.click();
+    await expect(control).toHaveAttribute("aria-checked", "false");
+    await expect(page.locator('[data-testid="palette-timer"]')).toHaveCount(0);
+
+    await openAppMenu(page);
+    await page.locator('[data-testid="menu-catalog-control-systems.xml"]').click();
+    await expect(page.locator('[data-testid="palette-timer"]')).toHaveCount(1);
+  });
 });

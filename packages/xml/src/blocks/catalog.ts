@@ -11,6 +11,13 @@ import {
 } from "./ast";
 import { ParseError, parseBlocks } from "./parse";
 
+/** One associated catalog document (`<blocks name>` from the XML file). */
+export interface CatalogRef {
+  file: string;
+  id: string;
+  name: string;
+}
+
 export class Catalog {
   libraries: LibraryRef[] = [];
   namespaces = new Map<string, Namespace>();
@@ -19,9 +26,14 @@ export class Catalog {
   private blockList: BlockDef[] = [];
   private blockById = new Map<string, number>();
   private sourceList: string[] = [];
+  private catalogList: CatalogRef[] = [];
 
   sources(): string[] {
     return this.sourceList;
+  }
+
+  catalogs(): CatalogRef[] {
+    return this.catalogList;
   }
 
   typeDefs(): TypeDef[] {
@@ -68,6 +80,7 @@ export class Catalog {
       this.blockList.push(block);
     }
     this.sourceList.push(doc.source);
+    this.catalogList.push({ file: doc.source, id: doc.id, name: doc.name });
   }
 
   removeSource(file: string): void {
@@ -75,6 +88,7 @@ export class Catalog {
     this.blockList = this.blockList.filter((block) => block.source !== file);
     this.rebuildIndexes();
     this.sourceList = this.sourceList.filter((source) => source !== file);
+    this.catalogList = this.catalogList.filter((catalog) => catalog.file !== file);
   }
 
   private pushTypeIndex(key: string, index: number): void {

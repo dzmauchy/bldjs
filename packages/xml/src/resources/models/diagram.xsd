@@ -26,6 +26,13 @@
         </xs:restriction>
     </xs:simpleType>
 
+    <!-- Catalog file name only (no directories or URIs). -->
+    <xs:simpleType name="CatalogFileName">
+        <xs:restriction base="xs:token">
+            <xs:pattern value="[A-Za-z0-9._-]+\.xml"/>
+        </xs:restriction>
+    </xs:simpleType>
+
     <!-- Lifecycle attributes without `name`, so parameter values can require `name`. -->
     <xs:attributeGroup name="LifecycleAttributes">
         <xs:attribute name="id" type="xs:ID" use="required"/>
@@ -189,6 +196,13 @@
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="catalogs" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="catalog" type="CatalogFileName" minOccurs="0" maxOccurs="unbounded"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
                 <xs:element name="blocks" minOccurs="0">
                     <xs:complexType>
                         <xs:sequence>

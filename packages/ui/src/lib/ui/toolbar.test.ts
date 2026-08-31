@@ -98,6 +98,36 @@ describe("BldToolbar", () => {
     expect(dropdown()?.querySelector('[data-testid="menu-import-xml"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-export-xml"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-zoom-in"]')).not.toBeNull();
+    expect(dropdown()?.querySelector('[data-testid="menu-catalogs"]')?.textContent).toBe("Catalogs");
+    expect(dropdown()?.querySelector('[data-testid="menu-catalog-types.xml"]')?.textContent).toContain("Types");
+    expect(dropdown()?.querySelector('[data-testid="menu-catalog-control-systems.xml"]')?.textContent).toContain(
+      "Control Systems",
+    );
+    expect(dropdown()?.textContent).not.toContain("types.xml");
+  });
+
+  it("toggles a catalog from the overflow menu by display name", async () => {
+    const app = new AppState();
+    const bar = document.createElement("bld-toolbar") as BldToolbar;
+    bar.app = app;
+    document.body.append(bar);
+    await bar.updateComplete;
+
+    (bar.shadowRoot?.querySelector('[data-testid="toolbar-menu"]') as HTMLButtonElement).click();
+    await bar.updateComplete;
+    const control = bar.shadowRoot?.querySelector(
+      '[data-testid="menu-catalog-control-systems.xml"]',
+    ) as HTMLButtonElement;
+    expect(control.getAttribute("aria-checked")).toBe("true");
+    control.click();
+    await bar.updateComplete;
+    expect(app.blockDef("timer")).toBeUndefined();
+    expect(
+      bar.shadowRoot?.querySelector('[data-testid="menu-catalog-control-systems.xml"]')?.getAttribute("aria-checked"),
+    ).toBe("false");
+    expect(bar.shadowRoot?.querySelector('[data-testid="toolbar-menu-dropdown"]')?.classList.contains("show")).toBe(
+      true,
+    );
   });
 
   it("renders a Blocks toggle for the compact palette", async () => {

@@ -16,8 +16,16 @@ export {
   generic,
   named,
 } from "./blocks/ast";
-export { associateBuiltinModels, associateFixtureModels } from "./blocks/builtin";
-export { Catalog } from "./blocks/catalog";
+export {
+  associateBuiltinModels,
+  associateCatalogFiles,
+  associateFixtureModels,
+  BUILTIN_CATALOGS,
+  catalogFromFiles,
+  catalogXml,
+  xmlSourcesForFiles,
+} from "./blocks/builtin";
+export { Catalog, type CatalogRef } from "./blocks/catalog";
 export { isCompatible } from "./blocks/compat";
 export {
   type ConsumerTree,
@@ -87,6 +95,7 @@ export type {
 export { diagramFilename, downloadTextFile } from "./diagram/download";
 export {
   canvasToDocument,
+  catalogFileName,
   documentToCanvas,
   nowIso,
   parseDiagramXml,

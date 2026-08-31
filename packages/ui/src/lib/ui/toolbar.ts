@@ -101,11 +101,17 @@ export class BldToolbar extends LitElement {
         top: calc(100% + 2px);
         right: 0;
         left: auto;
-        min-width: 180px;
+        min-width: 220px;
         z-index: 20;
       }
       .app-menu-dropdown.show {
         display: block;
+      }
+      .catalog-check {
+        display: inline-block;
+        width: 0.9em;
+        flex: 0 0 0.9em;
+        text-align: center;
       }
     `,
   ];
@@ -332,9 +338,27 @@ export class BldToolbar extends LitElement {
               Delete selected
             </button>
             <div class="dropdown-divider"></div>
-            <div class="dropdown-header">Associated models</div>
-            ${app.sources.map(
-              (source) => html`<div class="dropdown-item-text small font-monospace">${source.name}</div>`,
+            <div class="dropdown-header" data-testid="menu-catalogs">Catalogs</div>
+            ${app.catalogChoices().map(
+              (catalog) => html`
+                <button
+                  class=${classMap({
+                    "dropdown-item": true,
+                    "d-flex": true,
+                    "align-items-center": true,
+                    "gap-2": true,
+                    active: catalog.selected,
+                  })}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked=${catalog.selected ? "true" : "false"}
+                  data-testid=${`menu-catalog-${catalog.file}`}
+                  @click=${() => app.toggleCatalog(catalog.file)}
+                >
+                  <span class="catalog-check" aria-hidden="true">${catalog.selected ? "✓" : ""}</span>
+                  ${catalog.name}
+                </button>
+              `,
             )}
 
             <div class="dropdown-divider"></div>

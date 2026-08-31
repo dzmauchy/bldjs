@@ -12,6 +12,7 @@ export type { BlockExtras, BlockInstance, DiagramDocument, ParameterValue } from
 export { diagramFilename, downloadTextFile } from "./download";
 export {
   canvasToDocument,
+  catalogFileName,
   documentToCanvas,
   nowIso,
   parseDiagramXml,

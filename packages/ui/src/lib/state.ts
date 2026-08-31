@@ -1,14 +1,18 @@
 import {
   type BlockDef,
+  type CatalogRef,
   Catalog,
   Diagram,
   type Link,
   type ResolvedBlock,
   type ScopeSeries,
   type XmlSource,
+  BUILTIN_CATALOGS,
   associateBuiltinModels,
   blockAttribute,
+  catalogFromFiles,
   compactLinkSlots,
+  xmlSourcesForFiles,
 } from "@bld/xml";
 import { linksEqual } from "@bld/xml";
 import { DiagramModel, type BlockInstance } from "./diagram-model";
@@ -53,6 +57,10 @@ export interface LinkingFrom {
 }
 
 export type DiagramIoMode = "closed" | "save" | "open";
+
+export interface CatalogChoice extends CatalogRef {
+  selected: boolean;
+}
 
 export class AppState extends ObservableState {
   declare catalog: Catalog;
@@ -266,6 +274,7 @@ export class AppState extends ObservableState {
       name: this.diagramName,
       createdAt: this.#createdAt,
       updatedAt: this.#updatedAt,
+      catalogs: this.sources.map((source) => source.name),
       blocks: this.blocks,
       links: this.links,
       extras: this.#extras,
@@ -275,10 +284,14 @@ export class AppState extends ObservableState {
   loadDiagramXml(xml: string): boolean {
     try {
       const canvas = documentToCanvas(parseDiagramXml(xml));
-      const unknown = canvas.blocks.find((block) => !this.blockDef(block.defId));
+      const sources = xmlSourcesForFiles(canvas.catalogs);
+      const catalog = catalogFromFiles(canvas.catalogs);
+      const unknown = canvas.blocks.find((block) => !catalog.block(block.defId));
       if (unknown) {
         throw new Error(`unknown block type \`${unknown.defId}\``);
       }
+      this.sources = sources;
+      this.catalog = catalog;
       this.#applyCanvas(canvas);
       this.ioError = null;
       this.runError = null;
@@ -619,6 +632,79 @@ export class AppState extends ObservableState {
       this.#extras.set(id, extra);
     }
     return extra;
+  }
+
+  catalogChoices(): CatalogChoice[] {
+    const associated = new Map(this.catalog.catalogs().map((item) => [item.file, item]));
+    const files: string[] = [];
+    const seen = new Set<string>();
+    for (const catalog of BUILTIN_CATALOGS) {
+      files.push(catalog.file);
+      seen.add(catalog.file);
+    }
+    for (const catalog of this.catalog.catalogs()) {
+      if (!seen.has(catalog.file)) {
+        files.push(catalog.file);
+        seen.add(catalog.file);
+      }
+    }
+    return files.map((file) => {
+      const selected = associated.get(file);
+      const builtin = BUILTIN_CATALOGS.find((item) => item.file === file);
+      return {
+        file,
+        id: selected?.id ?? builtin?.id ?? file,
+        name: selected?.name ?? builtin?.name ?? file,
+        selected: selected !== undefined,
+      };
+    });
+  }
+
+  toggleCatalog(file: string): void {
+    try {
+      const selected = this.sources.some((source) => source.name === file);
+      if (selected) {
+        this.#applySources(this.sources.filter((source) => source.name !== file));
+      } else {
+        this.#applySources([...this.sources, ...xmlSourcesForFiles([file])]);
+      }
+      this.#touchDiagram();
+      this.notify();
+    } catch (error) {
+      this.ioError = error instanceof Error ? error.message : "Catalog change failed";
+      this.notify();
+    }
+  }
+
+  #applySources(sources: XmlSource[]): void {
+    const catalog = new Catalog();
+    for (const source of sources) {
+      catalog.addXml(source.name, source.content);
+    }
+    const known = new Set(catalog.blocks().map((block) => block.id));
+    const kept = this.blocks.filter((block) => known.has(block.defId));
+    const live = new Set(kept.map((block) => block.id));
+    this.catalog = catalog;
+    this.sources = [...sources];
+    this.#diagram.replace(kept);
+    this.#extras = new Map([...this.#extras].filter(([id]) => live.has(id)));
+    this.links = this.links.filter((link) => live.has(link.fromBlock) && live.has(link.toBlock));
+    if (this.selected !== NONE_ID && !live.has(this.selected)) {
+      this.selected = NONE_ID;
+    }
+    if (
+      this.selectedLink &&
+      (!live.has(this.selectedLink.fromBlock) || !live.has(this.selectedLink.toBlock))
+    ) {
+      this.selectedLink = null;
+    }
+    if (this.linkingFrom && !live.has(this.linkingFrom.blockId)) {
+      this.linkingFrom = null;
+    }
+    if (this.scopeOpen !== NONE_ID && !live.has(this.scopeOpen)) {
+      this.scopeOpen = NONE_ID;
+    }
+    this.#invalidateRun();
   }
 
   #applyCanvas(canvas: ReturnType<typeof documentToCanvas>): void {
