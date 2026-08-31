@@ -2,7 +2,7 @@ import { type BlockDef, type PortDef, type TypeExpr, generic, named, unionOf } f
 import type { Catalog } from "./catalog";
 import { isCompatibleWith } from "./compat";
 import { catalogPortName, slottedOutputType } from "./ports";
-import { ground, replaceSelf, subst } from "./types";
+import { ground } from "./types";
 
 export type Grounding = { kind: "single"; ty: TypeExpr } | { kind: "varargs"; items: TypeExpr[] };
 
@@ -54,7 +54,7 @@ export class TypeResolver {
       if (!grounding) {
         continue;
       }
-      const formal = replaceSelf(port.ty, selfTy);
+      const formal = port.ty.replaceSelf(selfTy);
       const onMatch = (name: string, ty: TypeExpr) => {
         const existing = matched.get(name);
         if (existing) {
@@ -89,8 +89,8 @@ export class TypeResolver {
     }
 
     const resolvePort = (port: PortDef): ResolvedPort => {
-      const replaced = replaceSelf(port.ty, selfTy);
-      const substituted = subst(replaced, bindings);
+      const replaced = port.ty.replaceSelf(selfTy);
+      const substituted = replaced.subst(bindings);
       return {
         name: port.name,
         ty: ground(substituted, block.params, this.catalog),

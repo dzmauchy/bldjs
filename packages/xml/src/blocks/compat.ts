@@ -1,6 +1,14 @@
-import { type ParamDef, type TypeExpr, type Variance, isArrayType, isConsumerType, unbounded } from "./ast";
+import {
+  type ParamDef,
+  type TypeExpr,
+  type Variance,
+  isArrayType,
+  isConsumerType,
+  NamedType,
+  unbounded,
+} from "./ast";
 import { type Catalog, sameRaw } from "./catalog";
-import { asParam, isPrimitive } from "./types";
+import { isPrimitive } from "./types";
 
 const MAX_DEPTH = 64;
 
@@ -38,7 +46,7 @@ function visit(
     return false;
   }
   if (typeEq(catalog, from, to)) {
-    const param = asParam(from, params);
+    const param = from.asParam(params);
     if (param) {
       onMatch(param.name, to);
     }
@@ -75,7 +83,7 @@ function visit(
       break;
   }
 
-  const param = asParam(from, params);
+  const param = from.asParam(params);
   if (param) {
     return visitVar(catalog, params, param, to, visited, depth, onMatch);
   }
@@ -218,7 +226,7 @@ function visitNamed(
       return visit(
         catalog,
         params,
-        { kind: "type", name, ns, args },
+        new NamedType(name, ns, args),
         projected,
         visited,
         null,

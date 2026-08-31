@@ -6,12 +6,15 @@ import {
   extendsBound,
   isConsumerType,
   isPushType,
+  SelfType,
   typeToString,
   generic,
   named,
   parseVariance,
+  superBound,
   typesEqual,
   unbounded,
+  unionOf,
 } from "./ast";
 import {
   CONTROL_SYSTEMS_XML,
@@ -138,7 +141,7 @@ describe("blocks", () => {
     const doc = parseBlocks("wild.xml", xml);
     const block = doc.blocks[0];
     expectType(block.inputs[0].ty, arrayOf(extendsBound(t("i32"))));
-    expectType(block.inputs[1].ty, g("c1", [{ kind: "wildcard", variance: "contravariant", bound: t("f64") }]));
+    expectType(block.inputs[1].ty, g("c1", [superBound(t("f64"))]));
     expectType(block.inputs[2].ty, arrayOf(unbounded()));
   });
 
@@ -171,7 +174,7 @@ describe("blocks", () => {
     `;
     const doc = parseBlocks("u.xml", xml);
     const block = doc.blocks[0];
-    expectType(block.outputs[0].ty, { kind: "union", members: [t("i32"), t("i64")] });
+    expectType(block.outputs[0].ty, unionOf([t("i32"), t("i64")]));
     expect(block.outputs[1].ty.kind).toBe("self");
     expect(block.inputs[1].ty.kind).toBe("intersection");
   });
@@ -246,7 +249,7 @@ describe("blocks", () => {
 
   it("c1 contravariance", () => {
     const cat = catalog();
-    const formal = g("c1", [{ kind: "wildcard", variance: "contravariant", bound: g("c1", [t("f64")]) }]);
+    const formal = g("c1", [superBound(g("c1", [t("f64")]))]);
     expect(isCompatible(cat, [], formal, g("c1", [g("s", [t("f64")])]))).toBe(false);
     expect(isCompatible(cat, [], formal, g("c1", [t("i32")]))).toBe(false);
     expect(isCompatible(cat, [], formal, g("c1", [g("c1", [t("f64")])]))).toBe(true);
@@ -298,7 +301,7 @@ describe("blocks", () => {
       "b_array_of",
       new Map([["elems", { kind: "varargs", items: [t("f64"), t("i32")] }]]),
     );
-    expectType(resolvedOutput(resolved, "result"), arrayOf({ kind: "union", members: [t("f64"), t("i32")] }));
+    expectType(resolvedOutput(resolved, "result"), arrayOf(unionOf([t("f64"), t("i32")])));
   });
 
   it("infer f2 from two inputs", () => {
@@ -499,6 +502,15 @@ describe("blocks", () => {
     expect(parseVariance("+")).toBe("covariant");
   });
 
+  it("substitutes params, replaces self, and flattens unions", () => {
+    const substituted = g("c1", [t("T")]).subst(new Map([["T", t("f64")]]));
+    expect(displayType(substituted, true)).toBe("c<f64>");
+    expect(displayType(new SelfType().replaceSelf(t("i32")), true)).toBe("i32");
+    expect(typesEqual(unionOf([t("i32"), t("i32")]), t("i32"))).toBe(true);
+    expect(g("c1", [t("f64")]).isConsumer()).toBe(true);
+    expect(arrayOf(g("c1", [t("f64")])).isPush()).toBe(true);
+  });
+
   it("displays common types in compact form", () => {
     expect(displayType(g("c1", [t("f64")]), true)).toBe("c<f64>");
     expect(displayType(g("c1", [g("c1", [t("f64")])]), true)).toBe("c<c<f64>>");
@@ -512,8 +524,8 @@ describe("blocks", () => {
     expect(displayType(t("f64"), true)).toBe("f64");
     expect(displayType(arrayOf(t("f64")), true)).toBe("f64[]");
     expect(displayType(arrayOf(arrayOf(t("i32"))), true)).toBe("i32[][]");
-    expect(displayType({ kind: "union", members: [t("i32"), t("i64")] }, true)).toBe("i32 | i64");
-    expect(displayType(arrayOf({ kind: "union", members: [t("i32"), t("i64")] }), true)).toBe("(i32 | i64)[]");
+    expect(displayType(unionOf([t("i32"), t("i64")]), true)).toBe("i32 | i64");
+    expect(displayType(arrayOf(unionOf([t("i32"), t("i64")])), true)).toBe("(i32 | i64)[]");
   });
 
   it("control systems model and types", () => {

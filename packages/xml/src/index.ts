@@ -95,17 +95,11 @@ export {
 } from "./diagram-xml/xml";
 export type { SolutionAssembly, SolutionBuilder } from "./solution/builder";
 export {
-  type SolutionView,
+  SolutionView,
   type SolutionViewBlock,
   type SolutionViewConnector,
   connectorKey,
-  defIdOf,
-  firstTimerId,
-  incomingConnectors,
-  instanceName,
-  outgoingConnectors,
   solutionViewFrom,
-  subgraphFromTimer,
 } from "./solution/view";
 export type { Runner, RunnerSession, RunnerStartOptions } from "./runner";
 export { nodeSpecsFrom, plannedGenerators, topologyKey } from "./topology";

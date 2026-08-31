@@ -1,6 +1,6 @@
 import { associateBuiltinModels } from "@bld/xml";
 import { Diagram } from "@bld/xml";
-import { firstTimerId, type SolutionView, type SolutionViewConnector } from "@bld/xml";
+import { type SolutionView, type SolutionViewConnector } from "@bld/xml";
 import { linearSolutionView, WasmSolutionBuilder } from "../solution/wasm";
 import { blockSignature, blockTypeWat } from "./signatures";
 
@@ -40,7 +40,7 @@ export async function assembleModule(options: AssembleOptions): Promise<Assemble
   const builder = new WasmSolutionBuilder();
   return builder.build(view, {
     delayMs: options.delayMs,
-    timerId: options.timerId ?? firstTimerId(view),
+    timerId: options.timerId ?? view.firstTimerId(),
     sharedMemory: options.sharedMemory,
     emitText: options.emitText,
   });

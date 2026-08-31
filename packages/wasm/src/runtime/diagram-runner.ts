@@ -12,7 +12,6 @@ import {
   intervalMs,
   plannedGenerators,
   solutionViewFrom,
-  subgraphFromTimer,
   topologyKey,
 } from "@bld/xml";
 import { type GeneratorHandle, startGenerator } from "./generator";
@@ -133,7 +132,7 @@ export class RunningDiagram implements RunnerSession {
     const view = solutionViewFrom(nodes, links);
     for (const plan of plans) {
       const nominalHz = 1000 / intervalMs(plan.delayMs);
-      for (const link of subgraphFromTimer(view, plan.timerId).connectors) {
+      for (const link of view.subgraphFromTimer(plan.timerId).connectors) {
         this.linkHz.set(connectorKey(link), nominalHz);
       }
       plan.channels.forEach((channel, index) => {

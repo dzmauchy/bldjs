@@ -3,21 +3,15 @@ import {
   Catalog,
   Diagram,
   QUANTIZER_DELAY_MS,
+  SolutionView,
   associateBuiltinModels,
   catalogPortName,
   isArrayType,
   portSlotIndex,
   type SolutionAssembly,
   type SolutionBuilder,
-  type SolutionView,
   type SolutionViewBlock,
   type SolutionViewConnector,
-  defIdOf,
-  firstTimerId,
-  incomingConnectors,
-  instanceName,
-  outgoingConnectors,
-  subgraphFromTimer,
 } from "@bld/xml";
 import { canShareMemory } from "../isolation";
 import { CTX, MEM, SAMPLE_CAP } from "../runtime/memory";
@@ -67,7 +61,7 @@ function viewFromStages(stages: readonly string[]): SolutionView {
   const timerId = nextId;
   blocks.push({ id: timerId, defId: "timer" });
   connectors.push({ fromBlock: prev, fromOut: "out", toBlock: timerId, toIn: "in" });
-  return { blocks, connectors };
+  return new SolutionView(blocks, connectors);
 }
 
 /**
@@ -80,8 +74,8 @@ export function assignRings(view: SolutionView, timerId: number): Map<string, nu
     if (depth > 64) {
       return;
     }
-    for (const link of incomingConnectors(view, id, "in")) {
-      const fromDef = defIdOf(view, link.fromBlock);
+    for (const link of view.incoming(id, "in")) {
+      const fromDef = view.defId(link.fromBlock);
       if (fromDef === "scope") {
         const key = `${link.fromBlock}:${portSlotIndex(link.fromOut)}`;
         if (!rings.has(key)) {
@@ -107,7 +101,7 @@ function topoBlocks(view: SolutionView, catalog: Catalog): SolutionViewBlock[] {
     }
     const deps = new Set<number>();
     for (const port of def.inputs) {
-      for (const link of incomingConnectors(view, block.id, port.name)) {
+      for (const link of view.incoming(block.id, port.name)) {
         deps.add(link.fromBlock);
       }
     }
@@ -139,8 +133,8 @@ export class WasmSolutionBuilder implements SolutionBuilder {
   constructor(private readonly catalog: Catalog = builtinCatalog()) {}
 
   async build(view: SolutionView, options: WasmBuildOptions = {}): Promise<SolutionAssembly> {
-    const timerId = options.timerId ?? firstTimerId(view);
-    const graph = timerId === undefined ? view : subgraphFromTimer(view, timerId);
+    const timerId = options.timerId ?? view.firstTimerId();
+    const graph = timerId === undefined ? view : view.subgraphFromTimer(timerId);
     const delayMs =
       options.delayMs ?? graph.blocks.filter((block) => block.defId === "quantizer").length * QUANTIZER_DELAY_MS;
     return emitWasm(this.catalog, graph, {
@@ -185,13 +179,13 @@ async function emitWasm(
       if (!add) {
         continue;
       }
-      const name = instanceName(view, block);
+      const name = view.instanceName(block);
       names.set(block.id, name);
       const def = catalog.block(block.defId);
       const arrayOut = def?.outputs.find((port) => isArrayType(port.ty));
       const emit = { name, sharedMemory: options.sharedMemory };
       if (arrayOut) {
-        const outgoing = outgoingConnectors(view, block.id, arrayOut.name);
+        const outgoing = view.outgoing(block.id, arrayOut.name);
         const length = Math.max(outgoing.length, 1);
         const slotRings = Array.from({ length }, (_, slot) => rings.get(`${block.id}:${slot}`) ?? slot);
         add(module, types, { ...emit, length, rings: slotRings });
@@ -207,7 +201,7 @@ async function emitWasm(
         continue;
       }
       for (const port of def.inputs) {
-        const incoming = incomingConnectors(view, block.id, port.name);
+        const incoming = view.incoming(block.id, port.name);
         if (incoming.length <= 1) {
           continue;
         }
@@ -261,9 +255,9 @@ async function emitWasm(
       }
       const args: number[] = [module.local.get(0, binaryen.i32)];
       for (const port of def.inputs) {
-        const incoming = incomingConnectors(view, block.id, port.name);
+        const incoming = view.incoming(block.id, port.name);
         const pieces = incoming.map((link) => {
-          const srcDef = catalog.block(defIdOf(view, link.fromBlock) ?? "");
+          const srcDef = catalog.block(view.defId(link.fromBlock) ?? "");
           return srcDef ? readPort(link, srcDef) : nopConsumer(module, types);
         });
         if (pieces.length === 0) {

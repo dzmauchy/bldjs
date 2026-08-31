@@ -7,9 +7,9 @@ import {
   type TypeDef,
   type TypeExpr,
   named,
+  NamedType,
 } from "./ast";
 import { ParseError, parseBlocks } from "./parse";
-import { subst } from "./types";
 
 export class Catalog {
   libraries: LibraryRef[] = [];
@@ -204,11 +204,7 @@ export class Catalog {
     parentNs: string | null | undefined,
   ): boolean {
     return (
-      this.asSupertype(
-        { kind: "type", name: childName, ns: childNs ?? null, args: [] },
-        parentName,
-        parentNs,
-      ) !== undefined
+      this.asSupertype(new NamedType(childName, childNs ?? null, []), parentName, parentNs) !== undefined
     );
   }
 }
@@ -221,7 +217,7 @@ export function substParams(expr: TypeExpr, params: ParamDef[], args: TypeExpr[]
   params.forEach((param, index) => {
     bindings.set(param.name, args[index] ?? named(param.name));
   });
-  return subst(expr, bindings);
+  return expr.subst(bindings);
 }
 
 export function sameRaw(

@@ -10,6 +10,8 @@ import {
   type TypeDef,
   type TypeExpr,
   type Variance,
+  NamedType,
+  SelfType,
   intersectionOf,
   parseVariance,
   unbounded,
@@ -17,83 +19,18 @@ import {
   extendsBound,
   superBound,
 } from "./ast";
+import { ParseError, XmlElem } from "../dom";
 
-export class ParseError extends Error {
-  file?: string;
-  row?: number;
-  col?: number;
+export { ParseError };
 
-  constructor(message: string, file?: string, row?: number, col?: number) {
-    super(formatParseError(message, file, row, col));
-    this.name = "ParseError";
-    this.file = file;
-    this.row = row;
-    this.col = col;
-  }
-
-  static new(message: string): ParseError {
-    return new ParseError(message);
-  }
-}
-
-function formatParseError(message: string, file?: string, row?: number, col?: number): string {
-  if (file !== undefined && row !== undefined && col !== undefined) {
-    return `${file}:${row}:${col}: ${message}`;
-  }
-  if (file !== undefined) {
-    return `${file}: ${message}`;
-  }
-  return message;
-}
-
-function at(file: string, node: Element, message: string): ParseError {
-  const pos = textPos(node);
-  return new ParseError(message, file, pos?.row, pos?.col);
-}
-
-function textPos(node: Element): { row: number; col: number } | undefined {
-  const source = node.ownerDocument?.documentElement?.getAttribute("data-source");
-  void source;
-  return undefined;
-}
-
-function elements(node: Element): Element[] {
-  return [...node.children].filter((child): child is Element => child.nodeType === 1);
-}
-
-function optAttr(node: Element, name: string): string | undefined {
-  return node.hasAttribute(name) ? node.getAttribute(name) ?? undefined : undefined;
-}
-
-function requiredAttr(file: string, node: Element, name: string): string {
-  const value = optAttr(node, name);
-  if (value === undefined) {
-    throw at(file, node, `missing \`${name}\` attribute`);
-  }
-  return value;
-}
-
-function parseAttribute(file: string, node: Element): Attribute {
-  return {
-    name: requiredAttr(file, node, "name"),
-    value: (node.textContent ?? "").trim(),
-  };
-}
-
-function parseAttributes(file: string, node: Element): Attribute[] {
-  return elements(node)
-    .filter((child) => child.tagName === "attribute")
-    .map((child) => parseAttribute(file, child));
-}
-
-function parseVarianceAttr(file: string, node: Element): Variance | null {
-  const value = optAttr(node, "variance");
+function parseVarianceAttr(node: XmlElem): Variance | null {
+  const value = node.opt("variance");
   if (value === undefined) {
     return null;
   }
   const parsed = parseVariance(value);
   if (!parsed) {
-    throw at(file, node, `invalid variance \`${value}\``);
+    node.fail(`invalid variance \`${value}\``);
   }
   return parsed;
 }
@@ -119,49 +56,52 @@ const ARRAY_SUFFIX = "[]";
 /** `f64[]` / `T[]` / `array` become the language-agnostic array type `[]`. */
 export function parseNamedType(typeName: string, args: TypeExpr[]): TypeExpr {
   if (typeName === "array") {
-    return { kind: "type", name: "[]", ns: null, args };
+    return new NamedType("[]", null, args);
   }
   if (typeName.endsWith(ARRAY_SUFFIX)) {
     const innerName = typeName.slice(0, -ARRAY_SUFFIX.length);
     if (innerName.length === 0) {
-      return { kind: "type", name: "[]", ns: null, args };
+      return new NamedType("[]", null, args);
     }
-    return { kind: "type", name: "[]", ns: null, args: [parseNamedType(innerName, args)] };
+    return new NamedType("[]", null, [parseNamedType(innerName, args)]);
   }
-  return { kind: "type", name: typeName, ns: null, args };
+  return new NamedType(typeName, null, args);
 }
 
-export function parseTexpr(file: string, node: Element): TypeExpr {
-  const tag = node.tagName;
-  if (tag === "self") {
-    return { kind: "self" };
-  }
-
+function parseTypeParts(node: XmlElem, parent: string): TypeExpr[] {
   const parts: TypeExpr[] = [];
-  for (const child of elements(node)) {
-    switch (child.tagName) {
+  for (const child of node.kids()) {
+    switch (child.tag) {
       case "attribute":
         break;
       case "t":
       case "self":
       case "union":
       case "intersection":
-        parts.push(parseTexpr(file, child));
+        parts.push(parseTexpr(child));
         break;
       default:
-        throw at(file, child, `unsupported type-expression child <${child.tagName}>`);
+        child.fail(`unsupported ${parent} child <${child.tag}>`);
     }
   }
+  return parts;
+}
 
-  if (tag === "union") {
+export function parseTexpr(node: XmlElem): TypeExpr {
+  if (node.tag === "self") {
+    return new SelfType();
+  }
+
+  const parts = parseTypeParts(node, "type-expression");
+  if (node.tag === "union") {
     return unionOf(parts);
   }
-  if (tag === "intersection") {
+  if (node.tag === "intersection") {
     return intersectionOf(parts);
   }
 
-  const variance = parseVarianceAttr(file, node);
-  const typeName = optAttr(node, "type");
+  const variance = parseVarianceAttr(node);
+  const typeName = node.opt("type");
 
   if (variance === "unbounded" && typeName === undefined) {
     return unbounded();
@@ -181,119 +121,102 @@ export function parseTexpr(file: string, node: Element): TypeExpr {
   return wrapVariance(inner, variance);
 }
 
-function parseLibrary(file: string, node: Element): LibraryRef {
+function parseLibrary(node: XmlElem): LibraryRef {
   return {
-    id: requiredAttr(file, node, "id"),
-    name: requiredAttr(file, node, "name"),
-    version: optAttr(node, "version") ?? null,
-    attributes: parseAttributes(file, node),
+    id: node.req("id"),
+    name: node.req("name"),
+    version: node.opt("version") ?? null,
+    attributes: node.attributes(),
   };
 }
 
-function parseNamespace(file: string, node: Element): Namespace {
+function parseNamespace(node: XmlElem): Namespace {
   return {
-    id: requiredAttr(file, node, "id"),
-    name: requiredAttr(file, node, "name"),
-    parent: optAttr(node, "parent") ?? null,
-    icon: optAttr(node, "icon") ?? null,
-    attributes: parseAttributes(file, node),
+    id: node.req("id"),
+    name: node.req("name"),
+    parent: node.opt("parent") ?? null,
+    icon: node.opt("icon") ?? null,
+    attributes: node.attributes(),
   };
 }
 
-function parseParam(file: string, node: Element): ParamDef {
+function parseParam(node: XmlElem): ParamDef {
   const attributes: Attribute[] = [];
   const extendsBounds: TypeExpr[] = [];
   const superBounds: TypeExpr[] = [];
-  for (const child of elements(node)) {
-    switch (child.tagName) {
+  for (const child of node.kids()) {
+    switch (child.tag) {
       case "attribute":
-        attributes.push(parseAttribute(file, child));
+        attributes.push({ name: child.req("name"), value: child.text() });
         break;
       case "extends":
-        extendsBounds.push(parseTexpr(file, child));
+        extendsBounds.push(parseTexpr(child));
         break;
       case "super":
-        superBounds.push(parseTexpr(file, child));
+        superBounds.push(parseTexpr(child));
         break;
       default:
-        throw at(file, child, `unsupported <param> child <${child.tagName}>`);
+        child.fail(`unsupported <param> child <${child.tag}>`);
     }
   }
   return {
-    name: requiredAttr(file, node, "name"),
-    variance: parseVarianceAttr(file, node),
+    name: node.req("name"),
+    variance: parseVarianceAttr(node),
     extends: extendsBounds,
     superBounds,
     attributes,
   };
 }
 
-function parsePort(file: string, node: Element): PortDef {
-  const vararg = optAttr(node, "vararg");
+function parsePort(node: XmlElem): PortDef {
+  const vararg = node.opt("vararg");
   return {
-    name: requiredAttr(file, node, "name"),
-    ty: parseTexpr(file, node),
+    name: node.req("name"),
+    ty: parseTexpr(node),
     vararg: vararg === "true" || vararg === "1",
-    icon: optAttr(node, "icon") ?? null,
-    attributes: parseAttributes(file, node),
+    icon: node.opt("icon") ?? null,
+    attributes: node.attributes(),
   };
 }
 
-function parseFactory(file: string, node: Element): Factory {
-  const attributes: Attribute[] = [];
-  const args: TypeExpr[] = [];
-  for (const child of elements(node)) {
-    switch (child.tagName) {
-      case "attribute":
-        attributes.push(parseAttribute(file, child));
-        break;
-      case "t":
-      case "self":
-      case "union":
-      case "intersection":
-        args.push(parseTexpr(file, child));
-        break;
-      default:
-        throw at(file, child, `unsupported <factory> child <${child.tagName}>`);
-    }
-  }
+function parseFactory(node: XmlElem): Factory {
   return {
-    id: requiredAttr(file, node, "id"),
-    args,
-    attributes,
+    id: node.req("id"),
+    args: parseTypeParts(node, "<factory>"),
+    attributes: node.attributes(),
   };
 }
 
-function parseTypeDef(file: string, node: Element): TypeDef {
+function parseTypeDef(node: XmlElem, file: string): TypeDef {
   const params: ParamDef[] = [];
   const ancestors: TypeExpr[] = [];
   let alias: TypeExpr | null = null;
   const attributes: Attribute[] = [];
-  for (const child of elements(node)) {
-    switch (child.tagName) {
+  for (const child of node.kids()) {
+    switch (child.tag) {
       case "attribute":
-        attributes.push(parseAttribute(file, child));
+        attributes.push({ name: child.req("name"), value: child.text() });
         break;
       case "param":
-        params.push(parseParam(file, child));
+        params.push(parseParam(child));
         break;
       case "ancestor":
-        ancestors.push(parseTexpr(file, child));
+        ancestors.push(parseTexpr(child));
         break;
       case "union":
       case "intersection":
         if (alias !== null) {
-          throw at(file, child, "type may have only one union/intersection body");
+          child.fail("type may have only one union/intersection body");
         }
-        alias = parseTexpr(file, child);
+        alias = parseTexpr(child);
         break;
       default:
-        throw at(file, child, `unsupported <type> child <${child.tagName}>`);
+        child.fail(`unsupported <type> child <${child.tag}>`);
     }
   }
   return {
-    name: requiredAttr(file, node, "name"),
-    ns: optAttr(node, "ns") ?? null,
+    name: node.req("name"),
+    ns: node.opt("ns") ?? null,
     params,
     ancestors,
     alias,
@@ -302,41 +225,41 @@ function parseTypeDef(file: string, node: Element): TypeDef {
   };
 }
 
-function parseBlock(file: string, node: Element): BlockDef {
+function parseBlock(node: XmlElem, file: string): BlockDef {
   const attributes: Attribute[] = [];
   const params: ParamDef[] = [];
   let factory: Factory | null = null;
   const inputs: PortDef[] = [];
   const outputs: PortDef[] = [];
-  for (const child of elements(node)) {
-    switch (child.tagName) {
+  for (const child of node.kids()) {
+    switch (child.tag) {
       case "attribute":
-        attributes.push(parseAttribute(file, child));
+        attributes.push({ name: child.req("name"), value: child.text() });
         break;
       case "param":
-        params.push(parseParam(file, child));
+        params.push(parseParam(child));
         break;
       case "factory":
         if (factory !== null) {
-          throw at(file, child, "block already has a factory");
+          child.fail("block already has a factory");
         }
-        factory = parseFactory(file, child);
+        factory = parseFactory(child);
         break;
       case "in":
-        inputs.push(parsePort(file, child));
+        inputs.push(parsePort(child));
         break;
       case "out":
-        outputs.push(parsePort(file, child));
+        outputs.push(parsePort(child));
         break;
       default:
-        throw at(file, child, `unsupported <block> child <${child.tagName}>`);
+        child.fail(`unsupported <block> child <${child.tag}>`);
     }
   }
   return {
-    id: requiredAttr(file, node, "id"),
-    name: requiredAttr(file, node, "name"),
-    ns: requiredAttr(file, node, "ns"),
-    icon: optAttr(node, "icon") ?? null,
+    id: node.req("id"),
+    name: node.req("name"),
+    ns: node.req("ns"),
+    icon: node.opt("icon") ?? null,
     params,
     factory,
     inputs,
@@ -347,19 +270,11 @@ function parseBlock(file: string, node: Element): BlockDef {
 }
 
 export function parseBlocks(file: string, xml: string): BlocksDoc {
-  const document = new DOMParser().parseFromString(xml, "application/xml");
-  const parserError = document.querySelector("parsererror");
-  if (parserError) {
-    throw new ParseError(parserError.textContent?.trim() || "XML parse error", file);
-  }
-  const root = document.documentElement;
-  if (root.tagName !== "blocks") {
-    throw at(file, root, `expected <blocks>, found <${root.tagName}>`);
-  }
+  const root = XmlElem.parse(file, xml, "blocks");
   const doc: BlocksDoc = {
-    id: requiredAttr(file, root, "id"),
-    name: requiredAttr(file, root, "name"),
-    icon: optAttr(root, "icon") ?? null,
+    id: root.req("id"),
+    name: root.req("name"),
+    icon: root.opt("icon") ?? null,
     attributes: [],
     libraries: [],
     namespaces: [],
@@ -367,25 +282,25 @@ export function parseBlocks(file: string, xml: string): BlocksDoc {
     blocks: [],
     source: file,
   };
-  for (const child of elements(root)) {
-    switch (child.tagName) {
+  for (const child of root.kids()) {
+    switch (child.tag) {
       case "attribute":
-        doc.attributes.push(parseAttribute(file, child));
+        doc.attributes.push({ name: child.req("name"), value: child.text() });
         break;
       case "library":
-        doc.libraries.push(parseLibrary(file, child));
+        doc.libraries.push(parseLibrary(child));
         break;
       case "namespace":
-        doc.namespaces.push(parseNamespace(file, child));
+        doc.namespaces.push(parseNamespace(child));
         break;
       case "type":
-        doc.types.push(parseTypeDef(file, child));
+        doc.types.push(parseTypeDef(child, file));
         break;
       case "block":
-        doc.blocks.push(parseBlock(file, child));
+        doc.blocks.push(parseBlock(child, file));
         break;
       default:
-        throw at(file, child, `unsupported <blocks> child <${child.tagName}>`);
+        child.fail(`unsupported <blocks> child <${child.tag}>`);
     }
   }
   return doc;
