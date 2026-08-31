@@ -308,6 +308,7 @@ describe("AppState run", () => {
     app.toggleLink(scopeId, "out", sinId, "in");
     app.toggleLink(scopeId, "out", cosId, "in");
     await app.runDiagram();
+    expect(app.runError).toBeNull();
     expect(app.running).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 30));
     const series = await app.snapshotScope(scopeId);

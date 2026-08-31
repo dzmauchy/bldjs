@@ -182,7 +182,13 @@ async function emitWasm(
       if (arrayOut) {
         const outgoing = view.outgoing(block.id, arrayOut.name);
         const length = Math.max(outgoing.length, 1);
-        const slotRings = Array.from({ length }, (_, slot) => rings.get(`${block.id}:${slot}`) ?? slot);
+        const slotRings = Array.from({ length }, (_, slot) => {
+          const link = outgoing[slot];
+          if (!link) {
+            return slot;
+          }
+          return rings.get(`${block.id}:${portSlotIndex(link.fromOut)}`) ?? slot;
+        });
         add(module, types, { ...emit, length, rings: slotRings });
       } else {
         add(module, types, emit);
@@ -224,7 +230,7 @@ async function emitWasm(
       module.i64.store(8, 8, module.local.get(0, binaryen.i32), module.i64.const(delayNs)),
     ];
 
-    const readPort = (link: { fromBlock: number; fromOut: string }, srcDef: BlockDef): number => {
+    const readPort = (link: { fromBlock: number; fromOut: string; toBlock: number; toIn: string }, srcDef: BlockDef): number => {
       const stored = valueOf.get(link.fromBlock);
       if (!stored) {
         return nopConsumer(module, types);
@@ -232,9 +238,15 @@ async function emitWasm(
       const catalogOut = catalogPortName(link.fromOut);
       const srcPort = srcDef.outputs.find((port) => port.name === catalogOut);
       if (srcPort && isArrayType(srcPort.ty)) {
+        const outgoing = view.outgoing(link.fromBlock, catalogOut);
+        const dense = outgoing.findIndex(
+          (item) =>
+            item.fromOut === link.fromOut && item.toBlock === link.toBlock && item.toIn === link.toIn,
+        );
+        const slot = dense >= 0 ? dense : portSlotIndex(link.fromOut);
         return module.array.get(
           module.local.get(stored.local, stored.type),
-          module.i32.const(portSlotIndex(link.fromOut)),
+          module.i32.const(slot),
           types.c1_f64,
           false,
         );
