@@ -4,6 +4,10 @@
 
 Always check the main branch.
 
+Do not subscribe to Cursor GitHub CI/PR watches (`cursor-subscriptions`).
+They are unreliable here. After a push, read status with `gh pr checks`
+and `gh run view`.
+
 ## Models
 
 Keep the model selected at the start of this session. Do not switch models mid-chat, mid-run, or when launching subagents.
