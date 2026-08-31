@@ -49,4 +49,6 @@ export {
   linearSolutionView,
   preloadAssembler,
 } from "./solution/wasm";
-export { BLOCK_SCRIPTS, addCatalogTypes, wasmFeatures } from "./binaryen";
+// Do not re-export ./binaryen. Those modules statically import the 15MB
+// binaryen.js package; loading them from this barrel delays first paint.
+// Run and preloadAssembler() dynamic-import that graph instead.

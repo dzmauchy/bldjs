@@ -6,7 +6,6 @@ import { blockSignature, blockTypeWat } from "./signatures";
 
 import { type Stage } from "@bld/xml";
 
-export type { BlockScriptId } from "../binaryen";
 export { blockTypeWat } from "./signatures";
 export type { SolutionView } from "@bld/xml";
 
