@@ -347,6 +347,8 @@ test.describe("wiring", () => {
     await chart.click();
     await waitDeep(page, '[data-testid="scope-modal"]');
     await expect(page.locator('[data-testid="scope-modal"] .modal-title')).toHaveCount(0);
+    await expect(page.locator('[data-testid="scope-caption"]')).toHaveText("blk_5");
+    await expect(page.locator('[data-testid="scope-caption"]')).not.toContainText("timer(");
     await expect(page.locator('[data-testid="scope-close"]')).toBeVisible();
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-series-count", "1", {
       timeout: 1_000,
@@ -413,6 +415,8 @@ test.describe("wiring", () => {
     await chart.click();
     await waitDeep(page, '[data-testid="scope-modal"]');
     await expect(page.locator('[data-testid="scope-modal"] .modal-title')).toHaveCount(0);
+    await expect(page.locator('[data-testid="scope-caption"]')).toHaveText("blk_1");
+    await expect(page.locator('[data-testid="scope-caption"]')).not.toContainText("timer(");
     await expect(page.locator('[data-testid="scope-close"]')).toBeVisible();
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-series-count", "2", {
       timeout: 1_000,

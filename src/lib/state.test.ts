@@ -375,6 +375,27 @@ describe("AppState diagram XML", () => {
     expect(other.diagramName).toBe("Workspace");
   });
 
+  it("uses a block name when present and the XML id otherwise", () => {
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("scope", 0, 0);
+    expect(app.blockDisplayName(id)).toBe(`blk_${id}`);
+
+    expect(
+      app.loadDiagramXml(`<?xml version="1.0" encoding="UTF-8"?>
+<diagram id="diag_named" name="Named" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
+  <blocks>
+    <block id="blk_probe" type="scope" name="Probe" x="0" y="0" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>
+    <block id="blk_plain" type="scope" x="180" y="0" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>
+  </blocks>
+</diagram>`),
+    ).toBe(true);
+    const named = app.blocks.find((block) => app.blockDisplayName(block.id) === "Probe");
+    const plain = app.blocks.find((block) => app.blockDisplayName(block.id) === "blk_plain");
+    expect(named?.defId).toBe("scope");
+    expect(plain?.defId).toBe("scope");
+  });
+
   it("rejects unknown block types on import", () => {
     const app = new AppState();
     const xml = `<?xml version="1.0" encoding="UTF-8"?>

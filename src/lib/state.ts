@@ -136,6 +136,16 @@ export class AppState extends ObservableState {
     return this.#diagram.block(id);
   }
 
+  /** Instance `name`, or the XML id when the block has no name. */
+  blockDisplayName(id: number): string {
+    const extra = this.#extras.get(id);
+    const name = extra?.name?.trim();
+    if (name) {
+      return name;
+    }
+    return extra?.xmlId ?? String(id);
+  }
+
   isDragging(): boolean {
     return this.draggingDefId !== null;
   }

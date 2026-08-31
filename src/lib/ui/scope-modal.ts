@@ -42,11 +42,21 @@ export class BldScopeModal extends LitElement {
         background: #14171a;
         position: relative;
       }
+      .scope-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.4rem 0.75rem;
+      }
+      .scope-caption {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       .scope-close {
-        position: absolute;
-        top: 0.45rem;
-        right: 0.45rem;
-        z-index: 2;
+        flex: 0 0 auto;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -55,16 +65,16 @@ export class BldScopeModal extends LitElement {
         padding: 0;
         border: 0;
         border-radius: 0.25rem;
-        background: rgba(20, 23, 26, 0.72);
-        color: #adb5bd;
+        background: transparent;
+        color: var(--bs-secondary-color, #adb5bd);
         font-size: 1.35rem;
         line-height: 1;
         cursor: pointer;
       }
       .scope-close:hover,
       .scope-close:focus-visible {
-        color: #f8f9fa;
-        background: rgba(20, 23, 26, 0.92);
+        color: var(--bs-body-color, #f8f9fa);
+        background: var(--bs-tertiary-bg, rgba(255, 255, 255, 0.08));
       }
       canvas {
         display: block;
@@ -211,6 +221,12 @@ export class BldScopeModal extends LitElement {
                 data-testid="scope-chart"
                 data-series-count=${this.#seriesCount}
               >
+                <canvas ${ref(this.#canvas)}></canvas>
+              </div>
+              <div class="scope-footer">
+                <div class="scope-caption small text-secondary" data-testid="scope-caption">
+                  ${app.blockDisplayName(app.scopeOpen)}
+                </div>
                 <button
                   type="button"
                   class="scope-close"
@@ -221,10 +237,6 @@ export class BldScopeModal extends LitElement {
                 >
                   ×
                 </button>
-                <canvas ${ref(this.#canvas)}></canvas>
-              </div>
-              <div class="small text-secondary px-3 py-2">
-                timer(fork(sin(plot[0]), cos(plot[1]))) · multi-axis
               </div>
             </div>
           </div>
