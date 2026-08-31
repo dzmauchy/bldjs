@@ -142,6 +142,24 @@ export class BldDiagram extends LitElement {
       opacity: 0.45;
       cursor: default;
     }
+    :host([data-compact]) .hint-card {
+      padding: 0.7rem 0.9rem;
+      max-width: 220px;
+    }
+    :host([data-compact]) .hint-title {
+      font-size: 0.85rem;
+    }
+    :host([data-compact]) .hint-copy {
+      font-size: 0.75rem;
+    }
+    :host([data-compact]) .toolbar {
+      right: 8px;
+      bottom: 8px;
+    }
+    :host([data-compact]) .toolbar button {
+      padding: 0.18rem 0.42rem;
+      font-size: 0.8rem;
+    }
   `;
 
   constructor() {
@@ -176,6 +194,7 @@ export class BldDiagram extends LitElement {
   }
 
   disconnectedCallback(): void {
+    this.#interaction.endPointer();
     this.removeEventListener("dragover", this.#onHostDragOver);
     this.removeEventListener("drop", this.#onHostDrop);
     this.removeEventListener("wheel", this.#onWheel);
@@ -193,6 +212,10 @@ export class BldDiagram extends LitElement {
   protected override willUpdate(): void {
     this.#bindApp();
     this.#syncRoutes();
+  }
+
+  protected override updated(): void {
+    this.toggleAttribute("data-compact", this.app?.compactUi ?? false);
   }
 
   #bindApp(): void {
@@ -367,10 +390,6 @@ export class BldDiagram extends LitElement {
         aria-label="Diagram canvas"
         data-testid="diagram-canvas"
         @pointerdown=${(event: PointerEvent) => this.#interaction.onViewportPointerDown(event)}
-        @pointermove=${(event: PointerEvent) => this.#interaction.onPointerMove(event)}
-        @pointerup=${(event: PointerEvent) => this.#interaction.onPointerUp(event)}
-        @pointercancel=${(event: PointerEvent) => this.#interaction.onPointerUp(event)}
-        @lostpointercapture=${(event: PointerEvent) => this.#interaction.onPointerUp(event)}
       >
         <div
           class="grid"
@@ -436,6 +455,7 @@ export class BldDiagram extends LitElement {
                   .view=${state}
                   .x=${block.x}
                   .y=${block.y}
+                  .compact=${app.compactUi}
                   .dragging=${session?.kind === "move" && session.id === block.id}
                   @portpointerdown=${(event: CustomEvent<PortPointerDetail>) =>
                     this.#interaction.onPortDown(event.detail)}

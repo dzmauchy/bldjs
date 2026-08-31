@@ -216,3 +216,64 @@ export async function boxOf(locator: Locator): Promise<{ x: number; y: number; w
   }
   return box;
 }
+
+export async function worldPan(page: Page): Promise<{ x: number; y: number }> {
+  return page.locator("bld-diagram").evaluate((diagram) => {
+    const world = diagram.shadowRoot?.querySelector(".world");
+    if (!(world instanceof HTMLElement)) {
+      throw new Error("worldPan: world missing");
+    }
+    const match = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(world.style.transform);
+    return { x: Number(match?.[1] ?? Number.NaN), y: Number(match?.[2] ?? Number.NaN) };
+  });
+}
+
+export async function fireCanvasPan(page: Page, dx: number, dy: number): Promise<void> {
+  await page.evaluate(
+    ({ dx, dy }) => {
+      const walk = (root: ParentNode, selector: string): Element | null => {
+        const match = (root as Element).querySelector?.(selector) ?? null;
+        if (match) {
+          return match;
+        }
+        for (const node of root.querySelectorAll("*")) {
+          if (node.shadowRoot) {
+            const found = walk(node.shadowRoot, selector);
+            if (found) {
+              return found;
+            }
+          }
+        }
+        return null;
+      };
+      const diagram = walk(document, "bld-diagram");
+      const viewport = diagram?.shadowRoot?.querySelector(".viewport");
+      if (!(viewport instanceof HTMLElement)) {
+        throw new Error("fireCanvasPan: viewport missing");
+      }
+      const rect = viewport.getBoundingClientRect();
+      const startX = rect.left + Math.min(28, rect.width / 2);
+      const startY = rect.top + Math.min(28, rect.height / 2);
+      const fire = (target: EventTarget, type: string, clientX: number, clientY: number, extra: Record<string, number>) => {
+        target.dispatchEvent(
+          new PointerEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            pointerId: 77,
+            pointerType: "touch",
+            isPrimary: true,
+            view: window,
+            clientX,
+            clientY,
+            ...extra,
+          }),
+        );
+      };
+      fire(viewport, "pointerdown", startX, startY, { button: 0, buttons: 1 });
+      fire(window, "pointermove", startX + dx, startY + dy, { button: -1, buttons: 1 });
+      fire(window, "pointerup", startX + dx, startY + dy, { button: 0, buttons: 0 });
+    },
+    { dx, dy },
+  );
+}

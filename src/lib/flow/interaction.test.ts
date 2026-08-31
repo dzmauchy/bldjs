@@ -67,6 +67,26 @@ describe("DiagramInteractionController", () => {
     expect(interaction.previewTo).toEqual(world);
     interaction.onPointerMove(pointer({ clientX: LINK_DRAG + 1, clientY: 0, pointerId: 1 }));
     expect(interaction.session).toMatchObject({ kind: "link", dragged: true });
+    interaction.endPointer();
+  });
+
+  it("keeps panning when pointer capture is lost while the finger is down", () => {
+    const app = new AppState();
+    const host = {
+      app,
+      toWorld: () => ({ x: 0, y: 0 }),
+      viewportElement: () => null,
+      requestUpdate: vi.fn(),
+    };
+    const interaction = new DiagramInteractionController(host);
+    interaction.onViewportPointerDown(pointer({ clientX: 40, clientY: 50 }));
+    expect(interaction.session?.kind).toBe("pan");
+    interaction.onLostPointerCapture(pointer({ clientX: 40, clientY: 50, buttons: 1 }));
+    expect(interaction.session?.kind).toBe("pan");
+    interaction.onPointerMove(pointer({ clientX: 52, clientY: 58, buttons: 1 }));
+    expect(app.panX).toBe(60);
+    expect(app.panY).toBe(56);
+    interaction.endPointer();
   });
 
   it("connects a dragged wire dropped on a block with one compatible input", () => {

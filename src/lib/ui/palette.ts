@@ -17,6 +17,7 @@ interface PointerDrag {
   startY: number;
   dragged: boolean;
   ghost: HTMLElement | null;
+  source: HTMLElement | null;
 }
 
 export class BldPalette extends LitElement {
@@ -37,10 +38,19 @@ export class BldPalette extends LitElement {
         display: flex;
         width: 200px;
         flex: 0 0 200px;
+        min-height: 0;
+        height: 100%;
+        overflow: hidden;
       }
       .palette {
-        width: 200px;
-        flex: 0 0 200px;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        flex: 1 1 auto;
+        min-width: 0;
+        min-height: 0;
+        height: 100%;
+        overflow: hidden;
         background: #1c2125;
       }
       .palette-header {
@@ -61,7 +71,12 @@ export class BldPalette extends LitElement {
       }
       .palette-list {
         padding: 0;
+        min-height: 0;
+        flex: 1 1 auto;
+        overflow-x: hidden;
+        overflow-y: auto;
         touch-action: pan-y;
+        overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
       }
       .palette-ns {
@@ -126,6 +141,7 @@ export class BldPalette extends LitElement {
         user-select: none;
         font-size: 0.8rem;
         font-weight: 600;
+        touch-action: pan-y;
       }
       .palette-item:hover {
         background: #2b3238;
@@ -166,43 +182,47 @@ export class BldPalette extends LitElement {
       .block-kind-output {
         --block-accent: var(--bs-danger);
       }
-      @media (max-width: 720px) {
-        :host {
-          position: absolute;
-          left: 0;
-          top: 0;
-          bottom: 0;
-          width: min(200px, 82vw);
-          flex: none;
-          z-index: 6;
-          display: none;
-          box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
-        }
-        :host([data-open]) {
-          display: flex;
-        }
-        :host([data-dragging]) {
-          opacity: 0.18;
-          pointer-events: none;
-        }
-        .palette,
-        :host {
-          width: min(200px, 82vw);
-        }
-        .palette-close {
-          display: inline-flex;
-        }
-        .palette-ns-toggle {
-          padding: 0.45rem 0.7rem;
-        }
-        .palette-ns-body {
-          gap: 4px;
-          padding: 6px;
-        }
-        .palette-item {
-          padding: 5px 7px;
-          font-size: 0.75rem;
-        }
+      :host([data-compact]) {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        height: auto;
+        width: min(168px, 78vw);
+        flex: none;
+        z-index: 6;
+        display: none;
+        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
+      }
+      :host([data-compact][data-open]) {
+        display: flex;
+      }
+      :host([data-compact][data-dragging]) {
+        opacity: 0.18;
+        pointer-events: none;
+      }
+      :host([data-compact]) .palette {
+        width: 100%;
+      }
+      :host([data-compact]) .palette-close {
+        display: inline-flex;
+      }
+      :host([data-compact]) .palette-ns-toggle {
+        padding: 0.38rem 0.6rem;
+        font-size: 0.62rem;
+      }
+      :host([data-compact]) .palette-ns-body {
+        gap: 3px;
+        padding: 5px;
+      }
+      :host([data-compact]) .palette-item {
+        padding: 4px 6px;
+        font-size: 0.68rem;
+        gap: 6px;
+      }
+      :host([data-compact]) .palette-item-icon {
+        width: 0.95rem;
+        height: 0.95rem;
       }
     `,
   ];
@@ -227,6 +247,7 @@ export class BldPalette extends LitElement {
   }
 
   protected override updated(): void {
+    this.toggleAttribute("data-compact", this.app?.compactUi ?? false);
     this.toggleAttribute("data-open", this.app?.paletteVisible() ?? false);
     this.toggleAttribute("data-dragging", Boolean(this.app?.draggingDefId));
   }
@@ -326,9 +347,11 @@ export class BldPalette extends LitElement {
     if (!event.isPrimary || event.pointerType === "mouse") {
       return;
     }
-    if (event.currentTarget instanceof HTMLElement) {
-      event.currentTarget.draggable = false;
+    const source = event.currentTarget;
+    if (!(source instanceof HTMLElement)) {
+      return;
     }
+    source.draggable = false;
     this.#cancelPointerDrag();
     this.#drag = {
       pointerId: event.pointerId,
@@ -337,32 +360,40 @@ export class BldPalette extends LitElement {
       startY: event.clientY,
       dragged: false,
       ghost: null,
+      source,
     };
-    window.addEventListener("pointermove", this.#onWindowPointerMove);
-    window.addEventListener("pointerup", this.#onWindowPointerUp);
-    window.addEventListener("pointercancel", this.#onWindowPointerUp);
+    source.addEventListener("pointermove", this.#onSourcePointerMove);
+    source.addEventListener("pointerup", this.#onWindowPointerUp);
+    source.addEventListener("pointercancel", this.#onWindowPointerUp);
   }
 
-  #onWindowPointerMove = (event: PointerEvent): void => {
+  #onSourcePointerMove = (event: PointerEvent): void => {
     const drag = this.#drag;
-    if (!drag || event.pointerId !== drag.pointerId) {
+    if (!drag || drag.dragged || event.pointerId !== drag.pointerId) {
       return;
     }
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
-    if (!drag.dragged) {
-      if (Math.hypot(dx, dy) < PALETTE_DRAG) {
-        return;
-      }
-      if (Math.abs(dy) > Math.abs(dx)) {
-        this.#cancelPointerDrag();
-        return;
-      }
-      event.preventDefault();
-      drag.dragged = true;
-      this.app.draggingDefId = drag.defId;
-      drag.ghost = this.#ghostFor(drag.defId, event.clientX, event.clientY);
-      document.body.append(drag.ghost);
+    if (Math.hypot(dx, dy) < PALETTE_DRAG) {
+      return;
+    }
+    if (Math.abs(dy) >= Math.abs(dx)) {
+      this.#cancelPointerDrag();
+      return;
+    }
+    event.preventDefault();
+    drag.dragged = true;
+    this.app.draggingDefId = drag.defId;
+    drag.ghost = this.#ghostFor(drag.defId, event.clientX, event.clientY);
+    document.body.append(drag.ghost);
+    window.addEventListener("pointermove", this.#onWindowPointerMove);
+    window.addEventListener("pointerup", this.#onWindowPointerUp);
+    window.addEventListener("pointercancel", this.#onWindowPointerUp);
+  };
+
+  #onWindowPointerMove = (event: PointerEvent): void => {
+    const drag = this.#drag;
+    if (!drag || !drag.dragged || event.pointerId !== drag.pointerId) {
       return;
     }
     event.preventDefault();
@@ -410,6 +441,9 @@ export class BldPalette extends LitElement {
   #cancelPointerDrag(): void {
     const drag = this.#drag;
     this.#drag = null;
+    drag?.source?.removeEventListener("pointermove", this.#onSourcePointerMove);
+    drag?.source?.removeEventListener("pointerup", this.#onWindowPointerUp);
+    drag?.source?.removeEventListener("pointercancel", this.#onWindowPointerUp);
     window.removeEventListener("pointermove", this.#onWindowPointerMove);
     window.removeEventListener("pointerup", this.#onWindowPointerUp);
     window.removeEventListener("pointercancel", this.#onWindowPointerUp);
@@ -460,7 +494,7 @@ export class BldPalette extends LitElement {
             ×
           </button>
         </div>
-        <div class="palette-list flex-grow-1 overflow-auto">
+        <div class="palette-list flex-grow-1 overflow-auto" data-testid="palette-list">
           ${groups.map((group) => this.#renderGroup(group, groups, false))}
         </div>
       </aside>

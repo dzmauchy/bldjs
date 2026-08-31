@@ -6,11 +6,10 @@ export const BLOCK_HEIGHT = 88.0;
 /** Spacing used when dropping a palette item at the view center. Wider than BLOCK_WIDTH so long inferred types do not overlap. */
 export const BLOCK_PLACE_WIDTH = 320.0;
 export const BLOCK_PLACE_HEIGHT = 130.0;
-/** Narrow viewports overlay the palette so the canvas can use the full width. */
+/** Narrow or short viewports overlay the palette so the canvas can use the full width. */
 export const COMPACT_UI_MAX_WIDTH = 720;
-export const COMPACT_UI_QUERY = `(max-width: ${COMPACT_UI_MAX_WIDTH}px)`;
-/** Shrink the whole UI on phones via the viewport meta `initial-scale`. Desktop browsers ignore it. */
-export const PHONE_VIEWPORT_SCALE = 0.7;
+export const COMPACT_UI_MAX_HEIGHT = 520;
+export const COMPACT_UI_QUERY = `(max-width: ${COMPACT_UI_MAX_WIDTH}px), (max-height: ${COMPACT_UI_MAX_HEIGHT}px)`;
 export const PORT_HEADER = 34.0;
 export const PORT_PARAM = 18.0;
 export const PORT_ROW = 24.0;
@@ -28,7 +27,7 @@ export function compactUiMatches(): boolean {
   );
 }
 
-/** Shortest screen edge is phone-sized. Used so viewport scale does not fight compact-UI media queries. */
+/** Shortest screen edge is phone-sized, including landscape. */
 export function phoneScreenMatches(): boolean {
   const width = globalThis.screen?.width;
   const height = globalThis.screen?.height;
@@ -38,12 +37,12 @@ export function phoneScreenMatches(): boolean {
   return Math.min(width, height) <= COMPACT_UI_MAX_WIDTH;
 }
 
-export function viewportMetaContent(scale = 1): string {
-  return `width=device-width, initial-scale=${scale}, viewport-fit=cover`;
+export function viewportMetaContent(): string {
+  return "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover";
 }
 
-/** Apply a smaller `initial-scale` on phones so toolbar, palette, and blocks all shrink together. */
-export function applyPhoneViewportScale(): void {
+/** Lock the layout viewport at scale 1 so phone pan/scroll stay on the app, not the browser chrome. */
+export function applyViewportMeta(): void {
   if (typeof document === "undefined") {
     return;
   }
@@ -51,8 +50,7 @@ export function applyPhoneViewportScale(): void {
   if (!(meta instanceof HTMLMetaElement)) {
     return;
   }
-  const scale = phoneScreenMatches() ? PHONE_VIEWPORT_SCALE : 1;
-  meta.content = viewportMetaContent(scale);
+  meta.content = viewportMetaContent();
 }
 
 /** Top-left origin that puts the placed block's center on the drop point. */

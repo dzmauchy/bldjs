@@ -70,18 +70,30 @@ export class BldToolbar extends LitElement {
       .toolbar-palette-btn {
         display: none;
       }
-      @media (max-width: 720px) {
-        :host {
-          height: calc(36px + env(safe-area-inset-top, 0px));
-          flex-basis: calc(36px + env(safe-area-inset-top, 0px));
-        }
-        .app-toolbar {
-          height: calc(36px + env(safe-area-inset-top, 0px));
-          padding-top: env(safe-area-inset-top, 0px);
-        }
-        .toolbar-palette-btn {
-          display: inline-flex;
-        }
+      :host([data-compact]) {
+        height: calc(32px + env(safe-area-inset-top, 0px));
+        flex-basis: calc(32px + env(safe-area-inset-top, 0px));
+      }
+      :host([data-compact]) .app-toolbar {
+        height: calc(32px + env(safe-area-inset-top, 0px));
+        padding-top: env(safe-area-inset-top, 0px);
+      }
+      :host([data-compact]) .app-brand,
+      :host([data-compact]) .app-brand svg,
+      :host([data-compact]) .app-brand-icon {
+        width: 22px;
+        height: 22px;
+      }
+      :host([data-compact]) .toolbar-btn {
+        min-width: 24px;
+        min-height: 24px;
+        padding: 0.12rem 0.32rem;
+      }
+      :host([data-compact]) .toolbar-btn bld-block-icon {
+        font-size: 0.85rem;
+      }
+      :host([data-compact]) .toolbar-palette-btn {
+        display: inline-flex;
       }
       .app-menu-dropdown {
         display: none;
@@ -116,6 +128,10 @@ export class BldToolbar extends LitElement {
 
   protected override willUpdate(): void {
     this.#bindApp();
+  }
+
+  protected override updated(): void {
+    this.toggleAttribute("data-compact", this.app?.compactUi ?? false);
   }
 
   #bindApp(): void {

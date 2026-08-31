@@ -24,19 +24,17 @@ export class BldStatusBar extends LitElement {
         height: 28px;
         background: #1b1f22;
       }
-      @media (max-width: 720px) {
-        :host {
-          height: calc(24px + env(safe-area-inset-bottom, 0px));
-          flex-basis: calc(24px + env(safe-area-inset-bottom, 0px));
-        }
-        .app-statusbar {
-          height: calc(24px + env(safe-area-inset-bottom, 0px));
-          padding-bottom: env(safe-area-inset-bottom, 0px);
-          font-size: 0.7rem;
-        }
-        .status-hint {
-          display: none;
-        }
+      :host([data-compact]) {
+        height: calc(20px + env(safe-area-inset-bottom, 0px));
+        flex-basis: calc(20px + env(safe-area-inset-bottom, 0px));
+      }
+      :host([data-compact]) .app-statusbar {
+        height: calc(20px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        font-size: 0.62rem;
+      }
+      :host([data-compact]) .status-hint {
+        display: none;
       }
     `,
   ];
@@ -53,6 +51,10 @@ export class BldStatusBar extends LitElement {
 
   protected override willUpdate(): void {
     this.#bindApp();
+  }
+
+  protected override updated(): void {
+    this.toggleAttribute("data-compact", this.app?.compactUi ?? false);
   }
 
   #bindApp(): void {
