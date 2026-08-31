@@ -19,6 +19,7 @@ export class BldScopeModal extends LitElement {
   #tick: ReturnType<typeof setInterval> | null = null;
   #openId = -1;
   #seriesCount = 0;
+  #sampleCount = 0;
   #painted = false;
 
   static override styles = [
@@ -136,21 +137,24 @@ export class BldScopeModal extends LitElement {
     this.#plot?.destroy();
     this.#plot = null;
     this.#openId = -1;
-    this.#writeSeriesCount(0, false);
+    this.#writeSeriesCount(0, 0, false);
   }
 
-  #writeSeriesCount(count: number, painted: boolean): void {
+  #writeSeriesCount(count: number, sampleCount: number, painted: boolean): void {
     this.#seriesCount = count;
+    this.#sampleCount = sampleCount;
     this.#painted = painted;
     const host = this.renderRoot.querySelector("[data-testid=scope-chart]");
     if (host instanceof HTMLElement) {
       host.dataset.seriesCount = String(count);
+      host.dataset.sampleCount = String(sampleCount);
       host.dataset.painted = painted ? "true" : "false";
     }
   }
 
   #applySeries(plot: ScopeCanvasPlot, series: ReturnType<AppState["snapshotScope"]>): void {
-    this.#writeSeriesCount(series.length, plot.setSeries(series));
+    const sampleCount = series.reduce((max, channel) => Math.max(max, channel.samples.length), 0);
+    this.#writeSeriesCount(series.length, sampleCount, plot.setSeries(series));
   }
 
   #startPlot(canvas: HTMLCanvasElement, id: number): void {
@@ -158,7 +162,7 @@ export class BldScopeModal extends LitElement {
       if (this.#plot !== plot) {
         return;
       }
-      this.#writeSeriesCount(plot.seriesCount, painted);
+      this.#writeSeriesCount(plot.seriesCount, this.#sampleCount, painted);
     });
     this.#plot = plot;
     this.#applySeries(plot, this.app.snapshotScope(id));
@@ -197,6 +201,7 @@ export class BldScopeModal extends LitElement {
                 class="scope-chart"
                 data-testid="scope-chart"
                 data-series-count=${this.#seriesCount}
+                data-sample-count=${this.#sampleCount}
                 data-painted=${this.#painted ? "true" : "false"}
               >
                 <canvas ${ref(this.#canvas)}></canvas>

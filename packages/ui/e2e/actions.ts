@@ -220,13 +220,18 @@ export async function scopeChartHasInk(page: Page): Promise<boolean> {
     if (!ctx) {
       return false;
     }
-    const { data } = ctx.getImageData(0, 0, el.width, el.height);
+    const { data } = ctx.getImageData(
+      Math.floor(el.width * 0.22),
+      Math.floor(el.height * 0.12),
+      Math.max(1, Math.floor(el.width * 0.56)),
+      Math.max(1, Math.floor(el.height * 0.76)),
+    );
     for (let i = 0; i < data.length; i += 16) {
       const r = data[i] ?? 0;
       const g = data[i + 1] ?? 0;
       const b = data[i + 2] ?? 0;
       const a = data[i + 3] ?? 0;
-      if (a > 8 && (r > 30 || g > 30 || b > 30)) {
+      if (a > 8 && (r > 80 || g > 80 || b > 80)) {
         return true;
       }
     }

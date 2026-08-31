@@ -135,6 +135,7 @@ describe("Lit update scheduling", () => {
     expect(caption?.textContent?.trim()).toBe(`blk_${id}`);
     expect(caption?.textContent).not.toContain("timer(");
     expect(host?.getAttribute("data-series-count")).toBe("2");
+    expect(host?.getAttribute("data-sample-count")).toBe("2");
     expect(host?.getAttribute("data-painted")).toBe("true");
     expect(canvas).not.toBeNull();
     expect(fillRect).toHaveBeenCalled();
