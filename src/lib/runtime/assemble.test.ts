@@ -12,7 +12,8 @@ describe("block AssemblyScript assembly", () => {
     expect(Object.keys(BLOCK_AS).sort()).toEqual(["cos", "oscilloscope", "quantizer", "sin", "timer"]);
     expect(BLOCK_AS.timer).toContain("function timer(inn: c<f64>): void");
     expect(BLOCK_AS.timer).not.toContain("): c<");
-    expect(BLOCK_AS.quantizer).toContain("function quantizer(inn: c<f64>, v: f64): void");
+    expect(BLOCK_AS.quantizer).toContain("function quantizer(period: i32, in: c<f64>): c<f64>");
+    expect(BLOCK_AS.quantizer).toContain("return atomic.wait<i32>(WAIT, 0, i64(period) * 1_000_000);");
     expect(BLOCK_AS.sin).toContain("function sin(inn: c<f64>, v: f64): void");
     expect(BLOCK_AS.cos).toContain("function cos(inn: c<f64>, v: f64): void");
     expect(BLOCK_AS.oscilloscope).toContain("function oscilloscope(v: f64): void");
