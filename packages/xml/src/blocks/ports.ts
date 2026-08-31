@@ -154,6 +154,31 @@ function byPeerPosition(
   return bySlotThenPeer(left, right, slotOf, peer);
 }
 
+function compactGroups(
+  links: Link[],
+  keyOf: (link: Link) => string,
+  catalogOf: (link: Link) => string,
+  assign: (link: Link, name: string) => void,
+  compare: (left: Link, right: Link) => number,
+): void {
+  const groups = new Map<string, Link[]>();
+  for (const link of links) {
+    const key = keyOf(link);
+    const group = groups.get(key);
+    if (group) {
+      group.push(link);
+    } else {
+      groups.set(key, [link]);
+    }
+  }
+  for (const group of groups.values()) {
+    const catalog = catalogOf(group[0]);
+    group.toSorted(compare).forEach((link, index) => {
+      assign(link, slottedPortName(catalog, index));
+    });
+  }
+}
+
 /**
  * Keep extra `name[n]` slots dense and 1:1 with extra wires.
  * Array order is preserved so a selected link can be remapped by index.
@@ -162,52 +187,29 @@ function byPeerPosition(
  */
 export function compactLinkSlots(links: readonly Link[], positionOf?: BlockPositionOf): Link[] {
   const next = links.map((link) => ({ ...link }));
-
-  const outgoing = new Map<string, Link[]>();
-  for (const link of next) {
-    const key = `${link.fromBlock}:${catalogPortName(link.fromOut)}`;
-    const group = outgoing.get(key);
-    if (group) {
-      group.push(link);
-    } else {
-      outgoing.set(key, [link]);
-    }
-  }
-  for (const group of outgoing.values()) {
-    const catalog = catalogPortName(group[0].fromOut);
-    group
-      .toSorted((left, right) =>
-        positionOf
-          ? byPeerPosition(left, right, (link) => link.toBlock, positionOf, (link) => link.fromOut)
-          : bySlotThenPeer(left, right, (link) => link.fromOut, (link) => link.toBlock),
-      )
-      .forEach((link, index) => {
-        link.fromOut = slottedPortName(catalog, index);
-      });
-  }
-
-  const incoming = new Map<string, Link[]>();
-  for (const link of next) {
-    const key = `${link.toBlock}:${catalogPortName(link.toIn)}`;
-    const group = incoming.get(key);
-    if (group) {
-      group.push(link);
-    } else {
-      incoming.set(key, [link]);
-    }
-  }
-  for (const group of incoming.values()) {
-    const catalog = catalogPortName(group[0].toIn);
-    group
-      .toSorted((left, right) =>
-        positionOf
-          ? byPeerPosition(left, right, (link) => link.fromBlock, positionOf, (link) => link.toIn)
-          : bySlotThenPeer(left, right, (link) => link.toIn, (link) => link.fromBlock),
-      )
-      .forEach((link, index) => {
-        link.toIn = slottedPortName(catalog, index);
-      });
-  }
-
+  compactGroups(
+    next,
+    (link) => `${link.fromBlock}:${catalogPortName(link.fromOut)}`,
+    (link) => catalogPortName(link.fromOut),
+    (link, name) => {
+      link.fromOut = name;
+    },
+    (left, right) =>
+      positionOf
+        ? byPeerPosition(left, right, (link) => link.toBlock, positionOf, (link) => link.fromOut)
+        : bySlotThenPeer(left, right, (link) => link.fromOut, (link) => link.toBlock),
+  );
+  compactGroups(
+    next,
+    (link) => `${link.toBlock}:${catalogPortName(link.toIn)}`,
+    (link) => catalogPortName(link.toIn),
+    (link, name) => {
+      link.toIn = name;
+    },
+    (left, right) =>
+      positionOf
+        ? byPeerPosition(left, right, (link) => link.fromBlock, positionOf, (link) => link.toIn)
+        : bySlotThenPeer(left, right, (link) => link.toIn, (link) => link.fromBlock),
+  );
   return next;
 }

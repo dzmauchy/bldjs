@@ -18,48 +18,6 @@ export function parseVariance(value: string): Variance | undefined {
   }
 }
 
-export function varianceAsStr(variance: Variance): string {
-  switch (variance) {
-    case "covariant":
-      return "+";
-    case "contravariant":
-      return "-";
-    case "unbounded":
-      return "?";
-  }
-}
-
-export type TypeExpr =
-  | { kind: "type"; name: string; ns: string | null; args: TypeExpr[] }
-  | { kind: "wildcard"; variance: Variance; bound: TypeExpr | null }
-  | { kind: "self" }
-  | { kind: "union"; members: TypeExpr[] }
-  | { kind: "intersection"; members: TypeExpr[] };
-
-export function named(name: string): TypeExpr {
-  return { kind: "type", name, ns: null, args: [] };
-}
-
-export function qualified(ns: string, name: string): TypeExpr {
-  return { kind: "type", name, ns, args: [] };
-}
-
-export function generic(name: string, args: TypeExpr[]): TypeExpr {
-  return { kind: "type", name, ns: null, args };
-}
-
-export function unbounded(): TypeExpr {
-  return { kind: "wildcard", variance: "unbounded", bound: null };
-}
-
-export function extendsBound(bound: TypeExpr): TypeExpr {
-  return { kind: "wildcard", variance: "covariant", bound };
-}
-
-export function superBound(bound: TypeExpr): TypeExpr {
-  return { kind: "wildcard", variance: "contravariant", bound };
-}
-
 /** Short display heads used when `compact` is true. */
 const COMPACT_HEADS: Record<string, string> = {
   c1: "c",
@@ -76,53 +34,269 @@ function compactHead(name: string): string {
 }
 
 function displayArrayElem(elem: TypeExpr, compact: boolean): string {
-  const text = displayType(elem, compact);
+  const text = elem.display(compact);
   if (elem.kind === "union" || elem.kind === "intersection") {
     return `(${text})`;
   }
   return text;
 }
 
-export function isArrayType(expr: TypeExpr): boolean {
-  return expr.kind === "type" && (expr.name === "[]" || rawTypeName(expr.name) === "array");
-}
+abstract class TypeNode {
+  abstract readonly kind: TypeExpr["kind"];
 
-export function arrayOf(elem: TypeExpr): TypeExpr {
-  return { kind: "type", name: "[]", ns: null, args: [elem] };
-}
+  abstract display(compact: boolean): string;
+  abstract equals(other: TypeExpr): boolean;
+  abstract children(): TypeExpr[];
+  abstract mapChildren(fn: (child: TypeExpr) => TypeExpr): TypeExpr;
 
-export function displayType(expr: TypeExpr, compact: boolean): string {
-  switch (expr.kind) {
-    case "type": {
-      if (isArrayType(expr)) {
-        const elem = expr.args[0];
-        return `${elem ? displayArrayElem(elem, compact) : "?"}[]`;
-      }
-      const head = compact ? compactHead(expr.name) : expr.ns ? `${expr.ns}.${expr.name}` : expr.name;
-      if (expr.args.length === 0) {
-        return head;
-      }
-      return `${head}<${expr.args.map((arg) => displayType(arg, compact)).join(", ")}>`;
+  subst(bindings: Map<string, TypeExpr>): TypeExpr {
+    return this.mapChildren((child) => child.subst(bindings));
+  }
+
+  replaceSelf(selfTy: TypeExpr): TypeExpr {
+    return this.mapChildren((child) => child.replaceSelf(selfTy));
+  }
+
+  isGround(params: ParamDef[]): boolean {
+    if (this.asParam(params)) {
+      return false;
     }
-    case "wildcard":
-      if (expr.variance === "unbounded" || expr.bound === null) {
-        return "?";
-      }
-      if (expr.variance === "covariant") {
-        return `? extends ${displayType(expr.bound, compact)}`;
-      }
-      return `? super ${displayType(expr.bound, compact)}`;
-    case "self":
-      return "this";
-    case "union":
-      return expr.members.map((member) => displayType(member, compact)).join(" | ");
-    case "intersection":
-      return expr.members.map((member) => displayType(member, compact)).join(" & ");
+    return this.children().every((child) => child.isGround(params));
+  }
+
+  asParam(_params: ParamDef[]): ParamDef | undefined {
+    return undefined;
+  }
+
+  isArray(): boolean {
+    return false;
+  }
+
+  isConsumer(): boolean {
+    return false;
+  }
+
+  isPush(): boolean {
+    return this.isConsumer();
   }
 }
 
+export class NamedType extends TypeNode {
+  readonly kind = "type" as const;
+
+  constructor(
+    readonly name: string,
+    readonly ns: string | null,
+    readonly args: TypeExpr[],
+  ) {
+    super();
+  }
+
+  children(): TypeExpr[] {
+    return this.args;
+  }
+
+  mapChildren(fn: (child: TypeExpr) => TypeExpr): TypeExpr {
+    return new NamedType(this.name, this.ns, this.args.map(fn));
+  }
+
+  display(compact: boolean): string {
+    if (this.isArray()) {
+      const elem = this.args[0];
+      return `${elem ? displayArrayElem(elem, compact) : "?"}[]`;
+    }
+    const head = compact ? compactHead(this.name) : this.ns ? `${this.ns}.${this.name}` : this.name;
+    if (this.args.length === 0) {
+      return head;
+    }
+    return `${head}<${this.args.map((arg) => arg.display(compact)).join(", ")}>`;
+  }
+
+  equals(other: TypeExpr): boolean {
+    return (
+      other.kind === "type" &&
+      this.name === other.name &&
+      this.ns === other.ns &&
+      this.args.length === other.args.length &&
+      this.args.every((arg, index) => arg.equals(other.args[index]))
+    );
+  }
+
+  subst(bindings: Map<string, TypeExpr>): TypeExpr {
+    if (this.ns === null && this.args.length === 0) {
+      const bound = bindings.get(this.name);
+      if (bound) {
+        return bound;
+      }
+    }
+    return super.subst(bindings);
+  }
+
+  isArray(): boolean {
+    return this.name === "[]" || rawTypeName(this.name) === "array";
+  }
+
+  isConsumer(): boolean {
+    return rawTypeName(this.name) === "c1";
+  }
+
+  isPush(): boolean {
+    return this.isConsumer() || (this.isArray() && (this.args[0]?.isPush() ?? false));
+  }
+
+  asParam(params: ParamDef[]): ParamDef | undefined {
+    if (this.ns === null && this.args.length === 0) {
+      return params.find((param) => param.name === this.name);
+    }
+    return undefined;
+  }
+}
+
+export class WildcardType extends TypeNode {
+  readonly kind = "wildcard" as const;
+
+  constructor(
+    readonly variance: Variance,
+    readonly bound: TypeExpr | null,
+  ) {
+    super();
+  }
+
+  children(): TypeExpr[] {
+    return this.bound ? [this.bound] : [];
+  }
+
+  mapChildren(fn: (child: TypeExpr) => TypeExpr): TypeExpr {
+    return this.bound ? new WildcardType(this.variance, fn(this.bound)) : this;
+  }
+
+  display(compact: boolean): string {
+    if (this.variance === "unbounded" || this.bound === null) {
+      return "?";
+    }
+    if (this.variance === "covariant") {
+      return `? extends ${this.bound.display(compact)}`;
+    }
+    return `? super ${this.bound.display(compact)}`;
+  }
+
+  equals(other: TypeExpr): boolean {
+    if (other.kind !== "wildcard" || this.variance !== other.variance) {
+      return false;
+    }
+    if (this.bound === null && other.bound === null) {
+      return true;
+    }
+    if (this.bound === null || other.bound === null) {
+      return false;
+    }
+    return this.bound.equals(other.bound);
+  }
+}
+
+export class SelfType extends TypeNode {
+  readonly kind = "self" as const;
+
+  children(): TypeExpr[] {
+    return [];
+  }
+
+  mapChildren(_fn: (child: TypeExpr) => TypeExpr): TypeExpr {
+    return this;
+  }
+
+  replaceSelf(selfTy: TypeExpr): TypeExpr {
+    return selfTy;
+  }
+
+  display(_compact: boolean): string {
+    return "this";
+  }
+
+  equals(other: TypeExpr): boolean {
+    return other.kind === "self";
+  }
+}
+
+abstract class MemberType extends TypeNode {
+  abstract override readonly kind: "union" | "intersection";
+
+  constructor(readonly members: TypeExpr[]) {
+    super();
+  }
+
+  children(): TypeExpr[] {
+    return this.members;
+  }
+
+  display(compact: boolean): string {
+    const sep = this.kind === "union" ? " | " : " & ";
+    return this.members.map((member) => member.display(compact)).join(sep);
+  }
+
+  equals(other: TypeExpr): boolean {
+    if (other.kind !== this.kind) {
+      return false;
+    }
+    return (
+      this.members.length === other.members.length &&
+      this.members.every((member, index) => member.equals(other.members[index]))
+    );
+  }
+}
+
+export class UnionType extends MemberType {
+  readonly kind = "union" as const;
+
+  mapChildren(fn: (child: TypeExpr) => TypeExpr): TypeExpr {
+    return unionOf(this.members.map(fn));
+  }
+}
+
+export class IntersectionType extends MemberType {
+  readonly kind = "intersection" as const;
+
+  mapChildren(fn: (child: TypeExpr) => TypeExpr): TypeExpr {
+    return intersectionOf(this.members.map(fn));
+  }
+}
+
+export type TypeExpr = NamedType | WildcardType | SelfType | UnionType | IntersectionType;
+
+export function named(name: string): TypeExpr {
+  return new NamedType(name, null, []);
+}
+
+export function generic(name: string, args: TypeExpr[]): TypeExpr {
+  return new NamedType(name, null, args);
+}
+
+export function unbounded(): TypeExpr {
+  return new WildcardType("unbounded", null);
+}
+
+export function extendsBound(bound: TypeExpr): TypeExpr {
+  return new WildcardType("covariant", bound);
+}
+
+export function superBound(bound: TypeExpr): TypeExpr {
+  return new WildcardType("contravariant", bound);
+}
+
+export function isArrayType(expr: TypeExpr): boolean {
+  return expr.isArray();
+}
+
+export function arrayOf(elem: TypeExpr): TypeExpr {
+  return new NamedType("[]", null, [elem]);
+}
+
+export function displayType(expr: TypeExpr, compact: boolean): string {
+  return expr.display(compact);
+}
+
 function displayKey(expr: TypeExpr): string {
-  return displayType(expr, true);
+  return expr.display(true);
 }
 
 function flattenInto(members: TypeExpr[], isUnion: boolean): void {
@@ -143,50 +317,10 @@ function flattenInto(members: TypeExpr[], isUnion: boolean): void {
   }
 }
 
-function typeEquals(left: TypeExpr, right: TypeExpr): boolean {
-  if (left.kind !== right.kind) {
-    return false;
-  }
-  switch (left.kind) {
-    case "type": {
-      const other = right as Extract<TypeExpr, { kind: "type" }>;
-      return (
-        left.name === other.name &&
-        left.ns === other.ns &&
-        left.args.length === other.args.length &&
-        left.args.every((arg, index) => typeEquals(arg, other.args[index]))
-      );
-    }
-    case "wildcard": {
-      const other = right as Extract<TypeExpr, { kind: "wildcard" }>;
-      if (left.variance !== other.variance) {
-        return false;
-      }
-      if (left.bound === null && other.bound === null) {
-        return true;
-      }
-      if (left.bound === null || other.bound === null) {
-        return false;
-      }
-      return typeEquals(left.bound, other.bound);
-    }
-    case "self":
-      return true;
-    case "union":
-    case "intersection": {
-      const other = right as Extract<TypeExpr, { kind: "union" | "intersection" }>;
-      return (
-        left.members.length === other.members.length &&
-        left.members.every((member, index) => typeEquals(member, other.members[index]))
-      );
-    }
-  }
-}
-
 function dedupSorted(members: TypeExpr[]): TypeExpr[] {
   const unique: TypeExpr[] = [];
   for (const member of members) {
-    if (!unique.some((existing) => typeEquals(existing, member))) {
+    if (!unique.some((existing) => existing.equals(member))) {
       unique.push(member);
     }
   }
@@ -206,7 +340,7 @@ export function unionOf(membersIn: TypeExpr[]): TypeExpr {
   if (unique.length === 1) {
     return unique[0];
   }
-  return { kind: "union", members: unique };
+  return new UnionType(unique);
 }
 
 export function intersectionOf(membersIn: TypeExpr[]): TypeExpr {
@@ -220,16 +354,12 @@ export function intersectionOf(membersIn: TypeExpr[]): TypeExpr {
   if (unique.length === 1) {
     return unique[0];
   }
-  return { kind: "intersection", members: unique };
-}
-
-export function rawName(expr: TypeExpr): string | undefined {
-  return expr.kind === "type" ? expr.name : undefined;
+  return new IntersectionType(unique);
 }
 
 /** Catalog consumer `c1<T>` / compact `c<T>`. Multiple such outputs may share one input via a hidden fork. */
 export function isConsumerType(expr: TypeExpr): boolean {
-  return expr.kind === "type" && rawTypeName(expr.name) === "c1";
+  return expr.isConsumer();
 }
 
 /**
@@ -237,32 +367,15 @@ export function isConsumerType(expr: TypeExpr): boolean {
  * samples travel the opposite way. Dash animation should reverse for these.
  */
 export function isPushType(expr: TypeExpr | undefined): boolean {
-  if (!expr) {
-    return false;
-  }
-  if (isConsumerType(expr)) {
-    return true;
-  }
-  return expr.kind === "type" && isArrayType(expr) && isPushType(expr.args[0]);
-}
-
-export function typeArgs(expr: TypeExpr): TypeExpr[] {
-  return expr.kind === "type" ? expr.args : [];
-}
-
-export function withArgs(expr: TypeExpr, args: TypeExpr[]): TypeExpr {
-  if (expr.kind === "type") {
-    return { kind: "type", name: expr.name, ns: expr.ns, args };
-  }
-  return expr;
+  return expr?.isPush() ?? false;
 }
 
 export function typeToString(expr: TypeExpr): string {
-  return displayType(expr, true);
+  return expr.display(true);
 }
 
 export function typesEqual(left: TypeExpr, right: TypeExpr): boolean {
-  return typeEquals(left, right);
+  return left.equals(right);
 }
 
 export interface ParamDef {
@@ -310,13 +423,6 @@ export interface TypeDef {
   alias: TypeExpr | null;
   attributes: Attribute[];
   source: string;
-}
-
-export function typeDefKey(typeDef: TypeDef): string {
-  if (typeDef.ns && typeDef.ns.length > 0) {
-    return `${typeDef.ns}.${typeDef.name}`;
-  }
-  return typeDef.name;
 }
 
 export interface BlockDef {

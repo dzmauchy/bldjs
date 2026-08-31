@@ -1,5 +1,5 @@
 import type { Attribute } from "../blocks/ast";
-import { ParseError } from "../blocks/parse";
+import { ParseError, XmlElem, XmlWriter } from "../dom";
 import { catalogPortName, portSlotIndex, slottedPortName } from "../blocks/ports";
 import type { Link } from "../blocks/diagram";
 import type { BlockInstance } from "./types";
@@ -18,314 +18,211 @@ import {
 
 export { ParseError };
 
-function elements(node: Element): Element[] {
-  return [...node.children].filter((child): child is Element => child.nodeType === 1);
-}
+const { attr, pad, escapeAttr, escapeText } = XmlWriter;
 
-function optAttr(node: Element, name: string): string | undefined {
-  return node.hasAttribute(name) ? (node.getAttribute(name) ?? undefined) : undefined;
-}
-
-function requiredAttr(file: string, node: Element, name: string): string {
-  const value = optAttr(node, name);
-  if (value === undefined) {
-    throw at(file, node, `missing \`${name}\` attribute`);
-  }
-  return value;
-}
-
-function at(file: string, node: Element, message: string): ParseError {
-  return new ParseError(message, file);
-}
-
-function parseAttribute(file: string, node: Element): Attribute {
+function parseEntity(el: XmlElem): EntityMeta {
   return {
-    name: requiredAttr(file, node, "name"),
-    value: (node.textContent ?? "").trim(),
+    id: el.req("id"),
+    createdAt: el.req("createdAt"),
+    updatedAt: el.req("updatedAt"),
+    name: el.opt("name"),
+    description: el.opt("description"),
+    attributes: el.attributes(),
   };
-}
-
-function parseAttributes(file: string, node: Element): Attribute[] {
-  return elements(node)
-    .filter((child) => child.tagName === "attribute")
-    .map((child) => parseAttribute(file, child));
-}
-
-function parseEntityMeta(file: string, node: Element): EntityMeta {
-  return {
-    id: requiredAttr(file, node, "id"),
-    createdAt: requiredAttr(file, node, "createdAt"),
-    updatedAt: requiredAttr(file, node, "updatedAt"),
-    name: optAttr(node, "name"),
-    description: optAttr(node, "description"),
-    attributes: parseAttributes(file, node),
-  };
-}
-
-function parseNumber(file: string, node: Element, name: string, required: boolean): number | undefined {
-  const raw = optAttr(node, name);
-  if (raw === undefined) {
-    if (required) {
-      throw at(file, node, `missing \`${name}\` attribute`);
-    }
-    return undefined;
-  }
-  const value = Number(raw);
-  if (!Number.isFinite(value)) {
-    throw at(file, node, `invalid \`${name}\` \`${raw}\``);
-  }
-  return value;
-}
-
-function parseIndex(file: string, node: Element): number {
-  const raw = optAttr(node, "index");
-  if (raw === undefined) {
-    return 0;
-  }
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < 0) {
-    throw at(file, node, `invalid \`index\` \`${raw}\``);
-  }
-  return value;
 }
 
 function isParameterKind(tag: string): tag is ParameterKind {
   return (PARAMETER_KINDS as readonly string[]).includes(tag);
 }
 
-function parseParameter(file: string, node: Element): ParameterValue {
-  if (!isParameterKind(node.tagName)) {
-    throw at(file, node, `unsupported parameter <${node.tagName}>`);
+function parseParameter(el: XmlElem): ParameterValue {
+  if (!isParameterKind(el.tag)) {
+    el.fail(`unsupported parameter <${el.tag}>`);
   }
-  const meta = parseEntityMeta(file, node);
   return {
-    ...meta,
-    kind: node.tagName,
-    name: requiredAttr(file, node, "name"),
-    value: requiredAttr(file, node, "value"),
+    ...parseEntity(el),
+    kind: el.tag,
+    name: el.req("name"),
+    value: el.req("value"),
   };
 }
 
-function parseParameters(file: string, node: Element): ParameterValue[] {
-  const values: ParameterValue[] = [];
-  for (const child of elements(node)) {
-    if (child.tagName === "attribute") {
-      continue;
-    }
-    values.push(parseParameter(file, child));
-  }
-  return values;
-}
-
-function parseBlock(file: string, node: Element): DiagramBlock {
-  const meta = parseEntityMeta(file, node);
+function parseBlock(el: XmlElem): DiagramBlock {
   let parameters: ParameterValue[] = [];
-  for (const child of elements(node)) {
-    switch (child.tagName) {
+  for (const child of el.kids()) {
+    switch (child.tag) {
       case "attribute":
         break;
       case "parameters":
-        parameters = parseParameters(file, child);
+        parameters = child.kids().filter((item) => item.tag !== "attribute").map(parseParameter);
         break;
       default:
-        throw at(file, child, `unsupported <block> child <${child.tagName}>`);
+        child.fail(`unsupported <block> child <${child.tag}>`);
     }
   }
   return {
-    ...meta,
-    type: requiredAttr(file, node, "type"),
-    x: parseNumber(file, node, "x", true)!,
-    y: parseNumber(file, node, "y", true)!,
-    width: parseNumber(file, node, "width", false),
-    height: parseNumber(file, node, "height", false),
+    ...parseEntity(el),
+    type: el.req("type"),
+    x: el.num("x", true)!,
+    y: el.num("y", true)!,
+    width: el.num("width", false),
+    height: el.num("height", false),
     parameters,
   };
 }
 
-function parseEndpoint(file: string, node: Element): ConnectorEndpoint {
+function parseEndpoint(el: XmlElem): ConnectorEndpoint {
   return {
-    ...parseEntityMeta(file, node),
-    block: requiredAttr(file, node, "block"),
-    port: optAttr(node, "port"),
-    index: parseIndex(file, node),
+    ...parseEntity(el),
+    block: el.req("block"),
+    port: el.opt("port"),
+    index: el.index(),
   };
 }
 
-function parseConnector(file: string, node: Element): DiagramConnector {
-  const meta = parseEntityMeta(file, node);
+function parseConnector(el: XmlElem): DiagramConnector {
   let input: ConnectorEndpoint | undefined;
   let output: ConnectorEndpoint | undefined;
-  for (const child of elements(node)) {
-    switch (child.tagName) {
+  for (const child of el.kids()) {
+    switch (child.tag) {
       case "attribute":
         break;
       case "input":
         if (input) {
-          throw at(file, child, "connector already has an input");
+          child.fail("connector already has an input");
         }
-        input = parseEndpoint(file, child);
+        input = parseEndpoint(child);
         break;
       case "output":
         if (output) {
-          throw at(file, child, "connector already has an output");
+          child.fail("connector already has an output");
         }
-        output = parseEndpoint(file, child);
+        output = parseEndpoint(child);
         break;
       default:
-        throw at(file, child, `unsupported <connector> child <${child.tagName}>`);
+        child.fail(`unsupported <connector> child <${child.tag}>`);
     }
   }
   if (!input) {
-    throw at(file, node, "connector missing <input>");
+    el.fail("connector missing <input>");
   }
   if (!output) {
-    throw at(file, node, "connector missing <output>");
+    el.fail("connector missing <output>");
   }
-  return { ...meta, input, output };
+  return { ...parseEntity(el), input, output };
+}
+
+function parseGroup(el: XmlElem, childTag: string, parentTag: string): XmlElem[] {
+  return el.kids().map((child) => {
+    if (child.tag !== childTag) {
+      child.fail(`unsupported <${parentTag}> child <${child.tag}>`);
+    }
+    return child;
+  });
 }
 
 export function parseDiagramXml(xml: string, file = "diagram.xml"): DiagramDocument {
-  const document = new DOMParser().parseFromString(xml, "application/xml");
-  const parserError = document.querySelector("parsererror");
-  if (parserError) {
-    throw new ParseError(parserError.textContent?.trim() || "XML parse error", file);
-  }
-  const root = document.documentElement;
-  if (root.tagName !== "diagram") {
-    throw at(file, root, `expected <diagram>, found <${root.tagName}>`);
-  }
+  const root = XmlElem.parse(file, xml, "diagram");
   const doc: DiagramDocument = {
-    ...parseEntityMeta(file, root),
+    ...parseEntity(root),
     blocks: [],
     connectors: [],
   };
-  for (const child of elements(root)) {
-    switch (child.tagName) {
+  for (const child of root.kids()) {
+    switch (child.tag) {
       case "attribute":
         break;
       case "blocks":
-        for (const block of elements(child)) {
-          if (block.tagName !== "block") {
-            throw at(file, block, `unsupported <blocks> child <${block.tagName}>`);
-          }
-          doc.blocks.push(parseBlock(file, block));
-        }
+        doc.blocks.push(...parseGroup(child, "block", "blocks").map(parseBlock));
         break;
       case "connectors":
-        for (const connector of elements(child)) {
-          if (connector.tagName !== "connector") {
-            throw at(file, connector, `unsupported <connectors> child <${connector.tagName}>`);
-          }
-          doc.connectors.push(parseConnector(file, connector));
-        }
+        doc.connectors.push(...parseGroup(child, "connector", "connectors").map(parseConnector));
         break;
       default:
-        throw at(file, child, `unsupported <diagram> child <${child.tagName}>`);
+        child.fail(`unsupported <diagram> child <${child.tag}>`);
     }
   }
   return doc;
-}
-
-function escapeAttr(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;");
-}
-
-function escapeText(value: string): string {
-  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-}
-
-function attr(name: string, value: string | number | undefined): string {
-  if (value === undefined) {
-    return "";
-  }
-  return ` ${name}="${escapeAttr(String(value))}"`;
 }
 
 function writeAttributes(attributes: Attribute[], level: number): string {
   return attributes
     .map(
       (item) =>
-        `${"    ".repeat(level)}<attribute name="${escapeAttr(item.name)}">${escapeText(item.value)}</attribute>`,
+        `${pad(level)}<attribute name="${escapeAttr(item.name)}">${escapeText(item.value)}</attribute>`,
     )
     .join("\n");
 }
 
-function writeEntityAttrs(entity: EntityMeta, extra = ""): string {
+function entityAttrs(entity: EntityMeta, extra = ""): string {
   return `${attr("id", entity.id)}${attr("name", entity.name)}${attr("description", entity.description)}${extra}${attr("createdAt", entity.createdAt)}${attr("updatedAt", entity.updatedAt)}`;
 }
 
-function writeParameter(param: ParameterValue, level: number): string {
-  const pad = "    ".repeat(level);
-  const attrs = writeAttributes(param.attributes, level + 1);
-  const open = `${pad}<${param.kind}${writeEntityAttrs(param, attr("value", param.value))}`;
+function writeLeaf(tag: string, openAttrs: string, attributes: Attribute[], level: number): string {
+  const indent = pad(level);
+  const attrs = writeAttributes(attributes, level + 1);
+  const open = `${indent}<${tag}${openAttrs}`;
   if (!attrs) {
     return `${open}/>`;
   }
-  return `${open}>\n${attrs}\n${pad}</${param.kind}>`;
+  return `${open}>\n${attrs}\n${indent}</${tag}>`;
+}
+
+function writeParameter(param: ParameterValue, level: number): string {
+  return writeLeaf(param.kind, entityAttrs(param, attr("value", param.value)), param.attributes, level);
 }
 
 function writeEndpoint(tag: "input" | "output", endpoint: ConnectorEndpoint, level: number): string {
-  const pad = "    ".repeat(level);
   const extra = `${attr("block", endpoint.block)}${attr("port", endpoint.port)}${attr("index", endpoint.index)}`;
-  const attrs = writeAttributes(endpoint.attributes, level + 1);
-  const open = `${pad}<${tag}${writeEntityAttrs(endpoint, extra)}`;
-  if (!attrs) {
-    return `${open}/>`;
-  }
-  return `${open}>\n${attrs}\n${pad}</${tag}>`;
+  return writeLeaf(tag, entityAttrs(endpoint, extra), endpoint.attributes, level);
 }
 
 export function serializeDiagramXml(doc: DiagramDocument): string {
-  const lines: string[] = [
-    `<?xml version="1.0" encoding="UTF-8"?>`,
-    `<diagram${writeEntityAttrs(doc)} xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="diagram.xsd">`,
-  ];
+  const xml = new XmlWriter();
+  xml.line(`<?xml version="1.0" encoding="UTF-8"?>`);
+  xml.line(
+    `<diagram${entityAttrs(doc)} xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="diagram.xsd">`,
+  );
   const rootAttrs = writeAttributes(doc.attributes, 1);
   if (rootAttrs) {
-    lines.push(rootAttrs);
+    xml.line(rootAttrs);
   }
   if (doc.blocks.length > 0) {
-    lines.push("    <blocks>");
+    xml.line("    <blocks>");
     for (const block of doc.blocks) {
       const extra = `${attr("type", block.type)}${attr("x", block.x)}${attr("y", block.y)}${attr("width", block.width)}${attr("height", block.height)}`;
-      lines.push(`        <block${writeEntityAttrs(block, extra)}>`);
+      xml.line(`        <block${entityAttrs(block, extra)}>`);
       const blockAttrs = writeAttributes(block.attributes, 3);
       if (blockAttrs) {
-        lines.push(blockAttrs);
+        xml.line(blockAttrs);
       }
       if (block.parameters.length > 0) {
-        lines.push("            <parameters>");
+        xml.line("            <parameters>");
         for (const param of block.parameters) {
-          lines.push(writeParameter(param, 4));
+          xml.line(writeParameter(param, 4));
         }
-        lines.push("            </parameters>");
+        xml.line("            </parameters>");
       }
-      lines.push("        </block>");
+      xml.line("        </block>");
     }
-    lines.push("    </blocks>");
+    xml.line("    </blocks>");
   }
   if (doc.connectors.length > 0) {
-    lines.push("    <connectors>");
+    xml.line("    <connectors>");
     for (const connector of doc.connectors) {
-      lines.push(`        <connector${writeEntityAttrs(connector)}>`);
+      xml.line(`        <connector${entityAttrs(connector)}>`);
       const connAttrs = writeAttributes(connector.attributes, 3);
       if (connAttrs) {
-        lines.push(connAttrs);
+        xml.line(connAttrs);
       }
-      lines.push(writeEndpoint("input", connector.input, 3));
-      lines.push(writeEndpoint("output", connector.output, 3));
-      lines.push("        </connector>");
+      xml.line(writeEndpoint("input", connector.input, 3));
+      xml.line(writeEndpoint("output", connector.output, 3));
+      xml.line("        </connector>");
     }
-    lines.push("    </connectors>");
+    xml.line("    </connectors>");
   }
-  lines.push("</diagram>");
-  lines.push("");
-  return lines.join("\n");
+  xml.line("</diagram>");
+  return xml.toString();
 }
 
 export function nowIso(now = new Date()): string {

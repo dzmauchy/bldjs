@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { compileGenerator } from "../compile";
 import { createSharedMemory, readSamples } from "../runtime/memory";
 import { instantiateGenerator } from "../runtime/generator";
-import { solutionViewFrom, subgraphFromTimer, instanceName } from "@bld/xml";
+import { solutionViewFrom } from "@bld/xml";
 import { WasmSolutionBuilder } from "./wasm";
 
 describe("SolutionView", () => {
@@ -14,7 +14,7 @@ describe("SolutionView", () => {
       ],
       [],
     );
-    expect(instanceName(unique, unique.blocks[0])).toBe("scope");
+    expect(unique.instanceName(unique.blocks[0])).toBe("scope");
     const two = solutionViewFrom(
       [
         { id: 1, defId: "scope" },
@@ -23,8 +23,8 @@ describe("SolutionView", () => {
       ],
       [],
     );
-    expect(instanceName(two, two.blocks[0])).toBe("scope_1");
-    expect(instanceName(two, two.blocks[1])).toBe("scope_2");
+    expect(two.instanceName(two.blocks[0])).toBe("scope_1");
+    expect(two.instanceName(two.blocks[1])).toBe("scope_2");
   });
 
   it("keeps the timer subgraph of connected blocks", () => {
@@ -40,7 +40,7 @@ describe("SolutionView", () => {
         { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
       ],
     );
-    const graph = subgraphFromTimer(view, 4);
+    const graph = view.subgraphFromTimer(4);
     expect(graph.blocks.map((block) => block.defId).sort()).toEqual(["scope", "sin", "timer"]);
   });
 });

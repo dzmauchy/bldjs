@@ -11,6 +11,7 @@ import {
   serializeCanvas,
   serializeDiagramXml,
 } from "./index";
+import { displayType } from "../blocks/ast";
 
 function catalog() {
   const diagram = new Diagram("workspace", "Workspace");
@@ -119,12 +120,7 @@ describe("diagram compile pipeline", () => {
     expect(solution.doc.blocks.map((block) => block.type)).toEqual(["scope", "quantizer", "sin", "timer"]);
     const timer = solution.inferred.get(4);
     expect(timer?.defId).toBe("timer");
-    expect(timer?.inputs[0]?.ty).toEqual({
-      kind: "type",
-      name: "c1",
-      ns: null,
-      args: [{ kind: "type", name: "f64", ns: null, args: [] }],
-    });
+    expect(displayType(timer!.inputs[0]!.ty, true)).toBe("c<f64>");
   });
 
   it("rejects unknown catalog types before wasm", () => {
