@@ -80,6 +80,11 @@ describe("WasmSolutionBuilder", () => {
     gen.tick();
     expect(Math.abs(readSamples(memory, 0)[0])).toBeLessThan(1e-9);
     expect(Math.abs(readSamples(memory, 1)[0] - 1)).toBeLessThan(1e-9);
+    for (let i = 0; i < 40; i += 1) {
+      gen.tick();
+    }
+    expect(readSamples(memory, 0).length).toBeGreaterThan(1);
+    expect(readSamples(memory, 1).length).toBeGreaterThan(1);
   });
 
   it("compiles the same pipeline as compileGenerator", async () => {
