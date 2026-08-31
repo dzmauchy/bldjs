@@ -5,24 +5,17 @@
   "type": "module",
   "license": "AGPL-3.0-or-later",
   "description": "BLD",
+  "workspaces": ["packages/*"],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "preview:e2e": "vite preview --port 8080 --strictPort --host 127.0.0.1",
-    "check": "tsc --noEmit && node scripts/check-xsd.mjs",
-    "test": "vitest run",
-    "test:e2e": "playwright test"
-  },
-  "dependencies": {
-    "@joint/router-avoid": "^4.3.2",
-    "binaryen": "^132.0.0",
-    "bootstrap": "5.3.8",
-    "chart.js": "^4.5.1",
-    "lit": "^3.3.3"
+    "dev": "npm run dev -w @bld/ui",
+    "build": "npm run build -w @bld/ui",
+    "preview": "npm run preview -w @bld/ui",
+    "preview:e2e": "npm run preview:e2e -w @bld/ui",
+    "check": "npm run check --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e -w @bld/ui"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1",
     "jsdom": "^30.0.1",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",

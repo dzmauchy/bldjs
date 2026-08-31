@@ -31,7 +31,7 @@ This project expects **Grok 4.6 High** at standard (non-Fast) speed. If that is 
 
 Cover type resolution, XML parsing, catalog merge, compatibility, 
 and input grounding with Vitest (`make test` / `npm test`). 
-Put those tests next to the logic (for example `src/lib/blocks/blocks.test.ts`).
+Put those tests next to the logic (for example `packages/xml/src/blocks/blocks.test.ts`).
 
 Cover UI-specific behavior (port clicks, wiring interaction, layout, pan/zoom, drag) 
 with Playwright (`make test-e2e` / `npm run test:e2e`). Prefer Playwright tests over launching browser subagents.

@@ -1,0 +1,105 @@
+import { describe, expect, it } from "vitest";
+import { compileGenerator } from "../compile";
+import { createSharedMemory, readSamples } from "../runtime/memory";
+import { instantiateGenerator } from "../runtime/generator";
+import { solutionViewFrom, subgraphFromTimer, instanceName } from "@bld/xml";
+import { WasmSolutionBuilder } from "./wasm";
+
+describe("SolutionView", () => {
+  it("names a unique XML block by id and suffixes duplicates", () => {
+    const unique = solutionViewFrom(
+      [
+        { id: 1, defId: "scope" },
+        { id: 4, defId: "timer" },
+      ],
+      [],
+    );
+    expect(instanceName(unique, unique.blocks[0])).toBe("scope");
+    const two = solutionViewFrom(
+      [
+        { id: 1, defId: "scope" },
+        { id: 2, defId: "scope" },
+        { id: 4, defId: "timer" },
+      ],
+      [],
+    );
+    expect(instanceName(two, two.blocks[0])).toBe("scope_1");
+    expect(instanceName(two, two.blocks[1])).toBe("scope_2");
+  });
+
+  it("keeps the timer subgraph of connected blocks", () => {
+    const view = solutionViewFrom(
+      [
+        { id: 1, defId: "scope" },
+        { id: 2, defId: "sin" },
+        { id: 9, defId: "cos" },
+        { id: 4, defId: "timer" },
+      ],
+      [
+        { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      ],
+    );
+    const graph = subgraphFromTimer(view, 4);
+    expect(graph.blocks.map((block) => block.defId).sort()).toEqual(["scope", "sin", "timer"]);
+  });
+});
+
+describe("WasmSolutionBuilder", () => {
+  it("sizes scope out from SolutionViewConnectors", async () => {
+    const view = solutionViewFrom(
+      [
+        { id: 1, defId: "scope" },
+        { id: 2, defId: "sin" },
+        { id: 3, defId: "cos" },
+        { id: 4, defId: "timer" },
+      ],
+      [
+        { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+        { fromBlock: 1, fromOut: "out[1]", toBlock: 3, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+        { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in[1]" },
+      ],
+    );
+    const { text, wasm } = await new WasmSolutionBuilder().build(view, { timerId: 4, delayMs: 0 });
+    expect(text).toContain("array.new_fixed $array_c1_f64 2");
+    expect(text).toContain("array.get $array_c1_f64");
+    expect(text).toContain("(func $fork_4_in");
+    expect(text).toContain("(func $scope");
+    expect(text).toContain("(result (ref $array_c1_f64))");
+    expect(text).toContain("(func $sin");
+    expect(text).toContain("(param $in (ref $c1_f64))");
+    expect(text).toContain("(result (ref $c1_f64))");
+    expect(text).toContain("(func $timer");
+    expect(text).not.toContain("(param $in f64)");
+    expect(text).not.toContain("(func $tap_0");
+    expect(WebAssembly.validate(wasm.slice().buffer)).toBe(true);
+
+    const memory = createSharedMemory();
+    const gen = await instantiateGenerator(wasm, memory, () => 0);
+    gen.tick();
+    expect(Math.abs(readSamples(memory, 0)[0])).toBeLessThan(1e-9);
+    expect(Math.abs(readSamples(memory, 1)[0] - 1)).toBeLessThan(1e-9);
+    for (let i = 0; i < 40; i += 1) {
+      gen.tick();
+    }
+    expect(readSamples(memory, 0).length).toBeGreaterThan(1);
+    expect(readSamples(memory, 1).length).toBeGreaterThan(1);
+  });
+
+  it("compiles the same pipeline as compileGenerator", async () => {
+    const nodes = [
+      { id: 1, defId: "scope" },
+      { id: 2, defId: "sin" },
+      { id: 4, defId: "timer" },
+    ];
+    const links = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+    ];
+    const compiled = (await compileGenerator(4, nodes, links))!;
+    expect(compiled.text).toContain("call $sin");
+    expect(compiled.text).toContain("call $timer");
+    expect(compiled.text).toContain("array.get $array_c1_f64");
+  });
+});
