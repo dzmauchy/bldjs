@@ -2,11 +2,12 @@ import type { BlockDef } from "@bld/xml";
 import {
   Catalog,
   Diagram,
-  QUANTIZER_DELAY_MS,
+  DEFAULT_PERIOD_MS,
   SolutionView,
   associateBuiltinModels,
   catalogPortName,
   isArrayType,
+  isGeneratorId,
   portSlotIndex,
   type SolutionAssembly,
   type SolutionBuilder,
@@ -18,6 +19,8 @@ import { CTX, MEM, SAMPLE_CAP } from "../runtime/memory";
 
 export interface WasmBuildOptions {
   delayMs?: number;
+  generatorId?: number;
+  /** @deprecated Use {@link generatorId}. */
   timerId?: number;
   /** Shared memory + atomics. Off when the page is not cross-origin isolated. */
   sharedMemory?: boolean;
@@ -46,29 +49,22 @@ function builtinCatalog(): Catalog {
   return diagram.catalog();
 }
 
-function viewFromStages(stages: readonly string[]): SolutionView {
-  const blocks: SolutionViewBlock[] = [{ id: 1, defId: "scope" }];
-  const connectors: SolutionViewConnector[] = [];
-  let prev = 1;
-  let nextId = 2;
-  for (const stage of stages) {
-    const id = nextId;
-    nextId += 1;
-    blocks.push({ id, defId: stage });
-    connectors.push({ fromBlock: prev, fromOut: "out", toBlock: id, toIn: "in" });
-    prev = id;
-  }
-  const timerId = nextId;
-  blocks.push({ id: timerId, defId: "timer" });
-  connectors.push({ fromBlock: prev, fromOut: "out", toBlock: timerId, toIn: "in" });
-  return new SolutionView(blocks, connectors);
+function viewFromGenerator(generator = "timer"): SolutionView {
+  const generatorId = isGeneratorId(generator) ? generator : "timer";
+  return new SolutionView(
+    [
+      { id: 1, defId: "scope" },
+      { id: 2, defId: generatorId },
+    ],
+    [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }],
+  );
 }
 
 /**
- * Assign a sample ring to each scope vector slot, walking incoming wires from the timer
+ * Assign a sample ring to each scope vector slot, walking incoming wires from the generator
  * (same order the UI uses for scope plot series).
  */
-export function assignRings(view: SolutionView, timerId: number): Map<string, number> {
+export function assignRings(view: SolutionView, generatorId: number): Map<string, number> {
   const rings = new Map<string, number>();
   const walk = (id: number, depth: number): void => {
     if (depth > 64) {
@@ -86,7 +82,7 @@ export function assignRings(view: SolutionView, timerId: number): Map<string, nu
       }
     }
   };
-  walk(timerId, 0);
+  walk(generatorId, 0);
   return rings;
 }
 
@@ -133,13 +129,12 @@ export class WasmSolutionBuilder implements SolutionBuilder {
   constructor(private readonly catalog: Catalog = builtinCatalog()) {}
 
   async build(view: SolutionView, options: WasmBuildOptions = {}): Promise<SolutionAssembly> {
-    const timerId = options.timerId ?? view.firstTimerId();
-    const graph = timerId === undefined ? view : view.subgraphFromTimer(timerId);
-    const delayMs =
-      options.delayMs ?? graph.blocks.filter((block) => block.defId === "quantizer").length * QUANTIZER_DELAY_MS;
+    const generatorId = options.generatorId ?? options.timerId ?? view.firstGeneratorId();
+    const graph = generatorId === undefined ? view : view.subgraphFromGenerator(generatorId);
+    const delayMs = options.delayMs ?? DEFAULT_PERIOD_MS;
     return emitWasm(this.catalog, graph, {
       delayMs,
-      timerId,
+      generatorId,
       sharedMemory: options.sharedMemory ?? canShareMemory(),
       emitText: options.emitText,
     });
@@ -149,7 +144,7 @@ export class WasmSolutionBuilder implements SolutionBuilder {
 async function emitWasm(
   catalog: Catalog,
   view: SolutionView,
-  options: { delayMs: number; timerId?: number; sharedMemory: boolean; emitText?: boolean },
+  options: { delayMs: number; generatorId?: number; sharedMemory: boolean; emitText?: boolean },
 ): Promise<SolutionAssembly> {
   preloadAssembler();
   const [{ default: binaryen }, scripts, { nameLocals }] = await Promise.all([
@@ -172,7 +167,7 @@ async function emitWasm(
       RUNTIME_SCRIPTS.notify(module);
     }
 
-    const rings = options.timerId !== undefined ? assignRings(view, options.timerId) : new Map<string, number>();
+    const rings = options.generatorId !== undefined ? assignRings(view, options.generatorId) : new Map<string, number>();
     const names = new Map<number, string>();
     for (const block of view.blocks) {
       const add = BLOCK_SCRIPTS[block.defId];
@@ -317,6 +312,8 @@ async function emitWasm(
   }
 }
 
-export function linearSolutionView(stages: readonly string[]): SolutionView {
-  return viewFromStages(stages);
+export function linearSolutionView(generatorOrStages: string | readonly string[] = "timer"): SolutionView {
+  const generator =
+    typeof generatorOrStages === "string" ? generatorOrStages : (generatorOrStages.at(-1) ?? "timer");
+  return viewFromGenerator(isGeneratorId(generator) ? generator : "timer");
 }

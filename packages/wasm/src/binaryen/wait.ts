@@ -22,7 +22,7 @@ export function addWait(module: binaryen.Module): binaryen.FunctionRef {
   return fn;
 }
 
-/** `memory.atomic.notify` at `$wait` so a parked quantizer can be woken on stop. */
+/** `memory.atomic.notify` at `$wait` so a parked generator can be woken on stop. */
 export function addNotify(module: binaryen.Module): binaryen.FunctionRef {
   const fn = module.addFunction(
     "notify",

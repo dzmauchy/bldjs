@@ -1,7 +1,6 @@
 import {
   type BlockDef,
   type BlocksDoc,
-  type LibraryRef,
   type Namespace,
   type ParamDef,
   type TypeDef,
@@ -19,7 +18,6 @@ export interface CatalogRef {
 }
 
 export class Catalog {
-  libraries: LibraryRef[] = [];
   namespaces = new Map<string, Namespace>();
   private types: TypeDef[] = [];
   private typeByName = new Map<string, number[]>();
@@ -62,7 +60,6 @@ export class Catalog {
         throw ParseError.new(`duplicate block id \`${block.id}\` (from ${doc.source})`);
       }
     }
-    this.libraries.push(...doc.libraries);
     for (const namespace of doc.namespaces) {
       this.namespaces.set(namespace.id, namespace);
     }

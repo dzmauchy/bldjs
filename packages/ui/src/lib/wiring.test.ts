@@ -31,6 +31,6 @@ describe("WiringGraph", () => {
     associateBuiltinModels(diagram);
     const catalog: Catalog = diagram.catalog();
     expect(portAcceptsMany(catalog.block("timer"), "in")).toBe(true);
-    expect(portAcceptsMany(catalog.block("quantizer"), "in")).toBe(true);
+    expect(portAcceptsMany(catalog.block("sin"), "in")).toBe(true);
   });
 });

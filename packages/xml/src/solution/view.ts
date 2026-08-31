@@ -1,4 +1,5 @@
 import type { Link } from "../blocks/diagram";
+import { isGeneratorId } from "../blocks/cs";
 import { catalogPortName, portSlotIndex } from "../blocks/ports";
 
 /** One placed block in a connected solution (XML `block` instance). */
@@ -54,9 +55,9 @@ export class SolutionView {
     return this.portConnectors(fromBlock, port, "out");
   }
 
-  /** Blocks and connectors reachable by walking incoming consumer wires from `timerId`. */
-  subgraphFromTimer(timerId: number): SolutionView {
-    const ids = new Set<number>([timerId]);
+  /** Blocks and connectors reachable by walking incoming consumer wires from a generator. */
+  subgraphFromGenerator(generatorId: number): SolutionView {
+    const ids = new Set<number>([generatorId]);
     const walk = (id: number): void => {
       for (const link of this.connectors.filter((item) => item.toBlock === id)) {
         if (ids.has(link.fromBlock)) {
@@ -66,15 +67,25 @@ export class SolutionView {
         walk(link.fromBlock);
       }
     };
-    walk(timerId);
+    walk(generatorId);
     return new SolutionView(
       this.blocks.filter((block) => ids.has(block.id)),
       this.connectors.filter((link) => ids.has(link.fromBlock) && ids.has(link.toBlock)),
     );
   }
 
+  /** @deprecated Use {@link subgraphFromGenerator}. */
+  subgraphFromTimer(timerId: number): SolutionView {
+    return this.subgraphFromGenerator(timerId);
+  }
+
+  firstGeneratorId(): number | undefined {
+    return this.blocks.find((block) => isGeneratorId(block.defId))?.id;
+  }
+
+  /** @deprecated Use {@link firstGeneratorId}. */
   firstTimerId(): number | undefined {
-    return this.blocks.find((block) => block.defId === "timer")?.id;
+    return this.firstGeneratorId();
   }
 
   private portConnectors(

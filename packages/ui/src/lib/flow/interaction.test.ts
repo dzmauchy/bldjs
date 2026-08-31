@@ -91,9 +91,9 @@ describe("DiagramInteractionController", () => {
 
   it("connects a dragged wire dropped on a block with one compatible input", () => {
     const app = new AppState();
-    app.addBlock("sin", 0, 0);
+    app.addBlock("scope", 0, 0);
     app.addBlock("timer", 240, 0);
-    const sinId = app.blocks.find((block) => block.defId === "sin")!.id;
+    const scopeId = app.blocks.find((block) => block.defId === "scope")!.id;
     const timerId = app.blocks.find((block) => block.defId === "timer")!.id;
     const host = {
       app,
@@ -104,7 +104,7 @@ describe("DiagramInteractionController", () => {
     const interaction = new DiagramInteractionController(host);
     interaction.onPortDown({
       side: "out",
-      blockId: sinId,
+      blockId: scopeId,
       port: "out",
       clientX: 0,
       clientY: 0,
@@ -115,16 +115,16 @@ describe("DiagramInteractionController", () => {
     timer.dataset.blockId = String(timerId);
     interaction.onPointerUp(pointer({ clientX: 80, clientY: 40, pointerId: 1, composedPath: () => [timer] }));
     expect(app.links).toEqual([
-      expect.objectContaining({ fromBlock: sinId, fromOut: "out", toBlock: timerId, toIn: "in" }),
+      expect.objectContaining({ fromBlock: scopeId, fromOut: "out", toBlock: timerId, toIn: "in" }),
     ]);
     expect(app.linkingFrom).toBeNull();
   });
 
   it("keeps a click-started wire until the next pointer up on a block", () => {
     const app = new AppState();
-    app.addBlock("sin", 0, 0);
+    app.addBlock("scope", 0, 0);
     app.addBlock("timer", 240, 0);
-    const sinId = app.blocks.find((block) => block.defId === "sin")!.id;
+    const scopeId = app.blocks.find((block) => block.defId === "scope")!.id;
     const timerId = app.blocks.find((block) => block.defId === "timer")!.id;
     const host = {
       app,
@@ -135,28 +135,28 @@ describe("DiagramInteractionController", () => {
     const interaction = new DiagramInteractionController(host);
     interaction.onPortDown({
       side: "out",
-      blockId: sinId,
+      blockId: scopeId,
       port: "out",
       clientX: 0,
       clientY: 0,
       pointerId: 1,
     });
     interaction.onPointerUp(pointer({ pointerId: 1, composedPath: () => [] }));
-    expect(app.linkingFrom).toEqual({ blockId: sinId, port: "out" });
+    expect(app.linkingFrom).toEqual({ blockId: scopeId, port: "out" });
     const timer = document.createElement("bld-node");
     timer.dataset.blockId = String(timerId);
     interaction.onPointerUp(pointer({ pointerId: 2, composedPath: () => [timer] }));
     expect(app.links).toEqual([
-      expect.objectContaining({ fromBlock: sinId, fromOut: "out", toBlock: timerId, toIn: "in" }),
+      expect.objectContaining({ fromBlock: scopeId, fromOut: "out", toBlock: timerId, toIn: "in" }),
     ]);
     interaction.dispose();
   });
 
   it("does not start a move when tapping a block while a wire is in progress", () => {
     const app = new AppState();
-    app.addBlock("sin", 0, 0);
+    app.addBlock("scope", 0, 0);
     app.addBlock("timer", 240, 0);
-    const sinId = app.blocks.find((block) => block.defId === "sin")!.id;
+    const scopeId = app.blocks.find((block) => block.defId === "scope")!.id;
     const timerId = app.blocks.find((block) => block.defId === "timer")!.id;
     const host = {
       app,
@@ -165,7 +165,7 @@ describe("DiagramInteractionController", () => {
       requestUpdate: vi.fn(),
     };
     const interaction = new DiagramInteractionController(host);
-    app.linkingFrom = { blockId: sinId, port: "out" };
+    app.linkingFrom = { blockId: scopeId, port: "out" };
     const timer = document.createElement("bld-node");
     timer.dataset.blockId = String(timerId);
     interaction.onViewportPointerDown(pointer({ composedPath: () => [timer] }));

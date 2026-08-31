@@ -27,40 +27,28 @@ describe("XML ↔ WASM signatures", () => {
     associateBuiltinModels(diagram);
     const cat = diagram.catalog();
 
-    expect(blockSignature(cat.block("timer")!)).toEqual({
-      id: "timer",
-      name: "Timer",
-      params: [{ name: "in", type: "(ref $c1_f64)" }],
-      results: [],
-    });
-    expect(blockSignature(cat.block("quantizer")!)).toEqual({
-      id: "quantizer",
-      name: "Quantizer",
-      params: [{ name: "in", type: "(ref $c1_f64)" }],
-      results: [{ name: "out", type: "(ref $c1_f64)" }],
-    });
-    expect(blockSignature(cat.block("sin")!)).toEqual({
-      id: "sin",
-      name: "Sin",
-      params: [{ name: "in", type: "(ref $c1_f64)" }],
-      results: [{ name: "out", type: "(ref $c1_f64)" }],
-    });
-    expect(blockSignature(cat.block("cos")!)).toEqual({
-      id: "cos",
-      name: "Cos",
-      params: [{ name: "in", type: "(ref $c1_f64)" }],
-      results: [{ name: "out", type: "(ref $c1_f64)" }],
-    });
+    for (const [id, name] of [
+      ["timer", "Timer"],
+      ["sin", "Sin"],
+      ["cos", "Cos"],
+      ["random", "Random"],
+    ] as const) {
+      expect(blockSignature(cat.block(id)!)).toEqual({
+        id,
+        name,
+        params: [{ name: "in", type: "(ref $c1_f64)" }],
+        results: [],
+      });
+      expect(displayType(cat.block(id)!.inputs[0].ty, true)).toBe("c<f64>");
+      expect(cat.block(id)!.outputs).toEqual([]);
+    }
+    expect(cat.block("quantizer")).toBeUndefined();
     expect(blockSignature(cat.block("scope")!)).toEqual({
       id: "scope",
       name: "Scope",
       params: [],
       results: [{ name: "out", type: "(ref $array_c1_f64)" }],
     });
-    expect(displayType(cat.block("timer")!.inputs[0].ty, true)).toBe("c<f64>");
-    expect(displayType(cat.block("quantizer")!.outputs[0].ty, true)).toBe("c<f64>");
-    expect(displayType(cat.block("sin")!.outputs[0].ty, true)).toBe("c<f64>");
-    expect(displayType(cat.block("cos")!.outputs[0].ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("scope")!.outputs[0].ty, true)).toBe("c<f64>[]");
   });
 
@@ -106,7 +94,7 @@ describe("XML ↔ WASM signatures", () => {
       "(func $timer (param $ctx i32) (param $in (ref $c1_f64))",
     );
     expect(signatureWat(blockSignature(cat.block("sin")!))).toBe(
-      "(func $sin (param $ctx i32) (param $in (ref $c1_f64)) (result $out (ref $c1_f64))",
+      "(func $sin (param $ctx i32) (param $in (ref $c1_f64))",
     );
     expect(signatureWat(blockSignature(cat.block("scope")!))).toBe(
       "(func $scope (param $ctx i32) (result $out (ref $array_c1_f64))",

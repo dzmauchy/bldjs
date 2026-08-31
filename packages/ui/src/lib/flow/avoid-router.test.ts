@@ -235,7 +235,7 @@ describe("avoid router engine", () => {
     await engine.start({ worker: false, filePath: wasmPath });
     const cos = obstacleFromBlock(1, 0, 0, layout(80, 60, 30, 30))!;
     const sin = obstacleFromBlock(2, 0, 140, layout(80, 60, 30, 30))!;
-    const quantizer = {
+    const timer = {
       id: "3",
       x: 280,
       y: 40,
@@ -246,7 +246,7 @@ describe("avoid router engine", () => {
         { side: "in" as const, name: "in", x: 0, y: 30 },
       ],
     };
-    engine.sync([cos, sin, quantizer], [
+    engine.sync([cos, sin, timer], [
       {
         id: "1:out->3:in",
         sourceId: "1",
@@ -263,7 +263,7 @@ describe("avoid router engine", () => {
     );
 
     const twoInputs = {
-      ...quantizer,
+      ...timer,
       height: 84,
       ports: [
         { side: "out" as const, name: "out", x: 80, y: 30 },

@@ -3,19 +3,13 @@ import { BLOCK_PLACE_HEIGHT, BLOCK_PLACE_WIDTH } from "./model";
 import { AppState } from "./state";
 import { MemoryDiagramRepository } from "@bld/xml";
 
-function wireCsPipeline(app: AppState): { timerId: number; scopeId: number } {
-  const timerId = app.nextId;
-  app.addBlock("timer", 0, 0);
-  const quantizerId = app.nextId;
-  app.addBlock("quantizer", 180, 0);
-  const sinId = app.nextId;
-  app.addBlock("sin", 360, 0);
+function wireCsPipeline(app: AppState): { generatorId: number; scopeId: number } {
+  const generatorId = app.nextId;
+  app.addBlock("sin", 0, 0);
   const scopeId = app.nextId;
-  app.addBlock("scope", 540, 0);
-  app.toggleLink(scopeId, "out", quantizerId, "in");
-  app.toggleLink(quantizerId, "out", sinId, "in");
-  app.toggleLink(sinId, "out", timerId, "in");
-  return { timerId, scopeId };
+  app.addBlock("scope", 180, 0);
+  app.toggleLink(scopeId, "out", generatorId, "in");
+  return { generatorId, scopeId };
 }
 
 describe("AppState placement", () => {
@@ -32,8 +26,8 @@ describe("AppState placement", () => {
     app.viewportW = 800;
     app.viewportH = 600;
     app.addBlockAtViewCenter("scope");
-    app.addBlockAtViewCenter("quantizer");
     app.addBlockAtViewCenter("sin");
+    app.addBlockAtViewCenter("cos");
     app.addBlockAtViewCenter("timer");
     for (let i = 0; i < app.blocks.length; i++) {
       for (let j = i + 1; j < app.blocks.length; j++) {
@@ -96,9 +90,9 @@ describe("AppState wiring", () => {
   it("inserts a new fan-in slot above when the source is above an existing wire", () => {
     const app = new AppState();
     const lower = app.nextId;
-    app.addBlock("sin", 0, 120);
+    app.addBlock("scope", 0, 120);
     const upper = app.nextId;
-    app.addBlock("cos", 0, 0);
+    app.addBlock("scope", 0, 0);
     const timerId = app.nextId;
     app.addBlock("timer", 300, 40);
     app.toggleLink(lower, "out", timerId, "in");
@@ -117,22 +111,16 @@ describe("AppState wiring", () => {
     app.addBlock("sin", 180, 0);
     const cosId = app.nextId;
     app.addBlock("cos", 180, 120);
-    const timerId = app.nextId;
-    app.addBlock("timer", 360, 0);
     app.toggleLink(scopeId, "out", sinId, "in");
     app.toggleLink(scopeId, "out", cosId, "in");
-    app.toggleLink(sinId, "out", timerId, "in");
-    app.toggleLink(cosId, "out", timerId, "in");
     expect(app.links).toEqual([
       { fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" },
       { fromBlock: scopeId, fromOut: "out[1]", toBlock: cosId, toIn: "in" },
-      { fromBlock: sinId, fromOut: "out", toBlock: timerId, toIn: "in" },
-      { fromBlock: cosId, fromOut: "out", toBlock: timerId, toIn: "in[1]" },
     ]);
     expect(app.canRun()).toBe(true);
-    expect(app.plannedGenerators()[0].channels).toEqual([
-      { scopeId, label: "sin" },
-      { scopeId, label: "cos" },
+    expect(app.plannedGenerators().flatMap((plan) => plan.channels.map((channel) => channel.label))).toEqual([
+      "sin",
+      "cos",
     ]);
   });
 
@@ -144,23 +132,10 @@ describe("AppState wiring", () => {
     app.addBlock("sin", 180, 0);
     const cosId = app.nextId;
     app.addBlock("cos", 180, 120);
-    const timerId = app.nextId;
-    app.addBlock("timer", 360, 0);
     app.toggleLink(scopeId, "out", sinId, "in");
     app.toggleLink(scopeId, "out", cosId, "in");
-    app.toggleLink(sinId, "out", timerId, "in");
-    app.toggleLink(cosId, "out", timerId, "in");
     app.removeLink({ fromBlock: scopeId, fromOut: "out[1]", toBlock: cosId, toIn: "in" });
-    expect(app.links).toEqual([
-      { fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" },
-      { fromBlock: sinId, fromOut: "out", toBlock: timerId, toIn: "in" },
-      { fromBlock: cosId, fromOut: "out", toBlock: timerId, toIn: "in[1]" },
-    ]);
-    app.removeLink({ fromBlock: cosId, fromOut: "out", toBlock: timerId, toIn: "in[1]" });
-    expect(app.links).toEqual([
-      { fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" },
-      { fromBlock: sinId, fromOut: "out", toBlock: timerId, toIn: "in" },
-    ]);
+    expect(app.links).toEqual([{ fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" }]);
   });
 
   it("compacts remaining slots after the first extra wire is removed", () => {
@@ -191,15 +166,15 @@ describe("AppState wiring", () => {
     expect(app.links).toEqual([{ fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" }]);
   });
 
-  it("grounds scope into quantizer", () => {
+  it("grounds scope into sin", () => {
     const app = new AppState();
     const scopeId = app.nextId;
     app.addBlock("scope", 0, 0);
-    const quantizerId = app.nextId;
-    app.addBlock("quantizer", 300, 0);
-    app.toggleLink(scopeId, "out", quantizerId, "in");
+    const sinId = app.nextId;
+    app.addBlock("sin", 300, 0);
+    app.toggleLink(scopeId, "out", sinId, "in");
     expect(app.links).toEqual([
-      { fromBlock: scopeId, fromOut: "out", toBlock: quantizerId, toIn: "in" },
+      { fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" },
     ]);
   });
 
@@ -207,10 +182,10 @@ describe("AppState wiring", () => {
     const app = new AppState();
     const scopeId = app.nextId;
     app.addBlock("scope", 0, 0);
-    const quantizerId = app.nextId;
-    app.addBlock("quantizer", 300, 0);
-    app.toggleLink(scopeId, "out", quantizerId, "in");
-    app.selectLink({ fromBlock: scopeId, fromOut: "out", toBlock: quantizerId, toIn: "in" });
+    const sinId = app.nextId;
+    app.addBlock("sin", 300, 0);
+    app.toggleLink(scopeId, "out", sinId, "in");
+    app.selectLink({ fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" });
     app.deleteSelected();
     expect(app.links).toEqual([]);
     expect(app.blocks).toHaveLength(2);
@@ -221,11 +196,11 @@ describe("AppState wiring", () => {
     const app = new AppState();
     const scopeId = app.nextId;
     app.addBlock("scope", 0, 0);
-    const quantizerId = app.nextId;
-    app.addBlock("quantizer", 300, 0);
-    app.toggleLink(scopeId, "out", quantizerId, "in");
+    const sinId = app.nextId;
+    app.addBlock("sin", 300, 0);
+    app.toggleLink(scopeId, "out", sinId, "in");
     app.removeBlock(scopeId);
-    expect(app.blocks.map((block) => block.defId)).toEqual(["quantizer"]);
+    expect(app.blocks.map((block) => block.defId)).toEqual(["sin"]);
     expect(app.links).toEqual([]);
   });
 });
@@ -233,9 +208,9 @@ describe("AppState wiring", () => {
 describe("AppState run", () => {
   it("keeps the same topology key when a block is only moved", () => {
     const app = new AppState();
-    const { timerId } = wireCsPipeline(app);
+    const { generatorId } = wireCsPipeline(app);
     const before = app.timerTopologyKey();
-    app.moveBlock(timerId, 40, -12);
+    app.moveBlock(generatorId, 40, -12);
     expect(app.timerTopologyKey()).toBe(before);
   });
 
@@ -251,8 +226,8 @@ describe("AppState run", () => {
 
   it("enables the scope chart and wire rates as soon as Run starts", async () => {
     const app = new AppState();
-    const { timerId, scopeId } = wireCsPipeline(app);
-    const link = app.links.find((item) => item.toBlock === timerId)!;
+    const { generatorId, scopeId } = wireCsPipeline(app);
+    const link = app.links.find((item) => item.toBlock === generatorId)!;
     const pending = app.runDiagram();
     expect(app.starting).toBe(true);
     expect(app.running).toBe(false);
@@ -267,7 +242,7 @@ describe("AppState run", () => {
 
   it("run compiles wasm and enables the scope chart", async () => {
     const app = new AppState();
-    const { timerId, scopeId } = wireCsPipeline(app);
+    const { generatorId, scopeId } = wireCsPipeline(app);
     await app.runDiagram();
     expect(app.running).toBe(true);
     expect(app.runError).toBeNull();
@@ -275,14 +250,14 @@ describe("AppState run", () => {
     app.openScope(scopeId);
     expect(app.scopeOpen).toBe(scopeId);
 
-    app.moveBlockTo(timerId, 24, 16);
+    app.moveBlockTo(generatorId, 24, 16);
     expect(app.running).toBe(true);
     expect(app.isScopeLive(scopeId)).toBe(true);
 
     await new Promise((resolve) => setTimeout(resolve, 30));
     const series = await app.snapshotScope(scopeId);
     expect(series).toHaveLength(1);
-    expect(series[0].label).toBe("sin → quantizer");
+    expect(series[0].label).toBe("sin");
     expect(series[0].samples.length).toBeGreaterThan(0);
     app.stopRun();
     expect(app.running).toBe(false);
@@ -291,9 +266,9 @@ describe("AppState run", () => {
 
   it("seeds connector frequency on run and measures runner intercepts", async () => {
     const app = new AppState();
-    const { timerId } = wireCsPipeline(app);
+    const { generatorId } = wireCsPipeline(app);
     await app.runDiagram();
-    const link = app.links.find((item) => item.toBlock === timerId)!;
+    const link = app.links.find((item) => item.toBlock === generatorId)!;
     expect(app.connectorHz(link)).toBeGreaterThan(0);
     const t0 = 1_000;
     app.sampleFlowRates(t0);
@@ -330,12 +305,8 @@ describe("AppState run", () => {
     app.addBlock("sin", 180, 0);
     const cosId = app.nextId;
     app.addBlock("cos", 180, 120);
-    const timerId = app.nextId;
-    app.addBlock("timer", 360, 0);
     app.toggleLink(scopeId, "out", sinId, "in");
     app.toggleLink(scopeId, "out", cosId, "in");
-    app.toggleLink(sinId, "out", timerId, "in");
-    app.toggleLink(cosId, "out", timerId, "in");
     await app.runDiagram();
     expect(app.running).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 30));
@@ -348,13 +319,25 @@ describe("AppState run", () => {
 
   it("stops the run when the wiring changes", async () => {
     const app = new AppState();
-    const { timerId } = wireCsPipeline(app);
+    const { generatorId } = wireCsPipeline(app);
     await app.runDiagram();
     expect(app.running).toBe(true);
 
-    app.toggleLink(app.blocks.find((block) => block.defId === "sin")!.id, "out", timerId, "in");
+    app.toggleLink(app.blocks.find((block) => block.defId === "scope")!.id, "out", generatorId, "in");
     expect(app.running).toBe(false);
     expect(app.canRun()).toBe(false);
+  });
+
+  it("seeds generator period at 10 ms and updates it", () => {
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("sin", 0, 0);
+    expect(app.blockPeriodMs(id)).toBe(10);
+    expect(app.blockInputs(id).map((input) => [input.def.name, input.value])).toEqual([["period", "10"]]);
+    app.setBlockParameter(id, "period", "25");
+    expect(app.blockPeriodMs(id)).toBe(25);
+    expect(app.toDiagramXml()).toContain('name="period"');
+    expect(app.toDiagramXml()).toContain('value="25"');
   });
 });
 
@@ -366,13 +349,13 @@ describe("AppState diagram XML", () => {
     expect(xml).toContain("<diagram");
     expect(xml).toContain("<catalog>types.xml</catalog>");
     expect(xml).toContain("<catalog>control-systems.xml</catalog>");
-    expect(xml).toContain('type="timer"');
+    expect(xml).toContain('type="sin"');
     expect(xml).toContain("<connector");
 
     const other = new AppState();
     expect(other.loadDiagramXml(xml)).toBe(true);
-    expect(other.blocks.map((block) => block.defId)).toEqual(["timer", "quantizer", "sin", "scope"]);
-    expect(other.links).toHaveLength(3);
+    expect(other.blocks.map((block) => block.defId)).toEqual(["sin", "scope"]);
+    expect(other.links).toHaveLength(1);
     expect(other.canRun()).toBe(true);
     expect(other.diagramName).toBe("Workspace");
   });
@@ -483,7 +466,7 @@ describe("AppState diagram XML", () => {
     expect(app.blocks).toHaveLength(0);
     const id = (await repo.list())[0]!.id;
     expect(await app.loadFromLibrary(id)).toBe(true);
-    expect(app.blocks.map((block) => block.defId)).toEqual(["timer", "quantizer", "sin", "scope"]);
+    expect(app.blocks.map((block) => block.defId)).toEqual(["sin", "scope"]);
     expect(app.diagramName).toBe("Pipeline");
     expect(app.canRun()).toBe(true);
   });

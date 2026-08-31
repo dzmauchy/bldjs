@@ -5,7 +5,7 @@
 ---
 
 ## 1. Document Root & Namespaces
-The root element is `<blocks>`. It acts as the catalog container for `<library>`, `<namespace>`, `<type>`, and `<block>` definitions. Catalog XML files declare `blocks.xsd` with `xsi:noNamespaceSchemaLocation`.
+The root element is `<blocks>`. It acts as the catalog container for `<namespace>`, `<type>`, and `<block>` definitions. Catalog identity is `blocks.id` and `blocks.name`. Catalog XML files declare `blocks.xsd` with `xsi:noNamespaceSchemaLocation`.
 
 ```xml
 <blocks id="dsp_catalog" name="Signal Processing Catalog" icon="workspace.png"

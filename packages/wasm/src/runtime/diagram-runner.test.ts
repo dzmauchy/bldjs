@@ -2,34 +2,28 @@ import { describe, expect, it } from "vitest";
 import type { Link } from "@bld/xml";
 import { DiagramRunCancelled, DiagramRunner, EMPTY_RUN_MESSAGE } from "./diagram-runner";
 
-function csPipeline(): { nodes: { id: number; defId: string }[]; links: Link[]; scopeId: number; timerId: number } {
+function csPipeline(): { nodes: { id: number; defId: string }[]; links: Link[]; scopeId: number; generatorId: number } {
   const nodes = [
     { id: 1, defId: "scope" },
-    { id: 2, defId: "quantizer" },
-    { id: 3, defId: "sin" },
-    { id: 4, defId: "timer" },
+    { id: 2, defId: "sin" },
   ];
-  const links: Link[] = [
-    { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
-    { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
-    { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" },
-  ];
-  return { nodes, links, scopeId: 1, timerId: 4 };
+  const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
+  return { nodes, links, scopeId: 1, generatorId: 2 };
 }
 
 describe("DiagramRunner", () => {
-  it("rejects a diagram with no timer path", async () => {
+  it("rejects a diagram with no generator path", async () => {
     const runner = new DiagramRunner();
     await expect(runner.start([], [])).rejects.toThrow(EMPTY_RUN_MESSAGE);
   });
 
   it("arms scopes before WASM finishes and can be cancelled", async () => {
     const runner = new DiagramRunner();
-    const { nodes, links, scopeId, timerId } = csPipeline();
+    const { nodes, links, scopeId, generatorId } = csPipeline();
     const pending = runner.start(nodes, links, {
       yieldForPaint: async () => {
         expect(runner.current?.isScopeLive(scopeId)).toBe(true);
-        expect(runner.current?.connectorHz(links.find((link) => link.toBlock === timerId)!)).toBeGreaterThan(0);
+        expect(runner.current?.connectorHz(links.find((link) => link.toBlock === generatorId)!)).toBeGreaterThan(0);
         runner.stop();
       },
     });

@@ -130,12 +130,12 @@ describe("uniqueCompatibleInput", () => {
 describe("uniqueCompatibleDropPort", () => {
   it("wires a drop onto a block that has one compatible input", () => {
     const app = new AppState();
-    app.addBlock("sin", 0, 0);
+    app.addBlock("scope", 0, 0);
     app.addBlock("timer", 200, 0);
-    const sinId = app.blocks.find((block) => block.defId === "sin")!.id;
+    const scopeId = app.blocks.find((block) => block.defId === "scope")!.id;
     const timerId = app.blocks.find((block) => block.defId === "timer")!.id;
-    app.linkingFrom = { blockId: sinId, port: "out" };
+    app.linkingFrom = { blockId: scopeId, port: "out" };
     expect(uniqueCompatibleDropPort(app, timerId)).toBe("in");
-    expect(uniqueCompatibleDropPort(app, sinId)).toBeUndefined();
+    expect(uniqueCompatibleDropPort(app, scopeId)).toBeUndefined();
   });
 });

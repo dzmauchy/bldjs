@@ -10,26 +10,24 @@ describe("palette tree", () => {
     const tree = buildPaletteTree(diagram.catalog());
     expect(tree.map((group) => group.id)).toEqual(["com.dauch.cs"]);
     const cs = tree[0];
-    expect(cs.blocks.map((block) => block.id)).toEqual(["quantizer"]);
+    expect(cs.blocks.map((block) => block.id)).toEqual([]);
     expect(cs.children.map((group) => group.id)).toEqual([
       "com.dauch.cs.gen",
       "com.dauch.cs.sink",
-      "com.dauch.cs.transform",
     ]);
     expect(cs.children.find((group) => group.id === "com.dauch.cs.gen")?.blocks.map((block) => block.id)).toEqual([
+      "cos",
+      "random",
+      "sin",
       "timer",
     ]);
     expect(cs.children.find((group) => group.id === "com.dauch.cs.sink")?.blocks.map((block) => block.id)).toEqual([
       "scope",
     ]);
-    expect(
-      cs.children.find((group) => group.id === "com.dauch.cs.transform")?.blocks.map((block) => block.id),
-    ).toEqual(["cos", "sin"]);
     expect(paletteGroupIds(tree)).toEqual([
       "com.dauch.cs",
       "com.dauch.cs.gen",
       "com.dauch.cs.sink",
-      "com.dauch.cs.transform",
     ]);
   });
 });

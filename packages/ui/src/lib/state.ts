@@ -1,17 +1,20 @@
-import {
   type BlockDef,
+  type BlockParameterDef,
   type CatalogRef,
   Catalog,
   Diagram,
   type Link,
+  type ParameterValue,
   type ResolvedBlock,
   type ScopeSeries,
   type XmlSource,
   BUILTIN_CATALOGS,
+  PERIOD_PARAM,
   associateBuiltinModels,
   blockAttribute,
   catalogFromFiles,
   compactLinkSlots,
+  periodMsFrom,
   xmlSourcesForFiles,
 } from "@bld/xml";
 import { linksEqual } from "@bld/xml";
@@ -80,6 +83,7 @@ export class AppState extends ObservableState {
   declare draggingDefId: string | null;
   declare linkingFrom: LinkingFrom | null;
   declare scopeOpen: number;
+  declare inputsOpen: number;
   declare running: boolean;
   declare starting: boolean;
   declare runError: string | null;
@@ -120,6 +124,7 @@ export class AppState extends ObservableState {
       draggingDefId: null,
       linkingFrom: null,
       scopeOpen: NONE_ID,
+      inputsOpen: NONE_ID,
       running: false,
       starting: false,
       runError: null,
@@ -184,7 +189,7 @@ export class AppState extends ObservableState {
       return;
     }
     const block = this.#diagram.add(defId, x, y);
-    this.#ensureBlockExtras(block.id);
+    this.#ensureBlockExtras(block.id, defId);
     this.#touchDiagram();
     this.selectBlock(block.id);
     this.#invalidateRun();
@@ -215,6 +220,7 @@ export class AppState extends ObservableState {
     this.#extras.clear();
     this.links = [];
     this.scopeOpen = NONE_ID;
+    this.inputsOpen = NONE_ID;
     this.selected = NONE_ID;
     this.selectedLink = null;
     this.linkingFrom = null;
@@ -231,6 +237,9 @@ export class AppState extends ObservableState {
     }
     if (this.scopeOpen === id) {
       this.scopeOpen = NONE_ID;
+    }
+    if (this.inputsOpen === id) {
+      this.inputsOpen = NONE_ID;
     }
     this.#replaceLinks(this.#wiring().withoutBlock(id).links);
     if (this.selected === id) {
@@ -398,6 +407,62 @@ export class AppState extends ObservableState {
     this.scopeOpen = NONE_ID;
   }
 
+  openInputs(id: number): void {
+    const block = this.block(id);
+    const def = block ? this.blockDef(block.defId) : undefined;
+    if (!def?.parameters.length) {
+      return;
+    }
+    this.inputsOpen = id;
+  }
+
+  closeInputs(): void {
+    this.inputsOpen = NONE_ID;
+  }
+
+  blockInputs(id: number): { def: BlockParameterDef; value: string }[] {
+    const block = this.block(id);
+    const def = block ? this.blockDef(block.defId) : undefined;
+    if (!def) {
+      return [];
+    }
+    const extra = this.#ensureBlockExtras(id, block?.defId);
+    return def.parameters.map((param) => ({
+      def: param,
+      value: extra.parameters.find((item) => item.name === param.name)?.value ?? param.default ?? "",
+    }));
+  }
+
+  setBlockParameter(id: number, name: string, value: string): void {
+    const extra = this.#ensureBlockExtras(id);
+    const now = nowIso();
+    const existing = extra.parameters.find((param) => param.name === name);
+    if (existing) {
+      existing.value = value;
+      extra.updatedAt = now;
+    } else {
+      const def = this.blockDef(this.block(id)?.defId ?? "")?.parameters.find((param) => param.name === name);
+      extra.parameters.push({
+        id: `prm_${id}_${name}`,
+        createdAt: now,
+        updatedAt: now,
+        kind: def?.kind ?? "text-parameter",
+        name,
+        value,
+        attributes: [],
+      });
+    }
+    this.#touchDiagram();
+    this.notify();
+    this.#invalidateRun();
+  }
+
+  blockPeriodMs(id: number): number {
+    const extra = this.#extras.get(id);
+    const value = extra?.parameters.find((param) => param.name === PERIOD_PARAM)?.value;
+    return periodMsFrom(value);
+  }
+
   snapshotScope(id: number): ScopeSeries[] {
     return this.#runner.current?.snapshotScope(id) ?? [];
   }
@@ -419,7 +484,10 @@ export class AppState extends ObservableState {
   }
 
   get topologyKey(): string {
-    return topologyKey(this.blocks, this.links);
+    return topologyKey(
+      this.blocks.map((block) => ({ ...block, periodMs: this.blockPeriodMs(block.id) })),
+      this.links,
+    );
   }
 
   /** Block ids, definitions, and links — not positions — so moving a block does not restart generators. */
@@ -428,7 +496,10 @@ export class AppState extends ObservableState {
   }
 
   plannedGenerators() {
-    return plannedGenerators(this.blocks, this.links);
+    return plannedGenerators(
+      this.blocks.map((block) => ({ ...block, periodMs: this.blockPeriodMs(block.id) })),
+      this.links,
+    );
   }
 
   canRun(): boolean {
@@ -618,7 +689,7 @@ export class AppState extends ObservableState {
     this.#touchDiagram();
   }
 
-  #ensureBlockExtras(id: number): BlockExtras {
+  #ensureBlockExtras(id: number, defId?: string): BlockExtras {
     let extra = this.#extras.get(id);
     if (!extra) {
       const now = nowIso();
@@ -627,11 +698,27 @@ export class AppState extends ObservableState {
         createdAt: now,
         updatedAt: now,
         attributes: [],
-        parameters: [],
+        parameters: this.#defaultParameters(id, defId ?? this.block(id)?.defId),
       };
       this.#extras.set(id, extra);
+    } else if (extra.parameters.length === 0) {
+      extra.parameters = this.#defaultParameters(id, defId ?? this.block(id)?.defId);
     }
     return extra;
+  }
+
+  #defaultParameters(id: number, defId: string | undefined): ParameterValue[] {
+    const def = defId ? this.blockDef(defId) : undefined;
+    const now = nowIso();
+    return (def?.parameters ?? []).map((param) => ({
+      id: `prm_${id}_${param.name}`,
+      createdAt: now,
+      updatedAt: now,
+      kind: param.kind,
+      name: param.name,
+      value: param.default ?? "",
+      attributes: [],
+    }));
   }
 
   catalogChoices(): CatalogChoice[] {
@@ -704,6 +791,9 @@ export class AppState extends ObservableState {
     if (this.scopeOpen !== NONE_ID && !live.has(this.scopeOpen)) {
       this.scopeOpen = NONE_ID;
     }
+    if (this.inputsOpen !== NONE_ID && !live.has(this.inputsOpen)) {
+      this.inputsOpen = NONE_ID;
+    }
     this.#invalidateRun();
   }
 
@@ -719,6 +809,7 @@ export class AppState extends ObservableState {
     this.#createdAt = canvas.createdAt;
     this.#updatedAt = canvas.updatedAt;
     this.scopeOpen = NONE_ID;
+    this.inputsOpen = NONE_ID;
     this.selected = NONE_ID;
     this.selectedLink = null;
     this.linkingFrom = null;

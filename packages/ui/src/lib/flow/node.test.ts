@@ -15,6 +15,7 @@ function sampleState(overrides: Partial<BldNodeState> = {}): BldNodeState {
     paramsLine: "T = f64",
     showChart: false,
     chartEnabled: false,
+    showInputs: false,
     inputs: [
       { name: "elems", typeLabel: "f64", vararg: true, grounded: true, compatible: true },
     ],
@@ -247,5 +248,41 @@ describe("BldNode", () => {
       height: expect.any(Number),
       ports: { in: expect.any(Object), out: expect.any(Object) },
     });
+  });
+
+  it("shows a config button that emits inputsclick", async () => {
+    const node = await mountNode(
+      sampleState({
+        defId: "timer",
+        name: "Timer",
+        showInputs: true,
+        inputs: [{ name: "in", typeLabel: "c<f64>", vararg: false, grounded: true }],
+        outputs: [],
+        paramsLine: "",
+      }),
+    );
+    const button = node.shadowRoot!.querySelector('[data-testid="inputs-7"]') as HTMLButtonElement;
+    expect(button).not.toBeNull();
+    expect(button.getAttribute("title")).toBe("Configure inputs");
+    let opened = false;
+    node.addEventListener("inputsclick", () => {
+      opened = true;
+    });
+    button.click();
+    expect(opened).toBe(true);
+  });
+
+  it("hides the config button when the block has no inputs", async () => {
+    const node = await mountNode(
+      sampleState({
+        defId: "scope",
+        name: "Scope",
+        showInputs: false,
+        inputs: [],
+        outputs: [{ name: "out", typeLabel: "c<f64>", vararg: false, vectorized: true }],
+        paramsLine: "",
+      }),
+    );
+    expect(node.shadowRoot!.querySelector(".flow-node-config")).toBeNull();
   });
 });

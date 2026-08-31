@@ -33,8 +33,8 @@ export async function openAppMenu(page: Page): Promise<void> {
 
 export async function newCanvas(page: Page): Promise<void> {
   await page.keyboard.press("Escape");
-  await expect(
-    page.locator('[data-testid="scope-modal"], [data-testid="about-modal"]'),
+    await expect(
+    page.locator('[data-testid="scope-modal"], [data-testid="about-modal"], [data-testid="inputs-modal"]'),
   ).toHaveCount(0);
   await openAppMenu(page);
   await page.locator('[data-testid="menu-new-canvas"]').click();
@@ -145,8 +145,8 @@ export async function connectorWorldPolylines(page: Page): Promise<{ x: number; 
   });
 }
 
-export async function dragNodeBy(page: Page, defId: string, dx: number, dy: number): Promise<void> {
-  const icon = nodeHost(page, defId).locator(".flow-node-icon");
+export async function dragNodeBy(page: Page, defId: string, dx: number, dy: number, index = 0): Promise<void> {
+  const icon = nodeHost(page, defId, index).locator(".flow-node-icon");
   const box = await icon.boundingBox();
   if (!box) {
     throw new Error(`dragNodeBy: ${defId} icon is not visible`);

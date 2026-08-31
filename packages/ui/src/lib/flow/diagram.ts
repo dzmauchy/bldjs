@@ -462,6 +462,7 @@ export class BldDiagram extends LitElement {
                   @portpointerup=${(event: CustomEvent<PortPointerDetail>) =>
                     this.#interaction.onPortUp(event.detail)}
                   @chartclick=${() => app.openScope(block.id)}
+                  @inputsclick=${() => app.openInputs(block.id)}
                   @noderesize=${(event: CustomEvent<NodeLayout>) => this.#rememberLayout(block.id, event.detail)}
                 ></bld-node>
               `;

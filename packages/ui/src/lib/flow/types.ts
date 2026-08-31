@@ -24,6 +24,7 @@ export interface BldNodeState {
   paramsLine: string;
   showChart: boolean;
   chartEnabled: boolean;
+  showInputs: boolean;
   inputs: PortView[];
   outputs: PortView[];
 }

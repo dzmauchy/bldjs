@@ -121,6 +121,7 @@ export function buildNodeState(
     paramsLine: paramLine(resolved, block.id),
     showChart: block.defId === "scope",
     chartEnabled: block.defId === "scope" && ctx.isScopeLive(block.id),
+    showInputs: (def.parameters?.length ?? 0) > 0,
     inputs: inputSlotsFor(def.inputs, block.id, ctx.links).map((slot) => {
       const catalogPort = def.inputs.find((item) => item.name === slot.catalogName)!;
       const ty = resolvedBlock ? (resolvedInput(resolvedBlock, slot.name) ?? catalogPort.ty) : catalogPort.ty;

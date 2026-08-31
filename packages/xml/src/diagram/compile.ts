@@ -3,6 +3,7 @@ import type { Link } from "../blocks/diagram";
 import { infer } from "../blocks/diagram";
 import type { ResolvedBlock } from "../blocks/resolve";
 import { isResolvedCompatible } from "../blocks/resolve";
+import { PERIOD_PARAM, periodMsFrom } from "../blocks/cs";
 import { documentToCanvas, parseDiagramXml } from "./xml";
 import type { DiagramDocument } from "./types";
 
@@ -16,7 +17,7 @@ export class DiagramCompileError extends Error {
 export interface DiagramSolution {
   xml: string;
   doc: DiagramDocument;
-  nodes: Array<{ id: number; defId: string }>;
+  nodes: Array<{ id: number; defId: string; periodMs?: number }>;
   links: Link[];
   inferred: Map<number, ResolvedBlock>;
 }
@@ -32,7 +33,11 @@ export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolut
       throw new DiagramCompileError(`unknown block type \`${block.defId}\``);
     }
   }
-  const nodes = canvas.blocks.map((block) => ({ id: block.id, defId: block.defId }));
+  const nodes = canvas.blocks.map((block) => {
+    const extra = canvas.extras.get(block.id);
+    const period = extra?.parameters.find((param) => param.name === PERIOD_PARAM)?.value;
+    return { id: block.id, defId: block.defId, periodMs: periodMsFrom(period) };
+  });
   const inferred = infer(
     catalog,
     nodes.map((node) => [node.id, node.defId] as const),

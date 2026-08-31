@@ -4,15 +4,16 @@ import { type SolutionView, type SolutionViewConnector } from "@bld/xml";
 import { linearSolutionView, WasmSolutionBuilder } from "../solution/wasm";
 import { blockSignature, blockTypeWat } from "./signatures";
 
-import { type Stage } from "@bld/xml";
-
 export { blockTypeWat } from "./signatures";
 export type { SolutionView } from "@bld/xml";
 
 export interface AssembleOptions {
-  stages?: readonly Stage[];
+  generator?: string;
+  /** Last entry is treated as the generator when `generator` is omitted. */
+  stages?: readonly string[];
   delayMs: number;
   view?: SolutionView;
+  generatorId?: number;
   timerId?: number;
   sharedMemory?: boolean;
   emitText?: boolean;
@@ -36,11 +37,12 @@ export function runtimeTypeWat(): string {
 }
 
 export async function assembleModule(options: AssembleOptions): Promise<AssembledModule> {
-  const view = options.view ?? linearSolutionView(options.stages ?? []);
+  const generator = options.generator ?? options.stages?.at(-1) ?? "timer";
+  const view = options.view ?? linearSolutionView(generator);
   const builder = new WasmSolutionBuilder();
   return builder.build(view, {
     delayMs: options.delayMs,
-    timerId: options.timerId ?? view.firstTimerId(),
+    generatorId: options.generatorId ?? options.timerId ?? view.firstGeneratorId(),
     sharedMemory: options.sharedMemory,
     emitText: options.emitText,
   });

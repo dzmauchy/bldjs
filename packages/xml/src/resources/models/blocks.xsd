@@ -203,17 +203,6 @@
 
                 <xs:choice minOccurs="0" maxOccurs="unbounded">
 
-                    <xs:element name="library">
-                        <xs:complexType>
-                            <xs:sequence>
-                                <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-                            </xs:sequence>
-                            <xs:attribute name="id" type="xs:string" use="required"/>
-                            <xs:attribute name="name" type="xs:string" use="required"/>
-                            <xs:attribute name="version" type="xs:string"/>
-                        </xs:complexType>
-                    </xs:element>
-
                     <xs:element name="namespace">
                         <xs:complexType>
                             <xs:sequence>

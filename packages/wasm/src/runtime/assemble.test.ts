@@ -43,14 +43,12 @@ function localNames(id: string): string[] {
 
 describe("block binaryen assembly", () => {
   it("keeps one binaryen.js script per XML block", () => {
-    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["cos", "quantizer", "scope", "sin", "timer"]);
-    expect(functionText("timer")).toContain("(param $ctx i32)");
-    expect(functionText("timer")).toContain("(param $in (ref $c1_f64))");
-    expect(functionText("timer")).not.toContain("(result");
-    expect(functionText("quantizer")).toContain("(param $in (ref $c1_f64))");
-    expect(functionText("quantizer")).toContain("(result (ref $c1_f64))");
-    expect(functionText("sin")).toContain("(param $in (ref $c1_f64))");
-    expect(functionText("cos")).toContain("(param $in (ref $c1_f64))");
+    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["cos", "random", "scope", "sin", "timer"]);
+    for (const id of ["timer", "sin", "cos", "random"] as const) {
+      expect(functionText(id)).toContain("(param $ctx i32)");
+      expect(functionText(id)).toContain("(param $in (ref $c1_f64))");
+      expect(functionText(id)).not.toContain("(result");
+    }
     expect(functionText("scope")).toContain("(result (ref $array_c1_f64))");
     expect(functionText("scope")).toContain("array.new_fixed $array_c1_f64");
     expect(functionText("scope")).not.toContain("(param $in");
@@ -78,20 +76,20 @@ describe("block binaryen assembly", () => {
 
   it("assembles every block script into the final module", async () => {
     const { text, wasm } = await assembleModule({
-      stages: ["quantizer", "sin"],
+      generator: "sin",
       delayMs: 10,
       sharedMemory: true,
     });
     expect(text).toContain("(module");
     expect(text).toContain("(type $c1_f64 (func (param f64)))");
     expect(text).toContain("(type $array_c1_f64 (array (mut (ref $c1_f64))))");
-    expect(text).toContain("(func $timer");
-    expect(text).toContain("(func $quantizer");
     expect(text).toContain("(func $sin");
     expect(text).toContain("(func $scope");
+    expect(text).not.toContain("(func $timer");
+    expect(text).not.toContain("(func $quantizer");
     expect(text).toContain("array.new_fixed $array_c1_f64");
     expect(text).toContain("array.get $array_c1_f64");
-    expect(text).toContain("call $timer");
+    expect(text).toContain("call $sin");
     expect(text).toContain("call $scope");
     expect(text).toContain("call_ref $c1_f64");
     expect(text).toContain("(local $ctx i32)");
@@ -110,6 +108,7 @@ describe("block binaryen assembly", () => {
       "(type $fn_scope (func (param $ctx i32) (result $out (ref $array_c1_f64))))",
     );
     expect(runtimeTypeWat()).toContain("(type $fn_timer (func (param $ctx i32) (param $in (ref $c1_f64))))");
+    expect(runtimeTypeWat()).toContain("(type $fn_sin (func (param $ctx i32) (param $in (ref $c1_f64))))");
     expect(runtimeTypeWat()).toContain(
       "(type $fn_scope (func (param $ctx i32) (result $out (ref $array_c1_f64))))",
     );

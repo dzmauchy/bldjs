@@ -1,13 +1,29 @@
 import type { Link } from "./diagram";
 import { catalogPortName, portSlotIndex } from "./ports";
 
-export const QUANTIZER_DELAY_MS = 10;
+/** Default generator quantization period (`integer-range-parameter` `period`). */
+export const DEFAULT_PERIOD_MS = 10;
+/** @deprecated Use {@link DEFAULT_PERIOD_MS}. */
+export const QUANTIZER_DELAY_MS = DEFAULT_PERIOD_MS;
+
+export const PERIOD_PARAM = "period";
+
+export const GENERATOR_IDS = new Set(["timer", "sin", "cos", "random"]);
+
+export function isGeneratorId(defId: string): boolean {
+  return GENERATOR_IDS.has(defId);
+}
+
+export function periodMsFrom(value: number | string | undefined | null): number {
+  const parsed = typeof value === "number" ? value : value == null ? DEFAULT_PERIOD_MS : Number(value);
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_PERIOD_MS;
+  }
+  return Math.max(1, Math.trunc(parsed));
+}
 
 /** Shared sample ring capacity for CS scope buffers and the WASM runner. */
 export const SAMPLE_CAP = 480;
-
-/** Push-model stages between Scope and Timer. */
-export type Stage = "sin" | "cos" | "quantizer";
 
 /** Language-agnostic consumer `c1<T>` / Java `Consumer<T>`. */
 export type Func<T> = (value: T) => void;
@@ -23,39 +39,102 @@ export type Nested = DoubleConsumer;
 /**
  * Pure push. Compact display writes c1 as c:
  *
- *   timer(c)              : c<f64> → void
- *   quantizer(c)          : c<f64> → c<f64>
- *   sin(c) / cos(c)       : c<f64> → c<f64>
- *   scope()        : c<f64>[]            (vector of plot sinks)
+ *   timer(c) / sin(c) / cos(c) / random(c)  : c<f64> → void
+ *   scope()                                   : c<f64>[]            (vector of plot sinks)
  *
- * Composition: timer(sin(quantizer(plot[0])))
+ * Composition: sin(plot[0])
  *
- * Each Binaryen block repeats the XML signature plus runtime `$ctx i32`.
+ * Each generator uses an internal quantizer whose period (ms) comes from the
+ * catalog `period` range input (default 10). Binaryen blocks repeat the XML
+ * signature plus runtime `$ctx i32`.
  */
 
-/** Accepts a sink and pushes timestamps while `running`. */
-export function timer(c: DoubleConsumer, running: () => boolean, now: () => number = nowSecs): void {
-  while (running()) {
-    c(now());
+function parkNanos(periodNs: number): void {
+  if (periodNs <= 0) {
+    return;
   }
 }
 
-/** Accepts a sink, returns a sink. Quantizer delay is applied by the generator `setInterval`. */
-export function quantizer(c: DoubleConsumer, periodNs = QUANTIZER_DELAY_MS * 1_000_000): DoubleConsumer {
-  return (v) => {
-    c(v);
-    parkNanos(periodNs);
-  };
+/**
+ * Shared generator: sample from time, push into a consumer, then apply the
+ * internal quantizer (period is honored by the worker `setInterval`).
+ */
+export abstract class Generator {
+  constructor(readonly periodMs = DEFAULT_PERIOD_MS) {}
+
+  protected abstract sample(time: number): number;
+
+  /** Internal quantizer: forward the sample, then park for `periodMs`. */
+  protected quantized(c: DoubleConsumer): DoubleConsumer {
+    const periodNs = periodMsFrom(this.periodMs) * 1_000_000;
+    return (value) => {
+      c(value);
+      parkNanos(periodNs);
+    };
+  }
+
+  run(c: DoubleConsumer, running: () => boolean, now: () => number = nowSecs): void {
+    const sink = this.quantized(c);
+    while (running()) {
+      sink(this.sample(now()));
+    }
+  }
 }
 
-/** Accepts a sink, returns a sink. */
-export function sin(c: DoubleConsumer): DoubleConsumer {
-  return (v) => c(Math.sin(v));
+export class TimerGenerator extends Generator {
+  protected sample(time: number): number {
+    return time;
+  }
 }
 
-/** Accepts a sink, returns a sink. */
-export function cos(c: DoubleConsumer): DoubleConsumer {
-  return (v) => c(Math.cos(v));
+export class SinGenerator extends Generator {
+  protected sample(time: number): number {
+    return Math.sin(time);
+  }
+}
+
+export class CosGenerator extends Generator {
+  protected sample(time: number): number {
+    return Math.cos(time);
+  }
+}
+
+export class RandomGenerator extends Generator {
+  protected sample(_time: number): number {
+    return Math.random();
+  }
+}
+
+const GENERATORS: Record<string, new (periodMs?: number) => Generator> = {
+  timer: TimerGenerator,
+  sin: SinGenerator,
+  cos: CosGenerator,
+  random: RandomGenerator,
+};
+
+export function generatorFor(defId: string, periodMs = DEFAULT_PERIOD_MS): Generator | undefined {
+  const Ctor = GENERATORS[defId];
+  return Ctor ? new Ctor(periodMs) : undefined;
+}
+
+/** Accepts a sink and pushes timestamps while `running`. */
+export function timer(c: DoubleConsumer, running: () => boolean, now: () => number = nowSecs): void {
+  new TimerGenerator().run(c, running, now);
+}
+
+/** Accepts a sink and pushes `sin(time)` while `running`. */
+export function sin(c: DoubleConsumer, running: () => boolean, now: () => number = nowSecs): void {
+  new SinGenerator().run(c, running, now);
+}
+
+/** Accepts a sink and pushes `cos(time)` while `running`. */
+export function cos(c: DoubleConsumer, running: () => boolean, now: () => number = nowSecs): void {
+  new CosGenerator().run(c, running, now);
+}
+
+/** Accepts a sink and pushes random samples in `[0, 1)` while `running`. */
+export function random(c: DoubleConsumer, running: () => boolean, now: () => number = nowSecs): void {
+  new RandomGenerator().run(c, running, now);
 }
 
 /** Plot sink — returns a vector of `c<f64>` channels. */
@@ -73,12 +152,6 @@ export function fork(...downstreams: DoubleConsumer[]): DoubleConsumer {
       downstream(v);
     }
   };
-}
-
-function parkNanos(periodNs: number): void {
-  if (periodNs <= 0) {
-    return;
-  }
 }
 
 export class SampleBuf {
@@ -114,12 +187,12 @@ export const sinConsumer = sinFunc;
 export interface NodeSpec {
   id: number;
   defId: string;
+  periodMs?: number;
 }
 
-/** Push-model consumer tree: `timer(fork(sin(plot[0]), cos(plot[1])))`. */
+/** Push-model consumer tree: `sin(fork(plot[0], plot[1]))`. */
 export type ConsumerTree =
   | { kind: "scope"; id: number }
-  | { kind: "stage"; stage: Stage; inner: ConsumerTree }
   | { kind: "fork"; inner: ConsumerTree[] };
 
 /** One ring / plot channel on a scope. */
@@ -135,16 +208,16 @@ export interface ScopeSeries {
 }
 
 export interface GeneratorPlan {
+  generatorId: number;
+  /** @deprecated Use {@link generatorId}. */
   timerId: number;
+  defId: string;
   scopeId: number;
   scopeIds: number[];
   channels: ScopeChannel[];
   delayMs: number;
-  stages: Stage[];
   tree: ConsumerTree;
 }
-
-const PUSH_STAGES = new Set<Stage>(["quantizer", "sin", "cos"]);
 
 function incomingTo(links: Link[], to: number, port: string): Link[] {
   const catalog = catalogPortName(port);
@@ -171,16 +244,8 @@ function walkConsumer(
   const parts: ConsumerTree[] = [];
   for (const link of incomingTo(links, id, "in")) {
     const fromDef = defOf(link.fromBlock);
-    if (!fromDef) {
-      continue;
-    }
     if (fromDef === "scope") {
       parts.push({ kind: "scope", id: link.fromBlock });
-    } else if (PUSH_STAGES.has(fromDef as Stage)) {
-      const inner = walkConsumer(link.fromBlock, defOf, links, depth + 1);
-      if (inner) {
-        parts.push({ kind: "stage", stage: fromDef as Stage, inner });
-      }
     }
   }
   if (parts.length === 0) {
@@ -192,60 +257,43 @@ function walkConsumer(
   return { kind: "fork", inner: parts };
 }
 
-export function flattenStages(tree: ConsumerTree): Stage[] {
-  if (tree.kind === "stage") {
-    return [tree.stage, ...flattenStages(tree.inner)];
-  }
-  if (tree.kind === "fork") {
-    return tree.inner.flatMap(flattenStages);
-  }
-  return [];
-}
-
 export function collectScopeIds(tree: ConsumerTree): number[] {
   return [...new Set(collectChannels(tree).map((channel) => channel.scopeId))];
 }
 
-export function collectChannels(tree: ConsumerTree, stages: Stage[] = []): ScopeChannel[] {
+export function collectChannels(tree: ConsumerTree, label = "out"): ScopeChannel[] {
   if (tree.kind === "scope") {
-    return [{ scopeId: tree.id, label: stages.length ? stages.join(" → ") : "out" }];
+    return [{ scopeId: tree.id, label }];
   }
-  if (tree.kind === "stage") {
-    return collectChannels(tree.inner, [...stages, tree.stage]);
-  }
-  return tree.inner.flatMap((child) => collectChannels(child, stages));
+  return tree.inner.flatMap((child) => collectChannels(child, label));
 }
 
-function applyStages(tree: ConsumerTree): Stage[] {
-  if (tree.kind === "stage") {
-    return [...applyStages(tree.inner), tree.stage];
+/** Walk Scope → Generator (sink flow), inserting a hidden fork when an input has many sources. */
+export function planGenerator(generatorId: number, nodes: NodeSpec[], links: Link[]): GeneratorPlan | undefined {
+  const node = nodes.find((item) => item.id === generatorId);
+  if (!node || !isGeneratorId(node.defId)) {
+    return undefined;
   }
-  if (tree.kind === "fork") {
-    return tree.inner.flatMap(applyStages);
-  }
-  return [];
-}
-
-/** Walk Scope → … → Timer (sink flow), inserting a hidden fork when an input has many sources. */
-export function planGenerator(timerId: number, nodes: NodeSpec[], links: Link[]): GeneratorPlan | undefined {
-  const defOf = (id: number): string | undefined => nodes.find((node) => node.id === id)?.defId;
-  const tree = walkConsumer(timerId, defOf, links, 0);
+  const defOf = (id: number): string | undefined => nodes.find((item) => item.id === id)?.defId;
+  const tree = walkConsumer(generatorId, defOf, links, 0);
   if (!tree) {
     return undefined;
   }
-  const channels = collectChannels(tree);
+  const channels = collectChannels(tree, node.defId);
   const scopeIds = [...new Set(channels.map((channel) => channel.scopeId))];
   if (scopeIds.length === 0) {
     return undefined;
   }
-  const stages = applyStages(tree);
-  let delayMs = 0;
-  for (const stage of flattenStages(tree)) {
-    if (stage === "quantizer") {
-      delayMs += QUANTIZER_DELAY_MS;
-    }
-  }
-  return { timerId, scopeId: scopeIds[0], scopeIds, channels, delayMs, stages, tree };
+  return {
+    generatorId,
+    timerId: generatorId,
+    defId: node.defId,
+    scopeId: scopeIds[0],
+    scopeIds,
+    channels,
+    delayMs: periodMsFrom(node.periodMs),
+    tree,
+  };
 }
 
 /** @deprecated Prefer {@link planGenerator}; kept for in-process tests. */
@@ -255,12 +303,12 @@ export interface CompiledTimer {
 }
 
 export function compileTimer(
-  timerId: number,
+  generatorId: number,
   nodes: NodeSpec[],
   links: Link[],
   buffers: Map<number, SampleBuf>,
 ): CompiledTimer | undefined {
-  const plan = planGenerator(timerId, nodes, links);
+  const plan = planGenerator(generatorId, nodes, links);
   if (!plan) {
     return undefined;
   }
@@ -271,20 +319,26 @@ export function compileTimer(
       const leaf = buffers.get(ring);
       return (value) => leaf?.push(value);
     }
-    if (tree.kind === "fork") {
-      return fork(...tree.inner.map((child) => emitFor(child, next)));
-    }
-    const inner = emitFor(tree.inner, next);
-    if (tree.stage === "sin") {
-      return sin(inner);
-    }
-    if (tree.stage === "cos") {
-      return cos(inner);
-    }
-    return inner;
+    return fork(...tree.inner.map((child) => emitFor(child, next)));
   };
-  const emit = emitFor(plan.tree);
-  return { emit, delayMs: plan.delayMs };
+  const sink = emitFor(plan.tree);
+  return {
+    emit: (time) => sink(sampleOnce(plan.defId, time)),
+    delayMs: plan.delayMs,
+  };
+}
+
+function sampleOnce(defId: string, time: number): number {
+  switch (defId) {
+    case "sin":
+      return Math.sin(time);
+    case "cos":
+      return Math.cos(time);
+    case "random":
+      return Math.random();
+    default:
+      return time;
+  }
 }
 
 export function spawnTimer(compiled: CompiledTimer, running: { value: boolean }): () => void {
