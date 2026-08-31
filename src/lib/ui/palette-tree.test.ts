@@ -20,7 +20,7 @@ describe("palette tree", () => {
       "timer",
     ]);
     expect(cs.children.find((group) => group.id === "com.dauch.cs.sink")?.blocks.map((block) => block.id)).toEqual([
-      "oscilloscope",
+      "scope",
     ]);
     expect(
       cs.children.find((group) => group.id === "com.dauch.cs.transform")?.blocks.map((block) => block.id),

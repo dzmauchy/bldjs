@@ -88,7 +88,7 @@ export function buildScopeChartConfig(series: readonly ScopeSeries[] = []): Char
       plugins: {
         title: {
           display: true,
-          text: "Oscilloscope — Multi Axis",
+          text: "Scope — Multi Axis",
           color: DARK_TICK,
         },
         legend: {

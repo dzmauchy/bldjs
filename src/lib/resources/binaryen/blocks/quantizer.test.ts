@@ -56,7 +56,7 @@ describe("binaryen feature library", () => {
     expect(flags & binaryen.Features.Multivalue).toBeTruthy();
     expect(flags & binaryen.Features.GC).toBeTruthy();
     expect(flags & binaryen.Features.ExtendedConst).toBeTruthy();
-    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["cos", "oscilloscope", "quantizer", "sin", "timer"]);
+    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["cos", "quantizer", "scope", "sin", "timer"]);
   });
 
   it("declares js-string-builtins and an exception tag", () => {

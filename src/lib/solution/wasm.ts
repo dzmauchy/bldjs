@@ -46,7 +46,7 @@ function builtinCatalog(): Catalog {
 }
 
 function viewFromStages(stages: readonly string[]): SolutionView {
-  const blocks: SolutionViewBlock[] = [{ id: 1, defId: "oscilloscope" }];
+  const blocks: SolutionViewBlock[] = [{ id: 1, defId: "scope" }];
   const connectors: SolutionViewConnector[] = [];
   let prev = 1;
   let nextId = 2;
@@ -64,7 +64,7 @@ function viewFromStages(stages: readonly string[]): SolutionView {
 }
 
 /**
- * Assign a sample ring to each oscilloscope vector slot, walking incoming wires from the timer
+ * Assign a sample ring to each scope vector slot, walking incoming wires from the timer
  * (same order the UI uses for Chart.js datasets).
  */
 export function assignRings(view: SolutionView, timerId: number): Map<string, number> {
@@ -75,7 +75,7 @@ export function assignRings(view: SolutionView, timerId: number): Map<string, nu
     }
     for (const link of incomingConnectors(view, id, "in")) {
       const fromDef = defIdOf(view, link.fromBlock);
-      if (fromDef === "oscilloscope") {
+      if (fromDef === "scope") {
         const key = `${link.fromBlock}:${portSlotIndex(link.fromOut)}`;
         if (!rings.has(key)) {
           rings.set(key, rings.size);

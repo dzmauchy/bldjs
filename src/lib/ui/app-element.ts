@@ -6,7 +6,7 @@ import { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
 import "./about-modal";
 import "./toolbar";
-import "./oscilloscope-chart";
+import "./scope-modal";
 import "./palette";
 import "./status-bar";
 import "./workspace";
@@ -73,7 +73,7 @@ export class BldApp extends LitElement {
         app.aboutOpen = false;
         app.draggingDefId = null;
         app.linkingFrom = null;
-        app.closeOscilloscope();
+        app.closeScope();
         break;
       case "0":
         if (meta) {
@@ -111,7 +111,7 @@ export class BldApp extends LitElement {
         <bld-status-bar .app=${app}></bld-status-bar>
       </div>
       <bld-about-modal .app=${app}></bld-about-modal>
-      <bld-oscilloscope-chart .app=${app}></bld-oscilloscope-chart>
+      <bld-scope-modal .app=${app}></bld-scope-modal>
     `;
   }
 }

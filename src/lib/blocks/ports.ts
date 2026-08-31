@@ -29,11 +29,11 @@ export function acceptsManyInputs(port: PortDef | undefined): boolean {
   return (port?.vararg ?? false) || (port ? isConsumerType(port.ty) : false);
 }
 
-/** Extra vector-of-consumer slots are one channel (`c<T>`), not the whole vector. */
-export function slottedOutputType(catalogType: TypeExpr, slotName: string): TypeExpr {
-  if (catalogPortName(slotName) === slotName) {
-    return catalogType;
-  }
+/**
+ * Each visual pin on a vector-of-consumer output is one channel (`c<T>`),
+ * including the first slot — not the whole vector (`c<T>[]`).
+ */
+export function slottedOutputType(catalogType: TypeExpr, _slotName: string): TypeExpr {
   if (
     catalogType.kind === "type" &&
     isArrayType(catalogType) &&
@@ -110,6 +110,13 @@ export function inputSlotsFor(inputs: readonly PortDef[], blockId: number, links
   );
 }
 
+export interface BlockPosition {
+  x: number;
+  y: number;
+}
+
+export type BlockPositionOf = (blockId: number) => BlockPosition | undefined;
+
 function bySlotThenPeer(
   left: Link,
   right: Link,
@@ -127,11 +134,33 @@ function bySlotThenPeer(
   return slotOf(left).localeCompare(slotOf(right));
 }
 
+function byPeerPosition(
+  left: Link,
+  right: Link,
+  peer: (link: Link) => number,
+  positionOf: BlockPositionOf,
+  slotOf: (link: Link) => string,
+): number {
+  const leftPos = positionOf(peer(left));
+  const rightPos = positionOf(peer(right));
+  const dy = (leftPos?.y ?? 0) - (rightPos?.y ?? 0);
+  if (dy !== 0) {
+    return dy;
+  }
+  const dx = (leftPos?.x ?? 0) - (rightPos?.x ?? 0);
+  if (dx !== 0) {
+    return dx;
+  }
+  return bySlotThenPeer(left, right, slotOf, peer);
+}
+
 /**
  * Keep extra `name[n]` slots dense and 1:1 with extra wires.
  * Array order is preserved so a selected link can be remapped by index.
+ * When `positionOf` is set, extra pins follow the peer block's canvas Y
+ * (a source above another source takes the upper input).
  */
-export function compactLinkSlots(links: readonly Link[]): Link[] {
+export function compactLinkSlots(links: readonly Link[], positionOf?: BlockPositionOf): Link[] {
   const next = links.map((link) => ({ ...link }));
 
   const outgoing = new Map<string, Link[]>();
@@ -147,7 +176,11 @@ export function compactLinkSlots(links: readonly Link[]): Link[] {
   for (const group of outgoing.values()) {
     const catalog = catalogPortName(group[0].fromOut);
     group
-      .toSorted((left, right) => bySlotThenPeer(left, right, (link) => link.fromOut, (link) => link.toBlock))
+      .toSorted((left, right) =>
+        positionOf
+          ? byPeerPosition(left, right, (link) => link.toBlock, positionOf, (link) => link.fromOut)
+          : bySlotThenPeer(left, right, (link) => link.fromOut, (link) => link.toBlock),
+      )
       .forEach((link, index) => {
         link.fromOut = slottedPortName(catalog, index);
       });
@@ -166,7 +199,11 @@ export function compactLinkSlots(links: readonly Link[]): Link[] {
   for (const group of incoming.values()) {
     const catalog = catalogPortName(group[0].toIn);
     group
-      .toSorted((left, right) => bySlotThenPeer(left, right, (link) => link.toIn, (link) => link.fromBlock))
+      .toSorted((left, right) =>
+        positionOf
+          ? byPeerPosition(left, right, (link) => link.fromBlock, positionOf, (link) => link.toIn)
+          : bySlotThenPeer(left, right, (link) => link.toIn, (link) => link.fromBlock),
+      )
       .forEach((link, index) => {
         link.toIn = slottedPortName(catalog, index);
       });

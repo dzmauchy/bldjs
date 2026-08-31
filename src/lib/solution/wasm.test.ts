@@ -9,28 +9,28 @@ describe("SolutionView", () => {
   it("names a unique XML block by id and suffixes duplicates", () => {
     const unique = solutionViewFrom(
       [
-        { id: 1, defId: "oscilloscope" },
+        { id: 1, defId: "scope" },
         { id: 4, defId: "timer" },
       ],
       [],
     );
-    expect(instanceName(unique, unique.blocks[0])).toBe("oscilloscope");
+    expect(instanceName(unique, unique.blocks[0])).toBe("scope");
     const two = solutionViewFrom(
       [
-        { id: 1, defId: "oscilloscope" },
-        { id: 2, defId: "oscilloscope" },
+        { id: 1, defId: "scope" },
+        { id: 2, defId: "scope" },
         { id: 4, defId: "timer" },
       ],
       [],
     );
-    expect(instanceName(two, two.blocks[0])).toBe("oscilloscope_1");
-    expect(instanceName(two, two.blocks[1])).toBe("oscilloscope_2");
+    expect(instanceName(two, two.blocks[0])).toBe("scope_1");
+    expect(instanceName(two, two.blocks[1])).toBe("scope_2");
   });
 
   it("keeps the timer subgraph of connected blocks", () => {
     const view = solutionViewFrom(
       [
-        { id: 1, defId: "oscilloscope" },
+        { id: 1, defId: "scope" },
         { id: 2, defId: "sin" },
         { id: 9, defId: "cos" },
         { id: 4, defId: "timer" },
@@ -41,15 +41,15 @@ describe("SolutionView", () => {
       ],
     );
     const graph = subgraphFromTimer(view, 4);
-    expect(graph.blocks.map((block) => block.defId).sort()).toEqual(["oscilloscope", "sin", "timer"]);
+    expect(graph.blocks.map((block) => block.defId).sort()).toEqual(["scope", "sin", "timer"]);
   });
 });
 
 describe("WasmSolutionBuilder", () => {
-  it("sizes oscilloscope out from SolutionViewConnectors", async () => {
+  it("sizes scope out from SolutionViewConnectors", async () => {
     const view = solutionViewFrom(
       [
-        { id: 1, defId: "oscilloscope" },
+        { id: 1, defId: "scope" },
         { id: 2, defId: "sin" },
         { id: 3, defId: "cos" },
         { id: 4, defId: "timer" },
@@ -65,7 +65,7 @@ describe("WasmSolutionBuilder", () => {
     expect(text).toContain("array.new_fixed $array_c1_f64 2");
     expect(text).toContain("array.get $array_c1_f64");
     expect(text).toContain("(func $fork_4_in");
-    expect(text).toContain("(func $oscilloscope");
+    expect(text).toContain("(func $scope");
     expect(text).toContain("(result (ref $array_c1_f64))");
     expect(text).toContain("(func $sin");
     expect(text).toContain("(param $in (ref $c1_f64))");
@@ -89,7 +89,7 @@ describe("WasmSolutionBuilder", () => {
 
   it("compiles the same pipeline as compileGenerator", async () => {
     const nodes = [
-      { id: 1, defId: "oscilloscope" },
+      { id: 1, defId: "scope" },
       { id: 2, defId: "sin" },
       { id: 4, defId: "timer" },
     ];

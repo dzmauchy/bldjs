@@ -92,18 +92,18 @@ describe("BldNode", () => {
   it("toggles selected and chart chrome from state", async () => {
     const node = await mountNode(
       sampleState({
-        defId: "oscilloscope",
-        name: "Oscilloscope",
+        defId: "scope",
+        name: "Scope",
         showChart: true,
         chartEnabled: true,
         selected: true,
         inputs: [],
-        outputs: [{ name: "out", typeLabel: "c<f64>[]", vararg: false, vectorized: true }],
+        outputs: [{ name: "out", typeLabel: "c<f64>", vararg: false, vectorized: true }],
         paramsLine: "",
       }),
     );
     expect(node.hasAttribute("data-selected")).toBe(true);
-    expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("Oscilloscope");
+    expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("Scope");
     const selectedCss = Array.isArray(BldNode.styles)
       ? BldNode.styles.map((sheet) => sheet.cssText).join("\n")
       : BldNode.styles.cssText;
@@ -124,12 +124,12 @@ describe("BldNode", () => {
   it("does not emit chartclick when the chart is disabled", async () => {
     const node = await mountNode(
       sampleState({
-        defId: "oscilloscope",
-        name: "Oscilloscope",
+        defId: "scope",
+        name: "Scope",
         showChart: true,
         chartEnabled: false,
         inputs: [],
-        outputs: [{ name: "out", typeLabel: "c<f64>[]", vararg: false, vectorized: true }],
+        outputs: [{ name: "out", typeLabel: "c<f64>", vararg: false, vectorized: true }],
         paramsLine: "",
       }),
     );
@@ -144,19 +144,19 @@ describe("BldNode", () => {
     expect(node.shadowRoot!.querySelector('[data-testid="output-out-type"]')).toBeNull();
     expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-type')).toBeNull();
     expect(node.shadowRoot!.querySelector('[data-vector="out"] .block-port-name')).toBeNull();
-    expect(node.shadowRoot!.querySelector(".flow-node")?.getAttribute("title")).toBe("Oscilloscope");
-    expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("Oscilloscope");
-    expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("c<f64>[]");
+    expect(node.shadowRoot!.querySelector(".flow-node")?.getAttribute("title")).toBe("Scope");
+    expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("Scope");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("c<f64>");
   });
 
   it("renders extra slotted ports with distinct handles", async () => {
     const node = await mountNode(
       sampleState({
-        defId: "oscilloscope",
-        name: "Oscilloscope",
+        defId: "scope",
+        name: "Scope",
         inputs: [],
         outputs: [
-          { name: "out", typeLabel: "c<f64>[]", vararg: false, grounded: true, vectorized: true },
+          { name: "out", typeLabel: "c<f64>", vararg: false, grounded: true, vectorized: true },
           { name: "out[1]", typeLabel: "c<f64>", vararg: false, grounded: true },
         ],
         paramsLine: "",
@@ -168,6 +168,8 @@ describe("BldNode", () => {
     expect(node.shadowRoot!.querySelectorAll("[data-port][data-side='out']")).toHaveLength(2);
     expect(node.shadowRoot!.querySelectorAll('[data-vector="out"] .block-port-vector-rail')).toHaveLength(1);
     expect(node.shadowRoot!.querySelectorAll('[data-vector="out"] [data-handle]')).toHaveLength(2);
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("c<f64>");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out[1]"]')?.getAttribute("title")).toBe("c<f64>");
   });
 
   it("renders a second extra input handle", async () => {

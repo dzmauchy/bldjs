@@ -24,7 +24,7 @@ export type Nested = DoubleConsumer;
  *   timer(c)              : c<f64> → void
  *   quantizer(c)          : c<f64> → c<f64>
  *   sin(c) / cos(c)       : c<f64> → c<f64>
- *   oscilloscope()        : c<f64>[]            (vector of plot sinks)
+ *   scope()        : c<f64>[]            (vector of plot sinks)
  *
  * Composition: timer(sin(quantizer(plot[0])))
  *
@@ -57,7 +57,7 @@ export function cos(c: DoubleConsumer): DoubleConsumer {
 }
 
 /** Plot sink — returns a vector of `c<f64>` channels. */
-export function oscilloscope(...plots: DoubleConsumer[]): DoubleConsumer[] {
+export function scope(...plots: DoubleConsumer[]): DoubleConsumer[] {
   return plots;
 }
 
@@ -120,7 +120,7 @@ export type ConsumerTree =
   | { kind: "stage"; stage: Stage; inner: ConsumerTree }
   | { kind: "fork"; inner: ConsumerTree[] };
 
-/** One ring / Chart.js dataset on an oscilloscope. */
+/** One ring / Chart.js dataset on an scope. */
 export interface ScopeChannel {
   scopeId: number;
   label: string;
@@ -178,7 +178,7 @@ function walkConsumer(
     if (!fromDef) {
       continue;
     }
-    if (fromDef === "oscilloscope") {
+    if (fromDef === "scope") {
       parts.push({ kind: "scope", id: link.fromBlock });
     } else if (PUSH_STAGES.has(fromDef as Stage)) {
       const inner = walkConsumer(link.fromBlock, defOf, links, depth + 1);
@@ -230,7 +230,7 @@ function applyStages(tree: ConsumerTree): Stage[] {
   return [];
 }
 
-/** Walk Oscilloscope → … → Timer (sink flow), inserting a hidden fork when an input has many sources. */
+/** Walk Scope → … → Timer (sink flow), inserting a hidden fork when an input has many sources. */
 export function planGenerator(timerId: number, nodes: NodeSpec[], links: Link[]): GeneratorPlan | undefined {
   const defOf = (id: number): string | undefined => nodes.find((node) => node.id === id)?.defId;
   const tree = walkConsumer(timerId, defOf, links, 0);
@@ -267,7 +267,7 @@ export async function assembleGenerator(
 }
 
 /**
- * Walk Oscilloscope → … → Timer (sink flow), then generate WASM with Binaryen.
+ * Walk Scope → … → Timer (sink flow), then generate WASM with Binaryen.
  * `runDiagram` does the same assemble step when the simulation starts.
  */
 export async function compileGenerator(

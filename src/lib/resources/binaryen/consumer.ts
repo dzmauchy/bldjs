@@ -6,7 +6,7 @@ import { nopConsumer } from "./gc-types";
 export interface WasmBlockEmit {
   /** WASM function name. Defaults to the XML block id. */
   name?: string;
-  /** Dynamic array length (oscilloscope `out`). */
+  /** Dynamic array length (scope `out`). */
   length?: number;
   /** Ring index for each array slot. */
   rings?: readonly number[];

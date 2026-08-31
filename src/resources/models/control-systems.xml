@@ -12,7 +12,7 @@
       timer(c)           : c<f64> → void
       quantizer(c)       : c<f64> → c<f64>
       sin(c) / cos(c)    : c<f64> → c<f64>
-      oscilloscope()     : c<f64>[]          (dynamically sized vector of plot sinks)
+      scope()     : c<f64>[]          (dynamically sized vector of plot sinks)
 
     Composition: timer(sin(quantizer(plot[0])))
 
@@ -71,10 +71,10 @@
     </out>
   </block>
 
-  <block id="oscilloscope" name="Oscilloscope" ns="com.dauch.cs.sink" icon="scope">
+  <block id="scope" name="Scope" ns="com.dauch.cs.sink" icon="scope">
     <attribute name="kind">Output</attribute>
     <attribute name="description">Plot sink. Returns a dynamically sized vector of c&lt;f64&gt;. Wire into Sin/Cos/Quantizer, then into Timer. After Run, Chart is a multi-axis plot.</attribute>
-    <factory id="oscilloscope"/>
+    <factory id="scope"/>
     <out name="out" type="[]">
       <attribute name="dynamic">true</attribute>
       <t type="c1">

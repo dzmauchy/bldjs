@@ -1,5 +1,5 @@
 import { addCos } from "./blocks/cos";
-import { addOscilloscope } from "./blocks/oscilloscope";
+import { addScope } from "./blocks/scope";
 import { addQuantizer } from "./blocks/quantizer";
 import { addSin } from "./blocks/sin";
 import { addTimer } from "./blocks/timer";
@@ -30,7 +30,7 @@ export const BLOCK_SCRIPTS: Record<string, BlockScript> = {
   quantizer: addQuantizer,
   sin: addSin,
   cos: addCos,
-  oscilloscope: addOscilloscope,
+  scope: addScope,
 };
 
 export const RUNTIME_SCRIPTS = {

@@ -20,13 +20,13 @@ describe("groupPortViews", () => {
       label: "elems…",
       vectorized: true,
     });
-    const vector = groupPortViews([port("out", { vectorized: true, typeLabel: "c<f64>[]" })]);
+    const vector = groupPortViews([port("out", { vectorized: true, typeLabel: "c<f64>" })]);
     expect(vector[0]?.vectorized).toBe(true);
   });
 
   it("merges extra slots onto one named rail", () => {
     const groups = groupPortViews([
-      port("out", { vectorized: true, typeLabel: "c<f64>[]" }),
+      port("out", { vectorized: true, typeLabel: "c<f64>" }),
       port("out[1]", { typeLabel: "c<f64>" }),
     ]);
     expect(groups).toHaveLength(1);

@@ -7,7 +7,7 @@ import type { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
 import { buildScopeChartConfig, longestIndexLabels, scopeChartDatasets, scopeChartScales } from "./scope-chart";
 
-export class BldOscilloscopeChart extends LitElement {
+export class BldScopeModal extends LitElement {
   static override properties = {
     app: { attribute: false },
   };
@@ -103,7 +103,7 @@ export class BldOscilloscopeChart extends LitElement {
 
   #writeSeriesCount(count: number): void {
     this.#seriesCount = count;
-    const host = this.renderRoot.querySelector("[data-testid=oscilloscope-chart]");
+    const host = this.renderRoot.querySelector("[data-testid=scope-chart]");
     if (host instanceof HTMLElement) {
       host.dataset.seriesCount = String(count);
     }
@@ -169,29 +169,29 @@ export class BldOscilloscopeChart extends LitElement {
         class="modal-backdrop fade show"
         role="button"
         tabindex="0"
-        @click=${() => app.closeOscilloscope()}
+        @click=${() => app.closeScope()}
         @keydown=${(event: KeyboardEvent) => {
           if (event.key === "Enter" || event.key === " ") {
-            app.closeOscilloscope();
+            app.closeScope();
           }
         }}
       ></div>
-      <div class="modal fade show d-block" tabindex="-1" role="dialog" data-testid="oscilloscope-modal">
+      <div class="modal fade show d-block" tabindex="-1" role="dialog" data-testid="scope-modal">
         <div class="modal-dialog modal-lg modal-dialog-centered">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">Oscilloscope #${app.scopeOpen}</h5>
+              <h5 class="modal-title">Scope #${app.scopeOpen}</h5>
               <button
                 type="button"
                 class="btn-close"
                 aria-label="Close"
-                @click=${() => app.closeOscilloscope()}
+                @click=${() => app.closeScope()}
               ></button>
             </div>
             <div class="modal-body p-3">
               <div
                 class="scope-chart"
-                data-testid="oscilloscope-chart"
+                data-testid="scope-chart"
                 data-series-count=${this.#seriesCount}
               >
                 <canvas ${ref(this.#canvas)}></canvas>
@@ -207,10 +207,10 @@ export class BldOscilloscopeChart extends LitElement {
   }
 }
 
-customElements.define("bld-oscilloscope-chart", BldOscilloscopeChart);
+customElements.define("bld-scope-modal", BldScopeModal);
 
 declare global {
   interface HTMLElementTagNameMap {
-    "bld-oscilloscope-chart": BldOscilloscopeChart;
+    "bld-scope-modal": BldScopeModal;
   }
 }

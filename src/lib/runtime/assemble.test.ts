@@ -43,7 +43,7 @@ function localNames(id: string): string[] {
 
 describe("block binaryen assembly", () => {
   it("keeps one binaryen.js script per XML block", () => {
-    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["cos", "oscilloscope", "quantizer", "sin", "timer"]);
+    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["cos", "quantizer", "scope", "sin", "timer"]);
     expect(functionText("timer")).toContain("(param $ctx i32)");
     expect(functionText("timer")).toContain("(param $in (ref $c1_f64))");
     expect(functionText("timer")).not.toContain("(result");
@@ -51,9 +51,9 @@ describe("block binaryen assembly", () => {
     expect(functionText("quantizer")).toContain("(result (ref $c1_f64))");
     expect(functionText("sin")).toContain("(param $in (ref $c1_f64))");
     expect(functionText("cos")).toContain("(param $in (ref $c1_f64))");
-    expect(functionText("oscilloscope")).toContain("(result (ref $array_c1_f64))");
-    expect(functionText("oscilloscope")).toContain("array.new_fixed $array_c1_f64");
-    expect(functionText("oscilloscope")).not.toContain("(param $in");
+    expect(functionText("scope")).toContain("(result (ref $array_c1_f64))");
+    expect(functionText("scope")).toContain("array.new_fixed $array_c1_f64");
+    expect(functionText("scope")).not.toContain("(param $in");
   });
 
   it("matches XML port names in each block script", () => {
@@ -88,11 +88,11 @@ describe("block binaryen assembly", () => {
     expect(text).toContain("(func $timer");
     expect(text).toContain("(func $quantizer");
     expect(text).toContain("(func $sin");
-    expect(text).toContain("(func $oscilloscope");
+    expect(text).toContain("(func $scope");
     expect(text).toContain("array.new_fixed $array_c1_f64");
     expect(text).toContain("array.get $array_c1_f64");
     expect(text).toContain("call $timer");
-    expect(text).toContain("call $oscilloscope");
+    expect(text).toContain("call $scope");
     expect(text).toContain("call_ref $c1_f64");
     expect(text).toContain("(local $ctx i32)");
     expect(text).toContain("memory.fill");
@@ -106,12 +106,12 @@ describe("block binaryen assembly", () => {
     expect(blockTypeWat(blockSignature(diagram.catalog().block("timer")!))).toContain(
       "(type $fn_timer (func (param $ctx i32) (param $in (ref $c1_f64))))",
     );
-    expect(blockTypeWat(blockSignature(diagram.catalog().block("oscilloscope")!))).toContain(
-      "(type $fn_oscilloscope (func (param $ctx i32) (result $out (ref $array_c1_f64))))",
+    expect(blockTypeWat(blockSignature(diagram.catalog().block("scope")!))).toContain(
+      "(type $fn_scope (func (param $ctx i32) (result $out (ref $array_c1_f64))))",
     );
     expect(runtimeTypeWat()).toContain("(type $fn_timer (func (param $ctx i32) (param $in (ref $c1_f64))))");
     expect(runtimeTypeWat()).toContain(
-      "(type $fn_oscilloscope (func (param $ctx i32) (result $out (ref $array_c1_f64))))",
+      "(type $fn_scope (func (param $ctx i32) (result $out (ref $array_c1_f64))))",
     );
   });
 

@@ -4,7 +4,7 @@ import { DiagramRunCancelled, DiagramRunner, EMPTY_RUN_MESSAGE } from "./diagram
 
 function csPipeline(): { nodes: { id: number; defId: string }[]; links: Link[]; scopeId: number; timerId: number } {
   const nodes = [
-    { id: 1, defId: "oscilloscope" },
+    { id: 1, defId: "scope" },
     { id: 2, defId: "quantizer" },
     { id: 3, defId: "sin" },
     { id: 4, defId: "timer" },

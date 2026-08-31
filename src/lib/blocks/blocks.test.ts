@@ -31,7 +31,7 @@ import {
   cos,
   generatorText,
   planGenerator,
-  oscilloscope,
+  scope,
   quantizer,
   sin,
   sinFunc,
@@ -206,13 +206,13 @@ describe("blocks", () => {
     expect(cat.block("quantizer")).toBeDefined();
     expect(cat.block("sin")).toBeDefined();
     expect(cat.block("cos")).toBeDefined();
-    expect(cat.block("oscilloscope")).toBeDefined();
+    expect(cat.block("scope")).toBeDefined();
     expect(cat.block("b_array_of")).toBeUndefined();
     expect(cat.block("b_start")).toBeUndefined();
     expect(cat.blocks().map((block) => block.id).sort()).toEqual([
       "cos",
-      "oscilloscope",
       "quantizer",
+      "scope",
       "sin",
       "timer",
     ]);
@@ -526,7 +526,7 @@ describe("blocks", () => {
     expect(displayType(timerBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
     expect(timerBlock.inputs.find((port) => port.name === "in")!.attributes.find((a) => a.name === "wasm")).toBeUndefined();
     expect(timerBlock.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
-    const scope = cat.block("oscilloscope")!;
+    const scope = cat.block("scope")!;
     expect(scope.inputs.length).toBe(0);
     expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>[]");
     expect(scope.outputs.find((port) => port.name === "out")!.attributes.find((a) => a.name === "dynamic")?.value).toBe(
@@ -605,10 +605,10 @@ describe("blocks", () => {
     expect(right).toEqual([1, 2]);
   });
 
-  it("plans a hidden fork when two oscilloscopes share a timer input", () => {
+  it("plans a hidden fork when two scopes share a timer input", () => {
     const nodes = [
-      { id: 1, defId: "oscilloscope" },
-      { id: 2, defId: "oscilloscope" },
+      { id: 1, defId: "scope" },
+      { id: 2, defId: "scope" },
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
@@ -630,9 +630,9 @@ describe("blocks", () => {
     ]);
   });
 
-  it("plans two vector channels from one oscilloscope as a multiplot", () => {
+  it("plans two vector channels from one scope as a multiplot", () => {
     const nodes = [
-      { id: 1, defId: "oscilloscope" },
+      { id: 1, defId: "scope" },
       { id: 2, defId: "sin" },
       { id: 3, defId: "cos" },
       { id: 4, defId: "timer" },
@@ -660,7 +660,7 @@ describe("blocks", () => {
 
   it("plans slotted extra ports as the same fork multiplot", () => {
     const nodes = [
-      { id: 1, defId: "oscilloscope" },
+      { id: 1, defId: "scope" },
       { id: 2, defId: "sin" },
       { id: 3, defId: "cos" },
       { id: 4, defId: "timer" },
@@ -705,7 +705,7 @@ describe("blocks", () => {
 
   it("compile generator emits typed-function wasm", async () => {
     const nodes = [
-      { id: 1, defId: "oscilloscope" },
+      { id: 1, defId: "scope" },
       { id: 2, defId: "sin" },
       { id: 3, defId: "quantizer" },
       { id: 4, defId: "timer" },
@@ -725,13 +725,13 @@ describe("blocks", () => {
     expect(compiled.text).toContain("(func $quantizer");
     expect(compiled.text).toContain("(result (ref $c1_f64))");
     expect(compiled.text).toContain("(func $sin");
-    expect(compiled.text).toContain("(func $oscilloscope");
+    expect(compiled.text).toContain("(func $scope");
     expect(compiled.text).toContain("(result (ref $array_c1_f64))");
     expect(compiled.text).toContain("array.new_fixed $array_c1_f64");
     expect(compiled.text).toContain("call $timer");
     expect(compiled.text).toContain("call $quantizer");
     expect(compiled.text).toContain("call $sin");
-    expect(compiled.text).toContain("call $oscilloscope");
+    expect(compiled.text).toContain("call $scope");
     expect(compiled.text).toContain("call_ref $c1_f64");
     expect(compiled.text).not.toContain("(func $tap_0");
     expect(compiled.text).toContain('(export "tick"');
@@ -742,7 +742,7 @@ describe("blocks", () => {
 
   it("compile timer chain sines into scope", async () => {
     const nodes = [
-      { id: 1, defId: "oscilloscope" },
+      { id: 1, defId: "scope" },
       { id: 2, defId: "sin" },
       { id: 3, defId: "quantizer" },
       { id: 4, defId: "timer" },
@@ -764,7 +764,7 @@ describe("blocks", () => {
 
   it("compile generator walks a cos stage", async () => {
     const nodes = [
-      { id: 1, defId: "oscilloscope" },
+      { id: 1, defId: "scope" },
       { id: 2, defId: "cos" },
       { id: 4, defId: "timer" },
     ];
@@ -780,8 +780,8 @@ describe("blocks", () => {
 
   it("compile generator emits a fork into two push rings", async () => {
     const nodes = [
-      { id: 1, defId: "oscilloscope" },
-      { id: 2, defId: "oscilloscope" },
+      { id: 1, defId: "scope" },
+      { id: 2, defId: "scope" },
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
@@ -790,14 +790,14 @@ describe("blocks", () => {
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.scopeIds).toEqual([1, 2]);
-    expect(compiled.text).toContain("call $oscilloscope_1");
-    expect(compiled.text).toContain("call $oscilloscope_2");
+    expect(compiled.text).toContain("call $scope_1");
+    expect(compiled.text).toContain("call $scope_2");
     expect(compiled.text).toContain("(func $fork_4_in");
     expect(compiled.text).toContain("call $push_at");
     expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
   });
 
-  it("compile timer needs oscilloscope", async () => {
+  it("compile timer needs scope", async () => {
     const nodes = [
       { id: 3, defId: "quantizer" },
       { id: 4, defId: "timer" },
@@ -813,7 +813,7 @@ describe("blocks", () => {
     const timerId = diagram.addNode("timer");
     const quantizerId = diagram.addNode("quantizer");
     const sinId = diagram.addNode("sin");
-    const scopeId = diagram.addNode("oscilloscope");
+    const scopeId = diagram.addNode("scope");
     diagram.addLink(scopeId, "out", quantizerId, "in");
     diagram.addLink(quantizerId, "out", sinId, "in");
     diagram.addLink(sinId, "out", timerId, "in");
@@ -842,11 +842,11 @@ describe("blocks", () => {
     expect(isCompatible(cat, [], g("c1", [t("f64")]), arrayOf(t("f64")))).toBe(false);
   });
 
-  it("two oscilloscopes may ground the same c<f64> input", () => {
+  it("two scopes may ground the same c<f64> input", () => {
     const diagram = new Diagram("cs", "Fork");
     associateBuiltinModels(diagram);
-    const scopeA = diagram.addNode("oscilloscope");
-    const scopeB = diagram.addNode("oscilloscope");
+    const scopeA = diagram.addNode("scope");
+    const scopeB = diagram.addNode("scope");
     const sinId = diagram.addNode("sin");
     diagram.addLink(scopeA, "out", sinId, "in");
     diagram.addLink(scopeB, "out", sinId, "in");
@@ -857,7 +857,7 @@ describe("blocks", () => {
   it("extra slotted ports ground as the catalog consumer ports", () => {
     const diagram = new Diagram("cs", "Slots");
     associateBuiltinModels(diagram);
-    const scopeId = diagram.addNode("oscilloscope");
+    const scopeId = diagram.addNode("scope");
     const sinId = diagram.addNode("sin");
     const cosId = diagram.addNode("cos");
     const timerId = diagram.addNode("timer");
@@ -866,7 +866,7 @@ describe("blocks", () => {
     diagram.addLink(sinId, "out", timerId, "in");
     diagram.addLink(cosId, "out", timerId, "in[1]");
     const scope = diagram.resolveNode(scopeId)!;
-    expect(displayType(resolvedOutput(scope, "out")!, true)).toBe("c<f64>[]");
+    expect(displayType(resolvedOutput(scope, "out")!, true)).toBe("c<f64>");
     expect(displayType(resolvedOutput(scope, "out[1]")!, true)).toBe("c<f64>");
     expect(isPushType(resolvedOutput(scope, "out"))).toBe(true);
     expect(isPushType(resolvedOutput(scope, "out[1]"))).toBe(true);
@@ -880,10 +880,10 @@ describe("blocks", () => {
     expect(isPushType(resolvedInput(timer, "in[1]"))).toBe(true);
   });
 
-  it("oscilloscope vector wires to sin because c<f64>[] grounds c<f64>", () => {
+  it("scope vector wires to sin because c<f64>[] grounds c<f64>", () => {
     const diagram = new Diagram("cs", "Same");
     associateBuiltinModels(diagram);
-    const scopeId = diagram.addNode("oscilloscope");
+    const scopeId = diagram.addNode("scope");
     const sinId = diagram.addNode("sin");
     diagram.addLink(scopeId, "out", sinId, "in");
     expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
@@ -909,15 +909,15 @@ describe("blocks", () => {
       live = false;
       return next;
     };
-    timer(fork(...oscilloscope((value) => left.push(value), (value) => right.push(value))), running, () => 4);
+    timer(fork(...scope((value) => left.push(value), (value) => right.push(value))), running, () => 4);
     expect(left).toEqual([4]);
     expect(right).toEqual([4]);
   });
 
   it("compile timer forks into two scope buffers", async () => {
     const nodes = [
-      { id: 1, defId: "oscilloscope" },
-      { id: 2, defId: "oscilloscope" },
+      { id: 1, defId: "scope" },
+      { id: 2, defId: "scope" },
       { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
@@ -934,9 +934,9 @@ describe("blocks", () => {
     expect(buffers.get(1)!.snapshot()).toEqual([3]);
   });
 
-  it("compile timer writes two rings for one oscilloscope vector", async () => {
+  it("compile timer writes two rings for one scope vector", async () => {
     const nodes = [
-      { id: 1, defId: "oscilloscope" },
+      { id: 1, defId: "scope" },
       { id: 2, defId: "sin" },
       { id: 3, defId: "cos" },
       { id: 4, defId: "timer" },
@@ -965,7 +965,7 @@ describe("blocks", () => {
       live = false;
       return next;
     };
-    timer(sin(quantizer(oscilloscope((value) => out.push(value))[0], 0)), running, () => Math.PI / 2);
+    timer(sin(quantizer(scope((value) => out.push(value))[0], 0)), running, () => Math.PI / 2);
     expect(out).toHaveLength(1);
     expect(Math.abs(out[0] - 1)).toBeLessThan(1e-9);
   });
@@ -991,7 +991,7 @@ describe("blocks", () => {
     expect(text).toContain("(func $tick");
     expect(text).toContain('(export "tick"');
     expect(text).toContain("call $timer");
-    expect(text).toContain("call $oscilloscope");
+    expect(text).toContain("call $scope");
     expect(text).not.toContain("(func $sin");
   });
 });

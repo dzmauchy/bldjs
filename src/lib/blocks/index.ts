@@ -33,7 +33,7 @@ export {
   generatorWat,
   planGenerator,
   cos,
-  oscilloscope,
+  scope,
   quantizer,
   sin,
   spawnTimer,
@@ -51,6 +51,8 @@ export {
 } from "../solution";
 export { Diagram, type Link, type XmlSource, infer } from "./diagram";
 export {
+  type BlockPosition,
+  type BlockPositionOf,
   type PortSlot,
   acceptsManyInputs,
   allocateIncomingSlot,

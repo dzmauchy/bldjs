@@ -7,6 +7,7 @@ import {
   compactLinkSlots,
   findCatalogLink,
   type BlockDef,
+  type BlockPositionOf,
   blockInput,
 } from "./blocks";
 import { linksEqual } from "./blocks/diagram";
@@ -43,8 +44,8 @@ export class WiringGraph {
     this.links = [...links];
   }
 
-  static compact(links: readonly Link[]): WiringGraph {
-    return new WiringGraph(compactLinkSlots(links));
+  static compact(links: readonly Link[], positionOf?: BlockPositionOf): WiringGraph {
+    return new WiringGraph(compactLinkSlots(links, positionOf));
   }
 
   connect(
