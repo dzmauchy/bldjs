@@ -38,10 +38,12 @@ describe("SolutionView", () => {
       [
         { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
         { fromBlock: 1, fromOut: "out[1]", toBlock: 9, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+        { fromBlock: 9, fromOut: "out", toBlock: 4, toIn: "in" },
       ],
     );
-    const graph = view.subgraphFromGenerator(2);
-    expect(graph.blocks.map((block) => block.defId).sort()).toEqual(["scope", "sin"]);
+    const graph = view.subgraphFromGenerator(4);
+    expect(graph.blocks.map((block) => block.defId).sort()).toEqual(["cos", "scope", "sin", "timer"]);
   });
 });
 
@@ -51,23 +53,23 @@ describe("WasmSolutionBuilder", () => {
       [
         { id: 1, defId: "scope" },
         { id: 2, defId: "sin" },
-        { id: 3, defId: "cos" },
+        { id: 3, defId: "timer" },
       ],
       [
         { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
-        { fromBlock: 1, fromOut: "out[1]", toBlock: 3, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
       ],
     );
-    const { text, wasm } = await new WasmSolutionBuilder().build(view, { generatorId: 2, delayMs: 0 });
+    const { text, wasm } = await new WasmSolutionBuilder().build(view, { generatorId: 3, delayMs: 0 });
     expect(text).toContain("array.new_fixed $array_c1_f64 1");
     expect(text).toContain("array.get $array_c1_f64");
     expect(text).toContain("(func $scope");
     expect(text).toContain("(result (ref $array_c1_f64))");
     expect(text).toContain("(func $sin");
     expect(text).toContain("(param $in (ref $c1_f64))");
-    expect(text).not.toContain("(result (ref $c1_f64))");
+    expect(text).toContain("(result (ref $c1_f64))");
+    expect(text).toContain("(func $timer");
     expect(text).not.toContain("(func $cos");
-    expect(text).not.toContain("(func $timer");
     expect(text).not.toContain("(param $in f64)");
     expect(text).not.toContain("(func $tap_0");
     expect(WebAssembly.validate(wasm.slice().buffer)).toBe(true);
@@ -88,13 +90,15 @@ describe("WasmSolutionBuilder", () => {
         { id: 1, defId: "scope" },
         { id: 2, defId: "sin" },
         { id: 3, defId: "cos" },
+        { id: 4, defId: "timer" },
       ],
       [
         { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
         { fromBlock: 1, fromOut: "out[1]", toBlock: 3, toIn: "in" },
+        { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" },
       ],
     );
-    const { text, wasm } = await new WasmSolutionBuilder().build(view, { generatorId: 3, delayMs: 0 });
+    const { text, wasm } = await new WasmSolutionBuilder().build(view, { generatorId: 4, delayMs: 0 });
     expect(text).toContain("(func $cos");
     expect(text).not.toContain("(func $sin");
     expect(text).toContain("array.new_fixed $array_c1_f64 1");
@@ -108,12 +112,16 @@ describe("WasmSolutionBuilder", () => {
     const nodes = [
       { id: 1, defId: "scope" },
       { id: 2, defId: "sin" },
+      { id: 3, defId: "timer" },
     ];
-    const links = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
-    const compiled = (await compileGenerator(2, nodes, links))!;
+    const links = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+    ];
+    const compiled = (await compileGenerator(3, nodes, links))!;
     expect(compiled.text).toContain("call $sin");
     expect(compiled.text).toContain("call $scope");
-    expect(compiled.text).not.toContain("call $timer");
+    expect(compiled.text).toContain("call $timer");
     expect(compiled.text).toContain("array.get $array_c1_f64");
   });
 });

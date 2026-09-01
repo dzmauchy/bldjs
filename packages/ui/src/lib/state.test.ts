@@ -3,13 +3,16 @@ import { BLOCK_PLACE_HEIGHT, BLOCK_PLACE_WIDTH } from "./model";
 import { AppState } from "./state";
 import { MemoryDiagramRepository } from "@bld/xml/diagram/store";
 
-function wireCsPipeline(app: AppState): { generatorId: number; scopeId: number } {
+function wireCsPipeline(app: AppState): { generatorId: number; scopeId: number; transformerId: number } {
   const generatorId = app.nextId;
-  app.addBlock("sin", 0, 0);
+  app.addBlock("timer", 360, 0);
+  const transformerId = app.nextId;
+  app.addBlock("sin", 180, 0);
   const scopeId = app.nextId;
-  app.addBlock("scope", 180, 0);
-  app.toggleLink(scopeId, "out", generatorId, "in");
-  return { generatorId, scopeId };
+  app.addBlock("scope", 0, 0);
+  app.toggleLink(scopeId, "out", transformerId, "in");
+  app.toggleLink(transformerId, "out", generatorId, "in");
+  return { generatorId, scopeId, transformerId };
 }
 
 describe("AppState placement", () => {
@@ -111,11 +114,17 @@ describe("AppState wiring", () => {
     app.addBlock("sin", 180, 0);
     const cosId = app.nextId;
     app.addBlock("cos", 180, 120);
+    const timerId = app.nextId;
+    app.addBlock("timer", 360, 40);
     app.toggleLink(scopeId, "out", sinId, "in");
     app.toggleLink(scopeId, "out", cosId, "in");
+    app.toggleLink(sinId, "out", timerId, "in");
+    app.toggleLink(cosId, "out", timerId, "in");
     expect(app.links).toEqual([
       { fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" },
       { fromBlock: scopeId, fromOut: "out[1]", toBlock: cosId, toIn: "in" },
+      { fromBlock: sinId, fromOut: "out", toBlock: timerId, toIn: "in" },
+      { fromBlock: cosId, fromOut: "out", toBlock: timerId, toIn: "in[1]" },
     ]);
     expect(app.run.canStart()).toBe(true);
     expect(app.run.planned().flatMap((plan) => plan.channels.map((channel) => channel.label))).toEqual([
@@ -305,8 +314,12 @@ describe("AppState run", () => {
     app.addBlock("sin", 180, 0);
     const cosId = app.nextId;
     app.addBlock("cos", 180, 120);
+    const timerId = app.nextId;
+    app.addBlock("timer", 360, 40);
     app.toggleLink(scopeId, "out", sinId, "in");
     app.toggleLink(scopeId, "out", cosId, "in");
+    app.toggleLink(sinId, "out", timerId, "in");
+    app.toggleLink(cosId, "out", timerId, "in");
     await app.run.start();
     expect(app.run.error).toBeNull();
     expect(app.run.running).toBe(true);
@@ -320,11 +333,11 @@ describe("AppState run", () => {
 
   it("stops the run when the wiring changes", async () => {
     const app = new AppState();
-    const { generatorId } = wireCsPipeline(app);
+    const { generatorId, transformerId } = wireCsPipeline(app);
     await app.run.start();
     expect(app.run.running).toBe(true);
 
-    app.toggleLink(app.blocks.find((block) => block.defId === "scope")!.id, "out", generatorId, "in");
+    app.toggleLink(transformerId, "out", generatorId, "in");
     expect(app.run.running).toBe(false);
     expect(app.run.canStart()).toBe(false);
   });
@@ -332,7 +345,7 @@ describe("AppState run", () => {
   it("seeds generator period at 10 ms and updates it", () => {
     const app = new AppState();
     const id = app.nextId;
-    app.addBlock("sin", 0, 0);
+    app.addBlock("timer", 0, 0);
     expect(app.blockPeriodMs(id)).toBe(10);
     expect(app.blockInputs(id).map((input) => [input.def.name, input.value])).toEqual([["period", "10"]]);
     app.setBlockParameter(id, "period", "25");
@@ -350,13 +363,14 @@ describe("AppState diagram XML", () => {
     expect(xml).toContain("<diagram");
     expect(xml).toContain("<catalog>types.xml</catalog>");
     expect(xml).toContain("<catalog>control-systems.xml</catalog>");
+    expect(xml).toContain('type="timer"');
     expect(xml).toContain('type="sin"');
     expect(xml).toContain("<connector");
 
     const other = new AppState();
     expect(other.io.loadXml(xml)).toBe(true);
-    expect(other.blocks.map((block) => block.defId)).toEqual(["sin", "scope"]);
-    expect(other.links).toHaveLength(1);
+    expect(other.blocks.map((block) => block.defId)).toEqual(["timer", "sin", "scope"]);
+    expect(other.links).toHaveLength(2);
     expect(other.run.canStart()).toBe(true);
     expect(other.diagramName).toBe("Workspace");
   });
@@ -467,7 +481,7 @@ describe("AppState diagram XML", () => {
     expect(app.blocks).toHaveLength(0);
     const id = (await repo.list())[0]!.id;
     expect(await app.io.load(id)).toBe(true);
-    expect(app.blocks.map((block) => block.defId)).toEqual(["sin", "scope"]);
+    expect(app.blocks.map((block) => block.defId)).toEqual(["timer", "sin", "scope"]);
     expect(app.diagramName).toBe("Pipeline");
     expect(app.run.canStart()).toBe(true);
   });

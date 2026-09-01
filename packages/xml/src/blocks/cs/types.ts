@@ -15,10 +15,11 @@ export interface NodeSpec {
   periodMs?: number;
 }
 
-/** Push-model consumer tree: `sin(fork(plot[0], plot[1]))`. */
+/** Push-model consumer tree: `timer(sin(fork(plot[0], plot[1])))`. */
 export type ConsumerTree =
   | { kind: "scope"; id: number }
-  | { kind: "fork"; inner: ConsumerTree[] };
+  | { kind: "fork"; inner: ConsumerTree[] }
+  | { kind: "map"; defId: string; id: number; inner: ConsumerTree };
 
 /** One ring / plot channel on a scope. */
 export interface ScopeChannel {

@@ -1,4 +1,6 @@
-import { addCos, addRandom, addSin, addTimer } from "./blocks/generator";
+import { addRandom, addTimer } from "./blocks/generator";
+import { addSin } from "./blocks/sin";
+import { addCos } from "./blocks/cos";
 import { addScope } from "./blocks/scope";
 import { addFailTag } from "./exceptions";
 import { addImports } from "./imports";

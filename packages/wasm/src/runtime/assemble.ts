@@ -9,7 +9,7 @@ export type { SolutionView } from "@bld/xml/solution/view";
 
 export interface AssembleOptions {
   generator?: string;
-  /** Last entry is treated as the generator when `generator` is omitted. */
+  /** Transformers then generator (`["sin", "timer"]`). A lone transformer is wrapped with timer. */
   stages?: readonly string[];
   delayMs: number;
   view?: SolutionView;
@@ -37,8 +37,8 @@ export function runtimeTypeWat(): string {
 }
 
 export async function assembleModule(options: AssembleOptions): Promise<AssembledModule> {
-  const generator = options.generator ?? options.stages?.at(-1) ?? "timer";
-  const view = options.view ?? linearSolutionView(generator);
+  const stages = options.stages ?? [options.generator ?? "timer"];
+  const view = options.view ?? linearSolutionView(stages);
   const builder = new WasmSolutionBuilder();
   return builder.build(view, {
     delayMs: options.delayMs,

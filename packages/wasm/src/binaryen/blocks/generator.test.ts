@@ -11,7 +11,8 @@ import {
   addWait,
   wasmFeatures,
 } from "../index";
-import { addRandom, addSin } from "./generator";
+import { addRandom, addTimer } from "./generator";
+import { addSin } from "./sin";
 
 describe("generator catalog", () => {
   it("repeats the XML signature plus $ctx and parks with atomic.wait when shared", () => {
@@ -20,7 +21,7 @@ describe("generator catalog", () => {
       module.setFeatures(wasmFeatures(binaryen));
       const types = addCatalogTypes(binaryen, module);
       addWait(module);
-      addSin(module, types, { sharedMemory: true });
+      addTimer(module, types, { sharedMemory: true });
       const text = module.emitText();
       expect(text).toContain("(param $ctx i32)");
       expect(text).toContain("(param $in (ref $c1_f64))");
@@ -37,7 +38,7 @@ describe("generator catalog", () => {
     try {
       module.setFeatures(wasmFeatures(binaryen));
       const types = addCatalogTypes(binaryen, module);
-      addSin(module, types, { sharedMemory: false });
+      addTimer(module, types, { sharedMemory: false });
       expect(module.emitText()).not.toContain("memory.atomic.wait32");
     } finally {
       module.dispose();
@@ -51,6 +52,25 @@ describe("generator catalog", () => {
       const types = addCatalogTypes(binaryen, module);
       addRandom(module, types, { sharedMemory: false });
       expect(module.emitText()).toContain("call $host_random");
+    } finally {
+      module.dispose();
+    }
+  });
+});
+
+describe("transformer catalog", () => {
+  it("repeats the XML c<f64> → c<f64> signature plus $ctx", () => {
+    const module = new binaryen.Module();
+    try {
+      module.setFeatures(wasmFeatures(binaryen));
+      const types = addCatalogTypes(binaryen, module);
+      addSin(module, types);
+      const text = module.emitText();
+      expect(text).toContain("(param $ctx i32)");
+      expect(text).toContain("(param $in (ref $c1_f64))");
+      expect(text).toContain("(result (ref $c1_f64))");
+      expect(text).toContain("call $host_sin");
+      expect(text).not.toContain("memory.atomic.wait32");
     } finally {
       module.dispose();
     }

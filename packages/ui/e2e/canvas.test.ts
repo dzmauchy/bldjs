@@ -37,6 +37,8 @@ test.describe("canvas", () => {
     expect((await parentNs.innerText()).toLowerCase()).toContain("control systems");
     const genNs = await waitDeep(page, '[data-testid="ns-com.dauch.cs.gen"]');
     expect((await genNs.innerText()).toLowerCase()).toContain("gen");
+    const tfNs = await waitDeep(page, '[data-testid="ns-com.dauch.cs.tf"]');
+    expect((await tfNs.innerText()).toLowerCase()).toContain("transform");
     const nested = await page.evaluate(() => {
       const walk = (root: ParentNode, selector: string): Element | null => {
         const match = (root as ParentNode & { querySelector: Document["querySelector"] }).querySelector(selector);
@@ -62,6 +64,8 @@ test.describe("canvas", () => {
     expect(await paletteItem.innerText()).toContain("Timer");
     expect(await paletteItem.innerText()).not.toContain("→");
     await expect(page.locator('[data-testid="palette-random"]')).toContainText("Random");
+    await expect(page.locator('[data-testid="palette-sin"]')).toContainText("Sin");
+    await expect(page.locator('[data-testid="palette-cos"]')).toContainText("Cos");
     await expect(page.locator('[data-testid="palette-quantizer"]')).toHaveCount(0);
     const paletteIcon = page.locator('[data-testid="palette-timer"] bld-block-icon svg');
     await expect(paletteIcon).toBeVisible();
@@ -252,10 +256,10 @@ test.describe("canvas", () => {
     const inCenter = inBox.x + inBox.width / 2;
     expect(inCenter - nodeBox.x).toBeGreaterThanOrEqual(0.5);
     expect(inCenter - nodeBox.x).toBeLessThan(4);
-    await expect(host.locator('[data-testid="output-out"]')).toHaveCount(0);
+    await expect(host.locator('[data-testid="output-out"]')).toHaveAttribute("title", "c<f64>");
     await expect(host.locator(".block-port-name")).toHaveCount(0);
     await expect(host.locator('[data-testid="input-in"]')).toHaveAttribute("title", "c<f64>");
-    await expect(host.locator('[data-testid^="inputs-"]')).toBeVisible();
+    await expect(host.locator('[data-testid^="inputs-"]')).toHaveCount(0);
   });
 
   test("opens generator inputs and defaults period to 10 ms", async () => {
