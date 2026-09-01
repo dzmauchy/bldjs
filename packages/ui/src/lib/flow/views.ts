@@ -1,17 +1,8 @@
-import {
-  isPushType,
-  isResolvedCompatible,
-  resolvedInput,
-  resolvedOutput,
-  typeToString,
-  type BlockDef,
-  type Catalog,
-  type Link,
-  type ResolvedBlock,
-  inputSlotsFor,
-  outputSlotsFor,
-} from "@bld/xml";
-import { isArrayType } from "@bld/xml";
+import { isArrayType, isPushType, typeToString, type BlockDef } from "@bld/xml/blocks/ast";
+import type { Catalog } from "@bld/xml/blocks/catalog";
+import type { Link } from "@bld/xml/blocks/diagram";
+import { inputSlotsFor, outputSlotsFor } from "@bld/xml/blocks/ports";
+import { isResolvedCompatible, resolvedInput, resolvedOutput, type ResolvedBlock } from "@bld/xml/blocks/resolve";
 import type { BlockInstance } from "$lib/diagram-model";
 import type { BlockKindInfo } from "$lib/model";
 import { shouldShowPortType } from "./link-types";

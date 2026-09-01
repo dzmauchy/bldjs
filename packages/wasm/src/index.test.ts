@@ -56,9 +56,13 @@ function valueSpecs(source: string): string[] {
   return [...values];
 }
 
-describe("@bld/wasm public entry", () => {
+describe("@bld/wasm public entries", () => {
   it("does not statically import binaryen.js", () => {
-    const queue = ["./index.ts"];
+    const queue = [
+      "./isolation.ts",
+      "./runtime/diagram-runner.ts",
+      "./solution/wasm.ts",
+    ];
     const seen = new Set<string>();
     const hits: string[] = [];
     while (queue.length > 0) {

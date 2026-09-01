@@ -1,11 +1,7 @@
-import {
-  type GeneratorPlan,
-  type Link,
-  type NodeSpec,
-  type SolutionViewConnector,
-  planGenerator,
-  solutionViewFrom,
-} from "@bld/xml";
+import type { GeneratorPlan, NodeSpec } from "@bld/xml/blocks/cs/types";
+import { planGenerator } from "@bld/xml/blocks/cs/plan";
+import type { Link } from "@bld/xml/blocks/diagram";
+import { solutionViewFrom, type SolutionViewConnector } from "@bld/xml/solution/view";
 import { assembleModule } from "./runtime/assemble";
 import { WasmSolutionBuilder } from "./solution/wasm";
 

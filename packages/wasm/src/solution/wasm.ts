@@ -1,19 +1,11 @@
-import type { BlockDef } from "@bld/xml";
-import {
-  Catalog,
-  Diagram,
-  DEFAULT_PERIOD_MS,
-  SolutionView,
-  associateBuiltinModels,
-  catalogPortName,
-  isArrayType,
-  isGeneratorId,
-  portSlotIndex,
-  type SolutionAssembly,
-  type SolutionBuilder,
-  type SolutionViewBlock,
-  type SolutionViewConnector,
-} from "@bld/xml";
+import { isArrayType, type BlockDef } from "@bld/xml/blocks/ast";
+import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
+import { Catalog } from "@bld/xml/blocks/catalog";
+import { isGeneratorId, DEFAULT_PERIOD_MS } from "@bld/xml/blocks/cs/ids";
+import { Diagram } from "@bld/xml/blocks/diagram";
+import { catalogPortName, portSlotIndex } from "@bld/xml/blocks/ports";
+import type { SolutionAssembly, SolutionBuilder } from "@bld/xml/solution/builder";
+import { SolutionView, type SolutionViewBlock, type SolutionViewConnector } from "@bld/xml/solution/view";
 import { canShareMemory } from "../isolation";
 import { CTX, MEM, SAMPLE_CAP } from "../runtime/memory";
 

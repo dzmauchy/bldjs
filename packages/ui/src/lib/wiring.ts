@@ -1,16 +1,14 @@
+import { type BlockDef, blockInput } from "@bld/xml/blocks/ast";
+import { type Link, linksEqual } from "@bld/xml/blocks/diagram";
 import {
-  type Link,
   acceptsManyInputs,
   allocateIncomingSlot,
   allocateOutgoingSlot,
   catalogPortName,
   compactLinkSlots,
   findCatalogLink,
-  type BlockDef,
   type BlockPositionOf,
-  blockInput,
-} from "@bld/xml";
-import { linksEqual } from "@bld/xml";
+} from "@bld/xml/blocks/ports";
 
 export function inputIsGrounded(links: readonly Link[], blockId: number, port: string): boolean {
   return links.some((link) => link.toBlock === blockId && link.toIn === port);

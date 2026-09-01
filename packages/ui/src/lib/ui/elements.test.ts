@@ -113,7 +113,7 @@ describe("Lit update scheduling", () => {
     const app = new AppState();
     const id = app.nextId;
     app.addBlock("scope", 0, 0);
-    vi.spyOn(app, "snapshotScope").mockReturnValue([
+    vi.spyOn(app.run, "snapshotScope").mockReturnValue([
       { label: "sin", samples: [0, 1] },
       { label: "cos", samples: [1, 0] },
     ]);
@@ -158,7 +158,7 @@ describe("Lit update scheduling", () => {
     const chart = document.createElement("bld-scope-modal") as BldScopeModal;
     const app = new AppState();
     expect(
-      app.loadDiagramXml(`<?xml version="1.0" encoding="UTF-8"?>
+      app.io.loadXml(`<?xml version="1.0" encoding="UTF-8"?>
 <diagram id="diag_named" name="Named" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
   <catalogs>
     <catalog>types.xml</catalog>
@@ -170,7 +170,7 @@ describe("Lit update scheduling", () => {
 </diagram>`),
     ).toBe(true);
     const id = app.blocks[0]!.id;
-    vi.spyOn(app, "snapshotScope").mockReturnValue([{ label: "sin", samples: [0, 1] }]);
+    vi.spyOn(app.run, "snapshotScope").mockReturnValue([{ label: "sin", samples: [0, 1] }]);
     chart.app = app;
     document.body.append(chart);
     await chart.updateComplete;

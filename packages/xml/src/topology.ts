@@ -1,4 +1,7 @@
-import { type Link, type NodeSpec, isGeneratorId, planGenerator, type GeneratorPlan } from "./blocks";
+import type { Link } from "./blocks/diagram";
+import { isGeneratorId } from "./blocks/cs/ids";
+import { planGenerator } from "./blocks/cs/plan";
+import type { GeneratorPlan, NodeSpec } from "./blocks/cs/types";
 
 export function nodeSpecsFrom(
   blocks: readonly { id: number; defId: string; periodMs?: number }[],

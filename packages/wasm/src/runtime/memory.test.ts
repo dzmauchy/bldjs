@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SAMPLE_CAP as XML_SAMPLE_CAP } from "@bld/xml";
+import { SAMPLE_CAP as XML_SAMPLE_CAP } from "@bld/xml/blocks/cs/ids";
 import {
   SAMPLE_CAP,
   bumpFlowCounts,

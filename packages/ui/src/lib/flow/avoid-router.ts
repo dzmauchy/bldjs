@@ -1,7 +1,7 @@
 import { dia, shapes } from "@joint/core";
 import { initAvoidRouter, type RouterService } from "@joint/router-avoid";
-import type { Link } from "@bld/xml";
-import { canUseIsolatedWorker } from "@bld/wasm";
+import type { Link } from "@bld/xml/blocks/diagram";
+import { canUseIsolatedWorker } from "@bld/wasm/isolation";
 import type { Point } from "./geometry";
 import { linkKey, routesEqual } from "./geometry";
 import type { NodeLayout, PortSide } from "./types";

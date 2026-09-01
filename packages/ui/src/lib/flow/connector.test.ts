@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { BldConnector } from "./connector";
-import { FLOW_PERIOD_MIN_MS, flowPeriodMs } from "@bld/xml";
+import { FLOW_PERIOD_MIN_MS, flowPeriodMs } from "@bld/xml/flow";
 import "./connector";
 
 async function mountConnector(init: Partial<BldConnector>): Promise<BldConnector> {

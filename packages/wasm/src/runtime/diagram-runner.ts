@@ -1,19 +1,10 @@
 import { assembleGenerator } from "../compile";
-import {
-  type GeneratorPlan,
-  type Link,
-  type NodeSpec,
-  type Runner,
-  type RunnerSession,
-  type RunnerStartOptions,
-  type ScopeSeries,
-  connectorKey,
-  hzFromDelta,
-  intervalMs,
-  plannedGenerators,
-  solutionViewFrom,
-  topologyKey,
-} from "@bld/xml";
+import type { GeneratorPlan, NodeSpec, ScopeSeries } from "@bld/xml/blocks/cs/types";
+import type { Link } from "@bld/xml/blocks/diagram";
+import { hzFromDelta, intervalMs } from "@bld/xml/flow";
+import type { Runner, RunnerSession, RunnerStartOptions } from "@bld/xml/runner";
+import { connectorKey, solutionViewFrom } from "@bld/xml/solution/view";
+import { plannedGenerators, topologyKey } from "@bld/xml/topology";
 import { type GeneratorHandle, startGenerator } from "./generator";
 
 export function yieldForPaint(): Promise<void> {

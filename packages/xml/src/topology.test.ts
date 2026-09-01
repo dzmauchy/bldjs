@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { topologyKey, plannedGenerators, nodeSpecsFrom } from "./topology";
-import type { Link } from "./blocks";
+import type { Link } from "./blocks/diagram";
 
 describe("topology", () => {
   it("ignores block positions", () => {

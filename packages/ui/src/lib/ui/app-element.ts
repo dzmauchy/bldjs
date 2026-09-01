@@ -71,7 +71,7 @@ export class BldApp extends LitElement {
   }
 
   disconnectedCallback(): void {
-    this.app.stopRun();
+    this.app.run.stop();
     window.removeEventListener("keydown", this.#onKey);
     window.removeEventListener("orientationchange", this.#syncCompact);
     window.removeEventListener("resize", this.#syncCompact);
@@ -95,7 +95,7 @@ export class BldApp extends LitElement {
     switch (event.key) {
       case "Delete":
       case "Backspace":
-        if (app.aboutOpen || app.ioMode !== "closed" || !isNoneId(app.scopeOpen) || !isNoneId(app.inputsOpen)) {
+        if (app.aboutOpen || app.io.mode !== "closed" || !isNoneId(app.scopeOpen) || !isNoneId(app.inputsOpen)) {
           break;
         }
         if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
@@ -105,8 +105,8 @@ export class BldApp extends LitElement {
         app.deleteSelected();
         break;
       case "Escape":
-        if (app.ioMode !== "closed") {
-          app.closeIo();
+        if (app.io.mode !== "closed") {
+          app.io.close();
           break;
         }
         app.clearSelection();

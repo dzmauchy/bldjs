@@ -38,10 +38,10 @@ export class BldDiagramIoModal extends LitElement {
 
   protected override willUpdate(): void {
     this.#bindApp();
-    if (this.app?.ioMode === "save" && this.#saveName === "") {
-      this.#saveName = this.app.saveName;
+    if (this.app?.io.mode === "save" && this.#saveName === "") {
+      this.#saveName = this.app.io.saveName;
     }
-    if (this.app?.ioMode !== "save") {
+    if (this.app?.io.mode !== "save") {
       this.#saveName = "";
     }
   }
@@ -54,15 +54,15 @@ export class BldDiagramIoModal extends LitElement {
   }
 
   #close(): void {
-    this.app.closeIo();
+    this.app.io.close();
   }
 
   protected override render() {
     const app = this.app;
-    if (!app || app.ioMode === "closed") {
+    if (!app || app.io.mode === "closed") {
       return nothing;
     }
-    const saving = app.ioMode === "save";
+    const saving = app.io.mode === "save";
     return html`
       <div
         class="modal-backdrop fade show"
@@ -95,7 +95,7 @@ export class BldDiagramIoModal extends LitElement {
       <form
         @submit=${(event: Event) => {
           event.preventDefault();
-          void app.saveToLibrary(this.#saveName);
+          void app.io.save(this.#saveName);
         }}
       >
         <div class="modal-body">
@@ -112,8 +112,8 @@ export class BldDiagramIoModal extends LitElement {
               this.#saveName = (event.target as HTMLInputElement).value;
             }}
           />
-          ${app.ioError
-            ? html`<p class="text-warning small mb-0 mt-2" data-testid="diagram-io-error">${app.ioError}</p>`
+          ${app.io.error
+            ? html`<p class="text-warning small mb-0 mt-2" data-testid="diagram-io-error">${app.io.error}</p>`
             : nothing}
         </div>
         <div class="modal-footer">
@@ -129,14 +129,14 @@ export class BldDiagramIoModal extends LitElement {
   #openBody(app: AppState) {
     return html`
       <div class="modal-body">
-        ${app.ioError
-          ? html`<p class="text-warning small" data-testid="diagram-io-error">${app.ioError}</p>`
+        ${app.io.error
+          ? html`<p class="text-warning small" data-testid="diagram-io-error">${app.io.error}</p>`
           : nothing}
-        ${app.savedDiagrams.length === 0
+        ${app.io.savedDiagrams.length === 0
           ? html`<p class="text-secondary mb-0" data-testid="diagram-library-empty">No saved diagrams.</p>`
           : html`
               <div class="list-group saved-list" data-testid="diagram-library-list">
-                ${app.savedDiagrams.map(
+                ${app.io.savedDiagrams.map(
                   (item) => html`
                     <div class="list-group-item d-flex align-items-center gap-2" data-testid="saved-diagram" data-diagram-id=${item.id}>
                       <button
@@ -144,7 +144,7 @@ export class BldDiagramIoModal extends LitElement {
                         type="button"
                         data-testid="saved-diagram-load"
                         @click=${() => {
-                          void app.loadFromLibrary(item.id);
+                          void app.io.load(item.id);
                         }}
                       >
                         <span class="d-block">${item.name}</span>
@@ -155,7 +155,7 @@ export class BldDiagramIoModal extends LitElement {
                         type="button"
                         data-testid="saved-diagram-delete"
                         @click=${() => {
-                          void app.deleteFromLibrary(item.id);
+                          void app.io.remove(item.id);
                         }}
                       >
                         Delete

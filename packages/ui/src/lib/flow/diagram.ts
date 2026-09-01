@@ -255,15 +255,15 @@ export class BldDiagram extends LitElement {
     if (!this.app) {
       return;
     }
-    if (this.app.running) {
-      this.app.sampleFlowRates();
+    if (this.app.run.running) {
+      this.app.run.sampleFlowRates();
     }
     for (const host of this.renderRoot.querySelectorAll("bld-connector")) {
       if (!(host instanceof BldConnector) || host.preview) {
         continue;
       }
       const key = host.getAttribute("data-link");
-      host.hz = key && this.app.runBusy() ? this.app.connectorHzForKey(key) : 0;
+      host.hz = key && this.app.run.busy() ? this.app.run.connectorHzForKey(key) : 0;
     }
   }
 
@@ -416,7 +416,7 @@ export class BldDiagram extends LitElement {
                 .crossings=${item.crossings}
                 .selected=${item.selected}
                 .push=${linkPushes(resolved, item.link)}
-                .hz=${app.runBusy() ? app.connectorHz(item.link) : 0}
+                .hz=${app.run.busy() ? app.run.connectorHz(item.link) : 0}
                 @linkpointerdown=${() => this.#interaction.onLinkPointerDown(item.link)}
               ></bld-connector>
             `,
@@ -442,7 +442,7 @@ export class BldDiagram extends LitElement {
                 links: app.links,
                 selected: app.selected,
                 linkingFrom: app.linkingFrom,
-                isScopeLive: (id) => app.isScopeLive(id),
+                isScopeLive: (id) => app.run.isScopeLive(id),
                 inputIsGrounded: (blockId, port) => app.inputIsGrounded(blockId, port),
                 blockDef: (defId) => app.blockDef(defId),
                 kindOf: (def) => app.kindOf(def),
