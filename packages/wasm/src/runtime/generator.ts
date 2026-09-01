@@ -1,6 +1,6 @@
 import { canShareMemory, canUseIsolatedWorker } from "../isolation";
-import type { SolutionViewConnector } from "@bld/xml";
-import { intervalMs } from "@bld/xml";
+import type { SolutionViewConnector } from "@bld/xml/solution/view";
+import { intervalMs } from "@bld/xml/flow";
 import { createHost } from "./host";
 import { createMemory, readFlowCounts, readSamples, requestStop } from "./memory";
 import { startTickLoop } from "./runner";

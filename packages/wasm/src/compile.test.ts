@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PERIOD_MS, associateBuiltinModels, Diagram, loadDiagramSolution, serializeCanvas, type Link } from "@bld/xml";
+import { DEFAULT_PERIOD_MS } from "@bld/xml/blocks/cs/ids";
+import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
+import { Diagram, type Link } from "@bld/xml/blocks/diagram";
+import { loadDiagramSolution } from "@bld/xml/diagram/compile";
+import { serializeCanvas } from "@bld/xml/diagram/xml";
 import { compileGenerator, generatorText } from "./compile";
 
 function catalog() {

@@ -3,6 +3,7 @@ import { createRef, ref } from "lit/directives/ref.js";
 import { AppController } from "$lib/context";
 import { isNoneId } from "$lib/model";
 import type { AppState } from "$lib/state";
+import type { ScopeSeries } from "@bld/xml/blocks/cs/types";
 import { bootstrapStyles } from "./bootstrap";
 import { ScopeCanvasPlot } from "./scope-chart";
 
@@ -152,7 +153,7 @@ export class BldScopeModal extends LitElement {
     }
   }
 
-  #applySeries(plot: ScopeCanvasPlot, series: ReturnType<AppState["snapshotScope"]>): void {
+  #applySeries(plot: ScopeCanvasPlot, series: ScopeSeries[]): void {
     const sampleCount = series.reduce((max, channel) => Math.max(max, channel.samples.length), 0);
     this.#writeSeriesCount(series.length, sampleCount, plot.setSeries(series));
   }
@@ -165,13 +166,13 @@ export class BldScopeModal extends LitElement {
       this.#writeSeriesCount(plot.seriesCount, this.#sampleCount, painted);
     });
     this.#plot = plot;
-    this.#applySeries(plot, this.app.snapshotScope(id));
+    this.#applySeries(plot, this.app.run.snapshotScope(id));
     plot.fit();
     const tick = (): void => {
       if (this.#openId !== id || this.#plot !== plot) {
         return;
       }
-      this.#applySeries(plot, this.app.snapshotScope(id));
+      this.#applySeries(plot, this.app.run.snapshotScope(id));
     };
     this.#tick = setInterval(tick, 50);
   }

@@ -1,7 +1,7 @@
-import { type BlockDef, type ParamDef, type TypeExpr } from "@bld/xml";
-import { isCompatible } from "@bld/xml";
-import type { Catalog } from "@bld/xml";
-import { resolvedInput, resolvedOutput, type ResolvedBlock } from "@bld/xml";
+import { type BlockDef, type ParamDef, type TypeExpr } from "@bld/xml/blocks/ast";
+import type { Catalog } from "@bld/xml/blocks/catalog";
+import { isCompatible } from "@bld/xml/blocks/compat";
+import { resolvedInput, resolvedOutput, type ResolvedBlock } from "@bld/xml/blocks/resolve";
 import type { PortSide } from "./types";
 
 export interface LinkingPort {

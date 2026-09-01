@@ -189,7 +189,7 @@ export class BldToolbar extends LitElement {
       return;
     }
     const xml = await file.text();
-    this.app.loadDiagramXml(xml);
+    this.app.io.loadXml(xml);
   }
 
   protected override render() {
@@ -222,18 +222,18 @@ export class BldToolbar extends LitElement {
         <button
           class="toolbar-btn btn btn-sm"
           type="button"
-          title=${app.runBusy() ? "Stop" : "Run"}
-          aria-label=${app.runBusy() ? "Stop" : "Run"}
-          data-testid=${app.runBusy() ? "toolbar-stop" : "toolbar-run"}
+          title=${app.run.busy() ? "Stop" : "Run"}
+          aria-label=${app.run.busy() ? "Stop" : "Run"}
+          data-testid=${app.run.busy() ? "toolbar-stop" : "toolbar-run"}
           @click=${() => {
-            if (app.runBusy()) {
-              app.stopRun();
+            if (app.run.busy()) {
+              app.run.stop();
               return;
             }
-            void app.runDiagram();
+            void app.run.start();
           }}
         >
-          <bld-block-icon name=${app.runBusy() ? "stop" : "run"}></bld-block-icon>
+          <bld-block-icon name=${app.run.busy() ? "stop" : "run"}></bld-block-icon>
         </button>
         <input
           type="file"
@@ -290,7 +290,7 @@ export class BldToolbar extends LitElement {
               type="button"
               data-testid="menu-save-diagram"
               @click=${() => {
-                app.openSaveDialog();
+                app.io.openSave();
                 this.#close();
               }}
             >
@@ -301,7 +301,7 @@ export class BldToolbar extends LitElement {
               type="button"
               data-testid="menu-open-diagram"
               @click=${() => {
-                void app.openLibraryDialog();
+                void app.io.openLibrary();
                 this.#close();
               }}
             >
@@ -320,7 +320,7 @@ export class BldToolbar extends LitElement {
               type="button"
               data-testid="menu-export-xml"
               @click=${() => {
-                app.exportDiagramXml();
+                app.io.exportFile();
                 this.#close();
               }}
             >

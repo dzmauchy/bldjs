@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Link } from "@bld/xml";
+import type { Link } from "@bld/xml/blocks/diagram";
 import type { NodeLayout } from "./types";
 import {
   AvoidRouteEngine,

@@ -1,5 +1,5 @@
 import type { Link } from "./blocks/diagram";
-import type { NodeSpec, ScopeSeries } from "./blocks/cs";
+import type { NodeSpec, ScopeSeries } from "./blocks/cs/types";
 
 /** Live generator session owned by a {@link Runner}. */
 export interface RunnerSession {

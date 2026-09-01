@@ -1,4 +1,4 @@
-import { type BlockDef, type PortDef, type TypeExpr, displayType, isArrayType } from "@bld/xml";
+import { type BlockDef, type PortDef, type TypeExpr, displayType, isArrayType } from "@bld/xml/blocks/ast";
 
 /** WASM value type emitted for a language-agnostic XML type expression. */
 export type WasmVal = string;

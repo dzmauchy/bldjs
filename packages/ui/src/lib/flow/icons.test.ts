@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { associateBuiltinModels } from "@bld/xml";
-import { Diagram } from "@bld/xml";
+import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
+import { Diagram } from "@bld/xml/blocks/diagram";
 import { hasBlockIcon, iconKey, iconSvgInner, renderBrandSvg, renderIconSvg } from "./icons";
 
 describe("flow icons", () => {

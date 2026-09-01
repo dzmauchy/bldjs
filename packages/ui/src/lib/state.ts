@@ -1,40 +1,16 @@
-import {
-  type BlockDef,
-  type BlockParameterDef,
-  type CatalogRef,
-  Catalog,
-  Diagram,
-  type Link,
-  type ParameterValue,
-  type ResolvedBlock,
-  type ScopeSeries,
-  type XmlSource,
-  BUILTIN_CATALOGS,
-  PERIOD_PARAM,
-  associateBuiltinModels,
-  blockAttribute,
-  catalogFromFiles,
-  compactLinkSlots,
-  periodMsFrom,
-  xmlSourcesForFiles,
-} from "@bld/xml";
-import { linksEqual } from "@bld/xml";
+import { type BlockDef, type BlockParameterDef, blockAttribute } from "@bld/xml/blocks/ast";
+import { associateBuiltinModels, xmlSourcesForFiles } from "@bld/xml/blocks/builtin";
+import { Catalog } from "@bld/xml/blocks/catalog";
+import { PERIOD_PARAM, periodMsFrom } from "@bld/xml/blocks/cs/ids";
+import { Diagram, type Link, type XmlSource, linksEqual } from "@bld/xml/blocks/diagram";
+import { compactLinkSlots } from "@bld/xml/blocks/ports";
+import type { ResolvedBlock } from "@bld/xml/blocks/resolve";
+import { loadDiagramSolution } from "@bld/xml/diagram/compile";
+import { blockXmlId, newDiagramId } from "@bld/xml/diagram/ids";
+import { type DiagramRepository, defaultDiagramRepository } from "@bld/xml/diagram/store";
+import type { BlockExtras, ParameterValue } from "@bld/xml/diagram/types";
+import { documentToCanvas, nowIso } from "@bld/xml/diagram/xml";
 import { DiagramModel, type BlockInstance } from "./diagram-model";
-import {
-  type BlockExtras,
-  type DiagramRepository,
-  type StoredDiagram,
-  defaultDiagramRepository,
-  diagramFilename,
-  downloadTextFile,
-  loadDiagramSolution,
-  newDiagramId,
-  nowIso,
-  serializeCanvas,
-  blockXmlId,
-  documentToCanvas,
-  parseDiagramXml,
-} from "@bld/xml";
 import {
   BLOCK_PLACE_HEIGHT,
   BLOCK_PLACE_WIDTH,
@@ -48,25 +24,23 @@ import {
   zoomViewport,
 } from "./model";
 import { ObservableState } from "./observable";
-import { DiagramRunCancelled, DiagramRunner, EMPTY_RUN_MESSAGE } from "@bld/wasm";
-import { plannedGenerators, topologyKey } from "@bld/xml";
+import { catalogChoices, type CatalogChoice } from "./state/catalog";
+import { DiagramIo } from "./state/io";
+import { RunSession } from "./state/run";
 import { portAcceptsMany, remapSelectedLink, WiringGraph } from "./wiring";
-import { preloadAssembler } from "@bld/wasm";
 
-export type { BlockInstance };
+export type { BlockInstance, CatalogChoice };
+export type { DiagramIoMode } from "./state/io";
 
 export interface LinkingFrom {
   blockId: number;
   port: string;
 }
 
-export type DiagramIoMode = "closed" | "save" | "open";
-
-export interface CatalogChoice extends CatalogRef {
-  selected: boolean;
-}
-
 export class AppState extends ObservableState {
+  readonly run: RunSession;
+  readonly io: DiagramIo;
+
   declare catalog: Catalog;
   declare sources: XmlSource[];
   declare links: Link[];
@@ -85,26 +59,16 @@ export class AppState extends ObservableState {
   declare linkingFrom: LinkingFrom | null;
   declare scopeOpen: number;
   declare inputsOpen: number;
-  declare running: boolean;
-  declare starting: boolean;
-  declare runError: string | null;
   declare diagramId: string;
   declare diagramName: string;
-  declare ioMode: DiagramIoMode;
-  declare ioError: string | null;
-  declare saveName: string;
-  declare savedDiagrams: StoredDiagram[];
 
   #diagram = new DiagramModel();
-  #runner = new DiagramRunner();
-  #repo: DiagramRepository;
   #createdAt = nowIso();
   #updatedAt = this.#createdAt;
   #extras = new Map<number, BlockExtras>();
 
   constructor(repo: DiagramRepository = defaultDiagramRepository()) {
     super();
-    this.#repo = repo;
     const created = nowIso();
     this.#createdAt = created;
     this.#updatedAt = created;
@@ -126,16 +90,39 @@ export class AppState extends ObservableState {
       linkingFrom: null,
       scopeOpen: NONE_ID,
       inputsOpen: NONE_ID,
-      running: false,
-      starting: false,
-      runError: null,
       diagramId: newDiagramId(),
       diagramName: "Workspace",
-      ioMode: "closed",
-      ioError: null,
-      saveName: "Workspace",
-      savedDiagrams: [],
     });
+    this.run = new RunSession(this);
+    this.io = new DiagramIo(this, repo);
+  }
+
+  get createdAt(): string {
+    return this.#createdAt;
+  }
+
+  get updatedAt(): string {
+    return this.#updatedAt;
+  }
+
+  extras(): Map<number, BlockExtras> {
+    return this.#extras;
+  }
+
+  touch(): void {
+    this.#updatedAt = nowIso();
+  }
+
+  toDiagramXml(): string {
+    return this.io.toXml();
+  }
+
+  clearRunError(): void {
+    this.run.error = null;
+  }
+
+  runNodes(): Array<{ id: number; defId: string; periodMs?: number }> {
+    return this.blocks.map((block) => ({ ...block, periodMs: this.blockPeriodMs(block.id) }));
   }
 
   get blocks(): BlockInstance[] {
@@ -191,10 +178,10 @@ export class AppState extends ObservableState {
     }
     const block = this.#diagram.add(defId, x, y);
     this.#ensureBlockExtras(block.id, defId);
-    this.#touchDiagram();
+    this.touch();
     this.selectBlock(block.id);
-    this.#invalidateRun();
-    this.#maybePreloadAssembler();
+    this.run.invalidate();
+    this.run.maybePreload();
   }
 
   addBlockAtViewCenter(defId: string): void {
@@ -216,7 +203,7 @@ export class AppState extends ObservableState {
   }
 
   clearCanvas(): void {
-    this.stopRun();
+    this.run.stop();
     this.#diagram.clear();
     this.#extras.clear();
     this.links = [];
@@ -225,8 +212,8 @@ export class AppState extends ObservableState {
     this.selected = NONE_ID;
     this.selectedLink = null;
     this.linkingFrom = null;
-    this.ioError = null;
-    this.runError = null;
+    this.io.error = null;
+    this.run.error = null;
     this.#resetIdentity();
     this.resetView();
     this.notify();
@@ -253,9 +240,9 @@ export class AppState extends ObservableState {
       this.selectedLink = null;
     }
     this.#extras.delete(id);
-    this.#touchDiagram();
+    this.touch();
     this.notify();
-    this.#invalidateRun();
+    this.run.invalidate();
   }
 
   deleteSelected(): void {
@@ -271,132 +258,41 @@ export class AppState extends ObservableState {
 
   removeLink(link: Link): void {
     this.#replaceLinks(this.#wiring().disconnect(link).links, link);
-    this.#invalidateRun();
+    this.run.invalidate();
   }
 
   resolveAll(): Map<number, ResolvedBlock> {
-    return loadDiagramSolution(this.toDiagramXml(), this.catalog).inferred;
+    return loadDiagramSolution(this.io.toXml(), this.catalog).inferred;
   }
 
-  toDiagramXml(): string {
-    return serializeCanvas({
-      id: this.diagramId,
-      name: this.diagramName,
-      createdAt: this.#createdAt,
-      updatedAt: this.#updatedAt,
-      catalogs: this.sources.map((source) => source.name),
-      blocks: this.blocks,
-      links: this.links,
-      extras: this.#extras,
-    });
+  applyIdentity(id: string, name: string): void {
+    this.diagramId = id;
+    this.diagramName = name;
+    this.io.saveName = name;
   }
 
-  loadDiagramXml(xml: string): boolean {
-    try {
-      const canvas = documentToCanvas(parseDiagramXml(xml));
-      const sources = xmlSourcesForFiles(canvas.catalogs);
-      const catalog = catalogFromFiles(canvas.catalogs);
-      const unknown = canvas.blocks.find((block) => !catalog.block(block.defId));
-      if (unknown) {
-        throw new Error(`unknown block type \`${unknown.defId}\``);
-      }
-      this.sources = sources;
-      this.catalog = catalog;
-      this.#applyCanvas(canvas);
-      this.ioError = null;
-      this.runError = null;
-      return true;
-    } catch (error) {
-      this.ioError = error instanceof Error ? error.message : "Invalid diagram XML";
-      this.notify();
-      return false;
-    }
-  }
-
-  exportDiagramXml(): void {
-    downloadTextFile(diagramFilename(this.diagramName), this.toDiagramXml());
-  }
-
-  openSaveDialog(): void {
-    this.saveName = this.diagramName;
-    this.ioError = null;
-    this.ioMode = "save";
-  }
-
-  async openLibraryDialog(): Promise<void> {
-    this.ioError = null;
-    this.ioMode = "open";
-    await this.refreshLibrary();
-  }
-
-  closeIo(): void {
-    this.ioMode = "closed";
-    this.ioError = null;
-  }
-
-  async refreshLibrary(): Promise<void> {
-    this.savedDiagrams = await this.#repo.list();
-  }
-
-  async saveToLibrary(name = this.saveName): Promise<boolean> {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      this.ioError = "Name is required";
-      return false;
-    }
-    this.diagramName = trimmed;
-    this.saveName = trimmed;
-    this.#touchDiagram();
-    try {
-      await this.#repo.save({
-        id: this.diagramId,
-        name: trimmed,
-        xml: this.toDiagramXml(),
-        createdAt: this.#createdAt,
-        updatedAt: this.#updatedAt,
-      });
-      this.ioError = null;
-      this.ioMode = "closed";
-      await this.refreshLibrary();
-      return true;
-    } catch (error) {
-      this.ioError = error instanceof Error ? error.message : "Save failed";
-      return false;
-    }
-  }
-
-  async loadFromLibrary(id: string): Promise<boolean> {
-    try {
-      const record = await this.#repo.get(id);
-      if (!record) {
-        this.ioError = "Diagram not found";
-        return false;
-      }
-      if (!this.loadDiagramXml(record.xml)) {
-        return false;
-      }
-      this.diagramId = record.id;
-      this.diagramName = record.name;
-      this.saveName = record.name;
-      this.ioMode = "closed";
-      return true;
-    } catch (error) {
-      this.ioError = error instanceof Error ? error.message : "Load failed";
-      return false;
-    }
-  }
-
-  async deleteFromLibrary(id: string): Promise<void> {
-    await this.#repo.remove(id);
-    await this.refreshLibrary();
-  }
-
-  isScopeLive(id: number): boolean {
-    return this.runBusy() && (this.#runner.current?.isScopeLive(id) ?? false);
+  applyCanvas(canvas: ReturnType<typeof documentToCanvas>): void {
+    this.run.stop();
+    this.#diagram.replace(canvas.blocks);
+    this.#diagram.nextId = canvas.nextId;
+    this.#extras = new Map(canvas.extras);
+    this.links = canvas.links;
+    this.diagramId = canvas.id;
+    this.diagramName = canvas.name;
+    this.io.saveName = canvas.name;
+    this.#createdAt = canvas.createdAt;
+    this.#updatedAt = canvas.updatedAt;
+    this.scopeOpen = NONE_ID;
+    this.inputsOpen = NONE_ID;
+    this.selected = NONE_ID;
+    this.selectedLink = null;
+    this.linkingFrom = null;
+    this.resetView();
+    this.notify();
   }
 
   openScope(id: number): void {
-    if (!this.isScopeLive(id)) {
+    if (!this.run.isScopeLive(id)) {
       return;
     }
     if (this.block(id)?.defId === "scope") {
@@ -453,117 +349,15 @@ export class AppState extends ObservableState {
         attributes: [],
       });
     }
-    this.#touchDiagram();
+    this.touch();
     this.notify();
-    this.#invalidateRun();
+    this.run.invalidate();
   }
 
   blockPeriodMs(id: number): number {
     const extra = this.#extras.get(id);
     const value = extra?.parameters.find((param) => param.name === PERIOD_PARAM)?.value;
     return periodMsFrom(value);
-  }
-
-  snapshotScope(id: number): ScopeSeries[] {
-    return this.#runner.current?.snapshotScope(id) ?? [];
-  }
-
-  connectorHz(link: { fromBlock: number; fromOut: string; toBlock: number; toIn: string }): number {
-    return this.#runner.current?.connectorHz(link) ?? 0;
-  }
-
-  connectorHzForKey(key: string): number {
-    return this.#runner.current?.connectorHzForKey(key) ?? 0;
-  }
-
-  /** Sample runner intercept counts and update per-connector Hertz. */
-  sampleFlowRates(now = performance.now()): void {
-    if (!this.running) {
-      return;
-    }
-    this.#runner.current?.sampleFlowRates(now);
-  }
-
-  get topologyKey(): string {
-    return topologyKey(
-      this.blocks.map((block) => ({ ...block, periodMs: this.blockPeriodMs(block.id) })),
-      this.links,
-    );
-  }
-
-  /** Block ids, definitions, and links — not positions — so moving a block does not restart generators. */
-  timerTopologyKey(): string {
-    return this.topologyKey;
-  }
-
-  plannedGenerators() {
-    return plannedGenerators(
-      this.blocks.map((block) => ({ ...block, periodMs: this.blockPeriodMs(block.id) })),
-      this.links,
-    );
-  }
-
-  canRun(): boolean {
-    return this.plannedGenerators().length > 0;
-  }
-
-  runBusy(): boolean {
-    return this.running || this.starting;
-  }
-
-  stopRun(): void {
-    this.#runner.stop();
-    this.starting = false;
-    this.running = false;
-    if (this.scopeOpen !== NONE_ID && !this.isScopeLive(this.scopeOpen)) {
-      this.scopeOpen = NONE_ID;
-    }
-  }
-
-  async runDiagram(): Promise<void> {
-    if (this.runBusy()) {
-      return;
-    }
-    if (this.plannedGenerators().length === 0) {
-      this.runError = EMPTY_RUN_MESSAGE;
-      return;
-    }
-    this.stopRun();
-    this.starting = true;
-    try {
-      const solution = loadDiagramSolution(this.toDiagramXml(), this.catalog);
-      await this.#runner.start(solution.nodes, solution.links, {
-        onArmed: () => this.notify(),
-      });
-      if (!this.#runner.current) {
-        return;
-      }
-      this.runError = null;
-      this.starting = false;
-      this.running = true;
-    } catch (error) {
-      if (error instanceof DiagramRunCancelled) {
-        return;
-      }
-      this.stopRun();
-      this.runError = error instanceof Error ? error.message : "Run failed";
-    }
-  }
-
-  #invalidateRun(): void {
-    if (!this.runBusy() && !this.#runner.current) {
-      return;
-    }
-    if (this.topologyKey === this.#runner.current?.topology) {
-      return;
-    }
-    this.stopRun();
-  }
-
-  #maybePreloadAssembler(): void {
-    if (this.canRun()) {
-      preloadAssembler();
-    }
   }
 
   #wiring(): WiringGraph {
@@ -581,8 +375,8 @@ export class AppState extends ObservableState {
       portAcceptsMany(def, toIn),
     );
     this.#replaceLinks(graph.links, existing);
-    this.#invalidateRun();
-    this.#maybePreloadAssembler();
+    this.run.invalidate();
+    this.run.maybePreload();
   }
 
   #replaceLinks(remaining: Link[], removed?: Link): void {
@@ -592,7 +386,7 @@ export class AppState extends ObservableState {
     });
     this.selectedLink = remapSelectedLink(remaining, compacted, this.selectedLink, removed);
     this.links = compacted;
-    this.#touchDiagram();
+    this.touch();
   }
 
   inputIsGrounded(blockId: number, port: string): boolean {
@@ -675,19 +469,15 @@ export class AppState extends ObservableState {
     const now = nowIso();
     this.diagramId = newDiagramId();
     this.diagramName = "Workspace";
-    this.saveName = "Workspace";
+    this.io.saveName = "Workspace";
     this.#createdAt = now;
     this.#updatedAt = now;
-  }
-
-  #touchDiagram(): void {
-    this.#updatedAt = nowIso();
   }
 
   #touchBlock(id: number): void {
     const extra = this.#ensureBlockExtras(id);
     extra.updatedAt = nowIso();
-    this.#touchDiagram();
+    this.touch();
   }
 
   #ensureBlockExtras(id: number, defId?: string): BlockExtras {
@@ -723,29 +513,7 @@ export class AppState extends ObservableState {
   }
 
   catalogChoices(): CatalogChoice[] {
-    const associated = new Map(this.catalog.catalogs().map((item) => [item.file, item]));
-    const files: string[] = [];
-    const seen = new Set<string>();
-    for (const catalog of BUILTIN_CATALOGS) {
-      files.push(catalog.file);
-      seen.add(catalog.file);
-    }
-    for (const catalog of this.catalog.catalogs()) {
-      if (!seen.has(catalog.file)) {
-        files.push(catalog.file);
-        seen.add(catalog.file);
-      }
-    }
-    return files.map((file) => {
-      const selected = associated.get(file);
-      const builtin = BUILTIN_CATALOGS.find((item) => item.file === file);
-      return {
-        file,
-        id: selected?.id ?? builtin?.id ?? file,
-        name: selected?.name ?? builtin?.name ?? file,
-        selected: selected !== undefined,
-      };
-    });
+    return catalogChoices(this.catalog);
   }
 
   toggleCatalog(file: string): void {
@@ -756,11 +524,10 @@ export class AppState extends ObservableState {
       } else {
         this.#applySources([...this.sources, ...xmlSourcesForFiles([file])]);
       }
-      this.#touchDiagram();
+      this.touch();
       this.notify();
     } catch (error) {
-      this.ioError = error instanceof Error ? error.message : "Catalog change failed";
-      this.notify();
+      this.io.error = error instanceof Error ? error.message : "Catalog change failed";
     }
   }
 
@@ -795,27 +562,7 @@ export class AppState extends ObservableState {
     if (this.inputsOpen !== NONE_ID && !live.has(this.inputsOpen)) {
       this.inputsOpen = NONE_ID;
     }
-    this.#invalidateRun();
-  }
-
-  #applyCanvas(canvas: ReturnType<typeof documentToCanvas>): void {
-    this.stopRun();
-    this.#diagram.replace(canvas.blocks);
-    this.#diagram.nextId = canvas.nextId;
-    this.#extras = new Map(canvas.extras);
-    this.links = canvas.links;
-    this.diagramId = canvas.id;
-    this.diagramName = canvas.name;
-    this.saveName = canvas.name;
-    this.#createdAt = canvas.createdAt;
-    this.#updatedAt = canvas.updatedAt;
-    this.scopeOpen = NONE_ID;
-    this.inputsOpen = NONE_ID;
-    this.selected = NONE_ID;
-    this.selectedLink = null;
-    this.linkingFrom = null;
-    this.resetView();
-    this.notify();
+    this.run.invalidate();
   }
 }
 

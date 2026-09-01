@@ -1,5 +1,5 @@
 import type { Link } from "../blocks/diagram";
-import { isGeneratorId } from "../blocks/cs";
+import { isGeneratorId } from "../blocks/cs/ids";
 import { catalogPortName, portSlotIndex } from "../blocks/ports";
 
 /** One placed block in a connected solution (XML `block` instance). */

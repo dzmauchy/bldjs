@@ -81,8 +81,6 @@ export default defineConfig({
   resolve: {
     alias: {
       $lib: fileURLToPath(new URL("./src/lib", import.meta.url)),
-      "@bld/xml": fileURLToPath(new URL("../xml/src/index.ts", import.meta.url)),
-      "@bld/wasm": fileURLToPath(new URL("../wasm/src/index.ts", import.meta.url)),
     },
   },
   optimizeDeps: {

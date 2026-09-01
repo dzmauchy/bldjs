@@ -1,4 +1,4 @@
-import type { Link } from "@bld/xml";
+import type { Link } from "@bld/xml/blocks/diagram";
 import type { AppState } from "$lib/state";
 import { nodeFromClientPoint, nodeFromComposedPath, portFromClientPoint, portFromComposedPath } from "./layout";
 import { uniqueCompatibleDropPort } from "./link-types";

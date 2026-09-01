@@ -1,4 +1,4 @@
-import type { Link } from "@bld/xml";
+import type { Link } from "@bld/xml/blocks/diagram";
 import type { BlockInstance } from "$lib/diagram-model";
 import { connectorFromLink, obstacleFromBlock, type RouteConnector, type RouteObstacle } from "./avoid-router";
 import type { NodeLayout } from "./types";

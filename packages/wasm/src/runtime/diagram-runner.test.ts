@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Link } from "@bld/xml";
+import type { Link } from "@bld/xml/blocks/diagram";
 import { DiagramRunCancelled, DiagramRunner, EMPTY_RUN_MESSAGE } from "./diagram-runner";
 
 function csPipeline(): { nodes: { id: number; defId: string }[]; links: Link[]; scopeId: number; generatorId: number } {

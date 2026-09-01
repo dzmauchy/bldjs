@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BLOCK_PLACE_HEIGHT, BLOCK_PLACE_WIDTH } from "./model";
 import { AppState } from "./state";
-import { MemoryDiagramRepository } from "@bld/xml";
+import { MemoryDiagramRepository } from "@bld/xml/diagram/store";
 
 function wireCsPipeline(app: AppState): { generatorId: number; scopeId: number } {
   const generatorId = app.nextId;
@@ -84,7 +84,7 @@ describe("AppState wiring", () => {
       { fromBlock: scopeA, fromOut: "out", toBlock: timerId, toIn: "in" },
       { fromBlock: scopeB, fromOut: "out", toBlock: timerId, toIn: "in[1]" },
     ]);
-    expect(app.canRun()).toBe(true);
+    expect(app.run.canStart()).toBe(true);
   });
 
   it("inserts a new fan-in slot above when the source is above an existing wire", () => {
@@ -117,8 +117,8 @@ describe("AppState wiring", () => {
       { fromBlock: scopeId, fromOut: "out", toBlock: sinId, toIn: "in" },
       { fromBlock: scopeId, fromOut: "out[1]", toBlock: cosId, toIn: "in" },
     ]);
-    expect(app.canRun()).toBe(true);
-    expect(app.plannedGenerators().flatMap((plan) => plan.channels.map((channel) => channel.label))).toEqual([
+    expect(app.run.canStart()).toBe(true);
+    expect(app.run.planned().flatMap((plan) => plan.channels.map((channel) => channel.label))).toEqual([
       "sin",
       "cos",
     ]);
@@ -209,17 +209,17 @@ describe("AppState run", () => {
   it("keeps the same topology key when a block is only moved", () => {
     const app = new AppState();
     const { generatorId } = wireCsPipeline(app);
-    const before = app.timerTopologyKey();
+    const before = app.run.topologyKey();
     app.moveBlock(generatorId, 40, -12);
-    expect(app.timerTopologyKey()).toBe(before);
+    expect(app.run.topologyKey()).toBe(before);
   });
 
   it("does not start generators until Run", () => {
     const app = new AppState();
     const { scopeId } = wireCsPipeline(app);
-    expect(app.running).toBe(false);
-    expect(app.canRun()).toBe(true);
-    expect(app.isScopeLive(scopeId)).toBe(false);
+    expect(app.run.running).toBe(false);
+    expect(app.run.canStart()).toBe(true);
+    expect(app.run.isScopeLive(scopeId)).toBe(false);
     app.openScope(scopeId);
     expect(app.scopeOpen).toBe(-1);
   });
@@ -228,73 +228,73 @@ describe("AppState run", () => {
     const app = new AppState();
     const { generatorId, scopeId } = wireCsPipeline(app);
     const link = app.links.find((item) => item.toBlock === generatorId)!;
-    const pending = app.runDiagram();
-    expect(app.starting).toBe(true);
-    expect(app.running).toBe(false);
-    expect(app.isScopeLive(scopeId)).toBe(true);
-    expect(app.connectorHz(link)).toBeGreaterThan(0);
+    const pending = app.run.start();
+    expect(app.run.starting).toBe(true);
+    expect(app.run.running).toBe(false);
+    expect(app.run.isScopeLive(scopeId)).toBe(true);
+    expect(app.run.connectorHz(link)).toBeGreaterThan(0);
     await pending;
-    expect(app.running).toBe(true);
-    expect(app.starting).toBe(false);
-    expect(app.isScopeLive(scopeId)).toBe(true);
-    app.stopRun();
+    expect(app.run.running).toBe(true);
+    expect(app.run.starting).toBe(false);
+    expect(app.run.isScopeLive(scopeId)).toBe(true);
+    app.run.stop();
   });
 
   it("run compiles wasm and enables the scope chart", async () => {
     const app = new AppState();
     const { generatorId, scopeId } = wireCsPipeline(app);
-    await app.runDiagram();
-    expect(app.running).toBe(true);
-    expect(app.runError).toBeNull();
-    expect(app.isScopeLive(scopeId)).toBe(true);
+    await app.run.start();
+    expect(app.run.running).toBe(true);
+    expect(app.run.error).toBeNull();
+    expect(app.run.isScopeLive(scopeId)).toBe(true);
     app.openScope(scopeId);
     expect(app.scopeOpen).toBe(scopeId);
 
     app.moveBlockTo(generatorId, 24, 16);
-    expect(app.running).toBe(true);
-    expect(app.isScopeLive(scopeId)).toBe(true);
+    expect(app.run.running).toBe(true);
+    expect(app.run.isScopeLive(scopeId)).toBe(true);
 
     await new Promise((resolve) => setTimeout(resolve, 30));
-    const series = await app.snapshotScope(scopeId);
+    const series = await app.run.snapshotScope(scopeId);
     expect(series).toHaveLength(1);
     expect(series[0].label).toBe("sin");
     expect(series[0].samples.length).toBeGreaterThan(0);
-    app.stopRun();
-    expect(app.running).toBe(false);
-    expect(app.isScopeLive(scopeId)).toBe(false);
+    app.run.stop();
+    expect(app.run.running).toBe(false);
+    expect(app.run.isScopeLive(scopeId)).toBe(false);
   });
 
   it("seeds connector frequency on run and measures runner intercepts", async () => {
     const app = new AppState();
     const { generatorId } = wireCsPipeline(app);
-    await app.runDiagram();
+    await app.run.start();
     const link = app.links.find((item) => item.toBlock === generatorId)!;
-    expect(app.connectorHz(link)).toBeGreaterThan(0);
+    expect(app.run.connectorHz(link)).toBeGreaterThan(0);
     const t0 = 1_000;
-    app.sampleFlowRates(t0);
+    app.run.sampleFlowRates(t0);
     await new Promise((resolve) => setTimeout(resolve, 40));
-    app.sampleFlowRates(t0 + 40);
-    expect(app.connectorHz(link)).toBeGreaterThan(0);
-    app.stopRun();
-    expect(app.connectorHz(link)).toBe(0);
+    app.run.sampleFlowRates(t0 + 40);
+    expect(app.run.connectorHz(link)).toBeGreaterThan(0);
+    app.run.stop();
+    expect(app.run.connectorHz(link)).toBe(0);
   });
 
   it("ignores a second Run until Stop", async () => {
     const app = new AppState();
     const { scopeId } = wireCsPipeline(app);
-    await app.runDiagram();
-    expect(app.running).toBe(true);
-    expect(app.starting).toBe(false);
-    expect(app.isScopeLive(scopeId)).toBe(true);
-    await app.runDiagram();
-    expect(app.running).toBe(true);
-    expect(app.isScopeLive(scopeId)).toBe(true);
-    app.stopRun();
-    expect(app.running).toBe(false);
-    expect(app.starting).toBe(false);
-    await app.runDiagram();
-    expect(app.running).toBe(true);
-    app.stopRun();
+    await app.run.start();
+    expect(app.run.running).toBe(true);
+    expect(app.run.starting).toBe(false);
+    expect(app.run.isScopeLive(scopeId)).toBe(true);
+    await app.run.start();
+    expect(app.run.running).toBe(true);
+    expect(app.run.isScopeLive(scopeId)).toBe(true);
+    app.run.stop();
+    expect(app.run.running).toBe(false);
+    expect(app.run.starting).toBe(false);
+    await app.run.start();
+    expect(app.run.running).toBe(true);
+    app.run.stop();
   });
 
   it("run snapshots two series for an scope vector", async () => {
@@ -307,26 +307,26 @@ describe("AppState run", () => {
     app.addBlock("cos", 180, 120);
     app.toggleLink(scopeId, "out", sinId, "in");
     app.toggleLink(scopeId, "out", cosId, "in");
-    await app.runDiagram();
-    expect(app.runError).toBeNull();
-    expect(app.running).toBe(true);
+    await app.run.start();
+    expect(app.run.error).toBeNull();
+    expect(app.run.running).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 30));
-    const series = await app.snapshotScope(scopeId);
+    const series = await app.run.snapshotScope(scopeId);
     expect(series.map((channel) => channel.label)).toEqual(["sin", "cos"]);
     expect(series[0].samples.length).toBeGreaterThan(0);
     expect(series[1].samples.length).toBeGreaterThan(0);
-    app.stopRun();
+    app.run.stop();
   });
 
   it("stops the run when the wiring changes", async () => {
     const app = new AppState();
     const { generatorId } = wireCsPipeline(app);
-    await app.runDiagram();
-    expect(app.running).toBe(true);
+    await app.run.start();
+    expect(app.run.running).toBe(true);
 
     app.toggleLink(app.blocks.find((block) => block.defId === "scope")!.id, "out", generatorId, "in");
-    expect(app.running).toBe(false);
-    expect(app.canRun()).toBe(false);
+    expect(app.run.running).toBe(false);
+    expect(app.run.canStart()).toBe(false);
   });
 
   it("seeds generator period at 10 ms and updates it", () => {
@@ -354,10 +354,10 @@ describe("AppState diagram XML", () => {
     expect(xml).toContain("<connector");
 
     const other = new AppState();
-    expect(other.loadDiagramXml(xml)).toBe(true);
+    expect(other.io.loadXml(xml)).toBe(true);
     expect(other.blocks.map((block) => block.defId)).toEqual(["sin", "scope"]);
     expect(other.links).toHaveLength(1);
-    expect(other.canRun()).toBe(true);
+    expect(other.run.canStart()).toBe(true);
     expect(other.diagramName).toBe("Workspace");
   });
 
@@ -368,7 +368,7 @@ describe("AppState diagram XML", () => {
     expect(app.blockDisplayName(id)).toBe(`blk_${id}`);
 
     expect(
-      app.loadDiagramXml(`<?xml version="1.0" encoding="UTF-8"?>
+      app.io.loadXml(`<?xml version="1.0" encoding="UTF-8"?>
 <diagram id="diag_named" name="Named" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
   <catalogs>
     <catalog>types.xml</catalog>
@@ -394,8 +394,8 @@ describe("AppState diagram XML", () => {
     <block id="blk_1" type="sensor_source" x="0" y="0" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>
   </blocks>
 </diagram>`;
-    expect(app.loadDiagramXml(xml)).toBe(false);
-    expect(app.ioError).toMatch(/unknown block type/);
+    expect(app.io.loadXml(xml)).toBe(false);
+    expect(app.io.error).toMatch(/unknown block type/);
     expect(app.blocks).toHaveLength(0);
   });
 
@@ -424,7 +424,7 @@ describe("AppState diagram XML", () => {
     <catalog>types.xml</catalog>
   </catalogs>
 </diagram>`;
-    expect(app.loadDiagramXml(xml)).toBe(true);
+    expect(app.io.loadXml(xml)).toBe(true);
     expect(app.sources.map((source) => source.name)).toEqual(["types.xml"]);
     expect(app.blockDef("timer")).toBeUndefined();
     expect(app.catalog.catalogs().map((item) => item.name)).toEqual(["Types"]);
@@ -434,7 +434,7 @@ describe("AppState diagram XML", () => {
     const app = new AppState();
     expect(app.blockDef("timer")).toBeDefined();
     expect(
-      app.loadDiagramXml(`<?xml version="1.0" encoding="UTF-8"?>
+      app.io.loadXml(`<?xml version="1.0" encoding="UTF-8"?>
 <diagram id="diag_none" name="None" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>`),
     ).toBe(true);
     expect(app.sources).toEqual([]);
@@ -450,8 +450,8 @@ describe("AppState diagram XML", () => {
     <catalog>missing.xml</catalog>
   </catalogs>
 </diagram>`;
-    expect(app.loadDiagramXml(xml)).toBe(false);
-    expect(app.ioError).toMatch(/unknown catalog/);
+    expect(app.io.loadXml(xml)).toBe(false);
+    expect(app.io.error).toMatch(/unknown catalog/);
     expect(app.sources.map((source) => source.name)).toEqual(["types.xml", "control-systems.xml"]);
   });
 
@@ -459,16 +459,16 @@ describe("AppState diagram XML", () => {
     const repo = new MemoryDiagramRepository();
     const app = new AppState(repo);
     wireCsPipeline(app);
-    expect(await app.saveToLibrary("Pipeline")).toBe(true);
-    expect(app.ioMode).toBe("closed");
+    expect(await app.io.save("Pipeline")).toBe(true);
+    expect(app.io.mode).toBe("closed");
     expect((await repo.list()).map((item) => item.name)).toEqual(["Pipeline"]);
 
     app.clearCanvas();
     expect(app.blocks).toHaveLength(0);
     const id = (await repo.list())[0]!.id;
-    expect(await app.loadFromLibrary(id)).toBe(true);
+    expect(await app.io.load(id)).toBe(true);
     expect(app.blocks.map((block) => block.defId)).toEqual(["sin", "scope"]);
     expect(app.diagramName).toBe("Pipeline");
-    expect(app.canRun()).toBe(true);
+    expect(app.run.canStart()).toBe(true);
   });
 });

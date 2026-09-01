@@ -57,7 +57,7 @@ describe("BldToolbar", () => {
     expect(stopBtn()).toBeNull();
     expect((await glyph(runBtn()))?.querySelector("path")?.getAttribute("d")).toContain("M4 2.5v11L13.5 8Z");
 
-    app.starting = true;
+    app.run.starting = true;
     await bar.updateComplete;
     expect(runBtn()).toBeNull();
     expect(stopBtn()?.getAttribute("aria-label")).toBe("Stop");
@@ -65,14 +65,14 @@ describe("BldToolbar", () => {
     expect(stopBtn()?.disabled).toBe(false);
     expect((await glyph(stopBtn()))?.querySelector("rect")).not.toBeNull();
 
-    app.starting = false;
-    app.running = true;
+    app.run.starting = false;
+    app.run.running = true;
     await bar.updateComplete;
     expect(runBtn()).toBeNull();
     expect(stopBtn()?.getAttribute("aria-label")).toBe("Stop");
     expect((await glyph(stopBtn()))?.querySelector("rect")).not.toBeNull();
 
-    app.running = false;
+    app.run.running = false;
     await bar.updateComplete;
     expect(stopBtn()).toBeNull();
     expect(runBtn()?.getAttribute("aria-label")).toBe("Run");

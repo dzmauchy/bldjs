@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { Catalog } from "@bld/xml";
-import { associateBuiltinModels } from "@bld/xml";
-import { Diagram } from "@bld/xml";
+import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
+import { Catalog } from "@bld/xml/blocks/catalog";
+import { Diagram } from "@bld/xml/blocks/diagram";
 import { WiringGraph, portAcceptsMany } from "./wiring";
 
 describe("WiringGraph", () => {

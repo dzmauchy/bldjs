@@ -3,7 +3,7 @@ import type { Link } from "../blocks/diagram";
 import { infer } from "../blocks/diagram";
 import type { ResolvedBlock } from "../blocks/resolve";
 import { isResolvedCompatible } from "../blocks/resolve";
-import { PERIOD_PARAM, periodMsFrom } from "../blocks/cs";
+import { PERIOD_PARAM, periodMsFrom } from "../blocks/cs/ids";
 import { documentToCanvas, parseDiagramXml } from "./xml";
 import type { DiagramDocument } from "./types";
 

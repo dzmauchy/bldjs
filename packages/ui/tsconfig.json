@@ -3,9 +3,7 @@
   "compilerOptions": {
     "paths": {
       "$lib": ["./src/lib"],
-      "$lib/*": ["./src/lib/*"],
-      "@bld/xml": ["../xml/src/index.ts"],
-      "@bld/wasm": ["../wasm/src/index.ts"]
+      "$lib/*": ["./src/lib/*"]
     }
   },
   "include": ["src/**/*.ts"]

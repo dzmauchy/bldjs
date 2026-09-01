@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { associateBuiltinModels, associateFixtureModels } from "@bld/xml";
-import { generic, named } from "@bld/xml";
-import { Diagram } from "@bld/xml";
+import { generic, named } from "@bld/xml/blocks/ast";
+import { associateBuiltinModels, associateFixtureModels } from "@bld/xml/blocks/builtin";
+import { Diagram } from "@bld/xml/blocks/diagram";
 import { AppState } from "$lib/state";
 import { shouldShowPortType, uniqueCompatibleDropPort, uniqueCompatibleInput } from "./link-types";
 
