@@ -27,7 +27,7 @@ export async function assembleGenerator(
 }
 
 /**
- * Walk Scope → Generator (sink flow), then generate WASM with Binaryen.
+ * Walk Scope → transformers → Generator (sink flow), then generate WASM with Binaryen.
  * `runDiagram` does the same assemble step when the simulation starts.
  */
 export async function compileGenerator(
@@ -48,8 +48,10 @@ export async function compileGenerator(
 
 /** Assemble the catalog block functions into one module and return WAT. */
 export async function generatorText(generator: string | readonly string[] = "timer", delayMs = 0): Promise<string> {
-  const id = typeof generator === "string" ? generator : (generator.at(-1) ?? "timer");
-  return (await assembleModule({ generator: id, delayMs })).text;
+  if (typeof generator === "string") {
+    return (await assembleModule({ generator, delayMs })).text;
+  }
+  return (await assembleModule({ stages: generator, delayMs })).text;
 }
 
 /** @deprecated Prefer {@link generatorText}. */

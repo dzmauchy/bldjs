@@ -51,22 +51,6 @@ export class TimerGenerator extends Generator {
   }
 }
 
-export class SinGenerator extends Generator {
-  readonly id = "sin";
-
-  sample(module: BinModule, time: number): number {
-    return module.call("host_sin", [time], binaryen.f64);
-  }
-}
-
-export class CosGenerator extends Generator {
-  readonly id = "cos";
-
-  sample(module: BinModule, time: number): number {
-    return module.call("host_cos", [time], binaryen.f64);
-  }
-}
-
 export class RandomGenerator extends Generator {
   readonly id = "random";
 
@@ -81,22 +65,6 @@ export function addTimer(
   opts: WasmBlockEmit = {},
 ): binaryen.FunctionRef {
   return new TimerGenerator().add(module, types, opts);
-}
-
-export function addSin(
-  module: binaryen.Module,
-  types: WasmCatalogTypes,
-  opts: WasmBlockEmit = {},
-): binaryen.FunctionRef {
-  return new SinGenerator().add(module, types, opts);
-}
-
-export function addCos(
-  module: binaryen.Module,
-  types: WasmCatalogTypes,
-  opts: WasmBlockEmit = {},
-): binaryen.FunctionRef {
-  return new CosGenerator().add(module, types, opts);
 }
 
 export function addRandom(

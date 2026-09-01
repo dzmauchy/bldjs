@@ -556,6 +556,9 @@ describe("blocks", () => {
     expect(displayType(timerBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
     expect(timerBlock.inputs.find((port) => port.name === "in")!.attributes.find((a) => a.name === "wasm")).toBeUndefined();
     expect(timerBlock.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
+    expect(timerBlock.attributes.find((a) => a.name === "generator")?.value).toBe("true");
+    expect(cat.block("sin")!.attributes.find((a) => a.name === "generator")).toBeUndefined();
+    expect(cat.block("cos")!.attributes.find((a) => a.name === "generator")).toBeUndefined();
     const scope = cat.block("scope")!;
     expect(scope.inputs.length).toBe(0);
     expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>[]");
@@ -563,30 +566,35 @@ describe("blocks", () => {
       "true",
     );
     expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
-    expect(cat.block("sin")!.outputs.length).toBe(0);
+    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("cos")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
-    expect(cat.block("cos")!.outputs.length).toBe(0);
+    expect(displayType(cat.block("cos")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
     expect(displayType(cat.block("random")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
     expect(timerBlock.ns).toBe("com.dauch.cs.gen");
-    expect(cat.block("sin")!.ns).toBe("com.dauch.cs.gen");
-    expect(cat.block("cos")!.ns).toBe("com.dauch.cs.gen");
+    expect(cat.block("sin")!.ns).toBe("com.dauch.cs.tf");
+    expect(cat.block("cos")!.ns).toBe("com.dauch.cs.tf");
     expect(cat.block("random")!.ns).toBe("com.dauch.cs.gen");
     expect(scope.ns).toBe("com.dauch.cs.sink");
     expect(cat.namespaceLabel("com.dauch.cs")).toBe("Control Systems");
     expect(cat.namespaceLabel("com.dauch.cs.gen")).toBe("Gen");
+    expect(cat.namespaceLabel("com.dauch.cs.tf")).toBe("Transform");
     expect(cat.namespaceLabel("com.dauch.cs.sink")).toBe("Sink");
     expect(cat.namespaces.get("com.dauch.cs.gen")?.parent).toBe("com.dauch.cs");
+    expect(cat.namespaces.get("com.dauch.cs.tf")?.parent).toBe("com.dauch.cs");
     expect(cat.namespaces.get("com.dauch.cs.sink")?.parent).toBe("com.dauch.cs");
     expect(cat.namespaceParent("com.dauch.cs.gen")).toBe("com.dauch.cs");
+    expect(cat.namespaceParent("com.dauch.cs.tf")).toBe("com.dauch.cs");
     expect(cat.namespaceParent("com.dauch.cs.sink")).toBe("com.dauch.cs");
     expect(cat.namespaceParent("com.dauch.cs")).toBeNull();
-    for (const id of ["timer", "sin", "cos", "random"] as const) {
+    for (const id of ["timer", "random"] as const) {
       const period = cat.block(id)!.parameters.find((param) => param.name === "period");
       expect(period?.kind).toBe("integer-range-parameter");
       expect(period?.default).toBe("10");
       expect(period?.min).toBe(1);
       expect(period?.max).toBe(1000);
     }
+    expect(cat.block("sin")!.parameters).toEqual([]);
+    expect(cat.block("cos")!.parameters).toEqual([]);
     expect(cat.findType("f64")).toBeDefined();
     expect(cat.findType("c1")).toBeDefined();
     expect(cat.findType("s")).toBeDefined();
@@ -663,18 +671,24 @@ describe("blocks", () => {
     ]);
   });
 
-  it("plans two vector channels from two generators", () => {
+  it("plans two vector channels through sin and cos transformers", () => {
     const nodes = [
       { id: 1, defId: "scope" },
       { id: 2, defId: "sin" },
       { id: 3, defId: "cos" },
+      { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
       { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
       { fromBlock: 1, fromOut: "out[1]", toBlock: 3, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" },
     ];
-    expect(planGenerator(2, nodes, links)?.channels).toEqual([{ scopeId: 1, label: "sin" }]);
-    expect(planGenerator(3, nodes, links)?.channels).toEqual([{ scopeId: 1, label: "cos" }]);
+    expect(planGenerator(4, nodes, links)?.channels).toEqual([
+      { scopeId: 1, label: "sin" },
+      { scopeId: 1, label: "cos" },
+    ]);
+    expect(planGenerator(2, nodes, links)).toBeUndefined();
   });
 
   it("plans slotted extra ports as the same multiplot", () => {
@@ -682,13 +696,18 @@ describe("blocks", () => {
       { id: 1, defId: "scope" },
       { id: 2, defId: "sin" },
       { id: 3, defId: "cos" },
+      { id: 4, defId: "timer" },
     ];
     const links: Link[] = [
       { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
       { fromBlock: 1, fromOut: "out[1]", toBlock: 3, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" },
     ];
-    expect(planGenerator(2, nodes, links)?.channels).toEqual([{ scopeId: 1, label: "sin" }]);
-    expect(planGenerator(3, nodes, links)?.channels).toEqual([{ scopeId: 1, label: "cos" }]);
+    expect(planGenerator(4, nodes, links)?.channels).toEqual([
+      { scopeId: 1, label: "sin" },
+      { scopeId: 1, label: "cos" },
+    ]);
   });
 
   it("sin maps samples", () => {
@@ -713,10 +732,14 @@ describe("blocks", () => {
     const nodes = [
       { id: 1, defId: "scope" },
       { id: 2, defId: "sin" },
+      { id: 3, defId: "timer" },
     ];
-    const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+    ];
     const buffers = new Map<number, SampleBuf>([[0, new SampleBuf()]]);
-    const compiled = compileTimer(2, nodes, links, buffers)!;
+    const compiled = compileTimer(3, nodes, links, buffers)!;
     compiled.emit(0);
     compiled.emit(Math.PI / 2);
     const got = buffers.get(0)!.snapshot();
@@ -725,13 +748,22 @@ describe("blocks", () => {
     expect(compiled.delayMs).toBe(DEFAULT_PERIOD_MS);
   });
 
-  it("plan generator walks a cos generator", () => {
+  it("plan generator walks a cos transformer", () => {
     const nodes = [
       { id: 1, defId: "scope" },
       { id: 2, defId: "cos" },
+      { id: 3, defId: "timer" },
     ];
-    const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
-    expect(planGenerator(2, nodes, links)?.defId).toBe("cos");
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+    ];
+    expect(planGenerator(3, nodes, links)?.tree).toEqual({
+      kind: "map",
+      defId: "cos",
+      id: 2,
+      inner: { kind: "scope", id: 1 },
+    });
   });
 
   it("compile generator needs scope", () => {
@@ -745,15 +777,18 @@ describe("blocks", () => {
     associateBuiltinModels(diagram);
     const sinId = diagram.addNode("sin");
     const scopeId = diagram.addNode("scope");
+    const timerId = diagram.addNode("timer");
     diagram.addLink(scopeId, "out", sinId, "in");
+    diagram.addLink(sinId, "out", timerId, "in");
 
     const sinResolved = diagram.resolveNode(sinId)!;
     expect(sinResolved.compatible.get("in") ?? true).toBe(true);
     expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
-    expect(sinResolved.outputs.length).toBe(0);
+    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
 
     const scopeResolved = diagram.resolveNode(scopeId)!;
     expect(displayType(scopeResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>[]");
+    expect(diagram.resolveNode(timerId)!.compatible.get("in") ?? true).toBe(true);
   });
 
   it("a consumer vector may ground a c<f64> input", () => {
@@ -790,7 +825,9 @@ describe("blocks", () => {
     expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
     expect(diagram.resolveNode(cosId)!.compatible.get("in") ?? true).toBe(true);
     expect(displayType(resolvedInput(diagram.resolveNode(sinId)!, "in")!, true)).toBe("c<f64>");
+    expect(displayType(resolvedOutput(diagram.resolveNode(sinId)!, "out")!, true)).toBe("c<f64>");
     expect(displayType(resolvedInput(diagram.resolveNode(cosId)!, "in")!, true)).toBe("c<f64>");
+    expect(displayType(resolvedOutput(diagram.resolveNode(cosId)!, "out")!, true)).toBe("c<f64>");
   });
 
   it("scope vector wires to sin because c<f64>[] grounds c<f64>", () => {
@@ -847,23 +884,29 @@ describe("blocks", () => {
     expect(buffers.get(1)!.snapshot()).toEqual([3]);
   });
 
-  it("compile generator writes one ring per generator", async () => {
+  it("compile generator writes one ring per transformer channel", async () => {
     const nodes = [
       { id: 1, defId: "scope" },
       { id: 2, defId: "sin" },
       { id: 3, defId: "cos" },
+      { id: 4, defId: "timer" },
     ];
-    const sinLinks: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
-    const cosLinks: Link[] = [{ fromBlock: 1, fromOut: "out[1]", toBlock: 3, toIn: "in" }];
-    const sinBuf = new Map<number, SampleBuf>([[0, new SampleBuf()]]);
-    const cosBuf = new Map<number, SampleBuf>([[0, new SampleBuf()]]);
-    compileTimer(2, nodes, sinLinks, sinBuf)!.emit(0);
-    compileTimer(3, nodes, cosLinks, cosBuf)!.emit(0);
-    expect(Math.abs(sinBuf.get(0)!.snapshot()[0])).toBeLessThan(1e-9);
-    expect(Math.abs(cosBuf.get(0)!.snapshot()[0] - 1)).toBeLessThan(1e-9);
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 1, fromOut: "out[1]", toBlock: 3, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" },
+    ];
+    const buffers = new Map<number, SampleBuf>([
+      [0, new SampleBuf()],
+      [1, new SampleBuf()],
+    ]);
+    compileTimer(4, nodes, links, buffers)!.emit(0);
+    expect(Math.abs(buffers.get(0)!.snapshot()[0])).toBeLessThan(1e-9);
+    expect(Math.abs(buffers.get(1)!.snapshot()[0] - 1)).toBeLessThan(1e-9);
   });
 
-  it("interprets the wired chain as sin(plot[0])", () => {
+  it("interprets the wired chain as timer(sin(plot[0]))", () => {
     const out: number[] = [];
     let live = true;
     const running = () => {
@@ -871,7 +914,7 @@ describe("blocks", () => {
       live = false;
       return next;
     };
-    sin(scope((value) => out.push(value))[0], running, () => Math.PI / 2);
+    timer(sin(scope((value) => out.push(value))[0]), running, () => Math.PI / 2);
     expect(out).toHaveLength(1);
     expect(Math.abs(out[0] - 1)).toBeLessThan(1e-9);
   });

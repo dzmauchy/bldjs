@@ -1,7 +1,7 @@
 import { isArrayType, type BlockDef } from "@bld/xml/blocks/ast";
 import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
 import { Catalog } from "@bld/xml/blocks/catalog";
-import { isGeneratorId, DEFAULT_PERIOD_MS } from "@bld/xml/blocks/cs/ids";
+import { isGeneratorId, isTransformerId, DEFAULT_PERIOD_MS } from "@bld/xml/blocks/cs/ids";
 import { Diagram } from "@bld/xml/blocks/diagram";
 import { catalogPortName, portSlotIndex } from "@bld/xml/blocks/ports";
 import type { SolutionAssembly, SolutionBuilder } from "@bld/xml/solution/builder";
@@ -41,15 +41,31 @@ function builtinCatalog(): Catalog {
   return diagram.catalog();
 }
 
-function viewFromGenerator(generator = "timer"): SolutionView {
-  const generatorId = isGeneratorId(generator) ? generator : "timer";
-  return new SolutionView(
-    [
-      { id: 1, defId: "scope" },
-      { id: 2, defId: generatorId },
-    ],
-    [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }],
-  );
+/** Linear sink flow: `scope → transformers… → generator`. */
+function viewFromPipeline(stages: readonly string[]): SolutionView {
+  let generator = "timer";
+  for (const id of stages) {
+    if (isGeneratorId(id)) {
+      generator = id;
+    }
+  }
+  const transformers = stages.filter((id) => isTransformerId(id));
+  const blocks: SolutionViewBlock[] = [{ id: 1, defId: "scope" }];
+  const links: SolutionViewConnector[] = [];
+  let fromId = 1;
+  let fromOut = "out";
+  let nextId = 2;
+  for (const defId of transformers) {
+    const id = nextId;
+    nextId += 1;
+    blocks.push({ id, defId });
+    links.push({ fromBlock: fromId, fromOut, toBlock: id, toIn: "in" });
+    fromId = id;
+    fromOut = "out";
+  }
+  blocks.push({ id: nextId, defId: generator });
+  links.push({ fromBlock: fromId, fromOut, toBlock: nextId, toIn: "in" });
+  return new SolutionView(blocks, links);
 }
 
 /**
@@ -317,7 +333,6 @@ async function emitWasm(
 }
 
 export function linearSolutionView(generatorOrStages: string | readonly string[] = "timer"): SolutionView {
-  const generator =
-    typeof generatorOrStages === "string" ? generatorOrStages : (generatorOrStages.at(-1) ?? "timer");
-  return viewFromGenerator(isGeneratorId(generator) ? generator : "timer");
+  const stages = typeof generatorOrStages === "string" ? [generatorOrStages] : generatorOrStages;
+  return viewFromPipeline(stages);
 }

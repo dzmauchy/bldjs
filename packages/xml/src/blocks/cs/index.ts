@@ -4,7 +4,9 @@ export {
   PERIOD_PARAM,
   QUANTIZER_DELAY_MS,
   SAMPLE_CAP,
+  TRANSFORMER_IDS,
   isGeneratorId,
+  isTransformerId,
   periodMsFrom,
 } from "./ids";
 export type {
@@ -22,23 +24,18 @@ export type {
 } from "./types";
 export { SampleBuf } from "./samples";
 export {
-  CosGenerator,
   Generator,
   RandomGenerator,
-  SinGenerator,
   TimerGenerator,
-  cos,
   fork,
   generatorFor,
   nowSecs,
   random,
   sampleOnce,
   scope,
-  sin,
-  sinConsumer,
-  sinFunc,
   timer,
 } from "./generators";
+export { cos, cosFunc, mapOnce, sin, sinConsumer, sinFunc, transformerFor } from "./transformers";
 export {
   type CompiledTimer,
   collectChannels,

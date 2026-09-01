@@ -1,7 +1,8 @@
 import type { Link } from "../diagram";
 import { catalogPortName, portSlotIndex } from "../ports";
-import { isGeneratorId, periodMsFrom } from "./ids";
+import { isGeneratorId, isTransformerId, periodMsFrom } from "./ids";
 import { fork, nowSecs, sampleOnce } from "./generators";
+import { mapOnce } from "./transformers";
 import { SampleBuf } from "./samples";
 import type { ConsumerTree, F64Func, GeneratorPlan, NodeSpec, ScopeChannel } from "./types";
 
@@ -32,6 +33,13 @@ function walkConsumer(
     const fromDef = defOf(link.fromBlock);
     if (fromDef === "scope") {
       parts.push({ kind: "scope", id: link.fromBlock });
+      continue;
+    }
+    if (fromDef && isTransformerId(fromDef)) {
+      const inner = walkConsumer(link.fromBlock, defOf, links, depth + 1);
+      if (inner) {
+        parts.push({ kind: "map", defId: fromDef, id: link.fromBlock, inner });
+      }
     }
   }
   if (parts.length === 0) {
@@ -51,10 +59,13 @@ export function collectChannels(tree: ConsumerTree, label = "out"): ScopeChannel
   if (tree.kind === "scope") {
     return [{ scopeId: tree.id, label }];
   }
+  if (tree.kind === "map") {
+    return collectChannels(tree.inner, tree.defId);
+  }
   return tree.inner.flatMap((child) => collectChannels(child, label));
 }
 
-/** Walk Scope → Generator (sink flow), inserting a hidden fork when an input has many sources. */
+/** Walk Scope → transformers → Generator (sink flow), inserting a hidden fork when an input has many sources. */
 export function planGenerator(generatorId: number, nodes: NodeSpec[], links: Link[]): GeneratorPlan | undefined {
   const node = nodes.find((item) => item.id === generatorId);
   if (!node || !isGeneratorId(node.defId)) {
@@ -104,6 +115,10 @@ export function compileTimer(
       next.n += 1;
       const leaf = buffers.get(ring);
       return (value) => leaf?.push(value);
+    }
+    if (tree.kind === "map") {
+      const inner = emitFor(tree.inner, next);
+      return (value) => inner(mapOnce(tree.defId, value));
     }
     return fork(...tree.inner.map((child) => emitFor(child, next)));
   };

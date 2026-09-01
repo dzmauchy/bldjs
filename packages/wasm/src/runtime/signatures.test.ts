@@ -29,8 +29,6 @@ describe("XML ↔ WASM signatures", () => {
 
     for (const [id, name] of [
       ["timer", "Timer"],
-      ["sin", "Sin"],
-      ["cos", "Cos"],
       ["random", "Random"],
     ] as const) {
       expect(blockSignature(cat.block(id)!)).toEqual({
@@ -41,6 +39,19 @@ describe("XML ↔ WASM signatures", () => {
       });
       expect(displayType(cat.block(id)!.inputs[0].ty, true)).toBe("c<f64>");
       expect(cat.block(id)!.outputs).toEqual([]);
+    }
+    for (const [id, name] of [
+      ["sin", "Sin"],
+      ["cos", "Cos"],
+    ] as const) {
+      expect(blockSignature(cat.block(id)!)).toEqual({
+        id,
+        name,
+        params: [{ name: "in", type: "(ref $c1_f64)" }],
+        results: [{ name: "out", type: "(ref $c1_f64)" }],
+      });
+      expect(displayType(cat.block(id)!.inputs[0].ty, true)).toBe("c<f64>");
+      expect(displayType(cat.block(id)!.outputs[0].ty, true)).toBe("c<f64>");
     }
     expect(cat.block("quantizer")).toBeUndefined();
     expect(blockSignature(cat.block("scope")!)).toEqual({
@@ -94,7 +105,7 @@ describe("XML ↔ WASM signatures", () => {
       "(func $timer (param $ctx i32) (param $in (ref $c1_f64))",
     );
     expect(signatureWat(blockSignature(cat.block("sin")!))).toBe(
-      "(func $sin (param $ctx i32) (param $in (ref $c1_f64))",
+      "(func $sin (param $ctx i32) (param $in (ref $c1_f64)) (result $out (ref $c1_f64))",
     );
     expect(signatureWat(blockSignature(cat.block("scope")!))).toBe(
       "(func $scope (param $ctx i32) (result $out (ref $array_c1_f64))",

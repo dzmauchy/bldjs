@@ -282,10 +282,11 @@ test.describe("wiring", () => {
     const sinIn = nodeHost(page, "sin").locator('[data-testid="input-in"]');
     expect(await sinIn.innerText()).not.toContain("c<f64>");
     await expect(sinIn).toHaveAttribute("title", "c<f64>");
-    await expect(nodeHost(page, "sin").locator('[data-testid="output-out"]')).toHaveCount(0);
+    await expect(nodeHost(page, "sin").locator('[data-testid="output-out"]')).toHaveAttribute("title", "c<f64>");
     const cosIn = nodeHost(page, "cos").locator('[data-testid="input-in"]');
     expect(await cosIn.innerText()).not.toContain("c<f64>");
-    await expect(nodeHost(page, "cos").locator('[data-testid="output-out"]')).toHaveCount(0);
+    await expect(cosIn).toHaveAttribute("title", "c<f64>");
+    await expect(nodeHost(page, "cos").locator('[data-testid="output-out"]')).toHaveAttribute("title", "c<f64>");
     expect(await portTypeText(page, "timer", "input-in")).toBeNull();
     const timerIcon = nodeHost(page, "timer").locator(".flow-node-icon svg");
     await expect(timerIcon).toBeVisible();
@@ -298,6 +299,9 @@ test.describe("wiring", () => {
     await clickPortHandle(page, "scope", "output-out");
     await clickPortHandle(page, "sin", "input-in");
     await waitForLinks(page, "1 link");
+    await clickPortHandle(page, "sin", "output-out");
+    await clickPortHandle(page, "timer", "input-in");
+    await waitForLinks(page, "2 links");
 
     const chart = nodeHost(page, "scope").locator('[data-testid^="chart-"]');
     await expect(chart).toBeDisabled();
@@ -305,7 +309,7 @@ test.describe("wiring", () => {
     await expect(chart).toBeEnabled({ timeout: 2_000 });
     await expect
       .poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count(), { timeout: 2_000 })
-      .toBe(1);
+      .toBe(2);
     await expect(page.locator('[data-testid="status-run"]')).toHaveText("Running", { timeout: 15_000 });
     const stop = page.locator('[data-testid="toolbar-stop"]');
     await expect(page.locator('[data-testid="toolbar-run"]')).toHaveCount(0);
@@ -339,7 +343,7 @@ test.describe("wiring", () => {
     await expect.poll(async () => scopeChartHasInk(page), { timeout: 2_000 }).toBe(true);
     await page.locator('[data-testid="scope-close"]').click();
     await expect(page.locator('[data-testid="scope-modal"]')).toHaveCount(0);
-    await expect.poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count()).toBe(1);
+    await expect.poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count()).toBe(2);
     const duration = await page.locator("bld-connector:not([data-preview])[data-flow]").first().evaluate((el) => {
       return getComputedStyle(el).getPropertyValue("--flow-period").trim();
     });
@@ -348,7 +352,7 @@ test.describe("wiring", () => {
     expect(periodMs).toBeGreaterThanOrEqual(200);
     expect(periodMs).toBeLessThanOrEqual(2500);
     const flow = page.locator("bld-connector:not([data-preview])[data-flow]");
-    await expect(flow).toHaveCount(1);
+    await expect(flow).toHaveCount(2);
     const directions = await flow.evaluateAll((els) =>
       els.map((el) => {
         const push = el.hasAttribute("data-push");
@@ -359,7 +363,10 @@ test.describe("wiring", () => {
         };
       }),
     );
-    expect(directions).toEqual([{ push: true, direction: "reverse" }]);
+    expect(directions).toEqual([
+      { push: true, direction: "reverse" },
+      { push: true, direction: "reverse" },
+    ]);
     await page.locator('[data-testid="toolbar-stop"]').click();
     await expect(page.locator('[data-testid="toolbar-run"]')).toBeEnabled();
     await expect(page.locator("bld-connector:not([data-preview])[data-flow]")).toHaveCount(0);
@@ -369,12 +376,19 @@ test.describe("wiring", () => {
     await placeBlock(page, "scope");
     await placeBlock(page, "sin");
     await placeBlock(page, "cos");
+    await placeBlock(page, "timer");
     await clickPortHandle(page, "scope", "output-out");
     await clickPortHandle(page, "sin", "input-in");
     await waitForLinks(page, "1 link");
     await clickPortHandle(page, "scope", "output-out");
     await clickPortHandle(page, "cos", "input-in");
     await waitForLinks(page, "2 links");
+    await clickPortHandle(page, "sin", "output-out");
+    await clickPortHandle(page, "timer", "input-in");
+    await waitForLinks(page, "3 links");
+    await clickPortHandle(page, "cos", "output-out");
+    await clickPortHandle(page, "timer", "input-in");
+    await waitForLinks(page, "4 links");
 
     const chart = nodeHost(page, "scope").locator('[data-testid^="chart-"]');
     await runDiagram(page);

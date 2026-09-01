@@ -5,10 +5,15 @@ export const QUANTIZER_DELAY_MS = DEFAULT_PERIOD_MS;
 
 export const PERIOD_PARAM = "period";
 
-export const GENERATOR_IDS = new Set(["timer", "sin", "cos", "random"]);
+export const GENERATOR_IDS = new Set(["timer", "random"]);
+export const TRANSFORMER_IDS = new Set(["sin", "cos"]);
 
 export function isGeneratorId(defId: string): boolean {
   return GENERATOR_IDS.has(defId);
+}
+
+export function isTransformerId(defId: string): boolean {
+  return TRANSFORMER_IDS.has(defId);
 }
 
 export function periodMsFrom(value: number | string | undefined | null): number {

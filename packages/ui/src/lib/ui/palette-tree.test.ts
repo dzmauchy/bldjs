@@ -14,12 +14,15 @@ describe("palette tree", () => {
     expect(cs.children.map((group) => group.id)).toEqual([
       "com.dauch.cs.gen",
       "com.dauch.cs.sink",
+      "com.dauch.cs.tf",
     ]);
     expect(cs.children.find((group) => group.id === "com.dauch.cs.gen")?.blocks.map((block) => block.id)).toEqual([
-      "cos",
       "random",
-      "sin",
       "timer",
+    ]);
+    expect(cs.children.find((group) => group.id === "com.dauch.cs.tf")?.blocks.map((block) => block.id)).toEqual([
+      "cos",
+      "sin",
     ]);
     expect(cs.children.find((group) => group.id === "com.dauch.cs.sink")?.blocks.map((block) => block.id)).toEqual([
       "scope",
@@ -28,6 +31,7 @@ describe("palette tree", () => {
       "com.dauch.cs",
       "com.dauch.cs.gen",
       "com.dauch.cs.sink",
+      "com.dauch.cs.tf",
     ]);
   });
 });

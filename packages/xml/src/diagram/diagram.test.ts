@@ -179,6 +179,7 @@ describe("diagram compile pipeline", () => {
     const sin = solution.inferred.get(2);
     expect(sin?.defId).toBe("sin");
     expect(displayType(sin!.inputs[0]!.ty, true)).toBe("c<f64>");
+    expect(displayType(sin!.outputs[0]!.ty, true)).toBe("c<f64>");
   });
 
   it("rejects unknown catalog types before wasm", () => {

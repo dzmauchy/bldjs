@@ -15,7 +15,7 @@ describe("binaryen generator", () => {
     const { text, wasm } = await assembleModule({ generator: "sin", delayMs: 10 });
     expect(text).toContain("call $sin");
     expect(text).toContain("call $scope");
-    expect(text).not.toContain("call $timer");
+    expect(text).toContain("call $timer");
     expect(text).toContain("(param $ctx i32)");
     expect(text).toContain("(param $in (ref $c1_f64))");
     expect(text).toContain("(result (ref $array_c1_f64))");
@@ -34,12 +34,16 @@ describe("binaryen generator", () => {
 
   it("runs a compiled sin pipeline in-process", async () => {
     const compiled = (await compileGenerator(
-      2,
+      3,
       [
         { id: 1, defId: "scope" },
         { id: 2, defId: "sin" },
+        { id: 3, defId: "timer" },
       ],
-      [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }],
+      [
+        { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+      ],
     ))!;
     const handle = await startLocalGenerator({
       wasm: compiled.wasm,

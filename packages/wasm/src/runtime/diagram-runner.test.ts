@@ -6,9 +6,13 @@ function csPipeline(): { nodes: { id: number; defId: string }[]; links: Link[]; 
   const nodes = [
     { id: 1, defId: "scope" },
     { id: 2, defId: "sin" },
+    { id: 3, defId: "timer" },
   ];
-  const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
-  return { nodes, links, scopeId: 1, generatorId: 2 };
+  const links: Link[] = [
+    { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+    { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+  ];
+  return { nodes, links, scopeId: 1, generatorId: 3 };
 }
 
 describe("DiagramRunner", () => {

@@ -12,24 +12,37 @@ function catalog() {
   return diagram.catalog();
 }
 
-describe("compileGenerator", () => {
-  it("emits typed-function wasm", async () => {
-    const nodes = [
+function sinPipeline(): { nodes: { id: number; defId: string }[]; links: Link[] } {
+  return {
+    nodes: [
       { id: 1, defId: "scope" },
       { id: 2, defId: "sin" },
-    ];
-    const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
-    const compiled = (await compileGenerator(2, nodes, links))!;
+      { id: 3, defId: "timer" },
+    ],
+    links: [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+    ],
+  };
+}
+
+describe("compileGenerator", () => {
+  it("emits typed-function wasm", async () => {
+    const { nodes, links } = sinPipeline();
+    const compiled = (await compileGenerator(3, nodes, links))!;
     expect(compiled.scopeId).toBe(1);
     expect(compiled.delayMs).toBe(DEFAULT_PERIOD_MS);
     expect(compiled.text).toContain("(type $c1_f64 (func (param f64)))");
     expect(compiled.text).toContain("(type $array_c1_f64 (array (mut (ref $c1_f64))))");
     expect(compiled.text).toContain("(func $sin");
     expect(compiled.text).toContain("(param $ctx i32) (param $in (ref $c1_f64))");
+    expect(compiled.text).toContain("(result (ref $c1_f64))");
+    expect(compiled.text).toContain("(func $timer");
     expect(compiled.text).toContain("(func $scope");
     expect(compiled.text).toContain("(result (ref $array_c1_f64))");
     expect(compiled.text).toContain("array.new_fixed $array_c1_f64");
     expect(compiled.text).toContain("call $sin");
+    expect(compiled.text).toContain("call $timer");
     expect(compiled.text).toContain("call $scope");
     expect(compiled.text).toContain("call_ref $c1_f64");
     expect(compiled.text).not.toContain("(func $quantizer");
@@ -40,16 +53,22 @@ describe("compileGenerator", () => {
     expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
   });
 
-  it("walks a cos generator", async () => {
+  it("walks a cos transformer", async () => {
     const nodes = [
       { id: 1, defId: "scope" },
       { id: 2, defId: "cos" },
+      { id: 3, defId: "timer" },
     ];
-    const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
-    const compiled = (await compileGenerator(2, nodes, links))!;
-    expect(compiled.defId).toBe("cos");
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+    ];
+    const compiled = (await compileGenerator(3, nodes, links))!;
+    expect(compiled.defId).toBe("timer");
+    expect(compiled.channels).toEqual([{ scopeId: 1, label: "cos" }]);
     expect(compiled.text).toContain("(func $cos");
     expect(compiled.text).toContain("call $cos");
+    expect(compiled.text).toContain("call $timer");
   });
 
   it("emits a fork into two push rings", async () => {
@@ -95,11 +114,15 @@ describe("compileGenerator", () => {
       blocks: [
         { id: 1, defId: "scope", x: 0, y: 0 },
         { id: 2, defId: "sin", x: 180, y: 0 },
+        { id: 3, defId: "timer", x: 360, y: 0 },
       ],
-      links: [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }],
+      links: [
+        { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+      ],
     });
     const solution = loadDiagramSolution(xml, catalog());
-    const compiled = await compileGenerator(2, solution.nodes, solution.links);
+    const compiled = await compileGenerator(3, solution.nodes, solution.links);
     expect(compiled?.wasm[0]).toBe(0);
     expect(String.fromCharCode(compiled!.wasm[1]!, compiled!.wasm[2]!, compiled!.wasm[3]!)).toBe("asm");
   });
