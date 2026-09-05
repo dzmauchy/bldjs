@@ -13,18 +13,22 @@
     "preview:e2e": "npm run preview:e2e -w @bld/ui",
     "check": "npm run check --workspaces --if-present",
     "test": "npm test --workspaces --if-present",
-    "test:e2e": "npm run test:e2e -w @bld/ui"
+    "test:e2e": "npm run test:e2e -w @bld/ui",
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
     "jsdom": "^30.0.1",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.0",
+    "wrangler": "^4.129.0"
   },
   "allowScripts": {
-    "esbuild": true
+    "esbuild": true,
+    "workerd": true
   },
   "overrides": {
-    "@types/node": "^26.4.1"
+    "@types/node": "^26.4.1",
+    "workerd": "^1.20260903.1"
   }
 }
