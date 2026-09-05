@@ -110,9 +110,10 @@ describe("BldNode", () => {
     );
     expect(node.hasAttribute("data-selected")).toBe(true);
     expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("Scope");
-    const selectedCss = Array.isArray(BldNode.styles)
-      ? BldNode.styles.map((sheet) => sheet.cssText).join("\n")
-      : BldNode.styles.cssText;
+    const selectedCss = (Array.isArray(BldNode.styles) ? BldNode.styles : [BldNode.styles])
+      .flat(Infinity)
+      .map((sheet) => (sheet as { cssText: string }).cssText)
+      .join("\n");
     expect(selectedCss).toContain("node-selected-fade");
     expect(selectedCss).toContain("#14191e");
     expect(selectedCss).not.toMatch(/:host\(\[data-selected\]\)[^{]*\{[^}]*border-color/);
