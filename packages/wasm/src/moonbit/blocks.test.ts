@@ -42,6 +42,7 @@ describe("transformer catalog", () => {
     expect(source).toContain("math_sin(");
     expect(source).toContain("math_cos(");
     expect(source).toContain("-0.5 * t");
+    expect(source).toContain("let clock_overshoot");
     expect(source).not.toContain("let _ = ctx");
   });
 });

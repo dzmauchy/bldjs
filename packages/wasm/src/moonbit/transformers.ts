@@ -58,14 +58,15 @@ export function emitOvershootWrap(name: string, zeta?: number): string {
   mut on : Int
 }
 
+let clock_${ident} : OvershootClock_${ident} = { t0: 0.0, on: 0 }
+
 fn ${name}(${CTX_PARAM}, input : C1) -> C1 {
-  let clock : OvershootClock_${ident} = { t0: 0.0, on: 0 }
   fn(v : Double) {
-    if clock.on == 0 {
-      clock.t0 = v
-      clock.on = 1
+    if clock_${ident}.on == 0 {
+      clock_${ident}.t0 = v
+      clock_${ident}.on = 1
     }
-    let t = v - clock.t0
+    let t = v - clock_${ident}.t0
     let y = 1.0 - math_exp(${moonDouble(-z)} * t) * (math_cos(${moonDouble(wd)} * t) + ${moonDouble(z / wd)} * math_sin(${moonDouble(wd)} * t))
     input(if t < 0.0 { 0.0 } else { y })
   }

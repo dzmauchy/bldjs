@@ -113,7 +113,7 @@ describe("compileGenerator", () => {
     expect(compiled.text).toContain("fn overshoot(_ctx : Int, input : C1) -> C1");
     expect(compiled.text).toContain("math_exp(");
     expect(compiled.text).toContain('fn math_exp(x : Double) -> Double = "Math" "exp"');
-    expect(compiled.text).toContain('fn math_sqrt(x : Double) -> Double = "Math" "sqrt"');
+    expect(compiled.text).not.toContain("math_sqrt");
     expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
   });
 
