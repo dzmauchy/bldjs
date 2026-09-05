@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
 import { Diagram } from "@bld/xml/blocks/diagram";
-import { BLOCK_SCRIPTS, QUANTIZER_PERIOD_NS, preamble } from "../moonbit";
+import { BLOCK_SCRIPTS, I32_ATOMIC_OPCODE, QUANTIZER_PERIOD_NS, hasThreadsOpcode, preamble } from "../moonbit";
 import { assembleModule, blockTypeWat, runtimeTypeWat } from "./assemble";
 import { createMemory, readSamples } from "./memory";
 import { instantiateGenerator } from "./generator";
@@ -55,8 +55,12 @@ describe("block MoonBit assembly", () => {
     expect(text).toContain("fn scope(ctx : Int) -> C1");
     expect(text).toContain("pub fn tick() -> Unit");
     expect(text).toContain("let _ = stopped()");
-    expect(text).toContain('extern "wasm" fn stopped() -> Int');
+    expect(text).toContain("fn stopped() -> Int");
+    expect(text).toContain('extern "wasm" fn i32_atomic_load');
     expect(text).toContain("i32.atomic.load");
+    expect(hasThreadsOpcode(wasm, I32_ATOMIC_OPCODE.load)).toBe(true);
+    expect(hasThreadsOpcode(wasm, I32_ATOMIC_OPCODE.store)).toBe(false);
+    expect(hasThreadsOpcode(wasm, I32_ATOMIC_OPCODE.add)).toBe(false);
     expect(text).toContain("pub fn start(delay_ms : Int) -> Unit");
     expect(text).toContain("js_set_interval(tick, delay_ms)");
     expect(text).toContain('fn math_sin(x : Double) -> Double = "Math" "sin"');
