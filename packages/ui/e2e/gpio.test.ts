@@ -36,11 +36,13 @@ test.describe("gpio", () => {
     await expect(outputToggle).toBeDisabled();
     await expect(inputToggle).not.toBeChecked();
     await expect(outputToggle).not.toBeChecked();
-    await expect(nodeHost(page, "gpio_in").locator(".form-check-label")).toContainText("P0 LOW");
-    await expect(nodeHost(page, "gpio_out").locator(".form-check-label")).toContainText("P1 LOW");
+    await expect(inputToggle).toHaveAttribute("aria-label", "GPIO pin 0 LOW");
+    await expect(outputToggle).toHaveAttribute("aria-label", "GPIO pin 1 LOW");
+    await expect(nodeHost(page, "gpio_in").locator(".form-check-label")).toHaveCount(0);
+    await expect(nodeHost(page, "gpio_out").locator(".form-check-label")).toHaveCount(0);
     await inputToggle.click();
     await expect(inputToggle).toBeChecked();
-    await expect(nodeHost(page, "gpio_in").locator(".form-check-label")).toContainText("P0 HIGH");
+    await expect(inputToggle).toHaveAttribute("aria-label", "GPIO pin 0 HIGH");
 
     await clickPortHandle(page, "gpio_out", "output-out");
     await clickPortHandle(page, "gpio_in", "input-in");
@@ -49,7 +51,7 @@ test.describe("gpio", () => {
     await page.locator('[data-testid="toolbar-run"]').click();
     await expect(page.locator('[data-testid="status-run"]')).toHaveText("Running", { timeout: 30_000 });
     await expect(outputToggle).toBeChecked({ timeout: 5_000 });
-    await expect(nodeHost(page, "gpio_out").locator(".form-check-label")).toContainText("P1 HIGH");
+    await expect(outputToggle).toHaveAttribute("aria-label", "GPIO pin 1 HIGH");
     await expect(nodeHost(page, "gpio_in").locator('[data-testid^="inputs-"]')).toBeDisabled();
     await expect(nodeHost(page, "gpio_out").locator('[data-testid^="inputs-"]')).toBeDisabled();
 

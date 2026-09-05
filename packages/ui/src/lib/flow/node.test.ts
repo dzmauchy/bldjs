@@ -336,9 +336,8 @@ describe("BldNode", () => {
     expect(toggle.getAttribute("role")).toBe("switch");
     expect(toggle.disabled).toBe(false);
     expect(toggle.checked).toBe(false);
-    expect(node.shadowRoot!.querySelector(".form-check.form-switch .form-check-label")?.textContent?.replace(/\s+/g, " ").trim()).toBe(
-      "P0 LOW",
-    );
+    expect(toggle.getAttribute("aria-label")).toBe("GPIO pin 0 LOW");
+    expect(node.shadowRoot!.querySelector(".form-check-label")).toBeNull();
     let toggled = false;
     node.addEventListener("gpioclick", () => {
       toggled = true;
@@ -352,7 +351,9 @@ describe("BldNode", () => {
     await node.updateComplete;
     expect(node.hasAttribute("data-gpio-on")).toBe(true);
     expect((node.shadowRoot!.querySelector('[data-testid="gpio-7"]') as HTMLInputElement).checked).toBe(true);
-    expect(node.shadowRoot!.querySelector(".form-check-label")?.textContent?.replace(/\s+/g, " ").trim()).toBe("P0 HIGH");
+    expect((node.shadowRoot!.querySelector('[data-testid="gpio-7"]') as HTMLInputElement).getAttribute("aria-label")).toBe(
+      "GPIO pin 0 HIGH",
+    );
   });
 
   it("shows a disabled GPIO switch for outputs", async () => {
@@ -372,8 +373,9 @@ describe("BldNode", () => {
     const toggle = node.shadowRoot!.querySelector('[data-testid="gpio-7"]') as HTMLInputElement;
     expect(toggle.disabled).toBe(true);
     expect(toggle.checked).toBe(true);
+    expect(toggle.getAttribute("aria-label")).toBe("GPIO pin 1 HIGH");
     expect(node.shadowRoot!.querySelector(".form-check.form-switch")).not.toBeNull();
-    expect(node.shadowRoot!.querySelector(".form-check-label")?.textContent?.replace(/\s+/g, " ").trim()).toBe("P1 HIGH");
+    expect(node.shadowRoot!.querySelector(".form-check-label")).toBeNull();
     let toggled = false;
     node.addEventListener("gpioclick", () => {
       toggled = true;

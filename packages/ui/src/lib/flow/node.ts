@@ -158,14 +158,6 @@ export class BldNode extends LitElement {
     .flow-node-gpio .form-check-input:disabled {
       cursor: not-allowed;
     }
-    .flow-node-gpio .form-check-label {
-      color: inherit;
-      cursor: pointer;
-      user-select: none;
-    }
-    .flow-node-gpio .form-check-input:disabled + .form-check-label {
-      cursor: not-allowed;
-    }
     :host([data-compact]) .flow-node-gpio {
       font-size: 0.55rem;
     }
@@ -678,6 +670,7 @@ export class BldNode extends LitElement {
                     id=${`gpio-switch-${view.blockId}`}
                     .checked=${view.gpioOn}
                     ?disabled=${!view.gpioInteractive}
+                    aria-label=${`GPIO pin ${view.gpioPin} ${view.gpioOn ? "HIGH" : "LOW"}`}
                     title=${view.gpioInteractive
                       ? `Simulate GPIO pin ${view.gpioPin} in the browser`
                       : `GPIO pin ${view.gpioPin} output`}
@@ -685,9 +678,6 @@ export class BldNode extends LitElement {
                     @click=${(event: MouseEvent) => event.stopPropagation()}
                     @change=${this.#onGpioChange}
                   />
-                  <label class="form-check-label" for=${`gpio-switch-${view.blockId}`}>
-                    P${view.gpioPin} ${view.gpioOn ? "HIGH" : "LOW"}
-                  </label>
                 </div>
               `
             : nothing}
