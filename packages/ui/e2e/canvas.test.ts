@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   boxOf,
+  clickPortHandle,
   diagramCss,
   diagramRoot,
   dropOnDiagram,
@@ -14,6 +15,7 @@ import {
   waitDeep,
   waitForAvoidRouter,
   waitForBlock,
+  waitForLinks,
 } from "./actions";
 
 test.describe.configure({ mode: "serial" });
@@ -276,5 +278,25 @@ test.describe("canvas", () => {
     await expect(page.locator('[data-testid="inputs-modal"]')).toHaveCount(0);
     await placeBlock(page, "scope");
     await expect(nodeHost(page, "scope").locator('[data-testid^="inputs-"]')).toHaveCount(0);
+  });
+
+  test("disables block configuration while running", async () => {
+    await newCanvas(page);
+    await placeBlock(page, "timer");
+    await placeBlock(page, "scope");
+    await clickPortHandle(page, "scope", "output-out");
+    await clickPortHandle(page, "timer", "input-in");
+    await waitForLinks(page, "1 link");
+    const config = nodeHost(page, "timer").locator('[data-testid^="inputs-"]');
+    await expect(config).toBeEnabled();
+    await config.click();
+    await expect(page.locator('[data-testid="inputs-modal"]')).toBeInViewport();
+    await page.locator('[data-testid="toolbar-run"]').click();
+    await expect(page.locator('[data-testid="status-run"]')).toHaveText("Running", { timeout: 30_000 });
+    await expect(page.locator('[data-testid="inputs-modal"]')).toHaveCount(0);
+    await expect(config).toBeDisabled();
+    await page.locator('[data-testid="toolbar-stop"]').click();
+    await expect(page.locator('[data-testid="status-run"]')).toHaveText("Stopped");
+    await expect(config).toBeEnabled();
   });
 });

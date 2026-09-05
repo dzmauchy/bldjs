@@ -297,6 +297,9 @@ export class AppState extends ObservableState {
   }
 
   openInputs(id: number): void {
+    if (this.run.busy()) {
+      return;
+    }
     const block = this.block(id);
     const def = block ? this.blockDef(block.defId) : undefined;
     if (!def?.parameters.length) {
@@ -369,6 +372,9 @@ export class AppState extends ObservableState {
   }
 
   toggleGpio(id: number): void {
+    if (this.block(id)?.defId !== "gpio_in") {
+      return;
+    }
     const next = !this.gpioOn(id);
     this.#gpioLevels.set(id, next);
     this.run.setGpio(this.blockPin(id), next ? 1 : 0);

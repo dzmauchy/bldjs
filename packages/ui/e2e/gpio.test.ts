@@ -30,10 +30,17 @@ test.describe("gpio", () => {
 
     const inputToggle = nodeHost(page, "gpio_in").locator('[data-testid^="gpio-"]');
     const outputToggle = nodeHost(page, "gpio_out").locator('[data-testid^="gpio-"]');
-    await expect(inputToggle).toContainText("P0 LOW");
-    await expect(outputToggle).toContainText("P1 LOW");
+    await expect(inputToggle).toHaveAttribute("role", "switch");
+    await expect(outputToggle).toHaveAttribute("role", "switch");
+    await expect(inputToggle).toBeEnabled();
+    await expect(outputToggle).toBeDisabled();
+    await expect(inputToggle).not.toBeChecked();
+    await expect(outputToggle).not.toBeChecked();
+    await expect(nodeHost(page, "gpio_in").locator(".form-check-label")).toContainText("P0 LOW");
+    await expect(nodeHost(page, "gpio_out").locator(".form-check-label")).toContainText("P1 LOW");
     await inputToggle.click();
-    await expect(inputToggle).toContainText("P0 HIGH");
+    await expect(inputToggle).toBeChecked();
+    await expect(nodeHost(page, "gpio_in").locator(".form-check-label")).toContainText("P0 HIGH");
 
     await clickPortHandle(page, "gpio_out", "output-out");
     await clickPortHandle(page, "gpio_in", "input-in");
@@ -41,9 +48,10 @@ test.describe("gpio", () => {
 
     await page.locator('[data-testid="toolbar-run"]').click();
     await expect(page.locator('[data-testid="status-run"]')).toHaveText("Running", { timeout: 30_000 });
-    await expect
-      .poll(async () => (await outputToggle.innerText()).replace(/\s+/g, " ").trim(), { timeout: 5_000 })
-      .toContain("P1 HIGH");
+    await expect(outputToggle).toBeChecked({ timeout: 5_000 });
+    await expect(nodeHost(page, "gpio_out").locator(".form-check-label")).toContainText("P1 HIGH");
+    await expect(nodeHost(page, "gpio_in").locator('[data-testid^="inputs-"]')).toBeDisabled();
+    await expect(nodeHost(page, "gpio_out").locator('[data-testid^="inputs-"]')).toBeDisabled();
 
     await openAppMenu(page);
     await expect(page.locator('[data-testid="menu-hardware"]')).toHaveText("Hardware");

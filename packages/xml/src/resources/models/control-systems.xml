@@ -50,7 +50,7 @@
     <attribute name="kind">Start</attribute>
     <attribute name="runnable">true</attribute>
     <attribute name="generator">true</attribute>
-    <attribute name="description">Digital input. Pushes the pin level (0 or 1) while running. In the browser, the toggle simulates the pin.</attribute>
+    <attribute name="description">Digital input. Pushes the pin level (0 or 1) while running. In the browser, the switch simulates the pin.</attribute>
     <factory id="gpio_in"/>
     <parameters>
       <integer-range-parameter name="pin" description="GPIO pin number" min="0" max="31" step="1" default="0"/>
@@ -61,7 +61,7 @@
 
   <block id="gpio_out" name="GPIO Out" ns="com.dauch.cs.gpio" icon="gpio_out">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Digital output. Consumes each sample and writes the pin (HIGH when the value is greater than 0.5). In the browser, the toggle simulates the pin.</attribute>
+    <attribute name="description">Digital output. Consumes each sample and writes the pin (HIGH when the value is greater than 0.5). In the browser, the switch is a disabled readout of the pin.</attribute>
     <factory id="gpio_out"/>
     <parameters>
       <integer-range-parameter name="pin" description="GPIO pin number" min="0" max="31" step="1" default="1"/>

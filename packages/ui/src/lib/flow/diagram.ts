@@ -427,6 +427,7 @@ export class BldDiagram extends AppHost {
                 isScopeLive: (id) => app.run.isScopeLive(id),
                 gpioOn: (id) => app.gpioOn(id),
                 gpioPin: (id) => app.blockPin(id),
+                inputsEnabled: !app.run.busy(),
                 inputIsGrounded: (blockId, port) => app.inputIsGrounded(blockId, port),
                 blockDef: (defId) => app.blockDef(defId),
                 kindOf: (def) => app.kindOf(def),

@@ -85,6 +85,7 @@ export interface NodeViewContext {
   isScopeLive: (id: number) => boolean;
   gpioOn: (id: number) => boolean;
   gpioPin: (id: number) => number;
+  inputsEnabled: boolean;
   inputIsGrounded: (blockId: number, port: string) => boolean;
   blockDef: (defId: string) => BlockDef | undefined;
   kindOf: (def: BlockDef) => BlockKindInfo;
@@ -117,7 +118,9 @@ export function buildNodeState(
     showGpio: block.defId === "gpio_in" || block.defId === "gpio_out",
     gpioOn: ctx.gpioOn(block.id),
     gpioPin: ctx.gpioPin(block.id),
+    gpioInteractive: block.defId === "gpio_in",
     showInputs: (def.parameters?.length ?? 0) > 0,
+    inputsEnabled: ctx.inputsEnabled,
     inputs: inputSlotsFor(def.inputs, block.id, ctx.links).map((slot) => {
       const catalogPort = def.inputs.find((item) => item.name === slot.catalogName)!;
       const ty = resolvedBlock ? (resolvedInput(resolvedBlock, slot.name) ?? catalogPort.ty) : catalogPort.ty;

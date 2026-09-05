@@ -1,5 +1,6 @@
 import { LitElement, css, html, nothing } from "lit";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
+import { bootstrapStyles } from "$lib/ui/bootstrap";
 import { renderIconSvg } from "./icons";
 import { measureHostLayout, portFromComposedPath } from "./layout";
 import { groupPortViews, type PortGroup } from "./port-groups";
@@ -23,7 +24,9 @@ export class BldNode extends LitElement {
   #kindClass = "";
   #resize: ResizeObserver | null = null;
 
-  static override styles = css`
+  static override styles = [
+    bootstrapStyles,
+    css`
     :host {
       --port-size: 12px;
       --port-outset: calc(var(--port-size) / 2 - 1px);
@@ -141,27 +144,30 @@ export class BldNode extends LitElement {
       cursor: pointer;
     }
     .flow-node-gpio {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      justify-content: center;
-      min-width: 3.4rem;
-      border: 1px solid color-mix(in srgb, var(--bs-warning, #ffc107) 55%, transparent);
-      background: transparent;
-      color: var(--bs-warning, #ffc107);
-      border-radius: 4px;
+      min-height: 0;
+      margin-bottom: 0;
       font-size: 0.65rem;
-      padding: 0 5px;
-      line-height: 1.4;
-      cursor: pointer;
-    }
-    .flow-node-gpio.is-on {
-      background: color-mix(in srgb, var(--bs-warning, #ffc107) 22%, transparent);
       color: var(--bs-warning, #ffc107);
+    }
+    .flow-node-gpio .form-check-input {
+      cursor: pointer;
+      margin-top: 0;
+    }
+    .flow-node-gpio .form-check-input:disabled {
+      cursor: not-allowed;
+    }
+    .flow-node-gpio .form-check-label {
+      color: inherit;
+      cursor: pointer;
+      user-select: none;
+    }
+    .flow-node-gpio .form-check-input:disabled + .form-check-label {
+      cursor: not-allowed;
     }
     :host([data-compact]) .flow-node-gpio {
       font-size: 0.55rem;
-      padding: 0 4px;
-      min-width: 2.8rem;
     }
     .flow-node-config {
       display: inline-flex;
@@ -177,10 +183,14 @@ export class BldNode extends LitElement {
       cursor: pointer;
       line-height: 0;
     }
-    .flow-node-config:hover,
-    .flow-node-config:focus-visible {
+    .flow-node-config:hover:not(:disabled),
+    .flow-node-config:focus-visible:not(:disabled) {
       color: var(--bs-info, #0dcaf0);
       border-color: var(--bs-info, #0dcaf0);
+    }
+    .flow-node-config:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
     }
     .flow-node-config svg {
       width: 12px;
@@ -403,7 +413,8 @@ export class BldNode extends LitElement {
     :host([data-compact]) .block-port-type {
       font-size: 0.55rem;
     }
-  `;
+  `,
+  ];
 
   constructor() {
     super();
@@ -494,13 +505,19 @@ export class BldNode extends LitElement {
     this.dispatchEvent(new CustomEvent("chartclick", { bubbles: true, composed: true }));
   };
 
-  #onGpioClick = (event: MouseEvent): void => {
+  #onGpioChange = (event: Event): void => {
     event.stopPropagation();
+    if (!this.view?.gpioInteractive) {
+      return;
+    }
     this.dispatchEvent(new CustomEvent("gpioclick", { bubbles: true, composed: true }));
   };
 
   #onInputsClick = (event: MouseEvent): void => {
     event.stopPropagation();
+    if (!this.view?.inputsEnabled) {
+      return;
+    }
     this.dispatchEvent(new CustomEvent("inputsclick", { bubbles: true, composed: true }));
   };
 
@@ -635,7 +652,8 @@ export class BldNode extends LitElement {
                 <button
                   class="flow-node-config"
                   type="button"
-                  title="Configure inputs"
+                  title=${view.inputsEnabled ? "Configure inputs" : "Stop the run to configure inputs"}
+                  ?disabled=${!view.inputsEnabled}
                   data-testid=${`inputs-${view.blockId}`}
                   @pointerdown=${(event: PointerEvent) => event.stopPropagation()}
                   @click=${this.#onInputsClick}
@@ -649,17 +667,28 @@ export class BldNode extends LitElement {
             : nothing}
           ${view.showGpio
             ? html`
-                <button
-                  class=${view.gpioOn ? "flow-node-gpio is-on" : "flow-node-gpio"}
-                  type="button"
-                  title=${`Simulate GPIO pin ${view.gpioPin} in the browser`}
-                  aria-pressed=${view.gpioOn ? "true" : "false"}
-                  data-testid=${`gpio-${view.blockId}`}
+                <div
+                  class="form-check form-switch flow-node-gpio"
                   @pointerdown=${(event: PointerEvent) => event.stopPropagation()}
-                  @click=${this.#onGpioClick}
                 >
-                  P${view.gpioPin} ${view.gpioOn ? "HIGH" : "LOW"}
-                </button>
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    role="switch"
+                    id=${`gpio-switch-${view.blockId}`}
+                    .checked=${view.gpioOn}
+                    ?disabled=${!view.gpioInteractive}
+                    title=${view.gpioInteractive
+                      ? `Simulate GPIO pin ${view.gpioPin} in the browser`
+                      : `GPIO pin ${view.gpioPin} output`}
+                    data-testid=${`gpio-${view.blockId}`}
+                    @click=${(event: MouseEvent) => event.stopPropagation()}
+                    @change=${this.#onGpioChange}
+                  />
+                  <label class="form-check-label" for=${`gpio-switch-${view.blockId}`}>
+                    P${view.gpioPin} ${view.gpioOn ? "HIGH" : "LOW"}
+                  </label>
+                </div>
               `
             : nothing}
           ${view.showChart

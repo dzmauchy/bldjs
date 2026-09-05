@@ -16,6 +16,8 @@ export interface RunHost {
   toDiagramXml(): string;
   get scopeOpen(): number;
   set scopeOpen(id: number);
+  get inputsOpen(): number;
+  set inputsOpen(id: number);
   gpioSnapshot?(): ReadonlyMap<number, number>;
 }
 
@@ -103,6 +105,9 @@ export class RunSession extends HostedState<RunHost> {
       return;
     }
     this.stop();
+    if (this.host.inputsOpen !== NONE_ID) {
+      this.host.inputsOpen = NONE_ID;
+    }
     this.starting = true;
     try {
       const solution = loadDiagramSolution(this.host.toDiagramXml(), this.host.catalog);
