@@ -14,9 +14,9 @@ export interface NodeSpec {
   defId: string;
   periodMs?: number;
   pin?: number;
-  /** Scope window duration in seconds (`n`). */
-  windowS?: number;
-  /** Scope meter interval in milliseconds (`m`). */
+  /** Scope sliding-buffer length (`n`). */
+  sampleCount?: number;
+  /** Scope sampling period in milliseconds (`m`). */
   meterMs?: number;
 }
 

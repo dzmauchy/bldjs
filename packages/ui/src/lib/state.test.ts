@@ -354,11 +354,11 @@ describe("AppState run", () => {
     expect(app.toDiagramXml()).toContain('value="25"');
   });
 
-  it("seeds scope window N=30 s and meter M=10 ms", () => {
+  it("seeds scope sample count N=30 and sampling period M=10 ms", () => {
     const app = new AppState();
     const id = app.nextId;
     app.addBlock("scope", 0, 0);
-    expect(app.blockWindowS(id)).toBe(30);
+    expect(app.blockSampleCount(id)).toBe(30);
     expect(app.blockMeterMs(id)).toBe(10);
     expect(app.blockInputs(id).map((input) => [input.def.name, input.value])).toEqual([
       ["n", "30"],
@@ -366,7 +366,7 @@ describe("AppState run", () => {
     ]);
     app.setBlockParameter(id, "n", "60");
     app.setBlockParameter(id, "m", "20");
-    expect(app.blockWindowS(id)).toBe(60);
+    expect(app.blockSampleCount(id)).toBe(60);
     expect(app.blockMeterMs(id)).toBe(20);
     expect(app.toDiagramXml()).toContain('name="n"');
     expect(app.toDiagramXml()).toContain('value="60"');

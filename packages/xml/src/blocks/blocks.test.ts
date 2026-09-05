@@ -562,10 +562,12 @@ describe("blocks", () => {
     const n = cat.block("scope")!.parameters.find((param) => param.name === "n");
     const m = cat.block("scope")!.parameters.find((param) => param.name === "m");
     expect(n?.kind).toBe("integer-range-parameter");
+    expect(n?.description).toBe("Number of samples");
     expect(n?.default).toBe("30");
     expect(n?.min).toBe(10);
     expect(n?.max).toBe(600);
     expect(m?.kind).toBe("integer-range-parameter");
+    expect(m?.description).toBe("Sampling period in milliseconds");
     expect(m?.default).toBe("10");
     expect(m?.min).toBe(10);
     expect(m?.max).toBe(1000);

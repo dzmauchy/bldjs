@@ -70,11 +70,11 @@
 
   <block id="scope" name="Scope" ns="com.dauch.cs.sink" icon="scope">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Plot sink. Returns a dynamically sized Array[(Double) -&gt; Unit]. Wire into a transformer or generator. After Run, Chart is a time-windowed multi-axis plot.</attribute>
+    <attribute name="description">Plot sink. Returns a dynamically sized Array[(Double) -&gt; Unit]. Wire into a transformer or generator. After Run, Chart is a sliding multi-axis plot of finite samples.</attribute>
     <factory id="scope"/>
     <parameters>
-      <integer-range-parameter name="n" description="Window duration in seconds" min="10" max="600" step="1" default="30"/>
-      <integer-range-parameter name="m" description="Meter interval in milliseconds" min="10" max="1000" step="1" default="10"/>
+      <integer-range-parameter name="n" description="Number of samples" min="10" max="600" step="1" default="30"/>
+      <integer-range-parameter name="m" description="Sampling period in milliseconds" min="10" max="1000" step="1" default="10"/>
     </parameters>
     <out name="out" type="Array[(Double) -> Unit]">
       <attribute name="dynamic">true</attribute>

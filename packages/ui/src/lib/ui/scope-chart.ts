@@ -227,34 +227,43 @@ function drawSeries(
   range: ScopeValueRange,
   color: string,
 ): void {
-  const points: { x: number; y: number }[] = [];
-  for (let index = 0; index < samples.length; index += 1) {
-    const value = samples[index];
-    if (!Number.isFinite(value)) {
-      continue;
-    }
-    points.push({
-      x: xOf(index, Math.max(samples.length, 1), layout),
-      y: yOf(value, range, layout),
-    });
-  }
-  if (points.length === 0) {
-    return;
-  }
   ctx.strokeStyle = color;
   ctx.lineWidth = 1.8;
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(points[0].x, points[0].y);
-  if (points.length === 1) {
-    ctx.lineTo(points[0].x + 0.01, points[0].y);
-  } else {
-    for (let index = 1; index < points.length; index += 1) {
-      ctx.lineTo(points[index].x, points[index].y);
+  const length = Math.max(samples.length, 1);
+  let drawing = false;
+  let segmentStart: { x: number; y: number } | null = null;
+  const strokeSegment = (): void => {
+    if (!drawing) {
+      return;
     }
+    if (segmentStart) {
+      ctx.lineTo(segmentStart.x + 0.01, segmentStart.y);
+    }
+    ctx.stroke();
+    drawing = false;
+    segmentStart = null;
+  };
+  for (let index = 0; index < samples.length; index += 1) {
+    const value = samples[index];
+    if (!Number.isFinite(value)) {
+      strokeSegment();
+      continue;
+    }
+    const x = xOf(index, length, layout);
+    const y = yOf(value, range, layout);
+    if (!drawing) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      drawing = true;
+      segmentStart = { x, y };
+      continue;
+    }
+    ctx.lineTo(x, y);
+    segmentStart = null;
   }
-  ctx.stroke();
+  strokeSegment();
 }
 
 /** Draw a multi-axis line plot into a 2d context sized in CSS pixels. */

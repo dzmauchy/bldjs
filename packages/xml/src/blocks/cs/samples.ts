@@ -1,6 +1,6 @@
-import { DEFAULT_METER_MS, DEFAULT_WINDOW_S, sampleCap } from "./ids";
+import { DEFAULT_SAMPLE_COUNT, sampleCap } from "./ids";
 
-/** Circular window of `cap` measurements (oldest → newest). */
+/** Circular window of `cap` measurements in a `Float64Array` (oldest → newest). */
 export class WindowBuf {
   readonly cap: number;
   #buf: Float64Array;
@@ -9,10 +9,16 @@ export class WindowBuf {
   constructor(cap: number) {
     this.cap = Math.max(1, Math.trunc(cap));
     this.#buf = new Float64Array(this.cap);
+    this.#buf.fill(Number.NaN);
   }
 
   get length(): number {
     return Math.min(this.#count, this.cap);
+  }
+
+  /** Backing store for tests; do not mutate. */
+  get values(): Float64Array {
+    return this.#buf;
   }
 
   push(value: number): void {
@@ -35,14 +41,15 @@ export class WindowBuf {
 
   clear(): void {
     this.#count = 0;
+    this.#buf.fill(Number.NaN);
   }
 }
 
-/** Time-windowed scope buffer. Capacity is `N * (1000 / M)` measurements. */
+/** Sliding Scope buffer. Capacity is the configured sample count `n`. */
 export class SampleBuf {
   private readonly window: WindowBuf;
 
-  constructor(cap = sampleCap(DEFAULT_WINDOW_S, DEFAULT_METER_MS)) {
+  constructor(cap = sampleCap(DEFAULT_SAMPLE_COUNT)) {
     this.window = new WindowBuf(cap);
   }
 

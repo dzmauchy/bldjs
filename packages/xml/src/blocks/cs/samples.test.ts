@@ -1,53 +1,56 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_METER_MS,
-  DEFAULT_WINDOW_S,
+  DEFAULT_SAMPLE_COUNT,
   MAX_METER_MS,
-  MAX_WINDOW_S,
+  MAX_SAMPLE_COUNT,
   MIN_METER_MS,
-  MIN_WINDOW_S,
+  MIN_SAMPLE_COUNT,
   meterMsFrom,
   sampleCap,
-  windowSecondsFrom,
+  sampleCountFrom,
 } from "./ids";
 import { SampleBuf, WindowBuf } from "./samples";
 
 describe("scope window", () => {
-  it("clamps N seconds and M milliseconds to catalog ranges", () => {
-    expect(windowSecondsFrom(undefined)).toBe(DEFAULT_WINDOW_S);
-    expect(windowSecondsFrom("30")).toBe(30);
-    expect(windowSecondsFrom(9)).toBe(MIN_WINDOW_S);
-    expect(windowSecondsFrom(601)).toBe(MAX_WINDOW_S);
+  it("clamps sample count N and sampling period M to catalog ranges", () => {
+    expect(sampleCountFrom(undefined)).toBe(DEFAULT_SAMPLE_COUNT);
+    expect(sampleCountFrom("30")).toBe(30);
+    expect(sampleCountFrom(9)).toBe(MIN_SAMPLE_COUNT);
+    expect(sampleCountFrom(601)).toBe(MAX_SAMPLE_COUNT);
     expect(meterMsFrom(undefined)).toBe(DEFAULT_METER_MS);
     expect(meterMsFrom("10")).toBe(10);
     expect(meterMsFrom(1)).toBe(MIN_METER_MS);
     expect(meterMsFrom(1001)).toBe(MAX_METER_MS);
   });
 
-  it("sizes the buffer as N * (1000 / M) measurements", () => {
-    expect(sampleCap()).toBe(3000);
-    expect(sampleCap(30, 10)).toBe(3000);
-    expect(sampleCap(10, 10)).toBe(1000);
-    expect(sampleCap(600, 10)).toBe(60_000);
-    expect(sampleCap(30, 1000)).toBe(30);
-    expect(sampleCap(10, 1000)).toBe(10);
+  it("sizes the Float64Array as N samples", () => {
+    expect(sampleCap()).toBe(DEFAULT_SAMPLE_COUNT);
+    expect(sampleCap(30)).toBe(30);
+    expect(sampleCap(10)).toBe(10);
+    expect(sampleCap(600)).toBe(600);
   });
 
-  it("keeps a sliding window of the last cap samples", () => {
+  it("keeps a sliding window of the last cap samples, including NaN", () => {
     const buf = new WindowBuf(4);
+    expect(buf.values).toBeInstanceOf(Float64Array);
     expect(buf.snapshot()).toEqual([]);
+    expect(buf.values.every((value) => Number.isNaN(value))).toBe(true);
     buf.push(1);
-    buf.push(2);
-    expect(buf.snapshot()).toEqual([1, 2]);
+    buf.push(Number.NaN);
+    expect(buf.snapshot()[0]).toBe(1);
+    expect(Number.isNaN(buf.snapshot()[1])).toBe(true);
     buf.push(3);
     buf.push(4);
     buf.push(5);
-    expect(buf.snapshot()).toEqual([2, 3, 4, 5]);
+    expect(buf.snapshot()[0]).toBeNaN();
+    expect(buf.snapshot().slice(1)).toEqual([3, 4, 5]);
     buf.clear();
     expect(buf.snapshot()).toEqual([]);
+    expect(buf.values.every((value) => Number.isNaN(value))).toBe(true);
   });
 
-  it("uses the default time-based capacity on SampleBuf", () => {
+  it("uses the default sample count on SampleBuf", () => {
     const buf = new SampleBuf();
     for (let i = 0; i < sampleCap() + 5; i += 1) {
       buf.push(i);

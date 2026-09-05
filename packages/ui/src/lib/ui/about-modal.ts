@@ -29,7 +29,7 @@ export class BldAboutModal extends BldModal {
             <li>GPIO In emits one sample when you toggle the switch, not on a quantization period; GPIO Out shows the same switch as a disabled readout</li>
             <li>Live wires animate at the frequency of value changes on that connector, not the generator tick rate</li>
             <li>File → Hardware can deploy the MCU wasm over WebSerial</li>
-            <li>After Run, Chart on Scope meters each input every M ms into an N-second window (default 10 ms × 30 s)</li>
+            <li>After Run, Chart on Scope samples the last pushed value every M ms into an N-sample sliding buffer (default 10 ms × 30 samples). NaN is stored when nothing has been pushed yet and is not drawn</li>
             <li>Delete or Backspace removes the selection</li>
             <li>Ctrl/Cmd + 0 resets the view</li>
           </ul>

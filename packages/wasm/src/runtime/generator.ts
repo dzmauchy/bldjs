@@ -10,7 +10,7 @@ export type { InstantiatedGenerator } from "./boot";
 export interface GeneratorHandle {
   connectors: readonly SolutionViewConnector[];
   snapshot(scopeIndex?: number): number[];
-  latest(scopeIndex?: number): number | undefined;
+  latest(scopeIndex?: number): number;
   readFlowCounts(): number[];
   gpioLevel(pin: number): number;
   setGpio(pin: number, level: number): void;
