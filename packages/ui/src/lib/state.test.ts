@@ -407,7 +407,23 @@ describe("AppState run", () => {
     expect(app.gpioOn(outId)).toBe(false);
   });
 
-  it("pushes GPIO In only when the switch is toggled while running", async () => {
+  it("supplies GPIO In's current pin (0) to Scope on start without toggling", async () => {
+    const app = new AppState();
+    const scopeId = app.nextId;
+    app.addBlock("scope", 0, 0);
+    const inId = app.nextId;
+    app.addBlock("gpio_in", 120, 0);
+    app.toggleLink(scopeId, "out", inId, "in");
+    await app.run.start();
+    expect(app.run.running).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const series = app.run.snapshotScope(scopeId);
+    expect(series).toHaveLength(1);
+    expect(series[0]?.samples.some((value) => value === 0)).toBe(true);
+    app.run.stop();
+  });
+
+  it("pushes GPIO In's current pin on start and again when the switch is toggled", async () => {
     const app = new AppState();
     const outId = app.nextId;
     app.addBlock("gpio_out", 0, 0);

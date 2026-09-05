@@ -2,13 +2,13 @@ import { DEFAULT_METER_MS, DEFAULT_WINDOW_S, sampleCap } from "./ids";
 
 /**
  * Sliding window of `cap` measurements in a `Float64Array`.
- * Slots start as `NaN`. Head and tail walk the ring; samples are never shifted.
+ * Slots start as `NaN`. One write index walks the ring; samples are never shifted.
+ * Oldest is slot 0 until the window is full, then the write index.
  */
 export class WindowBuf {
   readonly cap: number;
   #buf: Float64Array;
-  #head = 0;
-  #tail = 0;
+  #pos = 0;
   #size = 0;
 
   constructor(cap: number) {
@@ -21,14 +21,9 @@ export class WindowBuf {
     return this.#size;
   }
 
-  /** Oldest occupied slot. */
-  get head(): number {
-    return this.#head;
-  }
-
-  /** Next write slot. */
-  get tail(): number {
-    return this.#tail;
+  /** Next write slot; oldest occupied slot once the window is full. */
+  get index(): number {
+    return this.#pos;
   }
 
   /** Backing store for tests; do not mutate. */
@@ -37,13 +32,11 @@ export class WindowBuf {
   }
 
   push(value: number): void {
-    this.#buf[this.#tail] = value;
-    this.#tail = this.#tail + 1 === this.cap ? 0 : this.#tail + 1;
+    this.#buf[this.#pos] = value;
+    this.#pos = this.#pos + 1 === this.cap ? 0 : this.#pos + 1;
     if (this.#size < this.cap) {
       this.#size += 1;
-      return;
     }
-    this.#head = this.#tail;
   }
 
   snapshot(): number[] {
@@ -52,7 +45,7 @@ export class WindowBuf {
       return [];
     }
     const out = new Array<number>(n);
-    let index = this.#head;
+    let index = n < this.cap ? 0 : this.#pos;
     for (let i = 0; i < n; i += 1) {
       out[i] = this.#buf[index]!;
       index = index + 1 === this.cap ? 0 : index + 1;
@@ -61,8 +54,7 @@ export class WindowBuf {
   }
 
   clear(): void {
-    this.#head = 0;
-    this.#tail = 0;
+    this.#pos = 0;
     this.#size = 0;
     this.#buf.fill(Number.NaN);
   }

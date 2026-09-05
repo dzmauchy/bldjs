@@ -28,6 +28,7 @@ import { Catalog } from "./catalog";
 import { isCompatible } from "./compat";
 import {
   DEFAULT_PERIOD_MS,
+  GpioInGenerator,
   SampleBuf,
   compileTimer,
   CosTransformer,
@@ -761,6 +762,20 @@ describe("blocks", () => {
     const nodes = [{ id: 4, defId: "timer" }];
     expect(planGenerator(4, nodes, [])).toBeUndefined();
     expect(compileTimer(4, nodes, [], new Map())).toBeUndefined();
+  });
+
+  it("GPIO In supplies 0 once on start", () => {
+    const out: number[] = [];
+    let live = true;
+    new GpioInGenerator().run(
+      (value) => out.push(value),
+      () => {
+        const next = live;
+        live = false;
+        return next;
+      },
+    );
+    expect(out).toEqual([0]);
   });
 
   it("plans GPIO output into a GPIO input generator", () => {

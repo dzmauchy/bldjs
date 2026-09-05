@@ -24,7 +24,7 @@ export interface StartGeneratorOptions {
   connectors?: readonly SolutionViewConnector[];
   now?: () => number;
   gpio?: ReadonlyMap<number, number>;
-  /** GPIO In: do not start a quantizer; callers fire `tick()` on each edge. */
+  /** GPIO In: sample the pin once on start, then callers fire `tick()` on each edge. */
   eventDriven?: boolean;
 }
 
@@ -71,6 +71,7 @@ export async function startLocalGenerator(options: StartGeneratorOptions): Promi
     connectorCount: connectors.length,
   });
   if (options.eventDriven) {
+    gen.tick();
     return bindHandle(memory, connectors, () => gen.stopTimers(), () => gen.tick());
   }
   gen.start(options.delayMs);
