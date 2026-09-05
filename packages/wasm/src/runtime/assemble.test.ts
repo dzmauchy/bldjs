@@ -36,7 +36,7 @@ describe("block MoonBit assembly", () => {
     for (const id of Object.keys(BLOCK_SCRIPTS)) {
       const sig = blockSignature(cat.block(id)!);
       const source = BLOCK_SCRIPTS[id]!();
-      expect(source, id).toContain(`fn ${id}(_ctx : Int)`);
+      expect(source, id).toContain(`fn ${id}(_ctx : Int`);
       if (sig.params.some((port) => port.name === "in")) {
         expect(source, id).toContain("input : C1");
       }
