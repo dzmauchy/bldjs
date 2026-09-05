@@ -27,13 +27,13 @@ export class BldScopeModal extends LitElement {
     bootstrapStyles,
     css`
       :host {
-        display: none;
+        display: contents;
       }
-      :host([open]) {
-        display: block;
-        position: fixed;
-        inset: 0;
-        z-index: 1055;
+      .modal,
+      .modal-dialog,
+      .modal-backdrop {
+        transition: none;
+        transform: none;
       }
       .modal-content {
         overflow: hidden;
@@ -166,6 +166,7 @@ export class BldScopeModal extends LitElement {
       this.#writeSeriesCount(plot.seriesCount, this.#sampleCount, painted);
     });
     this.#plot = plot;
+    void canvas.parentElement?.offsetWidth;
     this.#applySeries(plot, this.app.run.snapshotScope(id));
     plot.fit();
     const tick = (): void => {
@@ -184,7 +185,7 @@ export class BldScopeModal extends LitElement {
     }
     return html`
       <div
-        class="modal-backdrop fade show"
+        class="modal-backdrop show"
         role="button"
         tabindex="0"
         @click=${() => app.closeScope()}
@@ -194,7 +195,7 @@ export class BldScopeModal extends LitElement {
           }
         }}
       ></div>
-      <div class="modal fade show d-block" tabindex="-1" role="dialog" data-testid="scope-modal">
+      <div class="modal show d-block" tabindex="-1" role="dialog" data-testid="scope-modal">
         <div class="modal-dialog modal-lg modal-dialog-centered">
           <div class="modal-content">
             <div class="modal-body p-0">

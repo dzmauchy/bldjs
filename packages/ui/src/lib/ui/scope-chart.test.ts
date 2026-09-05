@@ -122,6 +122,22 @@ describe("scope multi-axis canvas plot", () => {
     expect(ctx.calls.some((call) => call.name === "fillRect")).toBe(true);
   });
 
+  it("paints from the parent box when the canvas is still 0×0", () => {
+    const parent = document.createElement("div");
+    const canvas = document.createElement("canvas");
+    parent.append(canvas);
+    const ctx = recordingContext();
+    Object.defineProperty(canvas, "clientWidth", { configurable: true, get: () => 0 });
+    Object.defineProperty(canvas, "clientHeight", { configurable: true, get: () => 0 });
+    Object.defineProperty(parent, "clientWidth", { configurable: true, get: () => 640 });
+    Object.defineProperty(parent, "clientHeight", { configurable: true, get: () => 280 });
+    vi.spyOn(canvas, "getContext").mockReturnValue(ctx);
+    expect(paintScopeCanvas(canvas, [{ label: "sin", samples: [0, 1] }])).toBe(true);
+    expect(canvas.width).toBe(640);
+    expect(canvas.height).toBe(280);
+    expect(ctx.calls.some((call) => call.name === "fillRect")).toBe(true);
+  });
+
   it("retries a live plot after layout so the first zero-size paint is not the last", () => {
     const canvas = document.createElement("canvas");
     const parent = document.createElement("div");

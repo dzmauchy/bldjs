@@ -318,6 +318,8 @@ test.describe("wiring", () => {
     await expect(chart).toBeEnabled();
     await chart.click();
     await waitDeep(page, '[data-testid="scope-modal"]');
+    await expect(page.locator('[data-testid="scope-modal"]')).toHaveCSS("opacity", "1");
+    await expect(page.locator('[data-testid="scope-modal"] .modal-dialog')).toHaveCSS("transform", "none");
     await expect(page.locator('[data-testid="scope-modal"] .modal-title')).toHaveCount(0);
     await expect(page.locator('[data-testid="scope-caption"]')).toHaveText("blk_5");
     await expect(page.locator('[data-testid="scope-caption"]')).not.toContainText("timer(");
@@ -395,6 +397,8 @@ test.describe("wiring", () => {
     await expect(chart).toBeEnabled();
     await chart.click();
     await waitDeep(page, '[data-testid="scope-modal"]');
+    await expect(page.locator('[data-testid="scope-modal"]')).toHaveCSS("opacity", "1");
+    await expect(page.locator('[data-testid="scope-modal"] .modal-dialog')).toHaveCSS("transform", "none");
     await expect(page.locator('[data-testid="scope-modal"] .modal-title')).toHaveCount(0);
     await expect(page.locator('[data-testid="scope-caption"]')).toHaveText("blk_1");
     await expect(page.locator('[data-testid="scope-caption"]')).not.toContainText("timer(");

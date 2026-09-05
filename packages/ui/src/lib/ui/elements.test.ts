@@ -128,6 +128,8 @@ describe("Lit update scheduling", () => {
     const caption = chart.renderRoot.querySelector("[data-testid=scope-caption]");
     const canvas = host?.querySelector("canvas");
     expect(chart.hasAttribute("open")).toBe(true);
+    expect(chart.renderRoot.querySelector(".modal")?.classList.contains("fade")).toBe(false);
+    expect(chart.renderRoot.querySelector(".modal-backdrop")?.classList.contains("fade")).toBe(false);
     expect(chart.renderRoot.querySelector(".modal-title")).toBeNull();
     expect(host?.querySelector("[data-testid=scope-close]")).toBeNull();
     expect(close).not.toBeNull();
