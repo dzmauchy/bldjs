@@ -17,11 +17,11 @@
   "dependencies": {
     "@bld/wasm": "0.1.0",
     "@bld/xml": "0.1.0",
-    "@joint/router-avoid": "^4.3.2",
-    "bootstrap": "5.3.8",
+    "@joint/router-avoid": "^4.3.3",
+    "bootstrap": "^5.3.8",
     "lit": "^3.3.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1"
+    "@playwright/test": "^1.63.0"
   }
 }
