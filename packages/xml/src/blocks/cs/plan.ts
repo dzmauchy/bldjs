@@ -24,6 +24,7 @@ function walkConsumer(
   links: Link[],
   depth: number,
   products: Map<number, ProductGroup> = new Map(),
+  isTimer = true,
 ): ConsumerTree | undefined {
   if (depth > 64) {
     return undefined;
@@ -37,16 +38,16 @@ function walkConsumer(
       continue;
     }
     if (fromDef && isTransformerId(fromDef)) {
-      const inner = walkConsumer(link.fromBlock, nodeOf, links, depth + 1, products);
+      const inner = walkConsumer(link.fromBlock, nodeOf, links, depth + 1, products, isTimer);
       if (inner) {
-        parts.push(new MapNode(fromDef, link.fromBlock, inner, from?.zeta, from?.omega));
+        parts.push(new MapNode(fromDef, link.fromBlock, inner, from?.zeta, from?.omega, isTimer));
       }
       continue;
     }
     if (fromDef && isCombinerId(fromDef) && from) {
       let group = products.get(from.id);
       if (!group) {
-        const inner = walkConsumer(from.id, nodeOf, links, depth + 1, products);
+        const inner = walkConsumer(from.id, nodeOf, links, depth + 1, products, false);
         if (!inner) {
           continue;
         }
@@ -72,7 +73,7 @@ export function planGenerator(generatorId: number, nodes: NodeSpec[], links: Lin
     return undefined;
   }
   const nodeOf = (id: number): NodeSpec | undefined => nodes.find((item) => item.id === id);
-  const tree = walkConsumer(generatorId, nodeOf, links, 0);
+  const tree = walkConsumer(generatorId, nodeOf, links, 0, new Map(), node.defId === "timer");
   if (!tree) {
     return undefined;
   }

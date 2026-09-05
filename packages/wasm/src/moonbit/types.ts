@@ -24,6 +24,8 @@ export interface MoonBlockEmit {
   zeta?: number;
   /** Overshoot natural frequency `ω` baked into the map. Damped frequency is `ωd = ω√(1−ζ²)`. */
   omega?: number;
+  /** When true, overshoot treats input as elapsed time (from timer). When false, input is a signal and overshoot steps on transitions. Defaults to true. */
+  timeInput?: boolean;
 }
 
 export type BlockScript = (opts?: MoonBlockEmit) => string;

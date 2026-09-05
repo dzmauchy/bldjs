@@ -53,15 +53,24 @@ export class ForkNode extends ConsumerNode {
 
 export class MapNode extends ConsumerNode {
   readonly kind = "map" as const;
+  readonly zeta?: number;
+  readonly omega?: number;
+  readonly timeInput?: boolean;
 
   constructor(
     readonly defId: string,
     readonly id: number,
     readonly inner: ConsumerNode,
-    readonly zeta?: number,
-    readonly omega?: number,
+    zeta?: number,
+    omega?: number,
+    timeInput?: boolean,
   ) {
     super();
+    this.zeta = zeta;
+    this.omega = omega;
+    if (timeInput === false) {
+      this.timeInput = false;
+    }
   }
 
   collectChannels(_label: string): ScopeChannel[] {
@@ -71,7 +80,7 @@ export class MapNode extends ConsumerNode {
   compile(buffers: Map<number, SampleBuf>, next: { n: number }): F64Func {
     const inner = this.inner.compile(buffers, next);
     if (this.defId === "overshoot") {
-      return new OvershootTransformer(this.zeta, this.omega).wrap(inner);
+      return new OvershootTransformer(this.zeta, this.omega, this.timeInput ?? true).wrap(inner);
     }
     return (value) => inner(mapOnce(this.defId, value));
   }

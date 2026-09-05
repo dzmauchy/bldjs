@@ -57,4 +57,6 @@ export interface GeneratorPlan {
   channels: ScopeChannel[];
   delayMs: number;
   tree: ConsumerTree;
+  /** All generator block IDs in this connected execution unit. */
+  generatorIds?: number[];
 }

@@ -49,11 +49,17 @@ export class CosMoonBlock extends MoonTransformer {
  * Second-order underdamped unit-step. Time is the input relative to the first sample.
  * `ζ` and `ω` are baked from catalog parameters; `ωd = ω√(1−ζ²)` and sin/cos/exp/sqrt run at sample time.
  */
-export function emitOvershootWrap(name: string, zeta?: number, omega?: number): string {
+export function emitOvershootWrap(
+  name: string,
+  zeta?: number,
+  omega?: number,
+  timeInput: boolean = true,
+): string {
   const z = zetaFrom(zeta);
   const w = omegaFrom(omega);
   const ident = moonIdent(name);
-  return `priv struct OvershootClock_${ident} {
+  if (timeInput) {
+    return `priv struct OvershootClock_${ident} {
   mut t0 : Double
   mut on : Int
 }
@@ -78,13 +84,65 @@ fn ${name}(${CTX_PARAM}, input : C1) -> C1 {
   }
 }
 `;
+  }
+
+  return `priv struct OvershootState_${ident} {
+  mut initialized : Int
+  mut t_step : Double
+  mut base_y : Double
+  mut target_u : Double
+  mut current_y : Double
+}
+
+let state_${ident} : OvershootState_${ident} = {
+  initialized: 0,
+  t_step: 0.0,
+  base_y: 0.0,
+  target_u: 0.0,
+  current_y: 0.0,
+}
+
+fn ${name}(${CTX_PARAM}, input : C1) -> C1 {
+  fn(v : Double) {
+    let cur_t = now()
+    if state_${ident}.initialized == 0 {
+      state_${ident}.initialized = 1
+      state_${ident}.t_step = cur_t
+      state_${ident}.base_y = v
+      state_${ident}.target_u = v
+      state_${ident}.current_y = v
+      input(v)
+    } else {
+      let diff = v - state_${ident}.target_u
+      let abs_diff = if diff < 0.0 { 0.0 - diff } else { diff }
+      if abs_diff > 0.000001 {
+        state_${ident}.t_step = cur_t
+        state_${ident}.base_y = state_${ident}.current_y
+        state_${ident}.target_u = v
+      }
+      let tau = cur_t - state_${ident}.t_step
+      let t = if tau < 0.0 { 0.0 } else { tau }
+      let zeta = ${moonDouble(z)}
+      let w = ${moonDouble(w)}
+      let wd = w * math_sqrt(1.0 - zeta * zeta)
+      let sigma = zeta * w
+      let decay = math_exp(0.0 - sigma * t)
+      let phase = wd * t
+      let factor = 1.0 - decay * (math_cos(phase) + sigma / wd * math_sin(phase))
+      let y = state_${ident}.base_y + (state_${ident}.target_u - state_${ident}.base_y) * factor
+      state_${ident}.current_y = y
+      input(y)
+    }
+  }
+}
+`;
 }
 
 export class OvershootMoonBlock extends MoonBlock {
   readonly defId = "overshoot";
 
   emit(opts: MoonBlockEmit = {}): string {
-    return emitOvershootWrap(opts.name ?? this.defId, opts.zeta, opts.omega);
+    return emitOvershootWrap(opts.name ?? this.defId, opts.zeta, opts.omega, opts.timeInput ?? true);
   }
 }
 

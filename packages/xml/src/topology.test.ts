@@ -89,4 +89,26 @@ describe("topology", () => {
     expect(plans[0]?.defId).toBe("gpio_in");
     expect(plans[0]?.delayMs).toBe(0);
   });
+
+  it("plans a single unified generator for GPIO In and Constant feeding Product and Overshoot", () => {
+    const nodes = nodeSpecsFrom([
+      { id: 1, defId: "scope" },
+      { id: 2, defId: "overshoot", zeta: 0.5, omega: 1 },
+      { id: 3, defId: "product", count: 2, def: 1 },
+      { id: 4, defId: "gpio_in", pin: 0 },
+      { id: 5, defId: "constant", value: 1, periodMs: 10 },
+    ]);
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 3, fromOut: "out[1]", toBlock: 5, toIn: "in" },
+    ];
+    const plans = plannedGenerators(nodes, links);
+    expect(plans).toHaveLength(1);
+    expect(plans[0]?.generatorId).toBe(5);
+    expect(plans[0]?.generatorIds).toEqual(expect.arrayContaining([4, 5]));
+    expect(plans[0]?.channels).toEqual([{ scopeId: 1, label: "overshoot" }]);
+    expect(plans[0]?.delayMs).toBe(10);
+  });
 });

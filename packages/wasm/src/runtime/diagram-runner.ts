@@ -246,7 +246,9 @@ export class DiagramRunner implements Runner {
         handle.stop();
         throw new DiagramRunCancelled();
       }
-      session.generators.set(plan.generatorId, handle);
+      for (const id of plan.generatorIds ?? [plan.generatorId]) {
+        session.generators.set(id, handle);
+      }
       if (!isEventDrivenGenerator(plan.defId)) {
         const nominalHz = 1000 / intervalMs(plan.delayMs);
         for (const link of connectors) {

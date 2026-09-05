@@ -1,5 +1,5 @@
 import type { Link } from "../blocks/diagram";
-import { isGeneratorId } from "../blocks/cs/ids";
+import { isCombinerId, isGeneratorId } from "../blocks/cs/ids";
 import { PortLinks } from "../blocks/ports";
 
 /** One placed block in a connected solution (XML `block` instance). */
@@ -82,16 +82,24 @@ export class SolutionView {
     return new PortLinks(this.connectors).outgoing(fromBlock, port);
   }
 
-  /** Blocks and connectors reachable by walking incoming consumer wires from a generator. */
+  /** Blocks and connectors reachable by walking incoming consumer wires from a generator, including combiner factors. */
   subgraphFromGenerator(generatorId: number): SolutionView {
     const ids = new Set<number>([generatorId]);
     const walk = (id: number): void => {
       for (const link of this.connectors.filter((item) => item.toBlock === id)) {
-        if (ids.has(link.fromBlock)) {
-          continue;
+        if (!ids.has(link.fromBlock)) {
+          ids.add(link.fromBlock);
+          walk(link.fromBlock);
         }
-        ids.add(link.fromBlock);
-        walk(link.fromBlock);
+      }
+      const def = this.defId(id);
+      if (def && isCombinerId(def)) {
+        for (const link of this.connectors.filter((item) => item.fromBlock === id)) {
+          if (!ids.has(link.toBlock)) {
+            ids.add(link.toBlock);
+            walk(link.toBlock);
+          }
+        }
       }
     };
     walk(generatorId);

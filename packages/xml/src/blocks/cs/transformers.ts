@@ -38,7 +38,7 @@ export class OvershootTransformer extends Transformer {
   readonly zeta: number;
   readonly omega: number;
 
-  constructor(zeta: number = DEFAULT_ZETA, omega: number = DEFAULT_OMEGA) {
+  constructor(zeta: number = DEFAULT_ZETA, omega: number = DEFAULT_OMEGA, readonly timeInput: boolean = true) {
     super();
     this.zeta = zetaFrom(zeta);
     this.omega = omegaFrom(omega);
@@ -49,10 +49,38 @@ export class OvershootTransformer extends Transformer {
   }
 
   override wrap(sink: DoubleConsumer): DoubleConsumer {
-    let t0: number | undefined;
+    if (this.timeInput) {
+      let t0: number | undefined;
+      return (value) => {
+        t0 ??= value;
+        sink(overshootStep(value - t0, this.zeta, this.omega));
+      };
+    }
+    let initialized = false;
+    let tStep = 0;
+    let baseY = 0;
+    let targetU = 0;
+    let currentY = 0;
     return (value) => {
-      t0 ??= value;
-      sink(overshootStep(value - t0, this.zeta, this.omega));
+      const curT = performance.now() / 1000;
+      if (!initialized) {
+        initialized = true;
+        tStep = curT;
+        baseY = value;
+        targetU = value;
+        currentY = value;
+        sink(value);
+        return;
+      }
+      if (Math.abs(value - targetU) > 1e-6) {
+        tStep = curT;
+        baseY = currentY;
+        targetU = value;
+      }
+      const tau = Math.max(0, curT - tStep);
+      const factor = overshootStep(tau, this.zeta, this.omega);
+      currentY = baseY + (targetU - baseY) * factor;
+      sink(currentY);
     };
   }
 }
@@ -78,8 +106,13 @@ export function cos(sink: DoubleConsumer): DoubleConsumer {
 }
 
 /** XML `(Double) -> Unit → (Double) -> Unit`: capture a sink and return a second-order step response. */
-export function overshoot(sink: DoubleConsumer, zeta: number = DEFAULT_ZETA, omega: number = DEFAULT_OMEGA): DoubleConsumer {
-  return new OvershootTransformer(zeta, omega).wrap(sink);
+export function overshoot(
+  sink: DoubleConsumer,
+  zeta: number = DEFAULT_ZETA,
+  omega: number = DEFAULT_OMEGA,
+  timeInput: boolean = true,
+): DoubleConsumer {
+  return new OvershootTransformer(zeta, omega, timeInput).wrap(sink);
 }
 
 export const sinFunc = sin;

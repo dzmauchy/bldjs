@@ -105,4 +105,46 @@ describe("DiagramRunner", () => {
     expect(session.connectorHz(links[0]!)).toBe(0);
     runner.stop();
   });
+
+  it("shows exactly one scope plot and generates overshoot signal on switching GPIO In with Product and Constant", async () => {
+    const runner = new DiagramRunner();
+    const nodes = [
+      { id: 1, defId: "scope", windowS: 10, meterMs: 10 },
+      { id: 2, defId: "overshoot", zeta: 0.5, omega: 20 },
+      { id: 3, defId: "product", count: 2, def: 1 },
+      { id: 4, defId: "gpio_in", pin: 0 },
+      { id: 5, defId: "constant", value: 1, periodMs: 10 },
+    ];
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" },
+      { fromBlock: 3, fromOut: "out[1]", toBlock: 5, toIn: "in" },
+    ];
+    const session = await runner.start(nodes, links, { yieldForPaint: async () => {} });
+
+    // Assert Scope has exactly one channel (not two duplicate channels)
+    const scopeChannels = session.snapshotScope(1);
+    expect(scopeChannels).toHaveLength(1);
+    expect(scopeChannels[0]?.label).toBe("overshoot");
+
+    // Wait for initial baseline samples (GPIO is initially 0, so product is 0)
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const initialSamples = session.snapshotScope(1)[0]?.samples ?? [];
+    expect(initialSamples.length).toBeGreaterThan(0);
+    expect(initialSamples.some((val) => val === 0)).toBe(true);
+
+    // Switch GPIO In to 1 (button clicked in UI)
+    session.setGpio(0, 1);
+    session.tick(4);
+
+    // Wait for overshoot transition to evolve (~220ms with omega=20)
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const afterSamples = session.snapshotScope(1)[0]?.samples ?? [];
+
+    // The overshoot signal must rise and exceed 1.0 (classic second-order underdamped response)
+    expect(afterSamples.some((val) => val > 1.05)).toBe(true);
+
+    runner.stop();
+  });
 });

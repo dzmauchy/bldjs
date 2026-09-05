@@ -1,6 +1,6 @@
 import { isArrayType, type BlockDef } from "@bld/xml/blocks/ast";
 import type { Catalog } from "@bld/xml/blocks/catalog";
-import { DEFAULT_PERIOD_MS, isEventDrivenGenerator, isGeneratorId } from "@bld/xml/blocks/cs/ids";
+import { DEFAULT_PERIOD_MS, isEventDrivenGenerator, isGeneratorId, isTransformerId } from "@bld/xml/blocks/cs/ids";
 import { catalogPortName, portSlotIndex } from "@bld/xml/blocks/ports";
 import type { SolutionView, SolutionViewBlock } from "@bld/xml/solution/view";
 import { DEV_TARGET, type MoonbitTarget } from "./compile";
@@ -94,6 +94,24 @@ export function emitSolutionFiles(
     const omega = block.omega;
     const value = block.value;
     const factorDef = block.def;
+    let timeInput: boolean | undefined = undefined;
+    if (block.defId === "overshoot") {
+      let isTimer = false;
+      let curr = view.outgoing(block.id, "out")[0]?.toBlock;
+      while (curr !== undefined) {
+        const d = view.defId(curr);
+        if (d === "timer") {
+          isTimer = true;
+          break;
+        }
+        if (d && isTransformerId(d)) {
+          curr = view.outgoing(curr, "out")[0]?.toBlock;
+        } else {
+          break;
+        }
+      }
+      timeInput = isTimer;
+    }
     if (arrayOut) {
       const outgoing = view.outgoing(block.id, arrayOut.name);
       const length = Math.max(outgoing.length, block.count ?? 1, 1);
@@ -105,9 +123,9 @@ export function emitSolutionFiles(
         }
         return rings.get(`${block.id}:${portSlotIndex(link.fromOut)}`) ?? slot;
       });
-      blockParts.push(add({ name, length, rings: slotRings, pin, zeta, omega, value, def: factorDef }));
+      blockParts.push(add({ name, length, rings: slotRings, pin, zeta, omega, value, def: factorDef, timeInput }));
     } else {
-      blockParts.push(add({ name, pin, zeta, omega, value, def: factorDef }));
+      blockParts.push(add({ name, pin, zeta, omega, value, def: factorDef, timeInput }));
     }
   }
 
@@ -197,9 +215,10 @@ export function emitSolutionFiles(
     }
   }
 
-  const generator = view.blocks.find((block) => isGeneratorId(block.defId));
-  const eventDriven = generator ? isEventDrivenGenerator(generator.defId) : false;
-  const delayMs = eventDriven ? 0 : (generator?.periodMs ?? DEFAULT_PERIOD_MS);
+  const generators = view.blocks.filter((block) => isGeneratorId(block.defId));
+  const timedGenerator = generators.find((block) => !isEventDrivenGenerator(block.defId));
+  const eventDriven = generators.length > 0 && timedGenerator === undefined;
+  const delayMs = eventDriven ? 0 : (timedGenerator?.periodMs ?? DEFAULT_PERIOD_MS);
   const pins = view.blocks.flatMap((block) => {
     if (block.defId === "gpio_in") {
       return [{ pin: block.pin ?? 0, mode: PIN_INPUT_PULLUP }];
@@ -218,7 +237,7 @@ export function emitSolutionFiles(
             exp: defIds.has("overshoot"),
             sqrt: defIds.has("overshoot"),
             random: defIds.has("random"),
-            now: defIds.has("timer"),
+            now: defIds.has("timer") || defIds.has("overshoot"),
             gpio: defIds.has("gpio_in") || defIds.has("gpio_out"),
             timer: !eventDriven,
             target,
@@ -232,7 +251,7 @@ export function emitSolutionFiles(
             exp: defIds.has("overshoot"),
             sqrt: defIds.has("overshoot"),
             random: defIds.has("random"),
-            now: defIds.has("timer"),
+            now: defIds.has("timer") || defIds.has("overshoot"),
             gpio: defIds.has("gpio_in") || defIds.has("gpio_out"),
             target,
           }),
