@@ -10,6 +10,8 @@ describe("generator catalog", () => {
     expect(source).not.toContain("memory.atomic.wait32");
     expect(QUANTIZER_PERIOD_NS).toBe(10_000_000);
     expect(preamble()).toContain('fn js_set_interval(cb : () -> Unit, ms : Int) -> Int = "js" "setInterval"');
+    expect(preamble()).toContain('extern "wasm" fn stopped() -> Int');
+    expect(preamble()).toContain("i32.atomic.load");
   });
 
   it("samples random through the Math.random browser binding", () => {

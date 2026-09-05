@@ -41,6 +41,9 @@ describe("compileGenerator", () => {
     expect(compiled.text).toContain('fn date_now() -> Double = "Date" "now"');
     expect(compiled.text).toContain('fn js_set_interval(cb : () -> Unit, ms : Int) -> Int = "js" "setInterval"');
     expect(compiled.text).toContain("pub fn tick() -> Unit");
+    expect(compiled.text).toContain("let _ = stopped()");
+    expect(compiled.text).toContain('extern "wasm" fn stopped() -> Int');
+    expect(compiled.text).toContain("i32.atomic.load");
     expect(compiled.text).toContain("pub fn start(delay_ms : Int) -> Unit");
     expect(compiled.text).not.toContain("fn quantizer");
     expect(compiled.text).not.toContain("memory.atomic.wait32");

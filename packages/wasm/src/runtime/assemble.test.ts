@@ -54,6 +54,9 @@ describe("block MoonBit assembly", () => {
     expect(text).toContain("fn timer(ctx : Int, input : C1) -> Unit");
     expect(text).toContain("fn scope(ctx : Int) -> C1");
     expect(text).toContain("pub fn tick() -> Unit");
+    expect(text).toContain("let _ = stopped()");
+    expect(text).toContain('extern "wasm" fn stopped() -> Int');
+    expect(text).toContain("i32.atomic.load");
     expect(text).toContain("pub fn start(delay_ms : Int) -> Unit");
     expect(text).toContain("js_set_interval(tick, delay_ms)");
     expect(text).toContain('fn math_sin(x : Double) -> Double = "Math" "sin"');
