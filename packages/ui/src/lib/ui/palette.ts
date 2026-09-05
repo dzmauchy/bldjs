@@ -1,10 +1,9 @@
-import { LitElement, css, html, nothing, type TemplateResult } from "lit";
+import { css, html, nothing, type TemplateResult } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { type BlockDef } from "@bld/xml/blocks/ast";
-import { AppController } from "$lib/context";
 import { FLOW_MIME, PALETTE_DROP_EVENT, type PaletteDropDetail } from "$lib/flow/mime";
-import type { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
+import { AppHost } from "./app-host";
 import { type PaletteGroup, buildPaletteTree, paletteGroupIds } from "./palette-tree";
 import "./block-icon";
 
@@ -20,14 +19,7 @@ interface PointerDrag {
   source: HTMLElement | null;
 }
 
-export class BldPalette extends LitElement {
-  static override properties = {
-    app: { attribute: false },
-  };
-
-  declare app: AppState;
-
-  #ctrl?: AppController;
+export class BldPalette extends AppHost {
   #open: Set<string> | null = null;
   #drag: PointerDrag | null = null;
 
@@ -227,36 +219,15 @@ export class BldPalette extends LitElement {
     `,
   ];
 
-  constructor() {
-    super();
-    this.app = undefined as unknown as AppState;
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this.#bindApp();
-  }
-
-  disconnectedCallback(): void {
+  override disconnectedCallback(): void {
     this.#cancelPointerDrag();
     super.disconnectedCallback();
   }
 
-  protected override willUpdate(): void {
-    this.#bindApp();
-  }
-
   protected override updated(): void {
-    this.toggleAttribute("data-compact", this.app?.compactUi ?? false);
+    super.updated();
     this.toggleAttribute("data-open", this.app?.paletteVisible() ?? false);
     this.toggleAttribute("data-dragging", Boolean(this.app?.draggingDefId));
-  }
-
-  #bindApp(): void {
-    if (!this.app || this.#ctrl?.app === this.app) {
-      return;
-    }
-    this.#ctrl = new AppController(this, this.app);
   }
 
   #tree(): PaletteGroup[] {

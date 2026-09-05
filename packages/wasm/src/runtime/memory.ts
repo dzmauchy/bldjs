@@ -36,6 +36,48 @@ function isSharedBuffer(buffer: ArrayBufferLike): buffer is SharedArrayBuffer {
   return typeof SharedArrayBuffer === "function" && buffer instanceof SharedArrayBuffer;
 }
 
+/** Shared vs local Int32 access with Atomics on SharedArrayBuffer. */
+class I32Words {
+  constructor(
+    private readonly buffer: ArrayBufferLike,
+    private readonly byteOffset = 0,
+    private readonly length?: number,
+  ) {}
+
+  private get shared(): boolean {
+    return isSharedBuffer(this.buffer);
+  }
+
+  private view(): Int32Array {
+    return this.length == null
+      ? new Int32Array(this.buffer)
+      : new Int32Array(this.buffer, this.byteOffset, this.length);
+  }
+
+  load(index: number): number {
+    const view = this.view();
+    return this.shared ? Atomics.load(view, index) : (view[index] ?? 0);
+  }
+
+  store(index: number, value: number): void {
+    const view = this.view();
+    if (this.shared) {
+      Atomics.store(view, index, value);
+      return;
+    }
+    view[index] = value;
+  }
+
+  add(index: number, delta: number): void {
+    const view = this.view();
+    if (this.shared) {
+      Atomics.add(view, index, delta);
+      return;
+    }
+    view[index] = (view[index] ?? 0) + delta;
+  }
+}
+
 export function createMemory(shared: boolean): WebAssembly.Memory {
   return new WebAssembly.Memory({
     initial: MEMORY_PAGES,
@@ -50,22 +92,11 @@ export function createSharedMemory(): WebAssembly.Memory {
 }
 
 export function isStopped(memory: WebAssembly.Memory): boolean {
-  const view = new Int32Array(memory.buffer);
-  const index = MEM.stop / 4;
-  if (isSharedBuffer(memory.buffer)) {
-    return Atomics.load(view, index) !== 0;
-  }
-  return view[index] !== 0;
+  return new I32Words(memory.buffer).load(MEM.stop / 4) !== 0;
 }
 
 export function requestStop(memory: WebAssembly.Memory): void {
-  const view = new Int32Array(memory.buffer);
-  const index = MEM.stop / 4;
-  if (isSharedBuffer(memory.buffer)) {
-    Atomics.store(view, index, 1);
-    return;
-  }
-  view[index] = 1;
+  new I32Words(memory.buffer).store(MEM.stop / 4, 1);
 }
 
 export function readFlowCounts(memory: WebAssembly.Memory, count: number): number[] {
@@ -73,11 +104,8 @@ export function readFlowCounts(memory: WebAssembly.Memory, count: number): numbe
   if (n === 0) {
     return [];
   }
-  const view = new Int32Array(memory.buffer, FLOW_COUNTS, n);
-  if (isSharedBuffer(memory.buffer)) {
-    return Array.from({ length: n }, (_, index) => Atomics.load(view, index));
-  }
-  return Array.from({ length: n }, (_, index) => view[index] ?? 0);
+  const words = new I32Words(memory.buffer, FLOW_COUNTS, n);
+  return Array.from({ length: n }, (_, index) => words.load(index));
 }
 
 /** The runner records one c<?> invocation per connector after each `tick`. */
@@ -86,13 +114,9 @@ export function bumpFlowCounts(memory: WebAssembly.Memory, count: number): void 
   if (n === 0) {
     return;
   }
-  const view = new Int32Array(memory.buffer, FLOW_COUNTS, n);
+  const words = new I32Words(memory.buffer, FLOW_COUNTS, n);
   for (let i = 0; i < n; i += 1) {
-    if (isSharedBuffer(memory.buffer)) {
-      Atomics.add(view, i, 1);
-    } else {
-      view[i] = (view[i] ?? 0) + 1;
-    }
+    words.add(i, 1);
   }
 }
 

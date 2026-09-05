@@ -1,14 +1,14 @@
-import { isArrayType, isPushType, typeToString, type BlockDef } from "@bld/xml/blocks/ast";
+import { isArrayType, isPushType, typeToString, type BlockDef, type TypeExpr } from "@bld/xml/blocks/ast";
 import type { Catalog } from "@bld/xml/blocks/catalog";
 import type { Link } from "@bld/xml/blocks/diagram";
-import { inputSlotsFor, outputSlotsFor } from "@bld/xml/blocks/ports";
+import { inputSlotsFor, outputSlotsFor, type PortSlot } from "@bld/xml/blocks/ports";
 import { isResolvedCompatible, resolvedInput, resolvedOutput, type ResolvedBlock } from "@bld/xml/blocks/resolve";
 import type { BlockInstance } from "$lib/diagram-model";
 import type { BlockKindInfo } from "$lib/model";
 import { shouldShowPortType } from "./link-types";
 import { worldPort } from "./layout";
 import { jumpoverUnderlays, linkKey, type Point, type RoutedLink } from "./geometry";
-import type { BldNodeState, NodeLayout } from "./types";
+import type { BldNodeState, NodeLayout, PortView } from "./types";
 
 export interface ConnectorView {
   key: string;
@@ -116,46 +116,35 @@ export function buildNodeState(
     inputs: inputSlotsFor(def.inputs, block.id, ctx.links).map((slot) => {
       const catalogPort = def.inputs.find((item) => item.name === slot.catalogName)!;
       const ty = resolvedBlock ? (resolvedInput(resolvedBlock, slot.name) ?? catalogPort.ty) : catalogPort.ty;
-      return {
-        name: slot.name,
-        typeLabel: typeToString(ty),
-        vararg: catalogPort.vararg && slot.index === 0,
-        vectorized: catalogPort.vararg || isArrayType(catalogPort.ty),
+      return portView(slot, catalogPort, ty, {
         grounded: ctx.inputIsGrounded(block.id, slot.name),
         compatible: resolvedBlock ? isResolvedCompatible(resolvedBlock, slot.catalogName) : true,
-        showType: shouldShowPortType(
-          linking,
-          block.id,
-          "in",
-          slot.name,
-          sourceOut,
-          ty,
-          ctx.catalog,
-          def.params,
-        ),
-      };
+        showType: shouldShowPortType(linking, block.id, "in", slot.name, sourceOut, ty, ctx.catalog, def.params),
+      });
     }),
     outputs: outputSlotsFor(def.outputs, block.id, ctx.links).map((slot) => {
       const catalogPort = def.outputs.find((item) => item.name === slot.catalogName)!;
       const ty = resolvedBlock ? (resolvedOutput(resolvedBlock, slot.name) ?? catalogPort.ty) : catalogPort.ty;
-      return {
-        name: slot.name,
-        typeLabel: typeToString(ty),
-        vararg: catalogPort.vararg && slot.index === 0,
-        vectorized: catalogPort.vararg || isArrayType(catalogPort.ty),
+      return portView(slot, catalogPort, ty, {
         linking: linking?.blockId === block.id && linking.port === slot.name,
-        showType: shouldShowPortType(
-          linking,
-          block.id,
-          "out",
-          slot.name,
-          sourceOut,
-          ty,
-          ctx.catalog,
-          def.params,
-        ),
-      };
+        showType: shouldShowPortType(linking, block.id, "out", slot.name, sourceOut, ty, ctx.catalog, def.params),
+      });
     }),
+  };
+}
+
+function portView(
+  slot: PortSlot,
+  catalogPort: { ty: TypeExpr; vararg: boolean },
+  ty: TypeExpr,
+  extra: Pick<PortView, "grounded" | "compatible" | "linking" | "showType">,
+): PortView {
+  return {
+    name: slot.name,
+    typeLabel: typeToString(ty),
+    vararg: catalogPort.vararg && slot.index === 0,
+    vectorized: catalogPort.vararg || isArrayType(catalogPort.ty),
+    ...extra,
   };
 }
 

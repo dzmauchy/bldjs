@@ -10,6 +10,7 @@ import {
 import type { BlockExtras } from "@bld/xml/diagram/types";
 import { documentToCanvas, parseDiagramXml, serializeCanvas } from "@bld/xml/diagram/xml";
 import type { BlockInstance } from "../diagram-model";
+import { HostedState } from "../observable";
 
 export type DiagramIoMode = "closed" | "save" | "open";
 
@@ -32,65 +33,29 @@ export interface IoHost {
 }
 
 /** Save / open / import / export. Keeps IndexedDB and diagram XML off the run path. */
-export class DiagramIo {
-  #host: IoHost;
+export class DiagramIo extends HostedState<IoHost> {
   #repo: DiagramRepository;
-  #mode: DiagramIoMode = "closed";
-  #error: string | null = null;
-  #saveName = "Workspace";
+  declare mode: DiagramIoMode;
+  declare error: string | null;
+  declare saveName: string;
   savedDiagrams: StoredDiagram[] = [];
 
   constructor(host: IoHost, repo: DiagramRepository = defaultDiagramRepository()) {
-    this.#host = host;
+    super(host);
     this.#repo = repo;
-  }
-
-  get mode(): DiagramIoMode {
-    return this.#mode;
-  }
-
-  set mode(value: DiagramIoMode) {
-    if (this.#mode === value) {
-      return;
-    }
-    this.#mode = value;
-    this.#host.notify();
-  }
-
-  get error(): string | null {
-    return this.#error;
-  }
-
-  set error(value: string | null) {
-    if (this.#error === value) {
-      return;
-    }
-    this.#error = value;
-    this.#host.notify();
-  }
-
-  get saveName(): string {
-    return this.#saveName;
-  }
-
-  set saveName(value: string) {
-    if (this.#saveName === value) {
-      return;
-    }
-    this.#saveName = value;
-    this.#host.notify();
+    this.defineFields({ mode: "closed", error: null, saveName: "Workspace" });
   }
 
   toXml(): string {
     return serializeCanvas({
-      id: this.#host.diagramId,
-      name: this.#host.diagramName,
-      createdAt: this.#host.createdAt,
-      updatedAt: this.#host.updatedAt,
-      catalogs: this.#host.sources.map((source) => source.name),
-      blocks: this.#host.blocks,
-      links: this.#host.links,
-      extras: this.#host.extras(),
+      id: this.host.diagramId,
+      name: this.host.diagramName,
+      createdAt: this.host.createdAt,
+      updatedAt: this.host.updatedAt,
+      catalogs: this.host.sources.map((source) => source.name),
+      blocks: this.host.blocks,
+      links: this.host.links,
+      extras: this.host.extras(),
     });
   }
 
@@ -103,11 +68,11 @@ export class DiagramIo {
       if (unknown) {
         throw new Error(`unknown block type \`${unknown.defId}\``);
       }
-      this.#host.sources = sources;
-      this.#host.catalog = catalog;
-      this.#host.applyCanvas(canvas);
-      this.#error = null;
-      this.#host.clearRunError();
+      this.host.sources = sources;
+      this.host.catalog = catalog;
+      this.host.applyCanvas(canvas);
+      this.error = null;
+      this.host.clearRunError();
       return true;
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Invalid diagram XML";
@@ -116,51 +81,50 @@ export class DiagramIo {
   }
 
   exportFile(): void {
-    downloadTextFile(diagramFilename(this.#host.diagramName), this.toXml());
+    downloadTextFile(diagramFilename(this.host.diagramName), this.toXml());
   }
 
   openSave(): void {
-    this.#saveName = this.#host.diagramName;
-    this.#error = null;
+    this.saveName = this.host.diagramName;
+    this.error = null;
     this.mode = "save";
   }
 
   async openLibrary(): Promise<void> {
-    this.#error = null;
+    this.error = null;
     this.mode = "open";
     await this.refreshLibrary();
   }
 
   close(): void {
-    this.#mode = "closed";
-    this.#error = null;
-    this.#host.notify();
+    this.mode = "closed";
+    this.error = null;
   }
 
   async refreshLibrary(): Promise<void> {
     this.savedDiagrams = await this.#repo.list();
-    this.#host.notify();
+    this.host.notify();
   }
 
-  async save(name = this.#saveName): Promise<boolean> {
+  async save(name = this.saveName): Promise<boolean> {
     const trimmed = name.trim();
     if (!trimmed) {
       this.error = "Name is required";
       return false;
     }
-    this.#host.diagramName = trimmed;
-    this.#saveName = trimmed;
-    this.#host.touch();
+    this.host.diagramName = trimmed;
+    this.saveName = trimmed;
+    this.host.touch();
     try {
       await this.#repo.save({
-        id: this.#host.diagramId,
+        id: this.host.diagramId,
         name: trimmed,
         xml: this.toXml(),
-        createdAt: this.#host.createdAt,
-        updatedAt: this.#host.updatedAt,
+        createdAt: this.host.createdAt,
+        updatedAt: this.host.updatedAt,
       });
-      this.#error = null;
-      this.#mode = "closed";
+      this.error = null;
+      this.mode = "closed";
       await this.refreshLibrary();
       return true;
     } catch (error) {
@@ -179,9 +143,8 @@ export class DiagramIo {
       if (!this.loadXml(record.xml)) {
         return false;
       }
-      this.#host.applyIdentity(record.id, record.name);
-      this.#mode = "closed";
-      this.#host.notify();
+      this.host.applyIdentity(record.id, record.name);
+      this.mode = "closed";
       return true;
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Load failed";

@@ -1,4 +1,5 @@
 import type { Attribute } from "../blocks/ast";
+import { BLOCK_PARAMETER_KINDS, isBlockParameterKind, type BlockParameterKind } from "../blocks/ast";
 
 /** Placed canvas block. Positions are UI layout, not part of the catalog model. */
 export interface BlockInstance {
@@ -8,30 +9,11 @@ export interface BlockInstance {
   y: number;
 }
 
-export type ParameterKind =
-  | "integer-parameter"
-  | "count-parameter"
-  | "decimal-parameter"
-  | "duration-parameter"
-  | "date-parameter"
-  | "time-parameter"
-  | "date-time-parameter"
-  | "integer-range-parameter"
-  | "double-range-parameter"
-  | "text-parameter";
+export type ParameterKind = BlockParameterKind;
 
-export const PARAMETER_KINDS: readonly ParameterKind[] = [
-  "integer-parameter",
-  "count-parameter",
-  "decimal-parameter",
-  "duration-parameter",
-  "date-parameter",
-  "time-parameter",
-  "date-time-parameter",
-  "integer-range-parameter",
-  "double-range-parameter",
-  "text-parameter",
-];
+export const PARAMETER_KINDS: readonly ParameterKind[] = BLOCK_PARAMETER_KINDS;
+
+export const isParameterKind = isBlockParameterKind;
 
 export interface EntityMeta {
   id: string;

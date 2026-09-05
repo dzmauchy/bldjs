@@ -2,6 +2,7 @@ import type { Link } from "./blocks/diagram";
 import { isGeneratorId } from "./blocks/cs/ids";
 import { planGenerator } from "./blocks/cs/plan";
 import type { GeneratorPlan, NodeSpec } from "./blocks/cs/types";
+import { connectorKey } from "./blocks/ports";
 
 export function nodeSpecsFrom(
   blocks: readonly { id: number; defId: string; periodMs?: number }[],
@@ -15,9 +16,7 @@ export function topologyKey(
   links: readonly Link[],
 ): string {
   const nodes = blocks.map((block) => `${block.id}:${block.defId}:${block.periodMs ?? ""}`).join(",");
-  const wires = links
-    .map((link) => `${link.fromBlock}:${link.fromOut}->${link.toBlock}:${link.toIn}`)
-    .join(",");
+  const wires = links.map((link) => connectorKey(link)).join(",");
   return `${nodes}|${wires}`;
 }
 

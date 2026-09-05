@@ -3,10 +3,20 @@ import type { Link } from "./diagram";
 
 const SLOT = /^(.+)\[(\d+)\]$/;
 
+export type PortSide = "in" | "out";
+
 export interface PortSlot {
   name: string;
   catalogName: string;
   index: number;
+}
+
+/** Wire endpoints used by slot allocation and solution views. */
+export interface LinkPorts {
+  fromBlock: number;
+  fromOut: string;
+  toBlock: number;
+  toIn: string;
 }
 
 /** `out[1]` → `out`. Catalog names are unchanged. */
@@ -45,6 +55,63 @@ export function slottedOutputType(catalogType: TypeExpr, _slotName: string): Typ
   return catalogType;
 }
 
+export function compareIncoming(left: LinkPorts, right: LinkPorts): number {
+  return (
+    portSlotIndex(left.toIn) - portSlotIndex(right.toIn) ||
+    left.fromBlock - right.fromBlock ||
+    portSlotIndex(left.fromOut) - portSlotIndex(right.fromOut) ||
+    left.fromOut.localeCompare(right.fromOut)
+  );
+}
+
+export function compareOutgoing(left: LinkPorts, right: LinkPorts): number {
+  return (
+    portSlotIndex(left.fromOut) - portSlotIndex(right.fromOut) ||
+    left.toBlock - right.toBlock ||
+    portSlotIndex(left.toIn) - portSlotIndex(right.toIn)
+  );
+}
+
+export function linksOnPort<T extends LinkPorts>(
+  links: readonly T[],
+  side: PortSide,
+  blockId: number,
+  port: string,
+): T[] {
+  const catalog = catalogPortName(port);
+  const matches = links.filter((link) =>
+    side === "in"
+      ? link.toBlock === blockId && catalogPortName(link.toIn) === catalog
+      : link.fromBlock === blockId && catalogPortName(link.fromOut) === catalog,
+  );
+  return matches.toSorted(side === "in" ? compareIncoming : compareOutgoing);
+}
+
+export function incomingTo<T extends LinkPorts>(links: readonly T[], toBlock: number, port: string): T[] {
+  return linksOnPort(links, "in", toBlock, port);
+}
+
+export function outgoingFrom<T extends LinkPorts>(links: readonly T[], fromBlock: number, port: string): T[] {
+  return linksOnPort(links, "out", fromBlock, port);
+}
+
+export function connectorKey(link: LinkPorts): string {
+  return `${link.fromBlock}:${link.fromOut}->${link.toBlock}:${link.toIn}`;
+}
+
+/** Query wires by catalog port, with extra slots ordered densely. */
+export class PortLinks<T extends LinkPorts = Link> {
+  constructor(readonly links: readonly T[]) {}
+
+  incoming(toBlock: number, port: string): T[] {
+    return incomingTo(this.links, toBlock, port);
+  }
+
+  outgoing(fromBlock: number, port: string): T[] {
+    return outgoingFrom(this.links, fromBlock, port);
+  }
+}
+
 export function findCatalogLink(
   links: readonly Link[],
   fromBlock: number,
@@ -63,18 +130,26 @@ export function findCatalogLink(
   );
 }
 
-export function allocateOutgoingSlot(links: readonly Link[], fromBlock: number, catalogOut: string): string {
-  const count = links.filter(
-    (link) => link.fromBlock === fromBlock && catalogPortName(link.fromOut) === catalogOut,
+export function allocateSlot(
+  links: readonly Link[],
+  blockId: number,
+  catalogName: string,
+  side: PortSide,
+): string {
+  const count = links.filter((link) =>
+    side === "in"
+      ? link.toBlock === blockId && catalogPortName(link.toIn) === catalogName
+      : link.fromBlock === blockId && catalogPortName(link.fromOut) === catalogName,
   ).length;
-  return slottedPortName(catalogOut, count);
+  return slottedPortName(catalogName, count);
+}
+
+export function allocateOutgoingSlot(links: readonly Link[], fromBlock: number, catalogOut: string): string {
+  return allocateSlot(links, fromBlock, catalogOut, "out");
 }
 
 export function allocateIncomingSlot(links: readonly Link[], toBlock: number, catalogIn: string): string {
-  const count = links.filter(
-    (link) => link.toBlock === toBlock && catalogPortName(link.toIn) === catalogIn,
-  ).length;
-  return slottedPortName(catalogIn, count);
+  return allocateSlot(links, toBlock, catalogIn, "in");
 }
 
 function slotsFor(catalogName: string, used: Iterable<string>): PortSlot[] {
@@ -84,30 +159,35 @@ function slotsFor(catalogName: string, used: Iterable<string>): PortSlot[] {
     .map((name) => ({ name, catalogName, index: portSlotIndex(name) }));
 }
 
+function usedSlotNames(links: readonly Link[], blockId: number, catalogName: string, side: PortSide): string[] {
+  return links
+    .filter((link) =>
+      side === "in"
+        ? link.toBlock === blockId && catalogPortName(link.toIn) === catalogName
+        : link.fromBlock === blockId && catalogPortName(link.fromOut) === catalogName,
+    )
+    .map((link) => (side === "in" ? link.toIn : link.fromOut));
+}
+
+function slotsForPorts(
+  ports: readonly PortDef[],
+  blockId: number,
+  links: readonly Link[],
+  side: PortSide,
+): PortSlot[] {
+  return ports.flatMap((port) => slotsFor(port.name, usedSlotNames(links, blockId, port.name, side)));
+}
+
 export function outputSlotsFor(
   outputs: readonly PortDef[],
   blockId: number,
   links: readonly Link[],
 ): PortSlot[] {
-  return outputs.flatMap((port) =>
-    slotsFor(
-      port.name,
-      links
-        .filter((link) => link.fromBlock === blockId && catalogPortName(link.fromOut) === port.name)
-        .map((link) => link.fromOut),
-    ),
-  );
+  return slotsForPorts(outputs, blockId, links, "out");
 }
 
 export function inputSlotsFor(inputs: readonly PortDef[], blockId: number, links: readonly Link[]): PortSlot[] {
-  return inputs.flatMap((port) =>
-    slotsFor(
-      port.name,
-      links
-        .filter((link) => link.toBlock === blockId && catalogPortName(link.toIn) === port.name)
-        .map((link) => link.toIn),
-    ),
-  );
+  return slotsForPorts(inputs, blockId, links, "in");
 }
 
 export interface BlockPosition {
@@ -179,6 +259,28 @@ function compactGroups(
   }
 }
 
+function compactSide(next: Link[], side: PortSide, positionOf?: BlockPositionOf): void {
+  const portOf = (link: Link) => (side === "in" ? link.toIn : link.fromOut);
+  const blockOf = (link: Link) => (side === "in" ? link.toBlock : link.fromBlock);
+  const peerOf = (link: Link) => (side === "in" ? link.fromBlock : link.toBlock);
+  compactGroups(
+    next,
+    (link) => `${blockOf(link)}:${catalogPortName(portOf(link))}`,
+    (link) => catalogPortName(portOf(link)),
+    (link, name) => {
+      if (side === "in") {
+        link.toIn = name;
+      } else {
+        link.fromOut = name;
+      }
+    },
+    (left, right) =>
+      positionOf
+        ? byPeerPosition(left, right, peerOf, positionOf, portOf)
+        : bySlotThenPeer(left, right, portOf, peerOf),
+  );
+}
+
 /**
  * Keep extra `name[n]` slots dense and 1:1 with extra wires.
  * Array order is preserved so a selected link can be remapped by index.
@@ -187,29 +289,7 @@ function compactGroups(
  */
 export function compactLinkSlots(links: readonly Link[], positionOf?: BlockPositionOf): Link[] {
   const next = links.map((link) => ({ ...link }));
-  compactGroups(
-    next,
-    (link) => `${link.fromBlock}:${catalogPortName(link.fromOut)}`,
-    (link) => catalogPortName(link.fromOut),
-    (link, name) => {
-      link.fromOut = name;
-    },
-    (left, right) =>
-      positionOf
-        ? byPeerPosition(left, right, (link) => link.toBlock, positionOf, (link) => link.fromOut)
-        : bySlotThenPeer(left, right, (link) => link.fromOut, (link) => link.toBlock),
-  );
-  compactGroups(
-    next,
-    (link) => `${link.toBlock}:${catalogPortName(link.toIn)}`,
-    (link) => catalogPortName(link.toIn),
-    (link, name) => {
-      link.toIn = name;
-    },
-    (left, right) =>
-      positionOf
-        ? byPeerPosition(left, right, (link) => link.fromBlock, positionOf, (link) => link.toIn)
-        : bySlotThenPeer(left, right, (link) => link.toIn, (link) => link.fromBlock),
-  );
+  compactSide(next, "out", positionOf);
+  compactSide(next, "in", positionOf);
   return next;
 }

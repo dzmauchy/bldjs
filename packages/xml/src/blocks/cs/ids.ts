@@ -1,3 +1,5 @@
+import { clampPositiveInt } from "../../numeric";
+
 /** Default generator quantization period (`integer-range-parameter` `period`). */
 export const DEFAULT_PERIOD_MS = 10;
 /** @deprecated Use {@link DEFAULT_PERIOD_MS}. */
@@ -18,10 +20,7 @@ export function isTransformerId(defId: string): boolean {
 
 export function periodMsFrom(value: number | string | undefined | null): number {
   const parsed = typeof value === "number" ? value : value == null ? DEFAULT_PERIOD_MS : Number(value);
-  if (!Number.isFinite(parsed)) {
-    return DEFAULT_PERIOD_MS;
-  }
-  return Math.max(1, Math.trunc(parsed));
+  return clampPositiveInt(parsed, DEFAULT_PERIOD_MS);
 }
 
 /** Shared sample ring capacity for CS scope buffers and the WASM runner. */

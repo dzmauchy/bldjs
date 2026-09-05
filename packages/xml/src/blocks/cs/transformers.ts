@@ -1,13 +1,49 @@
 import type { DoubleConsumer, F64Func } from "./types";
 
+/** XML `c<f64> → c<f64>`: map a sample, then forward it to a captured sink. */
+export abstract class Transformer {
+  abstract readonly defId: string;
+
+  abstract map(value: number): number;
+
+  wrap(sink: DoubleConsumer): DoubleConsumer {
+    return (value) => sink(this.map(value));
+  }
+}
+
+export class SinTransformer extends Transformer {
+  readonly defId = "sin";
+
+  map(value: number): number {
+    return Math.sin(value);
+  }
+}
+
+export class CosTransformer extends Transformer {
+  readonly defId = "cos";
+
+  map(value: number): number {
+    return Math.cos(value);
+  }
+}
+
+const TRANSFORMERS: Record<string, Transformer> = {
+  sin: new SinTransformer(),
+  cos: new CosTransformer(),
+};
+
+export function transformerOf(defId: string): Transformer | undefined {
+  return TRANSFORMERS[defId];
+}
+
 /** XML `c<f64> → c<f64>`: capture a sink and return a consumer that maps then forwards. */
 export function sin(sink: DoubleConsumer): DoubleConsumer {
-  return (value) => sink(Math.sin(value));
+  return TRANSFORMERS.sin.wrap(sink);
 }
 
 /** XML `c<f64> → c<f64>`: capture a sink and return a consumer that maps then forwards. */
 export function cos(sink: DoubleConsumer): DoubleConsumer {
-  return (value) => sink(Math.cos(value));
+  return TRANSFORMERS.cos.wrap(sink);
 }
 
 export const sinFunc = sin;
@@ -16,23 +52,10 @@ export const sinConsumer = sin;
 export const cosFunc = cos;
 
 export function mapOnce(defId: string, value: number): number {
-  switch (defId) {
-    case "sin":
-      return Math.sin(value);
-    case "cos":
-      return Math.cos(value);
-    default:
-      return value;
-  }
+  return TRANSFORMERS[defId]?.map(value) ?? value;
 }
 
 export function transformerFor(defId: string): ((sink: F64Func) => F64Func) | undefined {
-  switch (defId) {
-    case "sin":
-      return sin;
-    case "cos":
-      return cos;
-    default:
-      return undefined;
-  }
+  const transformer = TRANSFORMERS[defId];
+  return transformer ? (sink) => transformer.wrap(sink) : undefined;
 }

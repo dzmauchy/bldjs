@@ -1,21 +1,12 @@
-import { LitElement, css, html, nothing } from "lit";
+import { css, html, nothing } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
-import { AppController } from "$lib/context";
 import { renderBrandSvg } from "$lib/flow/icons";
-import type { AppState } from "$lib/state";
 import { bootstrapStyles } from "./bootstrap";
+import { AppHost } from "./app-host";
 import "./block-icon";
 
-export class BldToolbar extends LitElement {
-  static override properties = {
-    app: { attribute: false },
-  };
-
-  declare app: AppState;
-
-  #ctrl?: AppController;
-  #menuOpen = false;
+export class BldToolbar extends AppHost {
 
   static override styles = [
     bootstrapStyles,
@@ -116,35 +107,16 @@ export class BldToolbar extends LitElement {
     `,
   ];
 
-  constructor() {
-    super();
-    this.app = undefined as unknown as AppState;
-  }
+  #menuOpen = false;
 
-  connectedCallback(): void {
+  override connectedCallback(): void {
     super.connectedCallback();
-    this.#bindApp();
     window.addEventListener("pointerdown", this.#onWindowPointerDown);
   }
 
-  disconnectedCallback(): void {
+  override disconnectedCallback(): void {
     window.removeEventListener("pointerdown", this.#onWindowPointerDown);
     super.disconnectedCallback();
-  }
-
-  protected override willUpdate(): void {
-    this.#bindApp();
-  }
-
-  protected override updated(): void {
-    this.toggleAttribute("data-compact", this.app?.compactUi ?? false);
-  }
-
-  #bindApp(): void {
-    if (!this.app || this.#ctrl?.app === this.app) {
-      return;
-    }
-    this.#ctrl = new AppController(this, this.app);
   }
 
   #close(): void {

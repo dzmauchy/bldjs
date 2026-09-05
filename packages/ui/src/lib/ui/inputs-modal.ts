@@ -1,110 +1,63 @@
-import { LitElement, css, html, nothing } from "lit";
-import { AppController } from "$lib/context";
+import { css, html, nothing } from "lit";
 import { isNoneId } from "$lib/model";
 import type { AppState } from "$lib/state";
-import { bootstrapStyles } from "./bootstrap";
+import { BldModal } from "./modal";
 
-export class BldInputsModal extends LitElement {
-  static override properties = {
-    app: { attribute: false },
-  };
-
-  declare app: AppState;
-
-  #ctrl?: AppController;
-
-  static override styles = [
-    bootstrapStyles,
-    css`
-      :host {
-        display: contents;
-      }
-      .input-row {
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-      }
-      .input-label {
-        display: flex;
-        justify-content: space-between;
-        gap: 0.75rem;
-        font-size: 0.875rem;
-      }
-      .input-value {
-        font-family: var(--bs-font-monospace, ui-monospace, monospace);
-        color: var(--bs-info, #0dcaf0);
-      }
-      input[type="range"] {
-        width: 100%;
-      }
-    `,
-  ];
-
-  constructor() {
-    super();
-    this.app = undefined as unknown as AppState;
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this.#bindApp();
-  }
-
-  protected override willUpdate(): void {
-    this.#bindApp();
-  }
-
-  #bindApp(): void {
-    if (!this.app || this.#ctrl?.app === this.app) {
-      return;
+export class BldInputsModal extends BldModal {
+  static override styles = css`
+    .input-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
     }
-    this.#ctrl = new AppController(this, this.app);
+    .input-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      font-size: 0.875rem;
+    }
+    .input-value {
+      font-family: var(--bs-font-monospace, ui-monospace, monospace);
+      color: var(--bs-info, #0dcaf0);
+    }
+    input[type="range"] {
+      width: 100%;
+    }
+  `;
+
+  protected isOpen(): boolean {
+    return Boolean(this.app) && !isNoneId(this.app.inputsOpen);
   }
 
-  #close(): void {
+  protected closeModal(): void {
     this.app.closeInputs();
   }
 
   protected override render() {
     const app = this.app;
-    if (!app || isNoneId(app.inputsOpen)) {
+    if (!this.isOpen()) {
       return nothing;
     }
     const title = app.blockDef(app.block(app.inputsOpen)?.defId ?? "")?.name ?? "Inputs";
     const inputs = app.blockInputs(app.inputsOpen);
-    return html`
-      <div
-        class="modal-backdrop fade show"
-        role="button"
-        tabindex="0"
-        @click=${() => this.#close()}
-        @keydown=${(event: KeyboardEvent) => {
-          if (event.key === "Enter" || event.key === " ") {
-            this.#close();
-          }
-        }}
-      ></div>
-      <div class="modal fade show d-block" tabindex="-1" role="dialog" data-testid="inputs-modal">
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Configure ${title}</h5>
-              <button type="button" class="btn-close" aria-label="Close" @click=${() => this.#close()}></button>
-            </div>
-            <div class="modal-body">
-              ${inputs.length === 0
-                ? html`<p class="text-secondary mb-0">This block has no configurable inputs.</p>`
-                : inputs.map((input) => this.#renderInput(app.inputsOpen, input))}
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-primary" data-testid="inputs-close" @click=${() => this.#close()}>
-                Done
-              </button>
-            </div>
-          </div>
+    return this.renderDialog({
+      testId: "inputs-modal",
+      title: `Configure ${title}`,
+      body: html`
+        <div class="modal-body">
+          ${inputs.length === 0
+            ? html`<p class="text-secondary mb-0">This block has no configurable inputs.</p>`
+            : inputs.map((input) => this.#renderInput(app.inputsOpen, input))}
         </div>
-      </div>
-    `;
+      `,
+      footer: html`
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-testid="inputs-close" @click=${() => this.closeModal()}>
+            Done
+          </button>
+        </div>
+      `,
+    });
   }
 
   #renderInput(blockId: number, input: ReturnType<AppState["blockInputs"]>[number]) {

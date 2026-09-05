@@ -30,10 +30,14 @@ import {
   DEFAULT_PERIOD_MS,
   SampleBuf,
   compileTimer,
+  CosTransformer,
   fork,
+  mapOnce,
   planGenerator,
+  sampleOnce,
   scope,
   sin,
+  SinTransformer,
   sinFunc,
   spawnTimer,
   stop,
@@ -717,6 +721,12 @@ describe("blocks", () => {
     mapped(Math.PI / 2);
     expect(Math.abs(out[0])).toBeLessThan(1e-9);
     expect(Math.abs(out[1] - 1)).toBeLessThan(1e-9);
+  });
+
+  it("transformer and generator classes share one registry", () => {
+    expect(new SinTransformer().map(0)).toBe(mapOnce("sin", 0));
+    expect(new CosTransformer().map(0)).toBe(mapOnce("cos", 0));
+    expect(sampleOnce("timer", 3.25)).toBe(3.25);
   });
 
   it("cos maps samples", () => {

@@ -48,12 +48,7 @@ export function measureHostLayout(host: HTMLElement): NodeLayout {
 }
 
 export function nodeFromComposedPath(event: Event): HTMLElement | undefined {
-  for (const item of event.composedPath()) {
-    if (item instanceof HTMLElement && item.localName === "bld-node") {
-      return item;
-    }
-  }
-  return undefined;
+  return firstFromPath(event, nodeFromElement);
 }
 
 /**
@@ -61,30 +56,13 @@ export function nodeFromComposedPath(event: Event): HTMLElement | undefined {
  * capturing node, so `composedPath()` no longer includes the block under the finger.
  */
 export function nodeFromClientPoint(clientX: number, clientY: number): HTMLElement | undefined {
-  let node: Element | null = deepestElementFromPoint(clientX, clientY);
-  while (node) {
-    if (node instanceof HTMLElement && node.localName === "bld-node") {
-      return node;
-    }
-    const root = node.getRootNode();
-    node =
-      node.parentElement ?? (root instanceof ShadowRoot && root.host instanceof Element ? root.host : null);
-  }
-  return undefined;
+  return walkAncestors(deepestElementFromPoint(clientX, clientY), nodeFromElement);
 }
 
 export function portFromComposedPath(
   event: Event,
 ): { host: HTMLElement; side: PortSide; port: string } | undefined {
-  for (const item of event.composedPath()) {
-    if (item instanceof Element) {
-      const hit = portFromElement(item);
-      if (hit) {
-        return hit;
-      }
-    }
-  }
-  return undefined;
+  return firstFromPath(event, portFromElement);
 }
 
 /**
@@ -95,9 +73,25 @@ export function portFromClientPoint(
   clientX: number,
   clientY: number,
 ): { host: HTMLElement; side: PortSide; port: string } | undefined {
-  let node: Element | null = deepestElementFromPoint(clientX, clientY);
+  return walkAncestors(deepestElementFromPoint(clientX, clientY), portFromElement);
+}
+
+function firstFromPath<T>(event: Event, match: (el: Element) => T | undefined): T | undefined {
+  for (const item of event.composedPath()) {
+    if (item instanceof Element) {
+      const hit = match(item);
+      if (hit) {
+        return hit;
+      }
+    }
+  }
+  return undefined;
+}
+
+function walkAncestors<T>(start: Element | null, match: (el: Element) => T | undefined): T | undefined {
+  let node: Element | null = start;
   while (node) {
-    const hit = portFromElement(node);
+    const hit = match(node);
     if (hit) {
       return hit;
     }
@@ -106,6 +100,10 @@ export function portFromClientPoint(
       node.parentElement ?? (root instanceof ShadowRoot && root.host instanceof Element ? root.host : null);
   }
   return undefined;
+}
+
+function nodeFromElement(item: Element): HTMLElement | undefined {
+  return item instanceof HTMLElement && item.localName === "bld-node" ? item : undefined;
 }
 
 function portFromElement(item: Element): { host: HTMLElement; side: PortSide; port: string } | undefined {

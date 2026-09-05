@@ -1,20 +1,12 @@
-import { LitElement, css, html, nothing } from "lit";
+import { css, html, nothing } from "lit";
 import { createRef, ref } from "lit/directives/ref.js";
-import { AppController } from "$lib/context";
 import { isNoneId } from "$lib/model";
-import type { AppState } from "$lib/state";
 import type { ScopeSeries } from "@bld/xml/blocks/cs/types";
 import { bootstrapStyles } from "./bootstrap";
+import { AppHost } from "./app-host";
 import { ScopeCanvasPlot } from "./scope-chart";
 
-export class BldScopeModal extends LitElement {
-  static override properties = {
-    app: { attribute: false },
-  };
-
-  declare app: AppState;
-
-  #ctrl?: AppController;
+export class BldScopeModal extends AppHost {
   #canvas = createRef<HTMLCanvasElement>();
   #plot: ScopeCanvasPlot | null = null;
   #tick: ReturnType<typeof setInterval> | null = null;
@@ -96,27 +88,18 @@ export class BldScopeModal extends LitElement {
     `,
   ];
 
-  constructor() {
-    super();
-    this.app = undefined as unknown as AppState;
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this.#bindApp();
-  }
-
-  disconnectedCallback(): void {
+  override disconnectedCallback(): void {
     this.#destroyPlot();
     super.disconnectedCallback();
   }
 
   protected override willUpdate(): void {
-    this.#bindApp();
+    super.willUpdate();
     this.toggleAttribute("open", !isNoneId(this.app?.scopeOpen ?? -1));
   }
 
   protected override updated(): void {
+    super.updated();
     const id = this.app?.scopeOpen ?? -1;
     const canvas = this.#canvas.value;
     if (!canvas) {
@@ -142,13 +125,6 @@ export class BldScopeModal extends LitElement {
     this.#applySeries(this.#plot, this.app.run.snapshotScope(id));
     this.#plot.fit();
     this.#startTicks(id);
-  }
-
-  #bindApp(): void {
-    if (!this.app || this.#ctrl?.app === this.app) {
-      return;
-    }
-    this.#ctrl = new AppController(this, this.app);
   }
 
   #stopTicks(): void {

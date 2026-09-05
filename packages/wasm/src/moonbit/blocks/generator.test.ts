@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BLOCK_SCRIPTS, QUANTIZER_PERIOD_NS, preamble } from "../index";
+import { BLOCK_SCRIPTS, QUANTIZER_PERIOD_NS, preamble, TimerMoonBlock } from "../index";
 import { emitTimer, emitRandom } from "./generator";
 import { emitSin } from "./sin";
 
@@ -31,5 +31,6 @@ describe("transformer catalog", () => {
 describe("MoonBit block library", () => {
   it("covers the runtime XML blocks", () => {
     expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["cos", "random", "scope", "sin", "timer"]);
+    expect(new TimerMoonBlock().emit()).toBe(emitTimer());
   });
 });

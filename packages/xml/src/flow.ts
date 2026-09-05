@@ -1,3 +1,5 @@
+import { clampPositiveInt } from "./numeric";
+
 /** Convert a count delta over `dtMs` milliseconds into Hertz. */
 export function hzFromDelta(prev: number, next: number, dtMs: number): number {
   if (!(dtMs > 0) || !Number.isFinite(dtMs)) {
@@ -28,8 +30,5 @@ export function flowPeriodMs(hz: number): number | null {
 
 /** Interval used by a generator worker (`setInterval`), never zero. */
 export function intervalMs(delayMs: number): number {
-  if (!Number.isFinite(delayMs)) {
-    return 1;
-  }
-  return Math.max(1, Math.trunc(delayMs));
+  return clampPositiveInt(delayMs, 1);
 }

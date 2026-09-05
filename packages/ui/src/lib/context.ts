@@ -6,20 +6,28 @@ export { APP_STATE_KEY };
 /** Re-renders a Lit host whenever `app` notifies. */
 export class AppController implements ReactiveController {
   #unsub?: () => void;
+  readonly #host: ReactiveControllerHost;
 
   constructor(
-    private readonly host: ReactiveControllerHost,
+    host: ReactiveControllerHost,
     readonly app: AppState,
   ) {
-    this.host.addController(this);
+    this.#host = host;
+    this.#host.addController(this);
   }
 
   hostConnected(): void {
-    this.#unsub = this.app.subscribe(() => this.host.requestUpdate());
+    this.#unsub = this.app.subscribe(() => this.#host.requestUpdate());
   }
 
   hostDisconnected(): void {
     this.#unsub?.();
     this.#unsub = undefined;
+  }
+
+  /** Unsubscribe and drop this controller from the host. */
+  detach(): void {
+    this.hostDisconnected();
+    this.#host.removeController(this);
   }
 }

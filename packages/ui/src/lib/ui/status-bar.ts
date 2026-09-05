@@ -1,17 +1,8 @@
-import { LitElement, css, html, nothing } from "lit";
-import { AppController } from "$lib/context";
-import type { AppState } from "$lib/state";
+import { css, html, nothing } from "lit";
 import { bootstrapStyles } from "./bootstrap";
+import { AppHost } from "./app-host";
 
-export class BldStatusBar extends LitElement {
-  static override properties = {
-    app: { attribute: false },
-  };
-
-  declare app: AppState;
-
-  #ctrl?: AppController;
-
+export class BldStatusBar extends AppHost {
   static override styles = [
     bootstrapStyles,
     css`
@@ -38,31 +29,6 @@ export class BldStatusBar extends LitElement {
       }
     `,
   ];
-
-  constructor() {
-    super();
-    this.app = undefined as unknown as AppState;
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this.#bindApp();
-  }
-
-  protected override willUpdate(): void {
-    this.#bindApp();
-  }
-
-  protected override updated(): void {
-    this.toggleAttribute("data-compact", this.app?.compactUi ?? false);
-  }
-
-  #bindApp(): void {
-    if (!this.app || this.#ctrl?.app === this.app) {
-      return;
-    }
-    this.#ctrl = new AppController(this, this.app);
-  }
 
   #countLabel(count: number, singular: string, plural: string): string {
     return count === 1 ? `1 ${singular}` : `${count} ${plural}`;

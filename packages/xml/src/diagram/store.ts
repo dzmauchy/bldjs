@@ -13,11 +13,15 @@ export interface DiagramRepository {
   remove(id: string): Promise<void>;
 }
 
+function byUpdatedAtDesc(left: StoredDiagram, right: StoredDiagram): number {
+  return right.updatedAt.localeCompare(left.updatedAt);
+}
+
 export class MemoryDiagramRepository implements DiagramRepository {
   readonly #items = new Map<string, StoredDiagram>();
 
   async list(): Promise<StoredDiagram[]> {
-    return [...this.#items.values()].toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return [...this.#items.values()].toSorted(byUpdatedAtDesc);
   }
 
   async get(id: string): Promise<StoredDiagram | undefined> {
@@ -78,7 +82,7 @@ export class IndexedDbDiagramRepository implements DiagramRepository {
   async list(): Promise<StoredDiagram[]> {
     const store = await this.#store("readonly");
     const records = (await idbRequest(store.getAll())) as StoredDiagram[];
-    return records.toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return records.toSorted(byUpdatedAtDesc);
   }
 
   async get(id: string): Promise<StoredDiagram | undefined> {

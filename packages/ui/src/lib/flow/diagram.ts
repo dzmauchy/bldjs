@@ -1,10 +1,9 @@
-import { LitElement, css, html, nothing } from "lit";
+import { css, html, nothing } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { repeat } from "lit/directives/repeat.js";
 import { styleMap } from "lit/directives/style-map.js";
-import { AppController } from "$lib/context";
 import { GRID_SIZE, blockOriginFromDrop, wheelZoomFactor } from "$lib/model";
-import { type AppState } from "$lib/state";
+import { AppHost } from "$lib/ui/app-host";
 import { FLOW_MIME, PALETTE_DROP_EVENT, type PaletteDropDetail } from "./mime";
 import { clientToWorld, type Point } from "./geometry";
 import { AvoidRouteEngine } from "./avoid-router";
@@ -15,14 +14,7 @@ import type { NodeLayout, PortPointerDetail } from "./types";
 import "./node";
 import { BldConnector } from "./connector";
 
-export class BldDiagram extends LitElement {
-  static override properties = {
-    app: { attribute: false },
-  };
-
-  declare app: AppState;
-
-  #ctrl?: AppController;
+export class BldDiagram extends AppHost {
   #interaction: DiagramInteractionController;
   #layout = new DiagramLayoutController();
   #resize: ResizeObserver | null = null;
@@ -164,7 +156,6 @@ export class BldDiagram extends LitElement {
 
   constructor() {
     super();
-    this.app = undefined as unknown as AppState;
     const diagram = this;
     this.#interaction = new DiagramInteractionController({
       get app() {
@@ -176,9 +167,8 @@ export class BldDiagram extends LitElement {
     });
   }
 
-  connectedCallback(): void {
+  override connectedCallback(): void {
     super.connectedCallback();
-    this.#bindApp();
     this.#syncHostSize();
     this.addEventListener("dragover", this.#onHostDragOver);
     this.addEventListener("drop", this.#onHostDrop);
@@ -193,7 +183,7 @@ export class BldDiagram extends LitElement {
     this.#flowTimer = setInterval(() => this.#syncFlowRates(), 100);
   }
 
-  disconnectedCallback(): void {
+  override disconnectedCallback(): void {
     this.#interaction.dispose();
     this.removeEventListener("dragover", this.#onHostDragOver);
     this.removeEventListener("drop", this.#onHostDrop);
@@ -210,19 +200,8 @@ export class BldDiagram extends LitElement {
   }
 
   protected override willUpdate(): void {
-    this.#bindApp();
+    super.willUpdate();
     this.#syncRoutes();
-  }
-
-  protected override updated(): void {
-    this.toggleAttribute("data-compact", this.app?.compactUi ?? false);
-  }
-
-  #bindApp(): void {
-    if (!this.app || this.#ctrl?.app === this.app) {
-      return;
-    }
-    this.#ctrl = new AppController(this, this.app);
   }
 
   async #startAvoidRouter(): Promise<void> {

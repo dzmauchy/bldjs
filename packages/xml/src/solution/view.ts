@@ -1,6 +1,6 @@
 import type { Link } from "../blocks/diagram";
 import { isGeneratorId } from "../blocks/cs/ids";
-import { catalogPortName, portSlotIndex } from "../blocks/ports";
+import { PortLinks } from "../blocks/ports";
 
 /** One placed block in a connected solution (XML `block` instance). */
 export interface SolutionViewBlock {
@@ -48,11 +48,11 @@ export class SolutionView {
   }
 
   incoming(toBlock: number, port: string): SolutionViewConnector[] {
-    return this.portConnectors(toBlock, port, "in");
+    return new PortLinks(this.connectors).incoming(toBlock, port);
   }
 
   outgoing(fromBlock: number, port: string): SolutionViewConnector[] {
-    return this.portConnectors(fromBlock, port, "out");
+    return new PortLinks(this.connectors).outgoing(fromBlock, port);
   }
 
   /** Blocks and connectors reachable by walking incoming consumer wires from a generator. */
@@ -87,29 +87,6 @@ export class SolutionView {
   firstTimerId(): number | undefined {
     return this.firstGeneratorId();
   }
-
-  private portConnectors(
-    blockId: number,
-    port: string,
-    side: "in" | "out",
-  ): SolutionViewConnector[] {
-    const catalog = catalogPortName(port);
-    const matches = this.connectors.filter((link) =>
-      side === "in"
-        ? link.toBlock === blockId && catalogPortName(link.toIn) === catalog
-        : link.fromBlock === blockId && catalogPortName(link.fromOut) === catalog,
-    );
-    return matches.toSorted((left, right) =>
-      side === "in"
-        ? portSlotIndex(left.toIn) - portSlotIndex(right.toIn) ||
-          left.fromBlock - right.fromBlock ||
-          portSlotIndex(left.fromOut) - portSlotIndex(right.fromOut) ||
-          left.fromOut.localeCompare(right.fromOut)
-        : portSlotIndex(left.fromOut) - portSlotIndex(right.fromOut) ||
-          left.toBlock - right.toBlock ||
-          portSlotIndex(left.toIn) - portSlotIndex(right.toIn),
-    );
-  }
 }
 
 export function solutionViewFrom(
@@ -119,6 +96,4 @@ export function solutionViewFrom(
   return SolutionView.from(blocks, connectors);
 }
 
-export function connectorKey(link: Pick<SolutionViewConnector, "fromBlock" | "fromOut" | "toBlock" | "toIn">): string {
-  return `${link.fromBlock}:${link.fromOut}->${link.toBlock}:${link.toIn}`;
-}
+export { connectorKey } from "../blocks/ports";

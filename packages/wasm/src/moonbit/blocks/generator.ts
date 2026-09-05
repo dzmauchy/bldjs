@@ -1,3 +1,4 @@
+import { RANDOM_BLOCK, TIMER_BLOCK } from "../block";
 import type { MoonBlockEmit } from "../types";
 
 /** Default generator quantization period in nanoseconds (`10 ms`). */
@@ -17,9 +18,9 @@ export function emitGenerator(id: string, sample: string, opts: MoonBlockEmit = 
 }
 
 export function emitTimer(opts: MoonBlockEmit = {}): string {
-  return emitGenerator("timer", "now()", opts);
+  return TIMER_BLOCK.emit(opts);
 }
 
 export function emitRandom(opts: MoonBlockEmit = {}): string {
-  return emitGenerator("random", "math_random()", opts);
+  return RANDOM_BLOCK.emit(opts);
 }
