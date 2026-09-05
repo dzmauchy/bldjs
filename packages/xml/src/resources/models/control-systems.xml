@@ -48,11 +48,11 @@
 
   <block id="overshoot" name="Overshoot" ns="com.dauch.cs.tf" icon="overshoot">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">Transformer. Maps time samples through a classic second-order underdamped unit-step response with damping ratio ζ and damped frequency ωd. (Double) -&gt; Unit → (Double) -&gt; Unit.</attribute>
+    <attribute name="description">Transformer. Maps time samples through a classic second-order underdamped unit-step response with damping ratio ζ and natural frequency ω. Damped frequency is ωd = ω√(1−ζ²). (Double) -&gt; Unit → (Double) -&gt; Unit.</attribute>
     <factory id="overshoot"/>
     <parameters>
       <double-range-parameter name="ζ" description="Damping ratio ζ" min="0.05" max="0.95" step="0.01" default="0.5"/>
-      <double-range-parameter name="ωd" description="Damped natural frequency ωd (rad/s)" min="0.1" max="20" step="0.1" default="1"/>
+      <double-range-parameter name="ω" description="Natural frequency ω (rad/s)" min="0.1" max="20" step="0.1" default="1"/>
     </parameters>
     <in name="in" type="(Double) -> Unit"/>
     <out name="out" type="(Double) -> Unit"/>

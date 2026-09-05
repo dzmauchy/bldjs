@@ -35,12 +35,12 @@ describe("transformer catalog", () => {
     expect(preamble()).toContain('fn math_sin(x : Double) -> Double = "Math" "sin"');
   });
 
-  it("bakes ζ and ωd, then maps with runtime math_sin/cos/exp/sqrt", () => {
-    const source = emitOvershoot({ zeta: 0.5, wd: 2 });
+  it("bakes ζ and ω, then maps with runtime ωd = ω√(1−ζ²)", () => {
+    const source = emitOvershoot({ zeta: 0.5, omega: 2 });
     expect(source).toContain(`fn overshoot(${CTX_PARAM}, input : C1) -> C1`);
     expect(source).toContain("let zeta = 0.5");
-    expect(source).toContain("let wd = 2.0");
-    expect(source).toContain("math_sqrt(");
+    expect(source).toContain("let w = 2.0");
+    expect(source).toContain("w * math_sqrt(1.0 - zeta * zeta)");
     expect(source).toContain("math_exp(");
     expect(source).toContain("math_sin(");
     expect(source).toContain("math_cos(");

@@ -18,7 +18,7 @@ export interface RunHost {
     periodMs?: number;
     pin?: number;
     zeta?: number;
-    wd?: number;
+    omega?: number;
     windowS?: number;
     meterMs?: number;
   }>;

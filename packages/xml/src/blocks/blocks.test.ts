@@ -575,12 +575,12 @@ describe("blocks", () => {
     expect(zeta?.min).toBe(0.05);
     expect(zeta?.max).toBe(0.95);
     expect(zeta?.step).toBe(0.01);
-    const wd = cat.block("overshoot")!.parameters.find((param) => param.name === "ωd");
-    expect(wd?.kind).toBe("double-range-parameter");
-    expect(wd?.default).toBe("1");
-    expect(wd?.min).toBe(0.1);
-    expect(wd?.max).toBe(20);
-    expect(wd?.step).toBe(0.1);
+    const omega = cat.block("overshoot")!.parameters.find((param) => param.name === "ω");
+    expect(omega?.kind).toBe("double-range-parameter");
+    expect(omega?.default).toBe("1");
+    expect(omega?.min).toBe(0.1);
+    expect(omega?.max).toBe(20);
+    expect(omega?.step).toBe(0.1);
     const n = cat.block("scope")!.parameters.find((param) => param.name === "n");
     const m = cat.block("scope")!.parameters.find((param) => param.name === "m");
     expect(n?.kind).toBe("integer-range-parameter");
@@ -744,28 +744,30 @@ describe("blocks", () => {
 
   it("overshoot maps the classic second-order unit step", () => {
     const zeta = 0.5;
-    const wd = 2;
+    const omega = 2;
+    const wd = omega * Math.sqrt(1 - zeta * zeta);
     const peakTime = Math.PI / wd;
     const overshoot = Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta));
-    expect(overshootStep(0, zeta, wd)).toBe(0);
-    expect(overshootStep(-1, zeta, wd)).toBe(0);
-    expect(overshootStep(peakTime, zeta, wd)).toBeCloseTo(1 + overshoot, 8);
-    expect(overshootStep(80, zeta, wd)).toBeCloseTo(1, 5);
+    expect(overshootStep(0, zeta, omega)).toBe(0);
+    expect(overshootStep(-1, zeta, omega)).toBe(0);
+    expect(overshootStep(peakTime, zeta, omega)).toBeCloseTo(1 + overshoot, 8);
+    expect(overshootStep(80, zeta, omega)).toBeCloseTo(1, 5);
 
     const out: number[] = [];
-    const mapped = new OvershootTransformer(zeta, wd).wrap((value) => out.push(value));
+    const mapped = new OvershootTransformer(zeta, omega).wrap((value) => out.push(value));
     mapped(10);
     mapped(10 + peakTime);
     expect(out[0]).toBe(0);
     expect(out[1]).toBeCloseTo(1 + overshoot, 8);
   });
 
-  it("overshoot peak time follows ωd independently of ζ", () => {
+  it("overshoot peak time follows ω independently of ζ", () => {
     const zeta = 0.5;
     const overshoot = Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta));
-    expect(overshootStep(Math.PI / 1, zeta, 1)).toBeCloseTo(1 + overshoot, 8);
-    expect(overshootStep(Math.PI / 4, zeta, 4)).toBeCloseTo(1 + overshoot, 8);
-    expect(overshootStep(Math.PI / 1, zeta, 4)).not.toBeCloseTo(1 + overshoot, 2);
+    const peak = (w: number) => Math.PI / (w * Math.sqrt(1 - zeta * zeta));
+    expect(overshootStep(peak(1), zeta, 1)).toBeCloseTo(1 + overshoot, 8);
+    expect(overshootStep(peak(4), zeta, 4)).toBeCloseTo(1 + overshoot, 8);
+    expect(overshootStep(peak(1), zeta, 4)).not.toBeCloseTo(1 + overshoot, 2);
   });
 
   it("compile generator sines into scope", () => {
@@ -791,12 +793,13 @@ describe("blocks", () => {
 
   it("compile generator overshoot into scope from the first sample", () => {
     const zeta = 0.5;
-    const wd = 2;
+    const omega = 2;
+    const wd = omega * Math.sqrt(1 - zeta * zeta);
     const peakTime = Math.PI / wd;
     const overshoot = Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta));
     const nodes = [
       { id: 1, defId: "scope" },
-      { id: 2, defId: "overshoot", zeta, wd },
+      { id: 2, defId: "overshoot", zeta, omega },
       { id: 3, defId: "timer" },
     ];
     const links: Link[] = [

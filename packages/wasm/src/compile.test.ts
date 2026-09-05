@@ -101,7 +101,7 @@ describe("compileGenerator", () => {
   it("walks an overshoot transformer and binds browser Math for wasm-gc", async () => {
     const nodes = [
       { id: 1, defId: "scope" },
-      { id: 2, defId: "overshoot", zeta: 0.5, wd: 2 },
+      { id: 2, defId: "overshoot", zeta: 0.5, omega: 2 },
       { id: 3, defId: "timer" },
     ];
     const links: Link[] = [
@@ -112,8 +112,8 @@ describe("compileGenerator", () => {
     expect(compiled.channels).toEqual([{ scopeId: 1, label: "overshoot" }]);
     expect(compiled.text).toContain("fn overshoot(_ctx : Int, input : C1) -> C1");
     expect(compiled.text).toContain("let zeta = 0.5");
-    expect(compiled.text).toContain("let wd = 2.0");
-    expect(compiled.text).toContain("math_sqrt(");
+    expect(compiled.text).toContain("let w = 2.0");
+    expect(compiled.text).toContain("w * math_sqrt(1.0 - zeta * zeta)");
     expect(compiled.text).toContain("math_exp(");
     expect(compiled.text).toContain('fn math_sin(x : Double) -> Double = "Math" "sin"');
     expect(compiled.text).toContain('fn math_cos(x : Double) -> Double = "Math" "cos"');

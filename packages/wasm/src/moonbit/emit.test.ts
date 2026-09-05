@@ -93,7 +93,7 @@ describe("emitSolutionFiles", () => {
     const view = solutionViewFrom(
       [
         { id: 1, defId: "scope" },
-        { id: 2, defId: "overshoot", zeta: 0.5, wd: 2 },
+        { id: 2, defId: "overshoot", zeta: 0.5, omega: 2 },
         { id: 3, defId: "timer" },
       ],
       [
@@ -107,8 +107,8 @@ describe("emitSolutionFiles", () => {
     expect(gc["runtime.mbt"]).toContain('fn math_exp(x : Double) -> Double = "Math" "exp"');
     expect(gc["runtime.mbt"]).toContain('fn math_sqrt(x : Double) -> Double = "Math" "sqrt"');
     expect(gc["blocks.mbt"]).toContain("let zeta = 0.5");
-    expect(gc["blocks.mbt"]).toContain("let wd = 2.0");
-    expect(gc["blocks.mbt"]).toContain("math_sqrt(");
+    expect(gc["blocks.mbt"]).toContain("let w = 2.0");
+    expect(gc["blocks.mbt"]).toContain("w * math_sqrt(1.0 - zeta * zeta)");
 
     const mcu = Object.fromEntries(emitSolutionFiles(catalog(), view, new Map(), "wasm"));
     expect(mcu["runtime.mbt"]).toContain("fn math_sin(rad : Double) -> Double");

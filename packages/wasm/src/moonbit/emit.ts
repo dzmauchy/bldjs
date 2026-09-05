@@ -91,7 +91,7 @@ export function emitSolutionFiles(
     const arrayOut = def?.outputs.find((port) => isArrayType(port.ty));
     const pin = block.pin ?? (block.defId === "gpio_out" ? 1 : 0);
     const zeta = block.zeta;
-    const wd = block.wd;
+    const omega = block.omega;
     if (arrayOut) {
       const outgoing = view.outgoing(block.id, arrayOut.name);
       const length = Math.max(outgoing.length, 1);
@@ -103,9 +103,9 @@ export function emitSolutionFiles(
         }
         return rings.get(`${block.id}:${portSlotIndex(link.fromOut)}`) ?? slot;
       });
-      blockParts.push(add({ name, length, rings: slotRings, pin, zeta, wd }));
+      blockParts.push(add({ name, length, rings: slotRings, pin, zeta, omega }));
     } else {
-      blockParts.push(add({ name, pin, zeta, wd }));
+      blockParts.push(add({ name, pin, zeta, omega }));
     }
   }
 

@@ -8,17 +8,17 @@ export const QUANTIZER_DELAY_MS = DEFAULT_PERIOD_MS;
 export const PERIOD_PARAM = "period";
 export const PIN_PARAM = "pin";
 export const ZETA_PARAM = "ζ";
-export const WD_PARAM = "ωd";
+export const OMEGA_PARAM = "ω";
 export const WINDOW_PARAM = "n";
 export const METER_PARAM = "m";
 /** Damping ratio for the underdamped second-order step response (`double-range-parameter` `ζ`). */
 export const DEFAULT_ZETA = 0.5;
 export const MIN_ZETA = 0.05;
 export const MAX_ZETA = 0.95;
-/** Damped natural frequency in rad/s (`double-range-parameter` `ωd`). */
-export const DEFAULT_WD = 1;
-export const MIN_WD = 0.1;
-export const MAX_WD = 20;
+/** Natural frequency in rad/s (`double-range-parameter` `ω`). Damped frequency is `ωd = ω√(1−ζ²)`. */
+export const DEFAULT_OMEGA = 1;
+export const MIN_OMEGA = 0.1;
+export const MAX_OMEGA = 20;
 export const DEFAULT_PIN = 0;
 export const MAX_PIN = 31;
 
@@ -87,9 +87,9 @@ export function zetaFrom(value: number | string | undefined | null): number {
   return clampDouble(parsed, MIN_ZETA, MAX_ZETA, DEFAULT_ZETA);
 }
 
-export function wdFrom(value: number | string | undefined | null): number {
-  const parsed = typeof value === "number" ? value : value == null ? DEFAULT_WD : Number(value);
-  return clampDouble(parsed, MIN_WD, MAX_WD, DEFAULT_WD);
+export function omegaFrom(value: number | string | undefined | null): number {
+  const parsed = typeof value === "number" ? value : value == null ? DEFAULT_OMEGA : Number(value);
+  return clampDouble(parsed, MIN_OMEGA, MAX_OMEGA, DEFAULT_OMEGA);
 }
 
 /**
