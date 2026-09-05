@@ -8,6 +8,7 @@ import {
   diagramCss,
   diagramRoot,
   dragNodeBy,
+  expectHiddenScopeChartLaidOut,
   expectScopeOverlayHidden,
   newCanvas,
   nodeHost,
@@ -318,7 +319,7 @@ test.describe("wiring", () => {
     await expect(stop).toHaveAttribute("title", "Stop");
     await expect(stop).toHaveAttribute("aria-label", "Stop");
     await expect(chart).toBeEnabled();
-    await expectScopeOverlayHidden(page);
+    await expectHiddenScopeChartLaidOut(page);
     await chart.click();
     await waitForScopeOverlay(page);
     await expect(page.locator('[data-testid="scope-modal"] .modal-title')).toHaveCount(0);
@@ -326,11 +327,11 @@ test.describe("wiring", () => {
     await expect(page.locator('[data-testid="scope-caption"]')).not.toContainText("timer(");
     await expect(page.locator('[data-testid="scope-close"]')).toBeVisible();
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-series-count", "1", {
-      timeout: 250,
+      timeout: 100,
     });
     await expect(page.locator('[data-testid="scope-chart"] canvas')).toBeVisible();
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-painted", "true", {
-      timeout: 250,
+      timeout: 100,
     });
     await expect
       .poll(async () => Number(await page.locator('[data-testid="scope-chart"]').getAttribute("data-sample-count")), {
@@ -396,7 +397,7 @@ test.describe("wiring", () => {
     const chart = nodeHost(page, "scope").locator('[data-testid^="chart-"]');
     await runDiagram(page);
     await expect(chart).toBeEnabled();
-    await expectScopeOverlayHidden(page);
+    await expectHiddenScopeChartLaidOut(page);
     await chart.click();
     await waitForScopeOverlay(page);
     await expect(page.locator('[data-testid="scope-modal"] .modal-title')).toHaveCount(0);
@@ -404,11 +405,11 @@ test.describe("wiring", () => {
     await expect(page.locator('[data-testid="scope-caption"]')).not.toContainText("timer(");
     await expect(page.locator('[data-testid="scope-close"]')).toBeVisible();
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-series-count", "2", {
-      timeout: 250,
+      timeout: 100,
     });
     await expect(page.locator('[data-testid="scope-chart"] canvas')).toBeVisible();
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-painted", "true", {
-      timeout: 250,
+      timeout: 100,
     });
     await expect
       .poll(async () => Number(await page.locator('[data-testid="scope-chart"]').getAttribute("data-sample-count")), {

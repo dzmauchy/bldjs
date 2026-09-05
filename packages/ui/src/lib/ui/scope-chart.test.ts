@@ -5,6 +5,8 @@ import {
   formatTick,
   niceTicks,
   paintScopeCanvas,
+  SCOPE_CHART_HEIGHT,
+  SCOPE_CHART_MAX_WIDTH,
   scopeAxisId,
   scopeAxisSide,
   scopePlotLayout,
@@ -154,5 +156,28 @@ describe("scope multi-axis canvas plot", () => {
     expect(plot.redraw()).toBe(true);
     expect(plot.seriesCount).toBe(1);
     plot.destroy();
+  });
+
+  it("paints a connected canvas from a fallback size when layout is still 0×0", () => {
+    const parent = document.createElement("div");
+    const canvas = document.createElement("canvas");
+    parent.append(canvas);
+    document.body.append(parent);
+    try {
+      const ctx = recordingContext();
+      Object.defineProperty(canvas, "clientWidth", { configurable: true, get: () => 0 });
+      Object.defineProperty(canvas, "clientHeight", { configurable: true, get: () => 0 });
+      Object.defineProperty(parent, "clientWidth", { configurable: true, get: () => 0 });
+      Object.defineProperty(parent, "clientHeight", { configurable: true, get: () => 0 });
+      vi.spyOn(parent, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 0, 0));
+      vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 0, 0));
+      vi.spyOn(canvas, "getContext").mockReturnValue(ctx);
+      expect(paintScopeCanvas(canvas, [{ label: "sin", samples: [0, 1] }])).toBe(true);
+      expect(canvas.width).toBe(Math.min(SCOPE_CHART_MAX_WIDTH, window.innerWidth - 32));
+      expect(canvas.height).toBe(SCOPE_CHART_HEIGHT);
+      expect(ctx.calls.some((call) => call.name === "fillRect")).toBe(true);
+    } finally {
+      parent.remove();
+    }
   });
 });

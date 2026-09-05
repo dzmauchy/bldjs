@@ -294,11 +294,29 @@ export function drawScopePlot(
   }
 }
 
+/** Matches `.scope-chart { height: 280px }` and Bootstrap `modal-lg`. */
+export const SCOPE_CHART_HEIGHT = 280;
+export const SCOPE_CHART_MAX_WIDTH = 800;
+
 function clientBox(el: Element | null): { width: number; height: number } {
   if (!(el instanceof HTMLElement)) {
     return { width: 0, height: 0 };
   }
-  return { width: el.clientWidth, height: el.clientHeight };
+  const width = el.clientWidth;
+  const height = el.clientHeight;
+  if (width >= 2 && height >= 2) {
+    return { width, height };
+  }
+  const rect = el.getBoundingClientRect();
+  return { width: rect.width, height: rect.height };
+}
+
+function fallbackBox(): { width: number; height: number } {
+  const vw = typeof window !== "undefined" ? window.innerWidth : SCOPE_CHART_MAX_WIDTH;
+  return {
+    width: Math.max(2, Math.min(SCOPE_CHART_MAX_WIDTH, vw - 32)),
+    height: SCOPE_CHART_HEIGHT,
+  };
 }
 
 export function fitScopeCanvas(canvas: HTMLCanvasElement): { width: number; height: number; dpr: number } | null {
@@ -307,7 +325,10 @@ export function fitScopeCanvas(canvas: HTMLCanvasElement): { width: number; heig
     ({ width, height } = clientBox(canvas.parentElement));
   }
   if (width < 2 || height < 2) {
-    return null;
+    if (!canvas.isConnected) {
+      return null;
+    }
+    ({ width, height } = fallbackBox());
   }
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   const pixelWidth = Math.max(1, Math.round(width * dpr));
@@ -346,6 +367,7 @@ export class ScopeCanvasPlot {
   constructor(canvas: HTMLCanvasElement, onPaint?: (painted: boolean) => void) {
     this.canvas = canvas;
     this.#onPaint = onPaint ?? null;
+    canvas.getContext("2d");
     this.#observer = new ResizeObserver(() => {
       this.redraw();
     });

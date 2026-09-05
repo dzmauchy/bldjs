@@ -45,6 +45,25 @@ export async function expectScopeOverlayHidden(page: Page): Promise<void> {
   await expect(page.locator('[data-testid="scope-modal"]')).toBeHidden();
 }
 
+export async function expectHiddenScopeChartLaidOut(page: Page): Promise<void> {
+  await expectScopeOverlayHidden(page);
+  const size = await page.locator('[data-testid="scope-chart"]').evaluate((el) => ({
+    width: el.clientWidth,
+    height: el.clientHeight,
+    canvas: (() => {
+      const canvas = el.querySelector("canvas");
+      return canvas instanceof HTMLCanvasElement
+        ? { width: canvas.width, height: canvas.height, cssWidth: canvas.clientWidth, cssHeight: canvas.clientHeight }
+        : null;
+    })(),
+  }));
+  expect(size.width).toBeGreaterThan(100);
+  expect(size.height).toBeGreaterThan(100);
+  expect(size.canvas).not.toBeNull();
+  expect(size.canvas!.width).toBeGreaterThan(8);
+  expect(size.canvas!.height).toBeGreaterThan(8);
+}
+
 export async function waitForScopeOverlay(page: Page): Promise<void> {
   const modal = page.locator('[data-testid="scope-modal"]');
   await expect(modal).toBeVisible();
