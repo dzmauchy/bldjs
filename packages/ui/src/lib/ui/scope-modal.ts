@@ -22,6 +22,7 @@ export class BldScopeModal extends LitElement {
   #seriesCount = 0;
   #sampleCount = 0;
   #painted = false;
+  #laidOut = false;
 
   static override styles = [
     bootstrapStyles,
@@ -34,6 +35,13 @@ export class BldScopeModal extends LitElement {
       .modal-backdrop {
         transition: none;
         transform: none;
+      }
+      /* Keep the overlay in the box tree while closed so the canvas is
+         already sized before the first open. Do not use display: none. */
+      :host(:not([open])) .modal,
+      :host(:not([open])) .modal-backdrop {
+        visibility: hidden;
+        pointer-events: none;
       }
       .modal-content {
         overflow: hidden;
@@ -111,16 +119,29 @@ export class BldScopeModal extends LitElement {
   protected override updated(): void {
     const id = this.app?.scopeOpen ?? -1;
     const canvas = this.#canvas.value;
-    if (!canvas || isNoneId(id)) {
-      this.#destroyPlot();
+    if (!canvas) {
       return;
     }
-    if (this.#plot && this.#openId === id) {
+    if (!this.#laidOut) {
+      void canvas.parentElement?.offsetWidth;
+      this.#laidOut = true;
+    }
+    if (isNoneId(id)) {
+      this.#stopTicks();
+      this.#openId = -1;
       return;
     }
-    this.#destroyPlot();
+    if (!this.#plot) {
+      this.#startPlot(canvas, id);
+      return;
+    }
+    if (this.#openId === id) {
+      return;
+    }
     this.#openId = id;
-    this.#startPlot(canvas, id);
+    this.#applySeries(this.#plot, this.app.run.snapshotScope(id));
+    this.#plot.fit();
+    this.#startTicks(id);
   }
 
   #bindApp(): void {
@@ -130,14 +151,19 @@ export class BldScopeModal extends LitElement {
     this.#ctrl = new AppController(this, this.app);
   }
 
-  #destroyPlot(): void {
+  #stopTicks(): void {
     if (this.#tick !== null) {
       clearInterval(this.#tick);
       this.#tick = null;
     }
+  }
+
+  #destroyPlot(): void {
+    this.#stopTicks();
     this.#plot?.destroy();
     this.#plot = null;
     this.#openId = -1;
+    this.#laidOut = false;
     this.#writeSeriesCount(0, 0, false);
   }
 
@@ -158,6 +184,20 @@ export class BldScopeModal extends LitElement {
     this.#writeSeriesCount(series.length, sampleCount, plot.setSeries(series));
   }
 
+  #startTicks(id: number): void {
+    this.#stopTicks();
+    const plot = this.#plot;
+    if (!plot) {
+      return;
+    }
+    this.#tick = setInterval(() => {
+      if (this.#openId !== id || this.#plot !== plot) {
+        return;
+      }
+      this.#applySeries(plot, this.app.run.snapshotScope(id));
+    }, 50);
+  }
+
   #startPlot(canvas: HTMLCanvasElement, id: number): void {
     const plot = new ScopeCanvasPlot(canvas, (painted) => {
       if (this.#plot !== plot) {
@@ -166,28 +206,26 @@ export class BldScopeModal extends LitElement {
       this.#writeSeriesCount(plot.seriesCount, this.#sampleCount, painted);
     });
     this.#plot = plot;
+    this.#openId = id;
     void canvas.parentElement?.offsetWidth;
     this.#applySeries(plot, this.app.run.snapshotScope(id));
     plot.fit();
-    const tick = (): void => {
-      if (this.#openId !== id || this.#plot !== plot) {
-        return;
-      }
-      this.#applySeries(plot, this.app.run.snapshotScope(id));
-    };
-    this.#tick = setInterval(tick, 50);
+    this.#startTicks(id);
   }
 
   protected override render() {
     const app = this.app;
-    if (!app || isNoneId(app.scopeOpen)) {
+    if (!app) {
       return nothing;
     }
+    const open = !isNoneId(app.scopeOpen);
     return html`
       <div
         class="modal-backdrop show"
         role="button"
         tabindex="0"
+        ?inert=${!open}
+        aria-hidden=${open ? "false" : "true"}
         @click=${() => app.closeScope()}
         @keydown=${(event: KeyboardEvent) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -195,7 +233,14 @@ export class BldScopeModal extends LitElement {
           }
         }}
       ></div>
-      <div class="modal show d-block" tabindex="-1" role="dialog" data-testid="scope-modal">
+      <div
+        class="modal show d-block"
+        tabindex="-1"
+        role="dialog"
+        data-testid="scope-modal"
+        ?inert=${!open}
+        aria-hidden=${open ? "false" : "true"}
+      >
         <div class="modal-dialog modal-lg modal-dialog-centered">
           <div class="modal-content">
             <div class="modal-body p-0">
@@ -210,7 +255,7 @@ export class BldScopeModal extends LitElement {
               </div>
               <div class="scope-footer">
                 <div class="scope-caption small text-secondary" data-testid="scope-caption">
-                  ${app.blockDisplayName(app.scopeOpen)}
+                  ${open ? app.blockDisplayName(app.scopeOpen) : ""}
                 </div>
                 <button
                   type="button"
