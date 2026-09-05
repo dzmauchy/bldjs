@@ -140,9 +140,28 @@ export class BldNode extends LitElement {
       line-height: 1.4;
       cursor: pointer;
     }
-    .flow-node-chart:disabled {
-      opacity: 0.4;
-      cursor: default;
+    .flow-node-gpio {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 3.4rem;
+      border: 1px solid color-mix(in srgb, var(--bs-warning, #ffc107) 55%, transparent);
+      background: transparent;
+      color: var(--bs-warning, #ffc107);
+      border-radius: 4px;
+      font-size: 0.65rem;
+      padding: 0 5px;
+      line-height: 1.4;
+      cursor: pointer;
+    }
+    .flow-node-gpio.is-on {
+      background: color-mix(in srgb, var(--bs-warning, #ffc107) 22%, transparent);
+      color: var(--bs-warning, #ffc107);
+    }
+    :host([data-compact]) .flow-node-gpio {
+      font-size: 0.55rem;
+      padding: 0 4px;
+      min-width: 2.8rem;
     }
     .flow-node-config {
       display: inline-flex;
@@ -419,7 +438,7 @@ export class BldNode extends LitElement {
     this.dataset.blockDef = next.defId;
     this.setAttribute("data-testid", "node");
     this.toggleAttribute("data-selected", next.selected);
-    this.toggleAttribute("data-dragging", this.dragging);
+    this.toggleAttribute("data-gpio-on", Boolean(next.showGpio && next.gpioOn));
     this.setAttribute("role", "group");
     this.setAttribute("aria-label", next.name);
     if (this.#kindClass && this.#kindClass !== next.kindClass) {
@@ -473,6 +492,11 @@ export class BldNode extends LitElement {
       return;
     }
     this.dispatchEvent(new CustomEvent("chartclick", { bubbles: true, composed: true }));
+  };
+
+  #onGpioClick = (event: MouseEvent): void => {
+    event.stopPropagation();
+    this.dispatchEvent(new CustomEvent("gpioclick", { bubbles: true, composed: true }));
   };
 
   #onInputsClick = (event: MouseEvent): void => {
@@ -620,6 +644,21 @@ export class BldNode extends LitElement {
                     <circle cx="8" cy="8" r="2.1"/>
                     <path d="M8 2.4v1.5M8 12.1v1.5M2.4 8h1.5M12.1 8h1.5M4 4l1.1 1.1M10.9 10.9 12 12M4 12l1.1-1.1M10.9 5.1 12 4"/>
                   </svg>
+                </button>
+              `
+            : nothing}
+          ${view.showGpio
+            ? html`
+                <button
+                  class=${view.gpioOn ? "flow-node-gpio is-on" : "flow-node-gpio"}
+                  type="button"
+                  title=${`Simulate GPIO pin ${view.gpioPin} in the browser`}
+                  aria-pressed=${view.gpioOn ? "true" : "false"}
+                  data-testid=${`gpio-${view.blockId}`}
+                  @pointerdown=${(event: PointerEvent) => event.stopPropagation()}
+                  @click=${this.#onGpioClick}
+                >
+                  P${view.gpioPin} ${view.gpioOn ? "HIGH" : "LOW"}
                 </button>
               `
             : nothing}

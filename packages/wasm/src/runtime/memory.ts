@@ -32,6 +32,10 @@ export const MEMORY_BYTES = MEMORY_PAGES * 65536;
 export const FLOW_COUNT_CAP = 256;
 export const FLOW_COUNTS = MEMORY_BYTES - FLOW_COUNT_CAP * 4;
 
+/** Simulated GPIO levels (one i32 per pin), packed just before the flow counters. */
+export const GPIO_CAP = 32;
+export const GPIO_WORDS = FLOW_COUNTS - GPIO_CAP * 4;
+
 function isSharedBuffer(buffer: ArrayBufferLike): buffer is SharedArrayBuffer {
   return typeof SharedArrayBuffer === "function" && buffer instanceof SharedArrayBuffer;
 }
@@ -142,4 +146,29 @@ export function readSamples(memory: WebAssembly.Memory, scopeIndex = 0): number[
     out.push(view.getFloat64(samplesAddr + slot * 8, true));
   }
   return out;
+}
+
+function gpioWords(memory: WebAssembly.Memory): I32Words {
+  return new I32Words(memory.buffer, GPIO_WORDS, GPIO_CAP);
+}
+
+export function pinIndex(pin: number): number {
+  return ((pin % GPIO_CAP) + GPIO_CAP) % GPIO_CAP;
+}
+
+export function readGpio(memory: WebAssembly.Memory, pin: number): number {
+  return gpioWords(memory).load(pinIndex(pin)) !== 0 ? 1 : 0;
+}
+
+export function writeGpio(memory: WebAssembly.Memory, pin: number, level: number): void {
+  gpioWords(memory).store(pinIndex(pin), level !== 0 ? 1 : 0);
+}
+
+export function initGpio(memory: WebAssembly.Memory, levels?: ReadonlyMap<number, number>): void {
+  if (!levels) {
+    return;
+  }
+  for (const [pin, level] of levels) {
+    writeGpio(memory, pin, level);
+  }
 }

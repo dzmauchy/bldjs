@@ -83,6 +83,8 @@ export interface NodeViewContext {
   selected: number;
   linkingFrom: { blockId: number; port: string } | null;
   isScopeLive: (id: number) => boolean;
+  gpioOn: (id: number) => boolean;
+  gpioPin: (id: number) => number;
   inputIsGrounded: (blockId: number, port: string) => boolean;
   blockDef: (defId: string) => BlockDef | undefined;
   kindOf: (def: BlockDef) => BlockKindInfo;
@@ -112,6 +114,9 @@ export function buildNodeState(
     paramsLine: paramLine(resolved, block.id),
     showChart: block.defId === "scope",
     chartEnabled: block.defId === "scope" && ctx.isScopeLive(block.id),
+    showGpio: block.defId === "gpio_in" || block.defId === "gpio_out",
+    gpioOn: ctx.gpioOn(block.id),
+    gpioPin: ctx.gpioPin(block.id),
     showInputs: (def.parameters?.length ?? 0) > 0,
     inputs: inputSlotsFor(def.inputs, block.id, ctx.links).map((slot) => {
       const catalogPort = def.inputs.find((item) => item.name === slot.catalogName)!;

@@ -13,6 +13,7 @@
     "./runtime/assemble": "./src/runtime/assemble.ts",
     "./runtime/memory": "./src/runtime/memory.ts",
     "./runtime/signatures": "./src/runtime/signatures.ts",
+    "./runtime/webusb": "./src/runtime/webusb.ts",
     "./solution/wasm": "./src/solution/wasm.ts"
   },
   "scripts": {

@@ -30,6 +30,7 @@ describe("XML ↔ WASM signatures", () => {
     for (const [id, name] of [
       ["timer", "Timer"],
       ["random", "Random"],
+      ["gpio_in", "GPIO In"],
     ] as const) {
       expect(blockSignature(cat.block(id)!)).toEqual({
         id,
@@ -61,6 +62,12 @@ describe("XML ↔ WASM signatures", () => {
       results: [{ name: "out", type: "(ref $array_fn_Double_Unit)" }],
     });
     expect(displayType(cat.block("scope")!.outputs[0].ty, true)).toBe("Array[(Double) -> Unit]");
+    expect(blockSignature(cat.block("gpio_out")!)).toEqual({
+      id: "gpio_out",
+      name: "GPIO Out",
+      params: [],
+      results: [{ name: "out", type: "(ref $fn_Double_Unit)" }],
+    });
   });
 
   it("fixture type blocks use arguments as inputs and results as outputs", () => {

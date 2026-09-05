@@ -30,7 +30,7 @@ export class DiagramRunCancelled extends Error {
   }
 }
 
-export const EMPTY_RUN_MESSAGE = "Wire a Scope into a generator, then Run.";
+export const EMPTY_RUN_MESSAGE = "Wire a Scope or GPIO into a generator, then Run.";
 
 /** Live generator session: handles, scope bindings, and connector Hertz. */
 export class RunningDiagram implements RunnerSession {
@@ -38,6 +38,7 @@ export class RunningDiagram implements RunnerSession {
   readonly scopeChannels = new Map<number, ScopeChannelBinding[]>();
   readonly linkHz = new Map<string, number>();
   readonly topology: string;
+  prodWasm: Uint8Array | null = null;
   #flowPrev = new Map<GeneratorHandle, number[]>();
   #flowSampleAt = 0;
   #disposed = false;
@@ -113,6 +114,19 @@ export class RunningDiagram implements RunnerSession {
     }
   }
 
+  gpioLevel(pin: number): number {
+    for (const handle of this.generators.values()) {
+      return handle.gpioLevel(pin);
+    }
+    return 0;
+  }
+
+  setGpio(pin: number, level: number): void {
+    for (const handle of this.generators.values()) {
+      handle.setGpio(pin, level);
+    }
+  }
+
   arm(plans: GeneratorPlan[], nodes: NodeSpec[], links: Link[]): void {
     const view = solutionViewFrom(nodes, links);
     for (const plan of plans) {
@@ -121,6 +135,9 @@ export class RunningDiagram implements RunnerSession {
         this.linkHz.set(connectorKey(link), nominalHz);
       }
       plan.channels.forEach((channel, index) => {
+        if (nodes.find((node) => node.id === channel.scopeId)?.defId !== "scope") {
+          return;
+        }
         const series = this.scopeChannels.get(channel.scopeId) ?? [];
         series.push({ label: channel.label, ring: index, generatorId: plan.generatorId });
         this.scopeChannels.set(channel.scopeId, series);
@@ -136,6 +153,7 @@ export class RunningDiagram implements RunnerSession {
 export class DiagramRunner implements Runner {
   #op = 0;
   #current: RunningDiagram | null = null;
+  lastProdWasm: Uint8Array | null = null;
 
   get current(): RunningDiagram | null {
     return this.#current;
@@ -168,8 +186,15 @@ export class DiagramRunner implements Runner {
       throw new DiagramRunCancelled();
     }
     for (const plan of plans) {
-      const { wasm, connectors } = await assembleGenerator(plan, nodes, links);
-      const handle = await startGenerator({ wasm, delayMs: plan.delayMs, connectors });
+      const { wasm, prodWasm, connectors } = await assembleGenerator(plan, nodes, links);
+      session.prodWasm = prodWasm;
+      this.lastProdWasm = prodWasm;
+      const handle = await startGenerator({
+        wasm,
+        delayMs: plan.delayMs,
+        connectors,
+        gpio: options.gpio,
+      });
       if (op !== this.#op) {
         handle.stop();
         throw new DiagramRunCancelled();

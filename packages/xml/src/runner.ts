@@ -8,11 +8,15 @@ export interface RunnerSession {
   isScopeLive(id: number): boolean;
   connectorHz(link: { fromBlock: number; fromOut: string; toBlock: number; toIn: string }): number;
   snapshotScope(id: number): ScopeSeries[];
+  gpioLevel?(pin: number): number;
+  setGpio?(pin: number, level: number): void;
 }
 
 export interface RunnerStartOptions {
   yieldForPaint?: () => Promise<void>;
   onArmed?: (session: RunnerSession) => void;
+  /** Initial simulated GPIO levels keyed by pin number (dev / browser). */
+  gpio?: ReadonlyMap<number, number>;
 }
 
 /**

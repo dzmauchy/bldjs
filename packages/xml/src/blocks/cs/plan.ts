@@ -1,6 +1,6 @@
 import type { Link } from "../diagram";
 import { incomingTo } from "../ports";
-import { isGeneratorId, isTransformerId, periodMsFrom } from "./ids";
+import { isGeneratorId, isSinkId, isTransformerId, periodMsFrom } from "./ids";
 import { nowSecs, sampleOnce } from "./generators";
 import { intervalMs } from "../../flow";
 import { SampleBuf } from "./samples";
@@ -21,7 +21,7 @@ function walkConsumer(
   const parts: ConsumerTree[] = [];
   for (const link of incomingTo(links, id, "in")) {
     const fromDef = defOf(link.fromBlock);
-    if (fromDef === "scope") {
+    if (fromDef && isSinkId(fromDef)) {
       parts.push(new ScopeSink(link.fromBlock));
       continue;
     }

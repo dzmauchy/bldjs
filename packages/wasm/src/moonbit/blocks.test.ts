@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BLOCK_SCRIPTS, QUANTIZER_PERIOD_NS, preamble, TimerMoonBlock } from "./index";
 import { CTX_PARAM } from "./types";
 import { emitRandom, emitTimer } from "./generators";
+import { emitGpioIn, emitGpioOut } from "./gpio";
 import { emitSin } from "./transformers";
 import { emitScope } from "./scope";
 
@@ -46,7 +47,16 @@ describe("scope catalog", () => {
 
 describe("MoonBit block library", () => {
   it("covers the runtime XML blocks", () => {
-    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["cos", "random", "scope", "sin", "timer"]);
+    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["cos", "gpio_in", "gpio_out", "random", "scope", "sin", "timer"]);
     expect(new TimerMoonBlock().emit()).toBe(emitTimer());
+  });
+});
+
+describe("GPIO catalog", () => {
+  it("bakes pin numbers into pin_read and pin_write", () => {
+    expect(emitGpioIn({ pin: 4 })).toContain("host_pin_read(4)");
+    expect(emitGpioIn({ pin: 4 })).toContain("if host_pin_read(4) != 0 { 1.0 } else { 0.0 }");
+    expect(emitGpioIn()).not.toContain("to_double");
+    expect(emitGpioOut({ pin: 13 })).toContain("host_pin_write(13,");
   });
 });

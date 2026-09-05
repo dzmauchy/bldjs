@@ -7,10 +7,12 @@ import {
   createSharedMemory,
   isStopped,
   readFlowCounts,
+  readGpio,
   readSamples,
   requestStop,
   scopeCountAddr,
   scopeSamplesAddr,
+  writeGpio,
 } from "./memory";
 
 function pushSample(memory: WebAssembly.Memory, value: number, ring = 0): void {
@@ -58,5 +60,16 @@ describe("runtime memory", () => {
     expect(samples).toHaveLength(2);
     expect(samples[0]).toBeCloseTo(Math.sin(1));
     expect(samples[1]).toBeCloseTo(Math.sin(2));
+  });
+
+  it("simulates GPIO pin levels in the shared page", () => {
+    const memory = createMemory(false);
+    expect(readGpio(memory, 0)).toBe(0);
+    writeGpio(memory, 0, 1);
+    expect(readGpio(memory, 0)).toBe(1);
+    writeGpio(memory, 32, 1);
+    expect(readGpio(memory, 0)).toBe(1);
+    writeGpio(memory, 0, 0);
+    expect(readGpio(memory, 32)).toBe(0);
   });
 });

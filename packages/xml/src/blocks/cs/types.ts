@@ -13,6 +13,7 @@ export interface NodeSpec {
   id: number;
   defId: string;
   periodMs?: number;
+  pin?: number;
 }
 
 import type { ConsumerTree } from "./tree";

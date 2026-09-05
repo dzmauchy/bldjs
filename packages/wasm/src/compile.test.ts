@@ -6,6 +6,10 @@ import { loadDiagramSolution } from "@bld/xml/diagram/compile";
 import { serializeCanvas } from "@bld/xml/diagram/xml";
 import { I32_ATOMIC_OPCODE, hasThreadsOpcode } from "./moonbit";
 import { compileGenerator, generatorText } from "./compile";
+import { instantiateGenerator } from "./runtime/generator";
+import { createEnvImports } from "./runtime/env-host";
+import { createMemory, readGpio, writeGpio } from "./runtime/memory";
+import { wasmDeployFrame, WASM_MAGIC } from "./runtime/webusb";
 
 function catalog() {
   const diagram = new Diagram("workspace", "Workspace");
@@ -53,6 +57,27 @@ describe("compileGenerator", () => {
     expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
     expect(hasThreadsOpcode(compiled.wasm, I32_ATOMIC_OPCODE.load)).toBe(true);
     expect(hasThreadsOpcode(compiled.wasm, I32_ATOMIC_OPCODE.store)).toBe(false);
+    expect([...compiled.prodWasm.slice(0, 4)]).toEqual([0, 97, 115, 109]);
+    expect(WebAssembly.validate(compiled.prodWasm.slice().buffer)).toBe(true);
+    const prodImports = WebAssembly.Module.imports(new WebAssembly.Module(compiled.prodWasm.slice().buffer)).map(
+      (item) => `${item.module}.${item.name}`,
+    );
+    expect(prodImports).toContain("env.wait_event");
+    expect(prodImports).toContain("env.timer_start");
+    expect(prodImports).toContain("env.usb_write");
+    expect(prodImports.some((item) => item.startsWith("Math."))).toBe(false);
+    expect(prodImports.some((item) => item.startsWith("js."))).toBe(false);
+    const prodExports = WebAssembly.Module.exports(new WebAssembly.Module(compiled.prodWasm.slice().buffer)).map(
+      (item) => item.name,
+    );
+    expect(prodExports).toContain("app_main");
+    expect(prodExports).toContain("tick");
+    const inst = await WebAssembly.instantiate(compiled.prodWasm.slice().buffer, createEnvImports());
+    expect(typeof inst.instance.exports.tick).toBe("function");
+    expect(typeof inst.instance.exports.app_main).toBe("function");
+    const frame = wasmDeployFrame(compiled.prodWasm);
+    expect(new DataView(frame.buffer).getUint32(0, true)).toBe(WASM_MAGIC);
+    expect(new DataView(frame.buffer).getUint32(4, true)).toBe(compiled.prodWasm.byteLength);
   });
 
   it("walks a cos transformer", async () => {
@@ -95,6 +120,37 @@ describe("compileGenerator", () => {
   it("needs a scope", async () => {
     const nodes = [{ id: 4, defId: "timer" }];
     expect(await compileGenerator(4, nodes, [])).toBeUndefined();
+  });
+
+  it("compiles GPIO in/out with a simulated pin toggle", async () => {
+    const nodes = [
+      { id: 1, defId: "gpio_out", pin: 1 },
+      { id: 2, defId: "gpio_in", pin: 0, periodMs: 10 },
+    ];
+    const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
+    const compiled = (await compileGenerator(2, nodes, links))!;
+    expect(compiled.defId).toBe("gpio_in");
+    expect(compiled.text).toContain("host_pin_read(0)");
+    expect(compiled.text).toContain("host_pin_write(1,");
+    expect(compiled.text).toContain('fn host_pin_read(pin : Int) -> Int = "host" "pin_read"');
+    const prod = compiled.prodWasm;
+    const prodText = compiled.text;
+    expect(prodText).not.toContain('= "env" "pin_read"');
+    const prodImports = WebAssembly.Module.imports(new WebAssembly.Module(prod.slice().buffer)).map(
+      (item) => `${item.module}.${item.name}`,
+    );
+    expect(prodImports).toContain("env.pin_read");
+    expect(prodImports).toContain("env.pin_write");
+    expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
+
+    const memory = createMemory(false);
+    writeGpio(memory, 0, 1);
+    const gen = await instantiateGenerator(compiled.wasm, memory);
+    gen.tick();
+    expect(readGpio(memory, 1)).toBe(1);
+    writeGpio(memory, 0, 0);
+    gen.tick();
+    expect(readGpio(memory, 1)).toBe(0);
   });
 
   it("uses typed consumers even without stages", async () => {

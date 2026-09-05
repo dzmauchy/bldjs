@@ -6,6 +6,8 @@ import { PortLinks } from "../blocks/ports";
 export interface SolutionViewBlock {
   id: number;
   defId: string;
+  pin?: number;
+  periodMs?: number;
 }
 
 /** One wire between XML ports. Extra vector slots use `out[1]`, `in[1]`, … */
@@ -24,11 +26,16 @@ export class SolutionView {
   ) {}
 
   static from(
-    blocks: readonly { id: number; defId: string }[],
+    blocks: readonly { id: number; defId: string; pin?: number; periodMs?: number }[],
     connectors: readonly Link[],
   ): SolutionView {
     return new SolutionView(
-      blocks.map((block) => ({ id: block.id, defId: block.defId })),
+      blocks.map((block) => ({
+        id: block.id,
+        defId: block.defId,
+        pin: block.pin,
+        periodMs: block.periodMs,
+      })),
       connectors.map((link) => ({
         fromBlock: link.fromBlock,
         fromOut: link.fromOut,
@@ -90,7 +97,7 @@ export class SolutionView {
 }
 
 export function solutionViewFrom(
-  blocks: readonly { id: number; defId: string }[],
+  blocks: readonly { id: number; defId: string; pin?: number; periodMs?: number }[],
   connectors: readonly Link[],
 ): SolutionView {
   return SolutionView.from(blocks, connectors);

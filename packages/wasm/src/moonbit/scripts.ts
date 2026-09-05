@@ -1,5 +1,6 @@
 import { MoonBlock } from "./block";
 import { RANDOM_BLOCK, TIMER_BLOCK } from "./generators";
+import { GPIO_IN_BLOCK, GPIO_OUT_BLOCK } from "./gpio";
 import { SCOPE_BLOCK } from "./scope";
 import { COS_BLOCK, SIN_BLOCK } from "./transformers";
 import type { BlockScript } from "./types";
@@ -10,6 +11,8 @@ export const MOON_BLOCKS: readonly MoonBlock[] = [
   COS_BLOCK,
   RANDOM_BLOCK,
   SCOPE_BLOCK,
+  GPIO_IN_BLOCK,
+  GPIO_OUT_BLOCK,
 ];
 
 /** One MoonBit script per runtime block, keyed by XML block id. */

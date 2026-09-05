@@ -13,12 +13,17 @@ describe("palette tree", () => {
     expect(cs.blocks.map((block) => block.id)).toEqual([]);
     expect(cs.children.map((group) => group.id)).toEqual([
       "com.dauch.cs.gen",
+      "com.dauch.cs.gpio",
       "com.dauch.cs.sink",
       "com.dauch.cs.tf",
     ]);
     expect(cs.children.find((group) => group.id === "com.dauch.cs.gen")?.blocks.map((block) => block.id)).toEqual([
       "random",
       "timer",
+    ]);
+    expect(cs.children.find((group) => group.id === "com.dauch.cs.gpio")?.blocks.map((block) => block.id)).toEqual([
+      "gpio_in",
+      "gpio_out",
     ]);
     expect(cs.children.find((group) => group.id === "com.dauch.cs.tf")?.blocks.map((block) => block.id)).toEqual([
       "cos",
@@ -30,6 +35,7 @@ describe("palette tree", () => {
     expect(paletteGroupIds(tree)).toEqual([
       "com.dauch.cs",
       "com.dauch.cs.gen",
+      "com.dauch.cs.gpio",
       "com.dauch.cs.sink",
       "com.dauch.cs.tf",
     ]);

@@ -1,9 +1,11 @@
 import { isArrayType, type BlockDef } from "@bld/xml/blocks/ast";
 import type { Catalog } from "@bld/xml/blocks/catalog";
+import { DEFAULT_PERIOD_MS, isGeneratorId } from "@bld/xml/blocks/cs/ids";
 import { catalogPortName, portSlotIndex } from "@bld/xml/blocks/ports";
 import type { SolutionView, SolutionViewBlock } from "@bld/xml/solution/view";
+import { DEV_TARGET, type MoonbitTarget } from "./compile";
 import { emitFork } from "./fork";
-import { emitStart, preamble } from "./runtime";
+import { emitAppMain, emitStart, PIN_INPUT_PULLUP, PIN_OUTPUT, preamble } from "./runtime";
 import { BLOCK_SCRIPTS } from "./scripts";
 import type { MoonbitFile } from "./types";
 
@@ -63,7 +65,7 @@ export function moonbitText(files: readonly MoonbitFile[]): string {
 
 /**
  * MoonBit package files for one connected SolutionView.
- * `runtime.mbt` holds FFI, atomics, `C1`, and `start`.
+ * `runtime.mbt` holds FFI, atomics, `C1`, and `start` / `app_main`.
  * `blocks.mbt` holds XML block functions and hidden forks.
  * `main.mbt` holds `tick`.
  */
@@ -71,6 +73,7 @@ export function emitSolutionFiles(
   catalog: Catalog,
   view: SolutionView,
   rings: Map<string, number>,
+  target: MoonbitTarget = DEV_TARGET,
 ): MoonbitFile[] {
   const names = new Map<number, string>();
   const lengths = new Map<number, number>();
@@ -86,6 +89,7 @@ export function emitSolutionFiles(
     names.set(block.id, name);
     const def = catalog.block(block.defId);
     const arrayOut = def?.outputs.find((port) => isArrayType(port.ty));
+    const pin = block.pin ?? (block.defId === "gpio_out" ? 1 : 0);
     if (arrayOut) {
       const outgoing = view.outgoing(block.id, arrayOut.name);
       const length = Math.max(outgoing.length, 1);
@@ -97,9 +101,9 @@ export function emitSolutionFiles(
         }
         return rings.get(`${block.id}:${portSlotIndex(link.fromOut)}`) ?? slot;
       });
-      blockParts.push(add({ name, length, rings: slotRings }));
+      blockParts.push(add({ name, length, rings: slotRings, pin }));
     } else {
-      blockParts.push(add({ name }));
+      blockParts.push(add({ name, pin }));
     }
   }
 
@@ -181,19 +185,44 @@ export function emitSolutionFiles(
     }
   }
 
+  const generator = view.blocks.find((block) => isGeneratorId(block.defId));
+  const delayMs = generator?.periodMs ?? DEFAULT_PERIOD_MS;
+  const pins = view.blocks.flatMap((block) => {
+    if (block.defId === "gpio_in") {
+      return [{ pin: block.pin ?? 0, mode: PIN_INPUT_PULLUP }];
+    }
+    if (block.defId === "gpio_out") {
+      return [{ pin: block.pin ?? 1, mode: PIN_OUTPUT }];
+    }
+    return [];
+  });
+  const runtimeParts =
+    target === "wasm"
+      ? [
+          preamble({
+            sin: defIds.has("sin"),
+            cos: defIds.has("cos"),
+            random: defIds.has("random"),
+            now: defIds.has("timer"),
+            gpio: defIds.has("gpio_in") || defIds.has("gpio_out"),
+            target,
+          }),
+          emitAppMain({ delayMs, pins }),
+        ]
+      : [
+          preamble({
+            sin: defIds.has("sin"),
+            cos: defIds.has("cos"),
+            random: defIds.has("random"),
+            now: defIds.has("timer"),
+            gpio: defIds.has("gpio_in") || defIds.has("gpio_out"),
+            target,
+          }),
+          emitStart(),
+        ];
+
   return [
-    [
-      "runtime.mbt",
-      joinParts([
-        preamble({
-          sin: defIds.has("sin"),
-          cos: defIds.has("cos"),
-          random: defIds.has("random"),
-          now: defIds.has("timer"),
-        }),
-        emitStart(),
-      ]),
-    ],
+    ["runtime.mbt", joinParts(runtimeParts)],
     ["blocks.mbt", joinParts(blockParts)],
     [
       "main.mbt",
@@ -214,6 +243,7 @@ export function emitSolutionMoonbit(
   catalog: Catalog,
   view: SolutionView,
   rings: Map<string, number>,
+  target: MoonbitTarget = DEV_TARGET,
 ): string {
-  return moonbitText(emitSolutionFiles(catalog, view, rings));
+  return moonbitText(emitSolutionFiles(catalog, view, rings, target));
 }

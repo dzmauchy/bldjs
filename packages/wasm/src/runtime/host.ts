@@ -1,4 +1,4 @@
-import { SAMPLE_CAP, isStopped, requestStop, scopeCountAddr, scopeSamplesAddr } from "./memory";
+import { SAMPLE_CAP, isStopped, readGpio, requestStop, scopeCountAddr, scopeSamplesAddr, writeGpio } from "./memory";
 import { interceptConsumerFrequency } from "./runner";
 import { startQuantizedLoop } from "./tick";
 
@@ -27,7 +27,8 @@ export interface WasmHost {
  * Imports for a MoonBit wasm-gc generator.
  * Math/Date are browser bindings (`fn sin = "Math" "sin"`). `js.setInterval` is
  * the browser timer. `host.push` writes the sample ring. `moonbit:ffi.make_closure`
- * lets `start` pass `tick` into `setInterval`.
+ * lets `start` pass `tick` into `setInterval`. `host.pin_read` / `pin_write`
+ * simulate GPIO in the browser.
  */
 export function createHost(memory: WebAssembly.Memory, options: HostOptions = {}): WasmHost {
   const nowSecs = options.now ?? (() => Date.now() / 1000);
@@ -66,6 +67,13 @@ export function createHost(memory: WebAssembly.Memory, options: HostOptions = {}
       push(value: number, ring: number): void {
         pushSample(memory, value, ring);
       },
+      pin_read(pin: number): number {
+        return readGpio(memory, pin);
+      },
+      pin_write(pin: number, val: number): void {
+        writeGpio(memory, pin, val);
+      },
+      pin_mode(_pin: number, _mode: number): void {},
     },
     "moonbit:ffi": {
       make_closure: (fn: (...args: unknown[]) => unknown, closure: unknown) => fn.bind(null, closure),

@@ -15,6 +15,9 @@ function sampleState(overrides: Partial<BldNodeState> = {}): BldNodeState {
     paramsLine: "T = f64",
     showChart: false,
     chartEnabled: false,
+    showGpio: false,
+    gpioOn: false,
+    gpioPin: 0,
     showInputs: false,
     inputs: [
       { name: "elems", typeLabel: "f64", vararg: true, grounded: true, compatible: true },
@@ -284,5 +287,39 @@ describe("BldNode", () => {
       }),
     );
     expect(node.shadowRoot!.querySelector(".flow-node-config")).toBeNull();
+  });
+
+  it("shows a GPIO toggle that emits gpioclick", async () => {
+    const node = await mountNode(
+      sampleState({
+        defId: "gpio_in",
+        name: "GPIO In",
+        showGpio: true,
+        gpioOn: false,
+        gpioPin: 0,
+        inputs: [{ name: "in", typeLabel: "(Double) -> Unit", vararg: false, grounded: true }],
+        outputs: [],
+        paramsLine: "",
+      }),
+    );
+    const button = node.shadowRoot!.querySelector('[data-testid="gpio-7"]') as HTMLButtonElement;
+    expect(button).not.toBeNull();
+    expect(button.textContent?.replace(/\s+/g, " ").trim()).toBe("P0 LOW");
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+    let toggled = false;
+    node.addEventListener("gpioclick", () => {
+      toggled = true;
+    });
+    button.click();
+    expect(toggled).toBe(true);
+    node.view = {
+      ...node.view!,
+      gpioOn: true,
+    };
+    await node.updateComplete;
+    expect(node.hasAttribute("data-gpio-on")).toBe(true);
+    expect(node.shadowRoot!.querySelector('[data-testid="gpio-7"]')?.textContent?.replace(/\s+/g, " ").trim()).toBe(
+      "P0 HIGH",
+    );
   });
 });

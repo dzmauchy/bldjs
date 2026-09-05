@@ -17,6 +17,20 @@ describe("extern wasm stopped", () => {
     expect(preamble()).not.toContain("i32.atomic.store");
   });
 
+  it("emits env FFI and software math for the MCU wasm target", () => {
+    const source = preamble({ sin: true, cos: true, random: true, now: true, gpio: true, target: "wasm" });
+    expect(source).toContain('extern "wasm" fn host_wait_event');
+    expect(source).toContain('= "env" "pin_read"');
+    expect(source).toContain("fn math_sin(rad : Double) -> Double");
+    expect(source).toContain("fn math_random() -> Double");
+    expect(source).not.toContain('= "Math" "sin"');
+    expect(source).not.toContain("js_set_interval");
+    expect(source).not.toContain("to_double");
+    expect(source).not.toContain(" % ");
+    expect(emitStopped("wasm")).toContain("fn stopped() -> Unit");
+    expect(emitStopped("wasm")).not.toContain("i32_atomic_load");
+  });
+
   it("compiles stopped into wasm-gc and runs tick", async () => {
     const source = `${emitI32Atomics([i32Atomic("load")])}
 ${emitStopped()}
