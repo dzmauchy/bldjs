@@ -79,8 +79,8 @@ export class BldAboutModal extends LitElement {
                 <li>Drag empty space to pan</li>
                 <li>Drag a placed block to move it</li>
                 <li>Click or drag from an output handle to an input handle to ground a type</li>
-                <li>Run writes diagram XML, infers types, then builds the wasm assembly</li>
-                <li>Each Timer ticks with setInterval (a worker thread when the page is cross-origin isolated)</li>
+                <li>Run writes diagram XML, infers types, then compiles MoonBit to wasm-gc</li>
+                <li>Each Timer ticks with the imported browser setInterval (a worker thread when the page is cross-origin isolated)</li>
                 <li>After Run, Chart on Scope reads samples from that buffer</li>
                 <li>Delete or Backspace removes the selection</li>
                 <li>Ctrl/Cmd + 0 resets the view</li>

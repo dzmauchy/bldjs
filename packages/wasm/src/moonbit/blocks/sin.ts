@@ -1,0 +1,1 @@
+export { emitSin } from "../consumer";

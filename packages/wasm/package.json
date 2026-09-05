@@ -21,6 +21,6 @@
   },
   "dependencies": {
     "@bld/xml": "0.1.0",
-    "binaryen": "^132.0.0"
+    "@moonbit/moonc-worker": "^0.1.202608311"
   }
 }

@@ -6,6 +6,8 @@ const sources = import.meta.glob("./**/*.ts", {
   import: "default",
 }) as Record<string, string>;
 
+const HUGE_PACKAGES = new Set(["binaryen", "@moonbit/moonc-worker"]);
+
 function resolveRelative(fromFile: string, spec: string): string {
   const parts = fromFile.split("/");
   parts.pop();
@@ -23,7 +25,7 @@ function resolveRelative(fromFile: string, spec: string): string {
 }
 
 function resolveSpec(fromFile: string, spec: string): string | undefined {
-  if (spec === "binaryen") {
+  if (HUGE_PACKAGES.has(spec)) {
     return spec;
   }
   if (!spec.startsWith(".")) {
@@ -57,7 +59,7 @@ function valueSpecs(source: string): string[] {
 }
 
 describe("@bld/wasm public entries", () => {
-  it("does not statically import binaryen.js", () => {
+  it("does not statically import moonc-worker", () => {
     const queue = [
       "./isolation.ts",
       "./runtime/diagram-runner.ts",
@@ -71,7 +73,7 @@ describe("@bld/wasm public entries", () => {
         continue;
       }
       seen.add(file);
-      if (file === "binaryen") {
+      if (HUGE_PACKAGES.has(file)) {
         hits.push(file);
         continue;
       }
@@ -81,8 +83,8 @@ describe("@bld/wasm public entries", () => {
       }
       for (const spec of valueSpecs(source)) {
         const resolved = resolveSpec(file, spec);
-        if (resolved === "binaryen") {
-          hits.push(`${file} -> binaryen`);
+        if (resolved && HUGE_PACKAGES.has(resolved)) {
+          hits.push(`${file} -> ${resolved}`);
         } else if (resolved) {
           queue.push(resolved);
         }

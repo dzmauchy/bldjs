@@ -27,7 +27,7 @@ export async function assembleGenerator(
 }
 
 /**
- * Walk Scope → transformers → Generator (sink flow), then generate WASM with Binaryen.
+ * Walk Scope → transformers → Generator (sink flow), then compile MoonBit to wasm-gc.
  * `runDiagram` does the same assemble step when the simulation starts.
  */
 export async function compileGenerator(
@@ -46,7 +46,7 @@ export async function compileGenerator(
   return { ...plan, text: assembled.text, wasm: assembled.wasm, connectors: assembled.connectors };
 }
 
-/** Assemble the catalog block functions into one module and return WAT. */
+/** Assemble the catalog block functions into one module and return MoonBit source. */
 export async function generatorText(generator: string | readonly string[] = "timer", delayMs = 0): Promise<string> {
   if (typeof generator === "string") {
     return (await assembleModule({ generator, delayMs })).text;
