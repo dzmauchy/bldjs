@@ -112,3 +112,21 @@ export {
   spawnTimer,
   stop,
 } from "./plan";
+export {
+  AbstractBlock,
+  type BlockConnection,
+  type BlockOptions,
+  type BlockPort,
+  ConstantBlock,
+  CosBlock,
+  GpioInBlock,
+  GpioOutBlock,
+  OvershootBlock,
+  ProductBlock,
+  RandomBlock,
+  ScopeBlock,
+  SinBlock,
+  TimerBlock,
+  connectBlocks,
+  createBlock,
+} from "./blocks";

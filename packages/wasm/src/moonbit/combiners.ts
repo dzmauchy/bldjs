@@ -1,5 +1,6 @@
 import { countFrom, defFrom, DEFAULT_COUNT, DEFAULT_VALUE } from "@bld/xml/blocks/cs/ids";
 import { MoonBlock } from "./block";
+import type { MoonbitTarget } from "./compile";
 import { CTX_PARAM, type MoonBlockEmit } from "./types";
 
 function moonDouble(value: number): string {
@@ -46,15 +47,32 @@ fn ${name}(${CTX_PARAM}, input : C1) -> ${c1Tuple(n)} {
 `;
 }
 
-export class ProductMoonBlock extends MoonBlock {
+export abstract class AbstractProductBlock extends MoonBlock {
   readonly defId = "product";
+  abstract readonly target?: MoonbitTarget;
 
   emit(opts: MoonBlockEmit = {}): string {
     return emitProductWrap(opts.name ?? this.defId, opts.length, opts.def);
   }
 }
 
-export const PRODUCT_BLOCK = new ProductMoonBlock();
+export class BrowserProductBlock extends AbstractProductBlock {
+  readonly target = "wasm-gc" as const;
+}
+
+export class McuProductBlock extends AbstractProductBlock {
+  readonly target = "wasm" as const;
+}
+
+// Aliases for compatibility
+export {
+  BrowserProductBlock as ProductMoonBlock,
+  AbstractProductBlock as AbstractProduct,
+  BrowserProductBlock as BrowserProduct,
+  McuProductBlock as McuProduct,
+};
+
+export const PRODUCT_BLOCK = new BrowserProductBlock();
 
 export function emitProduct(opts: MoonBlockEmit = {}): string {
   return PRODUCT_BLOCK.emit(opts);

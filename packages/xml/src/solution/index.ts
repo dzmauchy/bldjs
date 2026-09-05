@@ -1,4 +1,10 @@
-export type { SolutionAssembly, SolutionBuilder } from "./builder";
+export {
+  AbstractSolutionBuilder,
+  type SolutionAssembly,
+  type SolutionBuilder,
+  type TargetAssembly,
+  type WasmTarget,
+} from "./builder";
 export {
   SolutionView,
   type SolutionViewBlock,

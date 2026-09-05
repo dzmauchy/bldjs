@@ -1,4 +1,5 @@
 import { MoonBlock } from "./block";
+import type { MoonbitTarget } from "./compile";
 import { CTX_PARAM, type MoonBlockEmit } from "./types";
 
 function pinLit(opts: MoonBlockEmit): number {
@@ -6,12 +7,11 @@ function pinLit(opts: MoonBlockEmit): number {
 }
 
 /**
- * gpio_in — XML `(Double) -> Unit` generator. Samples `host_pin_read` as 0.0/1.0
- * when ticked. The host ticks once on start and again on each pin edge (browser
- * switch or MCU GPIO IRQ), not a quantization period.
+ * Abstract GPIO In block. Samples host_pin_read as 0.0/1.0.
  */
-export class GpioInMoonBlock extends MoonBlock {
+export abstract class AbstractGpioInBlock extends MoonBlock {
   readonly defId = "gpio_in";
+  abstract readonly target?: MoonbitTarget;
 
   emit(opts: MoonBlockEmit = {}): string {
     const name = opts.name ?? this.defId;
@@ -23,11 +23,20 @@ export class GpioInMoonBlock extends MoonBlock {
   }
 }
 
+export class BrowserGpioInBlock extends AbstractGpioInBlock {
+  readonly target = "wasm-gc" as const;
+}
+
+export class McuGpioInBlock extends AbstractGpioInBlock {
+  readonly target = "wasm" as const;
+}
+
 /**
- * gpio_out — XML `() → (Double) -> Unit`. Writes the pin HIGH when the sample is &gt; 0.5.
+ * Abstract GPIO Out block. Writes the pin HIGH when sample > 0.5.
  */
-export class GpioOutMoonBlock extends MoonBlock {
+export abstract class AbstractGpioOutBlock extends MoonBlock {
   readonly defId = "gpio_out";
+  abstract readonly target?: MoonbitTarget;
 
   emit(opts: MoonBlockEmit = {}): string {
     const name = opts.name ?? this.defId;
@@ -39,8 +48,28 @@ export class GpioOutMoonBlock extends MoonBlock {
   }
 }
 
-export const GPIO_IN_BLOCK = new GpioInMoonBlock();
-export const GPIO_OUT_BLOCK = new GpioOutMoonBlock();
+export class BrowserGpioOutBlock extends AbstractGpioOutBlock {
+  readonly target = "wasm-gc" as const;
+}
+
+export class McuGpioOutBlock extends AbstractGpioOutBlock {
+  readonly target = "wasm" as const;
+}
+
+// Aliases for compatibility
+export {
+  BrowserGpioInBlock as GpioInMoonBlock,
+  AbstractGpioInBlock as AbstractGpioIn,
+  BrowserGpioInBlock as BrowserGpioIn,
+  McuGpioInBlock as McuGpioIn,
+  BrowserGpioOutBlock as GpioOutMoonBlock,
+  AbstractGpioOutBlock as AbstractGpioOut,
+  BrowserGpioOutBlock as BrowserGpioOut,
+  McuGpioOutBlock as McuGpioOut,
+};
+
+export const GPIO_IN_BLOCK = new BrowserGpioInBlock();
+export const GPIO_OUT_BLOCK = new BrowserGpioOutBlock();
 
 export function emitGpioIn(opts: MoonBlockEmit = {}): string {
   return GPIO_IN_BLOCK.emit(opts);

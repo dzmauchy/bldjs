@@ -3,10 +3,20 @@ import { Catalog } from "@bld/xml/blocks/catalog";
 import { isGeneratorId, isTransformerId } from "@bld/xml/blocks/cs/ids";
 import { Diagram } from "@bld/xml/blocks/diagram";
 import { portSlotIndex } from "@bld/xml/blocks/ports";
-import type { SolutionAssembly, SolutionBuilder } from "@bld/xml/solution/builder";
+import {
+  AbstractSolutionBuilder as BaseSolutionBuilder,
+  type SolutionAssembly,
+  type SolutionBuilder,
+  type TargetAssembly,
+} from "@bld/xml/solution/builder";
 import { SolutionView, type SolutionViewBlock, type SolutionViewConnector } from "@bld/xml/solution/view";
-import { compileMoonbit, preloadMoonc } from "../moonbit/compile";
+import { compileMoonbit, preloadMoonc, type MoonbitTarget } from "../moonbit/compile";
 import { emitSolutionFiles, moonbitText } from "../moonbit/emit";
+import { BROWSER_BLOCKS, MCU_BLOCKS } from "../moonbit/scripts";
+import type { MoonBlock } from "../moonbit/block";
+import type { MoonbitFile } from "../moonbit/types";
+
+export type { TargetAssembly } from "@bld/xml/solution/builder";
 
 export interface WasmBuildOptions {
   delayMs?: number;
@@ -90,38 +100,93 @@ export function assignRings(view: SolutionView, generatorId: number): Map<string
 }
 
 /**
- * WASM SolutionBuilder: emit MoonBit for each SolutionViewBlock.
- * Compiles two modules: browser `wasm-gc` (`wasm`) and MCU linear `wasm` (`prodWasm`).
+ * Abstract solution builder for a specific target.
+ * Descendants encapsulate target-specific code generation and compilation.
+ */
+export abstract class AbstractSolutionBuilder extends BaseSolutionBuilder {
+  abstract override readonly target: MoonbitTarget;
+
+  constructor(readonly catalog: Catalog = builtinCatalog()) {
+    super();
+  }
+
+  abstract getBlock(defId: string): MoonBlock | undefined;
+
+  emitFiles(
+    view: SolutionView,
+    rings: Map<string, number>,
+    options: { generatorId?: number; emitText?: boolean } = {},
+  ): MoonbitFile[] {
+    void options;
+    return emitSolutionFiles(this.catalog, view, rings, this.target);
+  }
+
+  override async build(view: SolutionView, options: WasmBuildOptions = {}): Promise<TargetAssembly> {
+    preloadAssembler();
+    const generatorId = options.generatorId ?? options.timerId ?? view.firstGeneratorId();
+    const graph = generatorId === undefined ? view : view.subgraphFromGenerator(generatorId);
+    const rings = generatorId !== undefined ? assignRings(graph, generatorId) : new Map<string, number>();
+    const files = this.emitFiles(graph, rings, { generatorId, emitText: options.emitText });
+    const wasm = await compileMoonbit(files, { target: this.target });
+    const text = options.emitText === false ? "" : moonbitText(files);
+    return {
+      target: this.target,
+      wasm,
+      text,
+      connectors: graph.connectors,
+    };
+  }
+}
+
+/**
+ * Browser solution builder: target `wasm-gc`.
+ * Encapsulates browser Math/Date/setInterval/host.push bindings and atomic stop word.
+ */
+export class BrowserSolutionBuilder extends AbstractSolutionBuilder {
+  readonly target = "wasm-gc" as const;
+
+  getBlock(defId: string): MoonBlock | undefined {
+    return BROWSER_BLOCKS[defId];
+  }
+}
+
+/**
+ * MCU solution builder: target `wasm` (linear MVP WebAssembly).
+ * Encapsulates MCU `"env"` RTOS/WAMR host ABI and embedded math.
+ */
+export class McuSolutionBuilder extends AbstractSolutionBuilder {
+  readonly target = "wasm" as const;
+
+  getBlock(defId: string): MoonBlock | undefined {
+    return MCU_BLOCKS[defId];
+  }
+}
+
+/**
+ * WASM SolutionBuilder: composes BrowserSolutionBuilder (`wasm-gc`) and McuSolutionBuilder (`wasm`).
  * Dev `start` registers the imported browser `js.setInterval`; prod exports `app_main`.
  */
 export class WasmSolutionBuilder implements SolutionBuilder {
-  constructor(private readonly catalog: Catalog = builtinCatalog()) {}
+  readonly browserBuilder: BrowserSolutionBuilder;
+  readonly mcuBuilder: McuSolutionBuilder;
+
+  constructor(catalog: Catalog = builtinCatalog()) {
+    this.browserBuilder = new BrowserSolutionBuilder(catalog);
+    this.mcuBuilder = new McuSolutionBuilder(catalog);
+  }
 
   async build(view: SolutionView, options: WasmBuildOptions = {}): Promise<SolutionAssembly> {
     const generatorId = options.generatorId ?? options.timerId ?? view.firstGeneratorId();
     const graph = generatorId === undefined ? view : view.subgraphFromGenerator(generatorId);
-    return emitWasm(this.catalog, graph, {
-      generatorId,
-      emitText: options.emitText,
-    });
+    const browser = await this.browserBuilder.build(graph, options);
+    const mcu = await this.mcuBuilder.build(graph, options);
+    return {
+      wasm: browser.wasm,
+      prodWasm: mcu.wasm,
+      text: browser.text,
+      connectors: graph.connectors,
+    };
   }
-}
-
-async function emitWasm(
-  catalog: Catalog,
-  view: SolutionView,
-  options: { generatorId?: number; emitText?: boolean },
-): Promise<SolutionAssembly> {
-  preloadAssembler();
-  const rings = options.generatorId !== undefined ? assignRings(view, options.generatorId) : new Map<string, number>();
-  const files = emitSolutionFiles(catalog, view, rings, "wasm-gc");
-  const prodFiles = emitSolutionFiles(catalog, view, rings, "wasm");
-  const wasm = await compileMoonbit(files, { target: "wasm-gc" });
-  const prodWasm = await compileMoonbit(prodFiles, { target: "wasm" });
-  if (options.emitText === false) {
-    return { wasm, prodWasm, text: "", connectors: view.connectors };
-  }
-  return { wasm, prodWasm, text: moonbitText(files), connectors: view.connectors };
 }
 
 export function linearSolutionView(generatorOrStages: string | readonly string[] = "timer"): SolutionView {

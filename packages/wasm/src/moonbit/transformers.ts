@@ -1,5 +1,6 @@
-import { omegaFrom, zetaFrom } from "@bld/xml/blocks/cs/ids";
+import { DEFAULT_OMEGA, DEFAULT_ZETA, omegaFrom, zetaFrom } from "@bld/xml/blocks/cs/ids";
 import { MoonBlock } from "./block";
+import type { MoonbitTarget } from "./compile";
 import { CTX_PARAM, type MoonBlockEmit } from "./types";
 
 function moonDouble(value: number): string {
@@ -29,20 +30,38 @@ export abstract class MoonTransformer extends MoonBlock {
   }
 }
 
-export class SinMoonBlock extends MoonTransformer {
+export abstract class AbstractSinBlock extends MoonTransformer {
   readonly defId = "sin";
+  abstract readonly target?: MoonbitTarget;
 
   protected mapExpr(value: string): string {
     return `math_sin(${value})`;
   }
 }
 
-export class CosMoonBlock extends MoonTransformer {
+export class BrowserSinBlock extends AbstractSinBlock {
+  readonly target = "wasm-gc" as const;
+}
+
+export class McuSinBlock extends AbstractSinBlock {
+  readonly target = "wasm" as const;
+}
+
+export abstract class AbstractCosBlock extends MoonTransformer {
   readonly defId = "cos";
+  abstract readonly target?: MoonbitTarget;
 
   protected mapExpr(value: string): string {
     return `math_cos(${value})`;
   }
+}
+
+export class BrowserCosBlock extends AbstractCosBlock {
+  readonly target = "wasm-gc" as const;
+}
+
+export class McuCosBlock extends AbstractCosBlock {
+  readonly target = "wasm" as const;
 }
 
 /**
@@ -138,17 +157,42 @@ fn ${name}(${CTX_PARAM}, input : C1) -> C1 {
 `;
 }
 
-export class OvershootMoonBlock extends MoonBlock {
+export abstract class AbstractOvershootBlock extends MoonBlock {
   readonly defId = "overshoot";
+  abstract readonly target?: MoonbitTarget;
 
   emit(opts: MoonBlockEmit = {}): string {
     return emitOvershootWrap(opts.name ?? this.defId, opts.zeta, opts.omega, opts.timeInput ?? true);
   }
 }
 
-export const SIN_BLOCK = new SinMoonBlock();
-export const COS_BLOCK = new CosMoonBlock();
-export const OVERSHOOT_BLOCK = new OvershootMoonBlock();
+export class BrowserOvershootBlock extends AbstractOvershootBlock {
+  readonly target = "wasm-gc" as const;
+}
+
+export class McuOvershootBlock extends AbstractOvershootBlock {
+  readonly target = "wasm" as const;
+}
+
+// Aliases for compatibility
+export {
+  BrowserSinBlock as SinMoonBlock,
+  AbstractSinBlock as AbstractSin,
+  BrowserSinBlock as BrowserSin,
+  McuSinBlock as McuSin,
+  BrowserCosBlock as CosMoonBlock,
+  AbstractCosBlock as AbstractCos,
+  BrowserCosBlock as BrowserCos,
+  McuCosBlock as McuCos,
+  BrowserOvershootBlock as OvershootMoonBlock,
+  AbstractOvershootBlock as AbstractOvershoot,
+  BrowserOvershootBlock as BrowserOvershoot,
+  McuOvershootBlock as McuOvershoot,
+};
+
+export const SIN_BLOCK = new BrowserSinBlock();
+export const COS_BLOCK = new BrowserCosBlock();
+export const OVERSHOOT_BLOCK = new BrowserOvershootBlock();
 
 export function emitSin(opts: MoonBlockEmit = {}): string {
   return SIN_BLOCK.emit(opts);

@@ -1,0 +1,31 @@
+version: 1
+
+mode: unrestricted
+
+workspace:
+  root: "."
+  file_access:
+    read: allow
+    write: allow
+    delete: allow
+    create: allow
+
+terminal:
+  policy: turbo
+  auto_approve: true
+  allow:
+    - "*"
+    - ".*"
+  working_dir: "."
+
+tools:
+  auto_approve: true
+  allow:
+    - "*"
+
+permissions:
+  run: allow
+  execute: allow
+  read: allow
+  write: allow
+  delete: allow

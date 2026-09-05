@@ -6,7 +6,7 @@ import type { SolutionView, SolutionViewBlock } from "@bld/xml/solution/view";
 import { DEV_TARGET, type MoonbitTarget } from "./compile";
 import { emitFork } from "./fork";
 import { emitAppMain, emitStart, PIN_INPUT_PULLUP, PIN_OUTPUT, preamble } from "./runtime";
-import { BLOCK_SCRIPTS } from "./scripts";
+import { BLOCK_SCRIPTS, BROWSER_BLOCKS, MCU_BLOCKS } from "./scripts";
 import type { MoonbitFile } from "./types";
 
 function moonIdent(name: string): string {
@@ -79,9 +79,11 @@ export function emitSolutionFiles(
   const lengths = new Map<number, number>();
   const defIds = new Set(view.blocks.map((block) => block.defId));
   const blockParts: string[] = [];
+  const targetBlocks = target === "wasm" ? MCU_BLOCKS : BROWSER_BLOCKS;
 
   for (const block of view.blocks) {
-    const add = BLOCK_SCRIPTS[block.defId];
+    const moonBlock = targetBlocks[block.defId];
+    const add = moonBlock?.script() ?? BLOCK_SCRIPTS[block.defId];
     if (!add) {
       continue;
     }

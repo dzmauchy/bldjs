@@ -1,5 +1,6 @@
 import { DEFAULT_PERIOD_MS, DEFAULT_VALUE, valueFrom } from "@bld/xml/blocks/cs/ids";
 import { MoonBlock } from "./block";
+import type { MoonbitTarget } from "./compile";
 import { CTX_PARAM, type MoonBlockEmit } from "./types";
 
 /** Default generator quantization period in nanoseconds (`DEFAULT_PERIOD_MS`). */
@@ -21,16 +22,42 @@ export abstract class MoonGenerator extends MoonBlock {
   }
 }
 
-export class TimerMoonBlock extends MoonGenerator {
+export abstract class AbstractTimerBlock extends MoonGenerator {
   readonly defId = "timer";
+  abstract readonly target?: MoonbitTarget;
+}
+
+export class BrowserTimerBlock extends AbstractTimerBlock {
+  readonly target = "wasm-gc" as const;
 
   protected sampleExpr(): string {
     return "now()";
   }
 }
 
-export class RandomMoonBlock extends MoonGenerator {
+export class McuTimerBlock extends AbstractTimerBlock {
+  readonly target = "wasm" as const;
+
+  protected sampleExpr(): string {
+    return "now()";
+  }
+}
+
+export abstract class AbstractRandomBlock extends MoonGenerator {
   readonly defId = "random";
+  abstract readonly target?: MoonbitTarget;
+}
+
+export class BrowserRandomBlock extends AbstractRandomBlock {
+  readonly target = "wasm-gc" as const;
+
+  protected sampleExpr(): string {
+    return "math_random()";
+  }
+}
+
+export class McuRandomBlock extends AbstractRandomBlock {
+  readonly target = "wasm" as const;
 
   protected sampleExpr(): string {
     return "math_random()";
@@ -41,8 +68,9 @@ function moonDouble(value: number): string {
   return Number.isInteger(value) ? `${value}.0` : String(value);
 }
 
-export class ConstantMoonBlock extends MoonGenerator {
+export abstract class AbstractConstantBlock extends MoonGenerator {
   readonly defId = "constant";
+  abstract readonly target?: MoonbitTarget;
 
   protected sampleExpr(): string {
     return "1.0";
@@ -58,9 +86,33 @@ export class ConstantMoonBlock extends MoonGenerator {
   }
 }
 
-export const TIMER_BLOCK = new TimerMoonBlock();
-export const RANDOM_BLOCK = new RandomMoonBlock();
-export const CONSTANT_BLOCK = new ConstantMoonBlock();
+export class BrowserConstantBlock extends AbstractConstantBlock {
+  readonly target = "wasm-gc" as const;
+}
+
+export class McuConstantBlock extends AbstractConstantBlock {
+  readonly target = "wasm" as const;
+}
+
+// Aliases for compatibility
+export {
+  BrowserTimerBlock as TimerMoonBlock,
+  AbstractTimerBlock as AbstractTimer,
+  BrowserTimerBlock as BrowserTimer,
+  McuTimerBlock as McuTimer,
+  BrowserRandomBlock as RandomMoonBlock,
+  AbstractRandomBlock as AbstractRandom,
+  BrowserRandomBlock as BrowserRandom,
+  McuRandomBlock as McuRandom,
+  BrowserConstantBlock as ConstantMoonBlock,
+  AbstractConstantBlock as AbstractConstant,
+  BrowserConstantBlock as BrowserConstant,
+  McuConstantBlock as McuConstant,
+};
+
+export const TIMER_BLOCK = new BrowserTimerBlock();
+export const RANDOM_BLOCK = new BrowserRandomBlock();
+export const CONSTANT_BLOCK = new BrowserConstantBlock();
 
 export function emitTimer(opts: MoonBlockEmit = {}): string {
   return TIMER_BLOCK.emit(opts);
