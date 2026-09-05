@@ -207,11 +207,7 @@ export class AppState extends ObservableState {
     this.#diagram.clear();
     this.#extras.clear();
     this.links = [];
-    this.scopeOpen = NONE_ID;
-    this.inputsOpen = NONE_ID;
-    this.selected = NONE_ID;
-    this.selectedLink = null;
-    this.linkingFrom = null;
+    this.#clearInteraction();
     this.io.error = null;
     this.run.error = null;
     this.#resetIdentity();
@@ -223,22 +219,8 @@ export class AppState extends ObservableState {
     if (!this.#diagram.remove(id)) {
       return;
     }
-    if (this.scopeOpen === id) {
-      this.scopeOpen = NONE_ID;
-    }
-    if (this.inputsOpen === id) {
-      this.inputsOpen = NONE_ID;
-    }
+    this.#forgetBlock(id);
     this.#replaceLinks(this.#wiring().withoutBlock(id).links);
-    if (this.selected === id) {
-      this.selected = NONE_ID;
-    }
-    if (this.linkingFrom?.blockId === id) {
-      this.linkingFrom = null;
-    }
-    if (this.selectedLink && (this.selectedLink.fromBlock === id || this.selectedLink.toBlock === id)) {
-      this.selectedLink = null;
-    }
     this.#extras.delete(id);
     this.touch();
     this.notify();
@@ -282,11 +264,7 @@ export class AppState extends ObservableState {
     this.io.saveName = canvas.name;
     this.#createdAt = canvas.createdAt;
     this.#updatedAt = canvas.updatedAt;
-    this.scopeOpen = NONE_ID;
-    this.inputsOpen = NONE_ID;
-    this.selected = NONE_ID;
-    this.selectedLink = null;
-    this.linkingFrom = null;
+    this.#clearInteraction();
     this.resetView();
     this.notify();
   }
@@ -544,13 +522,41 @@ export class AppState extends ObservableState {
     this.#diagram.replace(kept);
     this.#extras = new Map([...this.#extras].filter(([id]) => live.has(id)));
     this.links = this.links.filter((link) => live.has(link.fromBlock) && live.has(link.toBlock));
+    this.#retainLiveBlocks(live);
+    this.run.invalidate();
+  }
+
+  #clearInteraction(): void {
+    this.scopeOpen = NONE_ID;
+    this.inputsOpen = NONE_ID;
+    this.selected = NONE_ID;
+    this.selectedLink = null;
+    this.linkingFrom = null;
+  }
+
+  #forgetBlock(id: number): void {
+    if (this.scopeOpen === id) {
+      this.scopeOpen = NONE_ID;
+    }
+    if (this.inputsOpen === id) {
+      this.inputsOpen = NONE_ID;
+    }
+    if (this.selected === id) {
+      this.selected = NONE_ID;
+    }
+    if (this.linkingFrom?.blockId === id) {
+      this.linkingFrom = null;
+    }
+    if (this.selectedLink && (this.selectedLink.fromBlock === id || this.selectedLink.toBlock === id)) {
+      this.selectedLink = null;
+    }
+  }
+
+  #retainLiveBlocks(live: Set<number>): void {
     if (this.selected !== NONE_ID && !live.has(this.selected)) {
       this.selected = NONE_ID;
     }
-    if (
-      this.selectedLink &&
-      (!live.has(this.selectedLink.fromBlock) || !live.has(this.selectedLink.toBlock))
-    ) {
+    if (this.selectedLink && (!live.has(this.selectedLink.fromBlock) || !live.has(this.selectedLink.toBlock))) {
       this.selectedLink = null;
     }
     if (this.linkingFrom && !live.has(this.linkingFrom.blockId)) {
@@ -562,7 +568,6 @@ export class AppState extends ObservableState {
     if (this.inputsOpen !== NONE_ID && !live.has(this.inputsOpen)) {
       this.inputsOpen = NONE_ID;
     }
-    this.run.invalidate();
   }
 }
 

@@ -8,8 +8,10 @@ import {
   catalogPortName,
   compactLinkSlots,
   findCatalogLink,
+  incomingTo,
   inputSlotsFor,
   outputSlotsFor,
+  PortLinks,
   portSlotIndex,
   slottedOutputType,
   slottedPortName,
@@ -110,5 +112,14 @@ describe("allocate and compact extra slots", () => {
     expect(outputSlotsFor([port("out", vector)], 2, links).map((slot) => slot.name)).toEqual(["out"]);
     expect(inputSlotsFor([port("in")], 4, links).map((slot) => slot.name)).toEqual(["in", "in[1]"]);
     expect(inputSlotsFor([port("in")], 2, links).map((slot) => slot.name)).toEqual(["in"]);
+  });
+
+  it("orders incoming wires the same way as SolutionView", () => {
+    const links: Link[] = [
+      { fromBlock: 2, fromOut: "out[1]", toBlock: 4, toIn: "in[1]" },
+      { fromBlock: 1, fromOut: "out", toBlock: 4, toIn: "in" },
+    ];
+    expect(incomingTo(links, 4, "in").map((link) => link.fromBlock)).toEqual([1, 2]);
+    expect(new PortLinks(links).incoming(4, "in")).toEqual(incomingTo(links, 4, "in"));
   });
 });

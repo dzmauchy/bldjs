@@ -12,17 +12,26 @@ export interface CompiledGenerator extends GeneratorPlan {
 }
 
 /** Run each XML-matching WASM builder block and wire SolutionViewConnectors. */
+async function buildGenerator(
+  plan: Pick<GeneratorPlan, "delayMs" | "generatorId" | "timerId">,
+  nodes: NodeSpec[],
+  links: Link[],
+  emitText?: boolean,
+) {
+  const generatorId = plan.generatorId ?? plan.timerId;
+  return new WasmSolutionBuilder().build(solutionViewFrom(nodes, links), {
+    delayMs: plan.delayMs,
+    generatorId,
+    emitText,
+  });
+}
+
 export async function assembleGenerator(
   plan: Pick<GeneratorPlan, "delayMs" | "generatorId" | "timerId">,
   nodes: NodeSpec[],
   links: Link[],
 ): Promise<{ wasm: Uint8Array; connectors: readonly SolutionViewConnector[] }> {
-  const generatorId = plan.generatorId ?? plan.timerId;
-  const assembled = await new WasmSolutionBuilder().build(solutionViewFrom(nodes, links), {
-    delayMs: plan.delayMs,
-    generatorId,
-    emitText: false,
-  });
+  const assembled = await buildGenerator(plan, nodes, links, false);
   return { wasm: assembled.wasm, connectors: assembled.connectors };
 }
 
@@ -39,10 +48,7 @@ export async function compileGenerator(
   if (!plan) {
     return undefined;
   }
-  const assembled = await new WasmSolutionBuilder().build(solutionViewFrom(nodes, links), {
-    delayMs: plan.delayMs,
-    generatorId: plan.generatorId,
-  });
+  const assembled = await buildGenerator(plan, nodes, links);
   return { ...plan, text: assembled.text, wasm: assembled.wasm, connectors: assembled.connectors };
 }
 

@@ -28,7 +28,7 @@ function parkNanos(periodNs: number): void {
 export abstract class Generator {
   constructor(readonly periodMs = DEFAULT_PERIOD_MS) {}
 
-  protected abstract sample(time: number): number;
+  abstract sample(time: number): number;
 
   /** Internal quantizer: forward the sample, then park for `periodMs`. */
   protected quantized(c: DoubleConsumer): DoubleConsumer {
@@ -48,13 +48,13 @@ export abstract class Generator {
 }
 
 export class TimerGenerator extends Generator {
-  protected sample(time: number): number {
+  sample(time: number): number {
     return time;
   }
 }
 
 export class RandomGenerator extends Generator {
-  protected sample(_time: number): number {
+  sample(_time: number): number {
     return Math.random();
   }
 }
@@ -101,10 +101,5 @@ export function nowSecs(): number {
 }
 
 export function sampleOnce(defId: string, time: number): number {
-  switch (defId) {
-    case "random":
-      return Math.random();
-    default:
-      return time;
-  }
+  return generatorFor(defId)?.sample(time) ?? time;
 }

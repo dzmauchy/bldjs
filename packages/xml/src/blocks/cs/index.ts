@@ -35,7 +35,20 @@ export {
   scope,
   timer,
 } from "./generators";
-export { cos, cosFunc, mapOnce, sin, sinConsumer, sinFunc, transformerFor } from "./transformers";
+export {
+  CosTransformer,
+  SinTransformer,
+  Transformer,
+  cos,
+  cosFunc,
+  mapOnce,
+  sin,
+  sinConsumer,
+  sinFunc,
+  transformerFor,
+  transformerOf,
+} from "./transformers";
+export { ConsumerNode, ForkNode, MapNode, ScopeSink } from "./tree";
 export {
   type CompiledTimer,
   collectChannels,

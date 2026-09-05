@@ -4,6 +4,7 @@ import { loadDiagramSolution } from "@bld/xml/diagram/compile";
 import { plannedGenerators, topologyKey } from "@bld/xml/topology";
 import { DiagramRunCancelled, DiagramRunner, EMPTY_RUN_MESSAGE } from "@bld/wasm/runtime/diagram-runner";
 import { preloadAssembler } from "@bld/wasm/solution/wasm";
+import { HostedState } from "../observable";
 import { NONE_ID } from "../model";
 
 /** Canvas + catalog surface the run session needs. Lives in `run.ts` so UI chrome can stay off this graph. */
@@ -18,63 +19,27 @@ export interface RunHost {
 }
 
 /** WASM runner lifecycle. UI reads `running` / `error`; canvas samples Hertz from here. */
-export class RunSession {
-  #host: RunHost;
+export class RunSession extends HostedState<RunHost> {
   #runner = new DiagramRunner();
-  #starting = false;
-  #running = false;
-  #error: string | null = null;
+  declare starting: boolean;
+  declare running: boolean;
+  declare error: string | null;
 
   constructor(host: RunHost) {
-    this.#host = host;
-  }
-
-  get starting(): boolean {
-    return this.#starting;
-  }
-
-  set starting(value: boolean) {
-    if (this.#starting === value) {
-      return;
-    }
-    this.#starting = value;
-    this.#host.notify();
-  }
-
-  get running(): boolean {
-    return this.#running;
-  }
-
-  set running(value: boolean) {
-    if (this.#running === value) {
-      return;
-    }
-    this.#running = value;
-    this.#host.notify();
-  }
-
-  get error(): string | null {
-    return this.#error;
-  }
-
-  set error(value: string | null) {
-    if (this.#error === value) {
-      return;
-    }
-    this.#error = value;
-    this.#host.notify();
+    super(host);
+    this.defineFields({ starting: false, running: false, error: null });
   }
 
   busy(): boolean {
-    return this.#running || this.#starting;
+    return this.running || this.starting;
   }
 
   topologyKey(): string {
-    return topologyKey(this.#host.runNodes(), this.#host.links);
+    return topologyKey(this.host.runNodes(), this.host.links);
   }
 
   planned() {
-    return plannedGenerators(this.#host.runNodes(), this.#host.links);
+    return plannedGenerators(this.host.runNodes(), this.host.links);
   }
 
   canStart(): boolean {
@@ -98,7 +63,7 @@ export class RunSession {
   }
 
   sampleFlowRates(now = performance.now()): void {
-    if (!this.#running) {
+    if (!this.running) {
       return;
     }
     this.#runner.current?.sampleFlowRates(now);
@@ -106,13 +71,13 @@ export class RunSession {
 
   stop(): void {
     this.#runner.stop();
-    const changed = this.#starting || this.#running;
-    this.#starting = false;
-    this.#running = false;
-    if (this.#host.scopeOpen !== NONE_ID && !this.isScopeLive(this.#host.scopeOpen)) {
-      this.#host.scopeOpen = NONE_ID;
+    const changed = this.starting || this.running;
+    this.starting = false;
+    this.running = false;
+    if (this.host.scopeOpen !== NONE_ID && !this.isScopeLive(this.host.scopeOpen)) {
+      this.host.scopeOpen = NONE_ID;
     } else if (changed) {
-      this.#host.notify();
+      this.host.notify();
     }
   }
 
@@ -127,17 +92,16 @@ export class RunSession {
     this.stop();
     this.starting = true;
     try {
-      const solution = loadDiagramSolution(this.#host.toDiagramXml(), this.#host.catalog);
+      const solution = loadDiagramSolution(this.host.toDiagramXml(), this.host.catalog);
       await this.#runner.start(solution.nodes, solution.links, {
-        onArmed: () => this.#host.notify(),
+        onArmed: () => this.host.notify(),
       });
       if (!this.#runner.current) {
         return;
       }
-      this.#error = null;
-      this.#starting = false;
-      this.#running = true;
-      this.#host.notify();
+      this.error = null;
+      this.starting = false;
+      this.running = true;
     } catch (error) {
       if (error instanceof DiagramRunCancelled) {
         return;

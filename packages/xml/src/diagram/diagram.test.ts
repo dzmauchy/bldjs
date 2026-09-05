@@ -11,7 +11,8 @@ import {
   serializeCanvas,
   serializeDiagramXml,
 } from "./index";
-import { displayType } from "../blocks/ast";
+import { displayType, BLOCK_PARAMETER_KINDS } from "../blocks/ast";
+import { PARAMETER_KINDS } from "./types";
 
 function catalog() {
   const diagram = new Diagram("workspace", "Workspace");
@@ -34,6 +35,10 @@ function csCanvas() {
 }
 
 describe("diagram XML", () => {
+  it("shares parameter kinds with the catalog AST", () => {
+    expect(PARAMETER_KINDS).toEqual(BLOCK_PARAMETER_KINDS);
+  });
+
   it("parses the sample diagram.xml", () => {
     const doc = parseDiagramXml(sampleXml);
     expect(doc.id).toBe("diag_telemetry_01");

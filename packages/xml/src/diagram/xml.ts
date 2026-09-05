@@ -11,9 +11,8 @@ import {
   type DiagramConnector,
   type DiagramDocument,
   type EntityMeta,
-  type ParameterKind,
   type ParameterValue,
-  PARAMETER_KINDS,
+  isParameterKind,
 } from "./types";
 
 export { ParseError };
@@ -40,10 +39,6 @@ function parseEntity(el: XmlElem): EntityMeta {
     description: el.opt("description"),
     attributes: el.attributes(),
   };
-}
-
-function isParameterKind(tag: string): tag is ParameterKind {
-  return (PARAMETER_KINDS as readonly string[]).includes(tag);
 }
 
 function parseParameter(el: XmlElem): ParameterValue {

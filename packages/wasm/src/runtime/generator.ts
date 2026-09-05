@@ -1,8 +1,11 @@
 import { canShareMemory, canUseIsolatedWorker } from "../isolation";
 import type { SolutionViewConnector } from "@bld/xml/solution/view";
 import { intervalMs } from "@bld/xml/flow";
-import { createHost, type HostOptions } from "./host";
+import { bootGeneratorInstance, type InstantiatedGenerator } from "./boot";
+import { type HostOptions } from "./host";
 import { createMemory, readFlowCounts, readSamples, requestStop } from "./memory";
+
+export type { InstantiatedGenerator } from "./boot";
 
 export interface GeneratorHandle {
   connectors: readonly SolutionViewConnector[];
@@ -19,14 +22,6 @@ export interface StartGeneratorOptions {
   now?: () => number;
 }
 
-export interface InstantiatedGenerator {
-  memory: WebAssembly.Memory;
-  tick: () => void;
-  start: (delayMs: number) => void;
-  stopTimers: () => void;
-  fire: () => void;
-}
-
 function hostOptions(nowOrOptions?: (() => number) | HostOptions): HostOptions {
   if (typeof nowOrOptions === "function") {
     return { now: nowOrOptions };
@@ -39,25 +34,7 @@ export async function instantiateGenerator(
   memory: WebAssembly.Memory,
   nowOrOptions?: (() => number) | HostOptions,
 ): Promise<InstantiatedGenerator> {
-  const options = hostOptions(nowOrOptions);
-  const host = createHost(memory, options);
-  const module = await WebAssembly.compile(wasm.slice());
-  const instance = await WebAssembly.instantiate(module, host.imports);
-  const tick = instance.exports.tick;
-  const start = instance.exports.start;
-  if (typeof tick !== "function") {
-    throw new Error("generator wasm is missing exported tick");
-  }
-  if (typeof start !== "function") {
-    throw new Error("generator wasm is missing exported start");
-  }
-  return {
-    memory,
-    tick: tick as () => void,
-    start: start as (delayMs: number) => void,
-    stopTimers: () => host.stopTimers(),
-    fire: () => host.fire(),
-  };
+  return bootGeneratorInstance(wasm.slice(), memory, hostOptions(nowOrOptions));
 }
 
 function bindHandle(

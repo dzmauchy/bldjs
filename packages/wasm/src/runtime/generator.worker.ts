@@ -1,4 +1,4 @@
-import { createHost } from "./host";
+import { bootGeneratorInstance } from "./boot";
 import { requestStop } from "./memory";
 
 // Stay off @bld/xml: DOMParser is not defined in workers, and pulling the
@@ -20,16 +20,9 @@ async function start(
 ): Promise<void> {
   clearTimer();
   memory = shared;
-  const bytes = new Uint8Array(wasm);
-  const host = createHost(shared, { connectorCount });
-  const module = await WebAssembly.compile(bytes.buffer);
-  const instance = await WebAssembly.instantiate(module, host.imports);
-  const startTick = instance.exports.start;
-  if (typeof startTick !== "function") {
-    throw new Error("generator wasm is missing exported start");
-  }
-  (startTick as (delayMs: number) => void)(delayMs);
-  stopTimers = () => host.stopTimers();
+  const gen = await bootGeneratorInstance(wasm, shared, { connectorCount });
+  gen.start(delayMs);
+  stopTimers = () => gen.stopTimers();
 }
 
 self.onmessage = (

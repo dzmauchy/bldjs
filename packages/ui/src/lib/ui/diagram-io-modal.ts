@@ -1,43 +1,22 @@
-import { LitElement, css, html, nothing } from "lit";
-import { AppController } from "$lib/context";
+import { css, html, nothing } from "lit";
+import type { PropertyValues } from "lit";
 import type { AppState } from "$lib/state";
-import { bootstrapStyles } from "./bootstrap";
+import { BldModal } from "./modal";
 
-export class BldDiagramIoModal extends LitElement {
-  static override properties = {
-    app: { attribute: false },
-  };
-
-  declare app: AppState;
-
-  #ctrl?: AppController;
+export class BldDiagramIoModal extends BldModal {
   #saveName = "";
 
   static override styles = [
-    bootstrapStyles,
     css`
-      :host {
-        display: contents;
-      }
-      .saved-list {
-        max-height: 16rem;
-        overflow: auto;
-      }
+    .saved-list {
+      max-height: 16rem;
+      overflow: auto;
+    }
     `,
   ];
 
-  constructor() {
-    super();
-    this.app = undefined as unknown as AppState;
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this.#bindApp();
-  }
-
-  protected override willUpdate(): void {
-    this.#bindApp();
+  protected override willUpdate(changed: PropertyValues): void {
+    super.willUpdate(changed);
     if (this.app?.io.mode === "save" && this.#saveName === "") {
       this.#saveName = this.app.io.saveName;
     }
@@ -46,48 +25,26 @@ export class BldDiagramIoModal extends LitElement {
     }
   }
 
-  #bindApp(): void {
-    if (!this.app || this.#ctrl?.app === this.app) {
-      return;
-    }
-    this.#ctrl = new AppController(this, this.app);
+  protected isOpen(): boolean {
+    return Boolean(this.app) && this.app.io.mode !== "closed";
   }
 
-  #close(): void {
+  protected closeModal(): void {
     this.app.io.close();
   }
 
   protected override render() {
     const app = this.app;
-    if (!app || app.io.mode === "closed") {
+    if (!this.isOpen()) {
       return nothing;
     }
     const saving = app.io.mode === "save";
-    return html`
-      <div
-        class="modal-backdrop fade show"
-        role="button"
-        tabindex="0"
-        data-testid="diagram-io-backdrop"
-        @click=${() => this.#close()}
-        @keydown=${(event: KeyboardEvent) => {
-          if (event.key === "Enter" || event.key === " ") {
-            this.#close();
-          }
-        }}
-      ></div>
-      <div class="modal fade show d-block" tabindex="-1" role="dialog" data-testid="diagram-io-modal">
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">${saving ? "Save diagram" : "Open diagram"}</h5>
-              <button type="button" class="btn-close" aria-label="Close" @click=${() => this.#close()}></button>
-            </div>
-            ${saving ? this.#saveBody(app) : this.#openBody(app)}
-          </div>
-        </div>
-      </div>
-    `;
+    return this.renderDialog({
+      testId: "diagram-io-modal",
+      backdropTestId: "diagram-io-backdrop",
+      title: saving ? "Save diagram" : "Open diagram",
+      body: saving ? this.#saveBody(app) : this.#openBody(app),
+    });
   }
 
   #saveBody(app: AppState) {
@@ -117,7 +74,7 @@ export class BldDiagramIoModal extends LitElement {
             : nothing}
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-testid="diagram-io-cancel" @click=${() => this.#close()}>
+          <button type="button" class="btn btn-secondary" data-testid="diagram-io-cancel" @click=${() => this.closeModal()}>
             Cancel
           </button>
           <button type="submit" class="btn btn-primary" data-testid="diagram-save-confirm">Save</button>
@@ -167,7 +124,7 @@ export class BldDiagramIoModal extends LitElement {
             `}
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-testid="diagram-io-cancel" @click=${() => this.#close()}>
+        <button type="button" class="btn btn-secondary" data-testid="diagram-io-cancel" @click=${() => this.closeModal()}>
           Close
         </button>
       </div>

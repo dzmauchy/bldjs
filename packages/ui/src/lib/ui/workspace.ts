@@ -1,17 +1,8 @@
-import { LitElement, css, html, nothing } from "lit";
-import { AppController } from "$lib/context";
-import type { AppState } from "$lib/state";
+import { css, html, nothing } from "lit";
+import { AppHost } from "./app-host";
 import "$lib/flow/diagram";
 
-export class BldWorkspace extends LitElement {
-  static override properties = {
-    app: { attribute: false },
-  };
-
-  declare app: AppState;
-
-  #ctrl?: AppController;
-
+export class BldWorkspace extends AppHost {
   static override styles = css`
     :host {
       display: flex;
@@ -31,27 +22,6 @@ export class BldWorkspace extends LitElement {
       min-height: 0;
     }
   `;
-
-  constructor() {
-    super();
-    this.app = undefined as unknown as AppState;
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this.#bindApp();
-  }
-
-  protected override willUpdate(): void {
-    this.#bindApp();
-  }
-
-  #bindApp(): void {
-    if (!this.app || this.#ctrl?.app === this.app) {
-      return;
-    }
-    this.#ctrl = new AppController(this, this.app);
-  }
 
   protected override render() {
     if (!this.app) {

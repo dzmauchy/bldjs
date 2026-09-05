@@ -1,12 +1,6 @@
 import { SAMPLE_CAP, isStopped, requestStop, scopeCountAddr, scopeSamplesAddr } from "./memory";
 import { interceptConsumerFrequency } from "./runner";
-
-function tickDelayMs(delayMs: number): number {
-  if (!Number.isFinite(delayMs)) {
-    return 1;
-  }
-  return Math.max(1, Math.trunc(delayMs));
-}
+import { startQuantizedLoop } from "./tick";
 
 /** Write one sample into the JS-owned ring (MoonBit wasm-gc has its own tiny memory). */
 export function pushSample(memory: WebAssembly.Memory, value: number, ring: number): void {
@@ -38,7 +32,7 @@ export interface WasmHost {
 export function createHost(memory: WebAssembly.Memory, options: HostOptions = {}): WasmHost {
   const nowSecs = options.now ?? (() => Date.now() / 1000);
   const connectorCount = options.connectorCount ?? 0;
-  const timers = new Set<ReturnType<typeof setInterval>>();
+  const timers = new Set<() => void>();
   let intervalFire: (() => void) | undefined;
 
   const fire = (): void => {
@@ -55,25 +49,16 @@ export function createHost(memory: WebAssembly.Memory, options: HostOptions = {}
     },
     js: {
       setInterval(cb: () => void, ms: number): number {
-        const run = (): void => {
-          if (isStopped(memory)) {
-            return;
-          }
-          cb();
-          interceptConsumerFrequency(memory, connectorCount);
-        };
-        intervalFire = run;
-        run();
-        const delay = tickDelayMs(ms);
-        const id = setInterval(() => {
-          if (isStopped(memory)) {
-            clearInterval(id);
-            timers.delete(id);
-            return;
-          }
-          run();
-        }, delay);
-        timers.add(id);
+        const loop = startQuantizedLoop({
+          delayMs: ms,
+          isStopped: () => isStopped(memory),
+          fire() {
+            cb();
+            interceptConsumerFrequency(memory, connectorCount);
+          },
+        });
+        intervalFire = loop.fire;
+        timers.add(loop.stop);
         return 0;
       },
     },
@@ -91,8 +76,8 @@ export function createHost(memory: WebAssembly.Memory, options: HostOptions = {}
     imports,
     fire,
     stopTimers() {
-      for (const id of timers) {
-        clearInterval(id);
+      for (const stop of timers) {
+        stop();
       }
       timers.clear();
       requestStop(memory);

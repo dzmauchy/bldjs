@@ -11,11 +11,3 @@ export function emitConsumerWrap(name: string, mapExpr: (value: string) => strin
 }
 `;
 }
-
-export function emitSin(opts: MoonBlockEmit = {}): string {
-  return emitConsumerWrap(opts.name ?? "sin", (value) => `math_sin(${value})`);
-}
-
-export function emitCos(opts: MoonBlockEmit = {}): string {
-  return emitConsumerWrap(opts.name ?? "cos", (value) => `math_cos(${value})`);
-}
