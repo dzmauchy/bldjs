@@ -113,6 +113,22 @@ describe("scope multi-axis canvas plot", () => {
     expect(afterClip.filter((call) => call.name === "moveTo").length).toBeGreaterThanOrEqual(2);
   });
 
+  it("strokes a right-aligned series at the end of a fixed-length NaN window", () => {
+    const ctx = recordingContext();
+    const samples = Array.from({ length: 64 }, () => Number.NaN);
+    samples[62] = 0;
+    samples[63] = 1;
+    drawScopePlot(ctx, 640, 280, [{ label: "ch", samples }]);
+    const clipAt = ctx.calls.findIndex((call) => call.name === "clip");
+    const afterClip = ctx.calls.slice(clipAt);
+    const move = afterClip.find((call) => call.name === "moveTo");
+    const line = afterClip.find((call) => call.name === "lineTo");
+    expect(move).toBeDefined();
+    expect(line).toBeDefined();
+    expect(move!.args[0] as number).toBeGreaterThan(400);
+    expect(line!.args[0] as number).toBeGreaterThan(move!.args[0] as number);
+  });
+
   it("still paints axes when there are no samples yet", () => {
     const ctx = recordingContext();
     drawScopePlot(ctx, 400, 200, []);

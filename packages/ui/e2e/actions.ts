@@ -262,10 +262,11 @@ export async function scopeChartHasInk(page: Page): Promise<boolean> {
     if (!ctx) {
       return false;
     }
+    // Fixed-length window: new samples sit on the right until the ring wraps.
     const { data } = ctx.getImageData(
-      Math.floor(el.width * 0.22),
+      Math.floor(el.width * 0.12),
       Math.floor(el.height * 0.12),
-      Math.max(1, Math.floor(el.width * 0.56)),
+      Math.max(1, Math.floor(el.width * 0.86)),
       Math.max(1, Math.floor(el.height * 0.76)),
     );
     for (let i = 0; i < data.length; i += 16) {
