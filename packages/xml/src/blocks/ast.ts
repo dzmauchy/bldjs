@@ -373,7 +373,8 @@ export function unionOf(membersIn: TypeExpr[]): TypeExpr {
 }
 
 export function intersectionOf(membersIn: TypeExpr[]): TypeExpr {
-  const members = [...membersIn];
+  const nonHoles = membersIn.filter((member) => member.kind !== "hole");
+  const members = nonHoles.length > 0 ? nonHoles : [...membersIn];
   flattenInto(members, false);
   members.sort((a, b) => displayKey(a).localeCompare(displayKey(b)));
   const unique = dedupSorted(members);
@@ -407,9 +408,93 @@ export function typesEqual(left: TypeExpr, right: TypeExpr): boolean {
   return left.equals(right);
 }
 
+export const PRIMITIVE_TYPES = [
+  "Double",
+  "Float",
+  "Int",
+  "Int64",
+  "UInt",
+  "UInt64",
+  "String",
+  "Bool",
+  "Byte",
+  "Char",
+  "Unit",
+] as const;
+
+export type PrimitiveType = (typeof PRIMITIVE_TYPES)[number];
+
+export const BUILTIN_CONTAINER_TYPES = ["Array"] as const;
+export type BuiltinContainerType = (typeof BUILTIN_CONTAINER_TYPES)[number];
+
+export const SPECIAL_TYPES = ["Self", "_"] as const;
+export type SpecialType = (typeof SPECIAL_TYPES)[number];
+
+export const TYPE_KINDS = [
+  "type",
+  "func",
+  "tuple",
+  "array",
+  "union",
+  "intersection",
+  "hole",
+  "self",
+] as const;
+export type TypeKind = (typeof TYPE_KINDS)[number];
+
+export const PORT_DIRECTIONS = ["in", "out"] as const;
+export type PortDirection = (typeof PORT_DIRECTIONS)[number];
+
+export const RELATION_KINDS = [
+  "intersection",
+  "union",
+  "identity",
+  "map",
+  "subtype",
+  "supertype",
+  "custom",
+] as const;
+export type RelationKind = (typeof RELATION_KINDS)[number];
+
+export const VARIANCE_TYPES = ["+", "-", "=", "?"] as const;
+export type VarianceType = (typeof VARIANCE_TYPES)[number];
+
+export function isPrimitiveType(name: string): name is PrimitiveType {
+  const head = name.split(".").at(-1) ?? name;
+  return (PRIMITIVE_TYPES as readonly string[]).includes(head);
+}
+
+export function isBuiltinContainerType(name: string): name is BuiltinContainerType {
+  const head = name.split(".").at(-1) ?? name;
+  return (BUILTIN_CONTAINER_TYPES as readonly string[]).includes(head);
+}
+
+export function isSpecialType(name: string): name is SpecialType {
+  return (SPECIAL_TYPES as readonly string[]).includes(name);
+}
+
+export function isTypeKind(tag: string): tag is TypeKind {
+  return (TYPE_KINDS as readonly string[]).includes(tag);
+}
+
+export function isPortDirection(tag: string): tag is PortDirection {
+  return (PORT_DIRECTIONS as readonly string[]).includes(tag);
+}
+
+export function isRelationKind(tag: string): tag is RelationKind {
+  return (RELATION_KINDS as readonly string[]).includes(tag);
+}
+
+export function isVarianceType(val: string): val is VarianceType {
+  return (VARIANCE_TYPES as readonly string[]).includes(val);
+}
+
 export interface ParamDef {
   name: string;
   extends: TypeExpr[];
+  super?: TypeExpr[];
+  variance?: VarianceType;
+  relation?: RelationKind;
   attributes: Attribute[];
 }
 
@@ -418,6 +503,9 @@ export interface PortDef {
   ty: TypeExpr;
   vararg: boolean;
   icon: string | null;
+  direction?: PortDirection;
+  relation?: RelationKind;
+  relatesTo?: string;
   attributes: Attribute[];
 }
 
@@ -438,18 +526,27 @@ export const BLOCK_PARAMETER_KINDS = [
   "integer-range-parameter",
   "double-range-parameter",
   "text-parameter",
+  "setting",
+  "parameter",
 ] as const;
 
 export type BlockParameterKind = (typeof BLOCK_PARAMETER_KINDS)[number];
+export const SETTING_KINDS = BLOCK_PARAMETER_KINDS;
+export type SettingKind = BlockParameterKind;
 
 export function isBlockParameterKind(tag: string): tag is BlockParameterKind {
   return (BLOCK_PARAMETER_KINDS as readonly string[]).includes(tag);
 }
 
-/** Catalog `<parameters>` entry — configurable constant input, not a type param. */
+export function isSettingKind(tag: string): tag is SettingKind {
+  return isBlockParameterKind(tag);
+}
+
+/** Catalog `<parameters>` or `<settings>` entry — configurable constant input or setting. */
 export interface BlockParameterDef {
   kind: BlockParameterKind;
   name: string;
+  type?: TypeExpr | string | null;
   description: string | null;
   default: string | null;
   min: number | undefined;
@@ -458,6 +555,24 @@ export interface BlockParameterDef {
   minChars: number | undefined;
   maxChars: number | undefined;
   pattern: string | null;
+  attributes: Attribute[];
+}
+
+export type BlockSettingDef = BlockParameterDef;
+
+/** Relation between input types and output types */
+export interface TypeRelationDef {
+  name?: string;
+  kind: RelationKind;
+  from?: string;
+  to?: string;
+  input?: string;
+  output?: string;
+  param?: string;
+  type?: TypeExpr;
+  expression?: string;
+  inputs?: string[];
+  outputs?: string[];
   attributes: Attribute[];
 }
 
@@ -486,9 +601,11 @@ export interface BlockDef {
   icon: string | null;
   params: ParamDef[];
   parameters: BlockParameterDef[];
+  settings?: BlockParameterDef[];
   factory: Factory | null;
   inputs: PortDef[];
   outputs: PortDef[];
+  relations?: TypeRelationDef[];
   attributes: Attribute[];
   source: string;
 }
@@ -515,3 +632,4 @@ export interface BlocksDoc {
   blocks: BlockDef[];
   source: string;
 }
+

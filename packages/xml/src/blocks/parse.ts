@@ -9,7 +9,11 @@ import {
   type PortDef,
   type TypeDef,
   type TypeExpr,
+  type TypeRelationDef,
   isBlockParameterKind,
+  isPortDirection,
+  isRelationKind,
+  isVarianceType,
 } from "./ast";
 import { ParseError, XmlElem } from "../dom";
 import { parseMoonbitType } from "./moonbit-type";
@@ -58,6 +62,7 @@ function parseNamespace(node: XmlElem): Namespace {
 function parseParam(node: XmlElem): ParamDef {
   const attributes: Attribute[] = [];
   const extendsBounds: TypeExpr[] = [];
+  const superBounds: TypeExpr[] = [];
   for (const child of node.kids()) {
     switch (child.tag) {
       case "attribute":
@@ -67,28 +72,50 @@ function parseParam(node: XmlElem): ParamDef {
         extendsBounds.push(parseMoonbitAttr(child, undefined));
         rejectNestedTypes(child, "<extends>");
         break;
+      case "super":
+        superBounds.push(parseMoonbitAttr(child, undefined));
+        rejectNestedTypes(child, "<super>");
+        break;
       default:
         child.fail(`unsupported <param> child <${child.tag}>`);
     }
   }
+  const varianceRaw = node.opt("variance");
+  const variance = varianceRaw && isVarianceType(varianceRaw) ? varianceRaw : undefined;
+  const relationRaw = node.opt("relation");
+  const relation = relationRaw && isRelationKind(relationRaw) ? relationRaw : undefined;
   return {
     name: node.req("name"),
     extends: extendsBounds,
+    super: superBounds.length > 0 ? superBounds : undefined,
+    variance,
+    relation,
     attributes,
   };
 }
 
-function parsePort(node: XmlElem): PortDef {
+function parsePort(node: XmlElem, defaultDirection?: "in" | "out"): PortDef {
   rejectNestedTypes(node, `<${node.tag}>`);
   const vararg = node.opt("vararg");
+  const directionRaw = node.opt("direction");
+  const direction =
+    directionRaw && isPortDirection(directionRaw)
+      ? directionRaw
+      : defaultDirection ?? (node.tag === "in" || node.tag === "input" ? "in" : "out");
+  const relationRaw = node.opt("relation");
+  const relation = relationRaw && isRelationKind(relationRaw) ? relationRaw : undefined;
   return {
     name: node.req("name"),
     ty: parseMoonbitAttr(node, undefined),
     vararg: vararg === "true" || vararg === "1",
     icon: node.opt("icon") ?? null,
+    direction,
+    relation,
+    relatesTo: node.opt("relatesTo") ?? undefined,
     attributes: node.attributes(),
   };
 }
+
 
 function parseFactory(node: XmlElem): Factory {
   rejectNestedTypes(node, "<factory>");
@@ -143,9 +170,11 @@ function parseParameterDef(node: XmlElem): BlockParameterDef {
   if (!isBlockParameterKind(node.tag)) {
     node.fail(`unsupported parameter <${node.tag}>`);
   }
+  const typeAttr = node.opt("type");
   return {
     kind: node.tag,
     name: node.req("name"),
+    type: typeAttr !== undefined ? parseMoonbitAttr(node, undefined) : null,
     description: node.opt("description") ?? null,
     default: node.opt("default") ?? null,
     min: node.num("min", false),
@@ -169,6 +198,46 @@ function parseParameters(node: XmlElem): BlockParameterDef[] {
   return parameters;
 }
 
+function parseRelation(node: XmlElem): TypeRelationDef {
+  const attributes: Attribute[] = [];
+  const inputs: string[] = [];
+  const outputs: string[] = [];
+  for (const child of node.kids()) {
+    switch (child.tag) {
+      case "attribute":
+        attributes.push({ name: child.req("name"), value: child.text() });
+        break;
+      case "in":
+      case "input":
+        inputs.push(child.text());
+        break;
+      case "out":
+      case "output":
+        outputs.push(child.text());
+        break;
+      default:
+        child.fail(`unsupported <relation> child <${child.tag}>`);
+    }
+  }
+  const kindRaw = node.opt("kind") ?? "intersection";
+  const kind = isRelationKind(kindRaw) ? kindRaw : "intersection";
+  const typeAttr = node.opt("type");
+  return {
+    name: node.opt("name") ?? undefined,
+    kind,
+    from: node.opt("from") ?? undefined,
+    to: node.opt("to") ?? undefined,
+    input: node.opt("input") ?? undefined,
+    output: node.opt("output") ?? undefined,
+    param: node.opt("param") ?? undefined,
+    type: typeAttr !== undefined ? parseMoonbitAttr(node, undefined) : undefined,
+    expression: node.opt("expression") ?? undefined,
+    inputs: inputs.length > 0 ? inputs : undefined,
+    outputs: outputs.length > 0 ? outputs : undefined,
+    attributes,
+  };
+}
+
 function parseBlock(node: XmlElem, file: string): BlockDef {
   const attributes: Attribute[] = [];
   const params: ParamDef[] = [];
@@ -176,6 +245,7 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
   let factory: Factory | null = null;
   const inputs: PortDef[] = [];
   const outputs: PortDef[] = [];
+  const relations: TypeRelationDef[] = [];
   for (const child of node.kids()) {
     switch (child.tag) {
       case "attribute":
@@ -185,9 +255,7 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
         params.push(parseParam(child));
         break;
       case "parameters":
-        if (parameters.length > 0) {
-          child.fail("block already has parameters");
-        }
+      case "settings":
         parameters.push(...parseParameters(child));
         break;
       case "factory":
@@ -197,10 +265,16 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
         factory = parseFactory(child);
         break;
       case "in":
-        inputs.push(parsePort(child));
+      case "input":
+        inputs.push(parsePort(child, "in"));
         break;
       case "out":
-        outputs.push(parsePort(child));
+      case "output":
+        outputs.push(parsePort(child, "out"));
+        break;
+      case "relation":
+      case "type-relation":
+        relations.push(parseRelation(child));
         break;
       default:
         child.fail(`unsupported <block> child <${child.tag}>`);
@@ -213,13 +287,16 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
     icon: node.opt("icon") ?? null,
     params,
     parameters,
+    settings: parameters,
     factory,
     inputs,
     outputs,
+    relations: relations.length > 0 ? relations : undefined,
     attributes,
     source: file,
   };
 }
+
 
 export function parseBlocks(file: string, xml: string): BlocksDoc {
   const root = XmlElem.parse(file, xml, "blocks");

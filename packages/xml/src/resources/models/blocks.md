@@ -53,19 +53,39 @@ A `<block>` represents an executable node definition in the catalog.
 ### Factory Binding
 * `<factory id="...">`: Binds the block to an executable operation. Factory IDs are scoped relative to the block's `ns`.
 
-### Ports (`<in>` and `<out>`)
+### Ports (`<in>`, `<out>`, `<input>`, and `<output>`)
 * `name`: Port name (required).
 * `type`: MoonBit type string (e.g. `Double`, `(Double) -> Unit`, `Array[T]`).
+* `direction`: Optional explicit port direction (`in` | `out`).
 * `vararg`: Boolean flag for variable arguments (default `false`).
+* `relation`: Optional relation kind (`intersection` | `union` | `identity` | `map` | `subtype` | `supertype` | `custom`).
+* `relatesTo`: Comma-separated list of related port names (e.g. `relatesTo="in1,in2"`).
+
+### Relations Between Input Types and Output Types (`<relation>` / `<type-relation>`)
+Blocks can declare explicit relations between input and output ports:
+* `kind`: `intersection` (default), `union`, `identity`, `map`, etc.
+* `from` / `input`: Input ports contributing to the relation.
+* `to` / `output`: Output port receiving the inferred type.
+* Common types across multiple inputs constraining a generic parameter `T` or declared via `<relation kind="intersection">` are inferred as **type intersections** (e.g. `A & B`).
+
+```xml
+<block id="combiner" name="Combiner" ns="com.dsp.transform">
+  <in name="in1" type="Double"/>
+  <in name="in2" type="Int"/>
+  <out name="out" type="_"/>
+  <relation kind="intersection" from="in1,in2" to="out"/>
+</block>
+```
 
 ---
 
-## 4. Configurable Block Parameters (`<parameters>`)
-Blocks declare static/configurable constant inputs under the `<parameters>` container. These definitions dictate UI control rendering, defaults, constraints, and validation rules.
+## 4. Configurable Block Settings & Parameters (`<settings>` / `<parameters>`)
+Blocks declare static/configurable constant inputs and settings under `<settings>` or `<parameters>`. In addition to specific parameter types, blocks can use generic `<setting>` elements with explicit types (`type="Int"`, `type="Double"`, `type="String"`).
 
-| Parameter Tag | UI / Target Control | Key Constraint Attributes | Supported Units / Patterns |
+| Parameter / Setting Tag | UI / Target Control | Key Constraint Attributes | Supported Units / Patterns |
 | :--- | :--- | :--- | :--- |
-| `<integer-parameter>` | Number Input | `default` | Standard 64-bit integer |
+| `<setting>` | Typed Setting Control | `type`, `default`, `min`, `max`, `step` | General typed block configuration |
+| `<integer-parameter>` | Number Input | `type`, `default` | Standard 64-bit integer |
 | `<count-parameter>` | Spinner (Up/Down) | `min`, `max`, `step`, `default` | Integer stepping (`min` defaults to 0) |
 | `<decimal-parameter>` | Floating-point Input | `default` | Fixed-point / Decimal notation |
 | `<duration-parameter>` | Time Duration Picker | `default` | Regex pattern: `[0-9]+(\.[0-9]+)?(ns\|us\|µs\|ms\|s\|m\|h\|d)` |
@@ -76,15 +96,16 @@ Blocks declare static/configurable constant inputs under the `<parameters>` cont
 | `<double-range-parameter>` | Float Slider / Range | `min`, `max`, `step`, `default` | `min` and `max` required |
 | `<text-parameter>` | Text Field / Area | `minChars`, `maxChars`, `pattern`, `default` | Regex pattern and string length bounds |
 
-### Block Parameter Catalog Example
+### Block Settings & Parameter Catalog Example
 
 ```xml
 <block id="scaler" name="Signal Scaler" ns="com.dsp.transform" icon="scaler.svg">
   <factory id="transform#scale"/>
 
-  <parameters>
-    <!-- Floating point calibration offset -->
-    <decimal-parameter name="calibrationOffset" description="Zero-point baseline shift" default="0.0025"/>
+  <settings>
+    <!-- Explicit typed settings -->
+    <setting name="bufferSize" type="Int" default="1024" min="64" max="65536" step="64"/>
+    <setting name="calibrationOffset" type="Double" description="Zero-point baseline shift" default="0.0025"/>
 
     <!-- Slider with integer step -->
     <integer-range-parameter name="smoothingWindow" description="Window size for moving average" min="10" max="200" step="5" default="50"/>
@@ -97,7 +118,7 @@ Blocks declare static/configurable constant inputs under the `<parameters>` cont
 
     <!-- Validated Text -->
     <text-parameter name="filterName" minChars="3" maxChars="32" pattern="^[a-zA-Z0-9_-]+$" default="default_filter"/>
-  </parameters>
+  </settings>
 
   <in name="raw_in" type="(Double) -> Unit"/>
   <out name="scaled_out" type="(Double) -> Unit"/>
@@ -106,5 +127,19 @@ Blocks declare static/configurable constant inputs under the `<parameters>` cont
 
 ---
 
-## 5. Custom Attributes
-Any catalog element (`blocks`, `block`, `type`, `param`, `in`, `out`, `parameters`, or parameter definitions) can contain arbitrary `<attribute name="...">value</attribute>` elements for metadata extensions.
+## 5. Input and Output Type Constants
+All constants related to input and output types are defined in `blocks.xsd` as simple types and exported in `@bld/xml` (`ast.ts` and `types.ts`):
+* `PRIMITIVE_TYPES`: `Double`, `Float`, `Int`, `Int64`, `UInt`, `UInt64`, `String`, `Bool`, `Byte`, `Char`, `Unit`
+* `BUILTIN_CONTAINER_TYPES`: `Array`
+* `SPECIAL_TYPES`: `Self`, `_`
+* `TYPE_KINDS`: `type`, `func`, `tuple`, `array`, `union`, `intersection`, `hole`, `self`
+* `PORT_DIRECTIONS`: `in`, `out`
+* `RELATION_KINDS`: `intersection`, `union`, `identity`, `map`, `subtype`, `supertype`, `custom`
+* `BLOCK_PARAMETER_KINDS` / `SETTING_KINDS`
+* `VARIANCE_TYPES`: `+`, `-`, `=`, `?`
+
+---
+
+## 6. Custom Attributes
+Any catalog element (`blocks`, `block`, `type`, `param`, `in`, `out`, `parameters`, `settings`, or parameter definitions) can contain arbitrary `<attribute name="...">value</attribute>` elements for metadata extensions.
+
