@@ -70,7 +70,7 @@ describe("emitSolutionFiles", () => {
     const sources = Object.fromEntries(files);
     expect(sources["runtime.mbt"]).toContain("host_attach_irq(0, 3)");
     expect(sources["runtime.mbt"]).toContain("if event_type == 2");
-    expect(sources["runtime.mbt"]).not.toContain("host_timer_start(0,");
+    expect(sources["runtime.mbt"]).not.toContain("host_timer_start");
     expect(sources["runtime.mbt"]).not.toContain("if event_type == 1");
   });
 

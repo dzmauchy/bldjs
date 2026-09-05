@@ -206,6 +206,7 @@ export function emitSolutionFiles(
             random: defIds.has("random"),
             now: defIds.has("timer"),
             gpio: defIds.has("gpio_in") || defIds.has("gpio_out"),
+            timer: !eventDriven,
             target,
           }),
           emitAppMain({ delayMs, pins, eventDriven }),

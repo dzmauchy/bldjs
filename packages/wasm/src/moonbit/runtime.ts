@@ -10,6 +10,8 @@ export interface PreambleNeeds {
   random?: boolean;
   now?: boolean;
   gpio?: boolean;
+  /** MCU hardware timer. GPIO In is edge-driven and does not start one. */
+  timer?: boolean;
   /** Atomic wrappers to emit. Defaults to load, which `stopped` uses. */
   atomics?: readonly I32AtomicFn[];
   target?: MoonbitTarget;
@@ -61,9 +63,11 @@ function jsBindings(needs: PreambleNeeds): string[] {
 function envBindings(needs: PreambleNeeds): string {
   const lines = [
     `extern "wasm" fn host_wait_event(timeout_ms : Int) -> Int = "env" "wait_event"`,
-    `extern "wasm" fn host_timer_start(timer_id : Int, period_us : Int) = "env" "timer_start"`,
-    `extern "wasm" fn host_usb_write(ptr : Int, len : Int) -> Int = "env" "usb_write"`,
   ];
+  if (needs.timer !== false) {
+    lines.push(`extern "wasm" fn host_timer_start(timer_id : Int, period_us : Int) = "env" "timer_start"`);
+  }
+  lines.push(`extern "wasm" fn host_usb_write(ptr : Int, len : Int) -> Int = "env" "usb_write"`);
   if (needs.gpio) {
     lines.push(
       `extern "wasm" fn host_pin_mode(pin : Int, mode : Int) = "env" "pin_mode"`,
