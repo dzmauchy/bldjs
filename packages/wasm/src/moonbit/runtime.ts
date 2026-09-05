@@ -112,7 +112,7 @@ export function preamble(needs: PreambleNeeds = { sin: true, cos: true, random: 
   date_now() / 1000.0
 }`
     : "";
-  const parts = [
+    const parts = [
     `// XML-matching MoonBit wasm-gc generator.
 // Browser bindings: Math, Date, js.setInterval. Samples go through host.push.
 // i32 atomics are extern "wasm" WAT (not wait). Default is i32.atomic.load for stopped.`,
@@ -122,12 +122,7 @@ export function preamble(needs: PreambleNeeds = { sin: true, cos: true, random: 
     emitStopped(target),
     "///|",
     "type C1 = (Double) -> Unit",
-    `fn introspect(idx : Int, inner : C1) -> C1 {
-  fn(v : Double) {
-    host_tap(v, idx)
-    inner(v)
-  }
-}`,
+    emitIntrospect("tap"),
     nowFn,
   ];
   return `${parts.filter((part) => part.length > 0).join("\n")}
@@ -144,12 +139,24 @@ function preambleProd(needs: PreambleNeeds): string {
     math,
     emitStopped("wasm"),
     "type C1 = (Double) -> Unit",
-    `fn introspect(_idx : Int, inner : C1) -> C1 {
-  inner
-}`,
+    emitIntrospect("identity"),
   ];
   return `${parts.filter((part) => part.length > 0).join("\n")}
 `;
+}
+
+function emitIntrospect(mode: "tap" | "identity"): string {
+  if (mode === "identity") {
+    return `fn introspect(_idx : Int, inner : C1) -> C1 {
+  inner
+}`;
+  }
+  return `fn introspect(idx : Int, inner : C1) -> C1 {
+  fn(v : Double) {
+    host_tap(v, idx)
+    inner(v)
+  }
+}`;
 }
 
 export function emitStart(): string {
