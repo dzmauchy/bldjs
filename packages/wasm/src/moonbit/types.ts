@@ -1,6 +1,12 @@
 /** XML `c<f64>` as a MoonBit consumer. */
 export const C1_TYPE = "C1";
 
+/**
+ * Extra runtime parameter, not an XML port.
+ * The `_` prefix is MoonBit's unused binding, so bodies do not need `let _ = ctx`.
+ */
+export const CTX_PARAM = "_ctx : Int";
+
 export interface MoonBlockEmit {
   /** MoonBit function name. Defaults to the XML block id. */
   name?: string;
@@ -11,3 +17,6 @@ export interface MoonBlockEmit {
 }
 
 export type BlockScript = (opts?: MoonBlockEmit) => string;
+
+/** One named MoonBit source file inside the generated `main` package. */
+export type MoonbitFile = readonly [name: string, source: string];

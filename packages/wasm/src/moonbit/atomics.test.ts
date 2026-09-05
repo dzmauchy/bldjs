@@ -80,7 +80,7 @@ describe("atomics in generated blocks", () => {
     expect(emitStopped()).toContain(`${i32Atomic("load").name}(${MEM.stop})`);
     expect(preamble()).toContain(emitI32Atomics([i32Atomic("load")]));
     const wasm = await compileTick(
-      `  let _ = stopped()`,
+      `  stopped()`,
       `${emitI32Atomics([i32Atomic("load")])}\n${emitStopped()}`,
     );
     expect(hasThreadsOpcode(wasm, I32_ATOMIC_OPCODE.load)).toBe(true);
@@ -99,26 +99,24 @@ describe("atomics in generated blocks", () => {
       now: true,
       atomics: [load, store, add],
     })}
-fn timer(ctx : Int, input : C1) -> Unit {
-  let _ = ctx
+fn timer(_ctx : Int, input : C1) -> Unit {
   let flag = ${load.name}(${MEM.stop})
   let _ = ${add.name}(${MEM.count}, 1)
   ${store.name}(${MEM.wait}, flag)
   input(now())
 }
 
-fn scope(ctx : Int) -> C1 {
-  let _ = ctx
+fn scope(_ctx : Int) -> C1 {
   fn(v : Double) { host_push(v, 0) }
 }
 
 pub fn tick() -> Unit {
-  let _ = stopped()
+  stopped()
   timer(0, scope(0))
 }
 ${emitStart()}
 `;
-    expect(source).toContain("fn timer(ctx : Int, input : C1) -> Unit");
+    expect(source).toContain("fn timer(_ctx : Int, input : C1) -> Unit");
     expect(source).toContain(load.instruction);
     expect(source).toContain(store.instruction);
     expect(source).toContain(add.instruction);

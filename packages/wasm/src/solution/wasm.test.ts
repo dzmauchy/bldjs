@@ -61,9 +61,9 @@ describe("WasmSolutionBuilder", () => {
       ],
     );
     const { text, wasm } = await new WasmSolutionBuilder().build(view, { generatorId: 3, delayMs: 0 });
-    expect(text).toContain("fn scope(ctx : Int) -> C1");
-    expect(text).toContain("fn sin(ctx : Int, input : C1) -> C1");
-    expect(text).toContain("fn timer(ctx : Int, input : C1) -> Unit");
+    expect(text).toContain("fn scope(_ctx : Int) -> C1");
+    expect(text).toContain("fn sin(_ctx : Int, input : C1) -> C1");
+    expect(text).toContain("fn timer(_ctx : Int, input : C1) -> Unit");
     expect(text).toContain("let b1 = scope(0)");
     expect(text).toContain("let b2 = sin(0, b1)");
     expect(text).toContain("timer(0, b2)");
@@ -98,7 +98,7 @@ describe("WasmSolutionBuilder", () => {
     const { text, wasm } = await new WasmSolutionBuilder().build(view, { generatorId: 4, delayMs: 0 });
     expect(text).toContain("fn cos(");
     expect(text).not.toContain("fn sin(");
-    expect(text).toContain("fn scope(ctx : Int) -> C1");
+    expect(text).toContain("fn scope(_ctx : Int) -> C1");
     const memory = createSharedMemory();
     const gen = await instantiateGenerator(wasm, memory, () => 0);
     gen.tick();

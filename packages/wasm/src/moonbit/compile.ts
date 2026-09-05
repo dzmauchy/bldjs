@@ -1,3 +1,5 @@
+import type { MoonbitFile } from "./types";
+
 type MooncApi = {
   buildPackage: (params: Record<string, unknown>) => { core?: Uint8Array; diagnostics: string[] };
   linkCore: (params: Record<string, unknown>) => { result: Uint8Array };
@@ -28,11 +30,19 @@ function formatDiagnostics(diagnostics: string[]): string {
   return diagnostics.map((line) => line.trimEnd()).join("\n");
 }
 
+function mbtFiles(source: string | readonly MoonbitFile[]): [string, string][] {
+  if (typeof source === "string") {
+    return [["main.mbt", source]];
+  }
+  return source.map(([name, text]) => [name, text]);
+}
+
 /** Compile generated MoonBit to a wasm-gc module in the browser (or Node). */
-export async function compileMoonbit(source: string): Promise<Uint8Array> {
+export async function compileMoonbit(source: string | readonly MoonbitFile[]): Promise<Uint8Array> {
   const moonc = await preloadMoonc();
+  const files = mbtFiles(source);
   const build = moonc.buildPackage({
-    mbtFiles: [["main.mbt", source]],
+    mbtFiles: files,
     miFiles: [],
     indirectImportMiFiles: [],
     stdMiFiles: [],

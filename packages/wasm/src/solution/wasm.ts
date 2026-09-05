@@ -6,7 +6,7 @@ import { portSlotIndex } from "@bld/xml/blocks/ports";
 import type { SolutionAssembly, SolutionBuilder } from "@bld/xml/solution/builder";
 import { SolutionView, type SolutionViewBlock, type SolutionViewConnector } from "@bld/xml/solution/view";
 import { compileMoonbit, preloadMoonc } from "../moonbit/compile";
-import { emitSolutionMoonbit } from "../moonbit/emit";
+import { emitSolutionFiles, moonbitText } from "../moonbit/emit";
 
 export interface WasmBuildOptions {
   delayMs?: number;
@@ -113,12 +113,12 @@ async function emitWasm(
 ): Promise<SolutionAssembly> {
   preloadAssembler();
   const rings = options.generatorId !== undefined ? assignRings(view, options.generatorId) : new Map<string, number>();
-  const source = emitSolutionMoonbit(catalog, view, rings);
-  const wasm = await compileMoonbit(source);
+  const files = emitSolutionFiles(catalog, view, rings);
+  const wasm = await compileMoonbit(files);
   if (options.emitText === false) {
     return { wasm, text: "", connectors: view.connectors };
   }
-  return { wasm, text: source, connectors: view.connectors };
+  return { wasm, text: moonbitText(files), connectors: view.connectors };
 }
 
 export function linearSolutionView(generatorOrStages: string | readonly string[] = "timer"): SolutionView {

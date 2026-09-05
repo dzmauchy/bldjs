@@ -13,9 +13,9 @@ describe("MoonBit generator", () => {
 
   it("ticks sin(pi/2) through the assembled pipeline", async () => {
     const { text, wasm } = await assembleModule({ generator: "sin", delayMs: 10 });
-    expect(text).toContain("sin(ctx : Int, input : C1)");
-    expect(text).toContain("scope(ctx : Int)");
-    expect(text).toContain("timer(ctx : Int, input : C1)");
+    expect(text).toContain("sin(_ctx : Int, input : C1)");
+    expect(text).toContain("scope(_ctx : Int)");
+    expect(text).toContain("timer(_ctx : Int, input : C1)");
     const memory = createSharedMemory();
     let now = Math.PI / 2;
     const gen = await instantiateGenerator(wasm, memory, () => now);
@@ -70,8 +70,8 @@ describe("MoonBit generator", () => {
 
   it("tick writes samples through XML-typed block functions", async () => {
     const { text, wasm } = await assembleModule({ generator: "sin", delayMs: 0 });
-    expect(text).toContain("fn sin(ctx : Int, input : C1) -> C1");
-    expect(text).toContain("fn scope(ctx : Int) -> C1");
+    expect(text).toContain("fn sin(_ctx : Int, input : C1) -> C1");
+    expect(text).toContain("fn scope(_ctx : Int) -> C1");
     const memory = createSharedMemory();
     const gen = await instantiateGenerator(wasm, memory, () => 0.5);
     gen.tick();

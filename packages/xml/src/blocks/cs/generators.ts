@@ -12,7 +12,7 @@ import type { DoubleConsumer } from "./types";
  *
  * Each generator uses an internal quantizer whose period (ms) comes from the
  * catalog `period` range input (default 10). MoonBit blocks repeat the XML
- * signature plus runtime `ctx : Int`.
+ * signature plus unused runtime `_ctx : Int`.
  */
 
 function parkNanos(periodNs: number): void {

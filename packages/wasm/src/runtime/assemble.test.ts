@@ -19,14 +19,14 @@ describe("block MoonBit assembly", () => {
     expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["cos", "random", "scope", "sin", "timer"]);
     for (const id of ["timer", "random"] as const) {
       const source = BLOCK_SCRIPTS[id]!();
-      expect(source).toContain(`fn ${id}(ctx : Int, input : C1) -> Unit`);
+      expect(source).toContain(`fn ${id}(_ctx : Int, input : C1) -> Unit`);
     }
     for (const id of ["sin", "cos"] as const) {
       const source = BLOCK_SCRIPTS[id]!();
-      expect(source).toContain(`fn ${id}(ctx : Int, input : C1) -> C1`);
+      expect(source).toContain(`fn ${id}(_ctx : Int, input : C1) -> C1`);
     }
-    expect(BLOCK_SCRIPTS.scope!()).toContain("fn scope(ctx : Int) -> C1");
-    expect(BLOCK_SCRIPTS.scope!({ length: 2, rings: [0, 1] })).toContain("fn scope(ctx : Int) -> (C1, C1)");
+    expect(BLOCK_SCRIPTS.scope!()).toContain("fn scope(_ctx : Int) -> C1");
+    expect(BLOCK_SCRIPTS.scope!({ length: 2, rings: [0, 1] })).toContain("fn scope(_ctx : Int) -> (C1, C1)");
   });
 
   it("matches XML port names as MoonBit params (input is XML in)", () => {
@@ -36,7 +36,7 @@ describe("block MoonBit assembly", () => {
     for (const id of Object.keys(BLOCK_SCRIPTS)) {
       const sig = blockSignature(cat.block(id)!);
       const source = BLOCK_SCRIPTS[id]!();
-      expect(source, id).toContain(`fn ${id}(ctx : Int`);
+      expect(source, id).toContain(`fn ${id}(_ctx : Int)`);
       if (sig.params.some((port) => port.name === "in")) {
         expect(source, id).toContain("input : C1");
       }
@@ -50,12 +50,12 @@ describe("block MoonBit assembly", () => {
       delayMs: 10,
       sharedMemory: true,
     });
-    expect(text).toContain("fn sin(ctx : Int, input : C1) -> C1");
-    expect(text).toContain("fn timer(ctx : Int, input : C1) -> Unit");
-    expect(text).toContain("fn scope(ctx : Int) -> C1");
+    expect(text).toContain("fn sin(_ctx : Int, input : C1) -> C1");
+    expect(text).toContain("fn timer(_ctx : Int, input : C1) -> Unit");
+    expect(text).toContain("fn scope(_ctx : Int) -> C1");
     expect(text).toContain("pub fn tick() -> Unit");
-    expect(text).toContain("let _ = stopped()");
-    expect(text).toContain("fn stopped() -> Int");
+    expect(text).toContain("  stopped()");
+    expect(text).toContain("fn stopped() -> Unit");
     expect(text).toContain('extern "wasm" fn i32_atomic_load');
     expect(text).toContain("i32.atomic.load");
     expect(hasThreadsOpcode(wasm, I32_ATOMIC_OPCODE.load)).toBe(true);
