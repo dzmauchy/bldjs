@@ -14,7 +14,7 @@ describe("SolutionView", () => {
       ],
       [],
     );
-    expect(unique.instanceName(unique.blocks[0])).toBe("scope");
+    expect(unique.instanceName(unique.blocks[0]!)).toBe("scope");
     const two = solutionViewFrom(
       [
         { id: 1, defId: "scope" },
@@ -23,8 +23,8 @@ describe("SolutionView", () => {
       ],
       [],
     );
-    expect(two.instanceName(two.blocks[0])).toBe("scope_1");
-    expect(two.instanceName(two.blocks[1])).toBe("scope_2");
+    expect(two.instanceName(two.blocks[0]!)).toBe("scope_1");
+    expect(two.instanceName(two.blocks[1]!)).toBe("scope_2");
   });
 
   it("keeps the generator subgraph of connected blocks", () => {
@@ -61,23 +61,20 @@ describe("WasmSolutionBuilder", () => {
       ],
     );
     const { text, wasm } = await new WasmSolutionBuilder().build(view, { generatorId: 3, delayMs: 0 });
-    expect(text).toContain("array.new_fixed $array_c1_f64 1");
-    expect(text).toContain("array.get $array_c1_f64");
-    expect(text).toContain("(func $scope");
-    expect(text).toContain("(result (ref $array_c1_f64))");
-    expect(text).toContain("(func $sin");
-    expect(text).toContain("(param $in (ref $c1_f64))");
-    expect(text).toContain("(result (ref $c1_f64))");
-    expect(text).toContain("(func $timer");
-    expect(text).not.toContain("(func $cos");
-    expect(text).not.toContain("(param $in f64)");
-    expect(text).not.toContain("(func $tap_0");
+    expect(text).toContain("fn scope(ctx : Int) -> C1");
+    expect(text).toContain("fn sin(ctx : Int, input : C1) -> C1");
+    expect(text).toContain("fn timer(ctx : Int, input : C1) -> Unit");
+    expect(text).toContain("let b1 = scope(0)");
+    expect(text).toContain("let b2 = sin(0, b1)");
+    expect(text).toContain("timer(0, b2)");
+    expect(text).not.toContain("fn cos(");
+    expect(text).not.toContain("memory.atomic.wait32");
     expect(WebAssembly.validate(wasm.slice().buffer)).toBe(true);
 
     const memory = createSharedMemory();
     const gen = await instantiateGenerator(wasm, memory, () => 0);
     gen.tick();
-    expect(Math.abs(readSamples(memory, 0)[0])).toBeLessThan(1e-9);
+    expect(Math.abs(readSamples(memory, 0)[0]!)).toBeLessThan(1e-9);
     for (let i = 0; i < 40; i += 1) {
       gen.tick();
     }
@@ -99,13 +96,13 @@ describe("WasmSolutionBuilder", () => {
       ],
     );
     const { text, wasm } = await new WasmSolutionBuilder().build(view, { generatorId: 4, delayMs: 0 });
-    expect(text).toContain("(func $cos");
-    expect(text).not.toContain("(func $sin");
-    expect(text).toContain("array.new_fixed $array_c1_f64 1");
+    expect(text).toContain("fn cos(");
+    expect(text).not.toContain("fn sin(");
+    expect(text).toContain("fn scope(ctx : Int) -> C1");
     const memory = createSharedMemory();
     const gen = await instantiateGenerator(wasm, memory, () => 0);
     gen.tick();
-    expect(Math.abs(readSamples(memory, 0)[0] - 1)).toBeLessThan(1e-9);
+    expect(Math.abs(readSamples(memory, 0)[0]! - 1)).toBeLessThan(1e-9);
   });
 
   it("compiles the same pipeline as compileGenerator", async () => {
@@ -119,9 +116,29 @@ describe("WasmSolutionBuilder", () => {
       { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
     ];
     const compiled = (await compileGenerator(3, nodes, links))!;
-    expect(compiled.text).toContain("call $sin");
-    expect(compiled.text).toContain("call $scope");
-    expect(compiled.text).toContain("call $timer");
-    expect(compiled.text).toContain("array.get $array_c1_f64");
+    expect(compiled.text).toContain("sin(0,");
+    expect(compiled.text).toContain("scope(0)");
+    expect(compiled.text).toContain("timer(0,");
+  });
+
+  it("writes two scope rings through a fork", async () => {
+    const view = solutionViewFrom(
+      [
+        { id: 1, defId: "scope" },
+        { id: 2, defId: "scope" },
+        { id: 4, defId: "timer" },
+      ],
+      [
+        { fromBlock: 1, fromOut: "out", toBlock: 4, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
+      ],
+    );
+    const { text, wasm } = await new WasmSolutionBuilder().build(view, { generatorId: 4, delayMs: 0 });
+    expect(text).toContain("fn fork_4_in(");
+    const memory = createSharedMemory();
+    const gen = await instantiateGenerator(wasm, memory, () => 0.25);
+    gen.tick();
+    expect(readSamples(memory, 0)[0]).toBeCloseTo(0.25);
+    expect(readSamples(memory, 1)[0]).toBeCloseTo(0.25);
   });
 });

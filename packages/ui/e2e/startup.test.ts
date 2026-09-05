@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { openWorkspace } from "./actions";
 
-/** binaryen.js is ~15MB. First paint must not download it (or any similarly huge script). */
+/** moonc-worker is ~5.6MB. First paint must not download it (or any similarly huge script). */
 const HUGE_SCRIPT_BYTES = 1_500_000;
 
-test("does not download binaryen.js on first paint", async ({ page }) => {
+test("does not download moonc-worker on first paint", async ({ page }) => {
   const scripts: { url: string; bytes: number }[] = [];
   page.on("response", async (response) => {
     const url = response.url();

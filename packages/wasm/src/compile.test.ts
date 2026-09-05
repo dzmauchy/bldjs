@@ -27,28 +27,23 @@ function sinPipeline(): { nodes: { id: number; defId: string }[]; links: Link[] 
 }
 
 describe("compileGenerator", () => {
-  it("emits typed-function wasm", async () => {
+  it("emits MoonBit wasm-gc with browser Math/Date/setInterval bindings", async () => {
     const { nodes, links } = sinPipeline();
     const compiled = (await compileGenerator(3, nodes, links))!;
     expect(compiled.scopeId).toBe(1);
     expect(compiled.delayMs).toBe(DEFAULT_PERIOD_MS);
-    expect(compiled.text).toContain("(type $c1_f64 (func (param f64)))");
-    expect(compiled.text).toContain("(type $array_c1_f64 (array (mut (ref $c1_f64))))");
-    expect(compiled.text).toContain("(func $sin");
-    expect(compiled.text).toContain("(param $ctx i32) (param $in (ref $c1_f64))");
-    expect(compiled.text).toContain("(result (ref $c1_f64))");
-    expect(compiled.text).toContain("(func $timer");
-    expect(compiled.text).toContain("(func $scope");
-    expect(compiled.text).toContain("(result (ref $array_c1_f64))");
-    expect(compiled.text).toContain("array.new_fixed $array_c1_f64");
-    expect(compiled.text).toContain("call $sin");
-    expect(compiled.text).toContain("call $timer");
-    expect(compiled.text).toContain("call $scope");
-    expect(compiled.text).toContain("call_ref $c1_f64");
-    expect(compiled.text).not.toContain("(func $quantizer");
-    expect(compiled.text).not.toContain("(func $tap_0");
-    expect(compiled.text).toContain('(export "tick"');
-    expect(compiled.text).not.toContain('(export "run"');
+    expect(compiled.text).toContain("fn sin(ctx : Int, input : C1) -> C1");
+    expect(compiled.text).toContain("fn timer(ctx : Int, input : C1) -> Unit");
+    expect(compiled.text).toContain("fn scope(ctx : Int) -> C1");
+    expect(compiled.text).toContain("math_sin(");
+    expect(compiled.text).toContain("js_set_interval(tick, delay_ms)");
+    expect(compiled.text).toContain('fn math_sin(x : Double) -> Double = "Math" "sin"');
+    expect(compiled.text).toContain('fn date_now() -> Double = "Date" "now"');
+    expect(compiled.text).toContain('fn js_set_interval(cb : () -> Unit, ms : Int) -> Int = "js" "setInterval"');
+    expect(compiled.text).toContain("pub fn tick() -> Unit");
+    expect(compiled.text).toContain("pub fn start(delay_ms : Int) -> Unit");
+    expect(compiled.text).not.toContain("fn quantizer");
+    expect(compiled.text).not.toContain("memory.atomic.wait32");
     expect(compiled.text).not.toContain("setTimeout");
     expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
   });
@@ -66,9 +61,9 @@ describe("compileGenerator", () => {
     const compiled = (await compileGenerator(3, nodes, links))!;
     expect(compiled.defId).toBe("timer");
     expect(compiled.channels).toEqual([{ scopeId: 1, label: "cos" }]);
-    expect(compiled.text).toContain("(func $cos");
-    expect(compiled.text).toContain("call $cos");
-    expect(compiled.text).toContain("call $timer");
+    expect(compiled.text).toContain("fn cos(ctx : Int, input : C1) -> C1");
+    expect(compiled.text).toContain("cos(0,");
+    expect(compiled.text).toContain("timer(0,");
   });
 
   it("emits a fork into two push rings", async () => {
@@ -83,10 +78,10 @@ describe("compileGenerator", () => {
     ];
     const compiled = (await compileGenerator(4, nodes, links))!;
     expect(compiled.scopeIds).toEqual([1, 2]);
-    expect(compiled.text).toContain("call $scope_1");
-    expect(compiled.text).toContain("call $scope_2");
-    expect(compiled.text).toContain("(func $fork_4_in");
-    expect(compiled.text).toContain("call $push_at");
+    expect(compiled.text).toContain("fn scope_1(");
+    expect(compiled.text).toContain("fn scope_2(");
+    expect(compiled.text).toContain("fn fork_4_in(");
+    expect(compiled.text).toContain("host_push(");
     expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
   });
 
@@ -95,14 +90,13 @@ describe("compileGenerator", () => {
     expect(await compileGenerator(4, nodes, [])).toBeUndefined();
   });
 
-  it("uses typed func types even without stages", async () => {
+  it("uses typed consumers even without stages", async () => {
     const text = await generatorText("timer");
-    expect(text).toContain("(type $c1_f64 (func (param f64)))");
-    expect(text).toContain("(func $tick");
-    expect(text).toContain('(export "tick"');
-    expect(text).toContain("call $timer");
-    expect(text).toContain("call $scope");
-    expect(text).not.toContain("(func $sin");
+    expect(text).toContain("type C1 = (Double) -> Unit");
+    expect(text).toContain("pub fn tick() -> Unit");
+    expect(text).toContain("timer(0,");
+    expect(text).toContain("scope(0)");
+    expect(text).not.toContain("fn sin(");
   });
 
   it("builds XML first, infers types, then emits wasm", async () => {

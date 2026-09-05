@@ -1,9 +1,8 @@
 import { canShareMemory, canUseIsolatedWorker } from "../isolation";
 import type { SolutionViewConnector } from "@bld/xml/solution/view";
 import { intervalMs } from "@bld/xml/flow";
-import { createHost } from "./host";
+import { createHost, type HostOptions } from "./host";
 import { createMemory, readFlowCounts, readSamples, requestStop } from "./memory";
-import { startTickLoop } from "./runner";
 
 export interface GeneratorHandle {
   connectors: readonly SolutionViewConnector[];
@@ -23,22 +22,41 @@ export interface StartGeneratorOptions {
 export interface InstantiatedGenerator {
   memory: WebAssembly.Memory;
   tick: () => void;
+  start: (delayMs: number) => void;
+  stopTimers: () => void;
+  fire: () => void;
+}
+
+function hostOptions(nowOrOptions?: (() => number) | HostOptions): HostOptions {
+  if (typeof nowOrOptions === "function") {
+    return { now: nowOrOptions };
+  }
+  return nowOrOptions ?? {};
 }
 
 export async function instantiateGenerator(
   wasm: Uint8Array,
   memory: WebAssembly.Memory,
-  now?: () => number,
+  nowOrOptions?: (() => number) | HostOptions,
 ): Promise<InstantiatedGenerator> {
+  const options = hostOptions(nowOrOptions);
+  const host = createHost(memory, options);
   const module = await WebAssembly.compile(wasm.slice());
-  const instance = await WebAssembly.instantiate(module, createHost(memory, now));
+  const instance = await WebAssembly.instantiate(module, host.imports);
   const tick = instance.exports.tick;
+  const start = instance.exports.start;
   if (typeof tick !== "function") {
     throw new Error("generator wasm is missing exported tick");
+  }
+  if (typeof start !== "function") {
+    throw new Error("generator wasm is missing exported start");
   }
   return {
     memory,
     tick: tick as () => void,
+    start: start as (delayMs: number) => void,
+    stopTimers: () => host.stopTimers(),
+    fire: () => host.fire(),
   };
 }
 
@@ -57,13 +75,16 @@ function bindHandle(
   };
 }
 
-/** Drive `tick` with `setInterval` on this thread (tests and non-isolated pages). */
+/** Drive `tick` with imported browser `setInterval` on this thread (tests and non-isolated pages). */
 export async function startLocalGenerator(options: StartGeneratorOptions): Promise<GeneratorHandle> {
   const memory = createMemory(canShareMemory());
-  const gen = await instantiateGenerator(options.wasm, memory, options.now);
   const connectors = options.connectors ?? [];
-  const loop = startTickLoop(memory, gen.tick, options.delayMs, connectors.length);
-  return bindHandle(memory, connectors, loop.stop, loop.fire);
+  const gen = await instantiateGenerator(options.wasm, memory, {
+    now: options.now,
+    connectorCount: connectors.length,
+  });
+  gen.start(options.delayMs);
+  return bindHandle(memory, connectors, () => gen.stopTimers(), () => gen.fire());
 }
 
 /** One dedicated worker (wasm thread) per generator; `setInterval` lives in that worker. */

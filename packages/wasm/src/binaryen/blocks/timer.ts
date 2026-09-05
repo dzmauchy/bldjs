@@ -1,1 +1,0 @@
-export { addTimer } from "./generator";

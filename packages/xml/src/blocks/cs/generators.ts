@@ -11,8 +11,8 @@ import type { DoubleConsumer } from "./types";
  * Composition: timer(sin(plot[0]))
  *
  * Each generator uses an internal quantizer whose period (ms) comes from the
- * catalog `period` range input (default 10). Binaryen blocks repeat the XML
- * signature plus runtime `$ctx i32`.
+ * catalog `period` range input (default 10). MoonBit blocks repeat the XML
+ * signature plus runtime `ctx : Int`.
  */
 
 function parkNanos(periodNs: number): void {

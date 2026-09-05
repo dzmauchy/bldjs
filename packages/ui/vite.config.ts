@@ -84,7 +84,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ["binaryen"],
+    include: ["@moonbit/moonc-worker"],
     exclude: ["libavoid-js", "@joint/router-avoid", "@bld/xml", "@bld/wasm"],
   },
   server: {

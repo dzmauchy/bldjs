@@ -4,7 +4,7 @@ import { compileGenerator } from "../compile";
 import { createSharedMemory, readFlowCounts, readSamples } from "./memory";
 import { instantiateGenerator, startLocalGenerator } from "./generator";
 
-describe("binaryen generator", () => {
+describe("MoonBit generator", () => {
   it("assembles block scripts into a valid wasm-gc module", async () => {
     const wasm = await assembleWasm({ generator: "sin", delayMs: 10 });
     expect([...wasm.slice(0, 4)]).toEqual([0, 97, 115, 109]);
@@ -13,23 +13,20 @@ describe("binaryen generator", () => {
 
   it("ticks sin(pi/2) through the assembled pipeline", async () => {
     const { text, wasm } = await assembleModule({ generator: "sin", delayMs: 10 });
-    expect(text).toContain("call $sin");
-    expect(text).toContain("call $scope");
-    expect(text).toContain("call $timer");
-    expect(text).toContain("(param $ctx i32)");
-    expect(text).toContain("(param $in (ref $c1_f64))");
-    expect(text).toContain("(result (ref $array_c1_f64))");
+    expect(text).toContain("sin(ctx : Int, input : C1)");
+    expect(text).toContain("scope(ctx : Int)");
+    expect(text).toContain("timer(ctx : Int, input : C1)");
     const memory = createSharedMemory();
     let now = Math.PI / 2;
     const gen = await instantiateGenerator(wasm, memory, () => now);
     gen.tick();
     let samples = readSamples(memory);
     expect(samples).toHaveLength(1);
-    expect(Math.abs(samples[0] - 1)).toBeLessThan(1e-9);
+    expect(Math.abs(samples[0]! - 1)).toBeLessThan(1e-9);
     now = 0;
     gen.tick();
     samples = readSamples(memory);
-    expect(Math.abs(samples[1])).toBeLessThan(1e-9);
+    expect(Math.abs(samples[1]!)).toBeLessThan(1e-9);
   });
 
   it("runs a compiled sin pipeline in-process", async () => {
@@ -73,10 +70,8 @@ describe("binaryen generator", () => {
 
   it("tick writes samples through XML-typed block functions", async () => {
     const { text, wasm } = await assembleModule({ generator: "sin", delayMs: 0 });
-    expect(text).toContain("(func $sin");
-    expect(text).toContain("(param $in (ref $c1_f64))");
-    expect(text).toContain("(func $scope");
-    expect(text).toContain("(result (ref $array_c1_f64))");
+    expect(text).toContain("fn sin(ctx : Int, input : C1) -> C1");
+    expect(text).toContain("fn scope(ctx : Int) -> C1");
     const memory = createSharedMemory();
     const gen = await instantiateGenerator(wasm, memory, () => 0.5);
     gen.tick();

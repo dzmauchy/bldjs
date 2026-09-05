@@ -1,16 +1,15 @@
 import { createHost } from "./host";
-import { startTickLoop } from "./runner";
 import { requestStop } from "./memory";
 
 // Stay off @bld/xml: DOMParser is not defined in workers, and pulling the
 // catalog would leave the sample ring empty so the Scope plot never appears.
 
 let memory: WebAssembly.Memory | undefined;
-let stopLoop: (() => void) | undefined;
+let stopTimers: (() => void) | undefined;
 
 function clearTimer(): void {
-  stopLoop?.();
-  stopLoop = undefined;
+  stopTimers?.();
+  stopTimers = undefined;
 }
 
 async function start(
@@ -22,14 +21,15 @@ async function start(
   clearTimer();
   memory = shared;
   const bytes = new Uint8Array(wasm);
+  const host = createHost(shared, { connectorCount });
   const module = await WebAssembly.compile(bytes.buffer);
-  const instance = await WebAssembly.instantiate(module, createHost(shared));
-  const tick = instance.exports.tick;
-  if (typeof tick !== "function") {
-    throw new Error("generator wasm is missing exported tick");
+  const instance = await WebAssembly.instantiate(module, host.imports);
+  const startTick = instance.exports.start;
+  if (typeof startTick !== "function") {
+    throw new Error("generator wasm is missing exported start");
   }
-  const loop = startTickLoop(shared, tick as () => void, delayMs, connectorCount);
-  stopLoop = loop.stop;
+  (startTick as (delayMs: number) => void)(delayMs);
+  stopTimers = () => host.stopTimers();
 }
 
 self.onmessage = (
