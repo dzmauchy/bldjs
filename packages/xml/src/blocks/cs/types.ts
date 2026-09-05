@@ -18,6 +18,12 @@ export interface NodeSpec {
   zeta?: number;
   /** Overshoot natural frequency (`ω`). Damped frequency is `ωd = ω√(1−ζ²)`. */
   omega?: number;
+  /** Constant generator sample (`value`). */
+  value?: number;
+  /** Product output count (`n`). */
+  count?: number;
+  /** Product default factor (`def`). */
+  def?: number;
   /** Scope time-window width in seconds (`n`). */
   windowS?: number;
   /** Scope quantizer period in milliseconds (`m`). */

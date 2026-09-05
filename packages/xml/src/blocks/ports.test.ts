@@ -110,6 +110,7 @@ describe("allocate and compact extra slots", () => {
     ];
     expect(outputSlotsFor([port("out", vector)], 1, links).map((slot) => slot.name)).toEqual(["out", "out[1]"]);
     expect(outputSlotsFor([port("out", vector)], 2, links).map((slot) => slot.name)).toEqual(["out"]);
+    expect(outputSlotsFor([port("out", vector)], 2, links, 2).map((slot) => slot.name)).toEqual(["out", "out[1]"]);
     expect(inputSlotsFor([port("in")], 4, links).map((slot) => slot.name)).toEqual(["in", "in[1]"]);
     expect(inputSlotsFor([port("in")], 2, links).map((slot) => slot.name)).toEqual(["in"]);
   });

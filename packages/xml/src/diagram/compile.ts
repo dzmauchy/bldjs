@@ -4,9 +4,12 @@ import { infer } from "../blocks/diagram";
 import type { ResolvedBlock } from "../blocks/resolve";
 import { isResolvedCompatible } from "../blocks/resolve";
 import {
+  COUNT_PARAM,
+  DEF_PARAM,
   METER_PARAM,
   PERIOD_PARAM,
   PIN_PARAM,
+  VALUE_PARAM,
   WINDOW_PARAM,
   ZETA_PARAM,
   OMEGA_PARAM,
@@ -17,6 +20,9 @@ import {
   windowSecondsFrom,
   zetaFrom,
   omegaFrom,
+  valueFrom,
+  defFrom,
+  countFrom,
 } from "../blocks/cs/ids";
 import { documentToCanvas, parseDiagramXml } from "./xml";
 import type { DiagramDocument } from "./types";
@@ -38,6 +44,9 @@ export interface DiagramSolution {
     pin?: number;
     zeta?: number;
     omega?: number;
+    value?: number;
+    count?: number;
+    def?: number;
     windowS?: number;
     meterMs?: number;
   }>;
@@ -62,6 +71,9 @@ export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolut
     const pin = extra?.parameters.find((param) => param.name === PIN_PARAM)?.value;
     const zeta = extra?.parameters.find((param) => param.name === ZETA_PARAM)?.value;
     const omega = extra?.parameters.find((param) => param.name === OMEGA_PARAM)?.value;
+    const value = extra?.parameters.find((param) => param.name === VALUE_PARAM)?.value;
+    const count = extra?.parameters.find((param) => param.name === COUNT_PARAM)?.value;
+    const def = extra?.parameters.find((param) => param.name === DEF_PARAM)?.value;
     const window = extra?.parameters.find((param) => param.name === WINDOW_PARAM)?.value;
     const meter = extra?.parameters.find((param) => param.name === METER_PARAM)?.value;
     return {
@@ -71,6 +83,9 @@ export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolut
       pin: pin == null ? undefined : pinFrom(pin),
       zeta: block.defId === "overshoot" ? zetaFrom(zeta) : undefined,
       omega: block.defId === "overshoot" ? omegaFrom(omega) : undefined,
+      value: block.defId === "constant" ? valueFrom(value) : undefined,
+      count: block.defId === "product" ? countFrom(count) : undefined,
+      def: block.defId === "product" ? defFrom(def) : undefined,
       windowS: block.defId === "scope" ? windowSecondsFrom(window) : undefined,
       meterMs: block.defId === "scope" ? meterMsFrom(meter) : undefined,
     };

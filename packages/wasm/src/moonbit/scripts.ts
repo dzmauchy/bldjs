@@ -1,15 +1,18 @@
 import { MoonBlock } from "./block";
-import { RANDOM_BLOCK, TIMER_BLOCK } from "./generators";
+import { CONSTANT_BLOCK, RANDOM_BLOCK, TIMER_BLOCK } from "./generators";
 import { GPIO_IN_BLOCK, GPIO_OUT_BLOCK } from "./gpio";
+import { PRODUCT_BLOCK } from "./combiners";
 import { SCOPE_BLOCK } from "./scope";
 import { COS_BLOCK, OVERSHOOT_BLOCK, SIN_BLOCK } from "./transformers";
 import type { BlockScript } from "./types";
 
 export const MOON_BLOCKS: readonly MoonBlock[] = [
   TIMER_BLOCK,
+  CONSTANT_BLOCK,
   SIN_BLOCK,
   COS_BLOCK,
   OVERSHOOT_BLOCK,
+  PRODUCT_BLOCK,
   RANDOM_BLOCK,
   SCOPE_BLOCK,
   GPIO_IN_BLOCK,

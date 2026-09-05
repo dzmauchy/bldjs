@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type TypeExpr,
   arrayOf,
+  blockAttribute,
   consumerType,
   displayType,
   funcType,
@@ -27,7 +28,10 @@ import {
 import { Catalog } from "./catalog";
 import { isCompatible } from "./compat";
 import {
+  COMBINER_IDS,
+  ConstantGenerator,
   DEFAULT_PERIOD_MS,
+  GENERATOR_IDS,
   GpioInGenerator,
   SampleBuf,
   sampleCap,
@@ -38,6 +42,7 @@ import {
   OvershootTransformer,
   overshootStep,
   planGenerator,
+  product,
   sampleOnce,
   scope,
   sin,
@@ -195,6 +200,8 @@ describe("blocks", () => {
     expect(cat.block("sin")).toBeDefined();
     expect(cat.block("cos")).toBeDefined();
     expect(cat.block("overshoot")).toBeDefined();
+    expect(cat.block("product")).toBeDefined();
+    expect(cat.block("constant")).toBeDefined();
     expect(cat.block("random")).toBeDefined();
     expect(cat.block("scope")).toBeDefined();
     expect(cat.block("gpio_in")).toBeDefined();
@@ -203,10 +210,12 @@ describe("blocks", () => {
     expect(cat.block("b_array_of")).toBeUndefined();
     expect(cat.block("b_start")).toBeUndefined();
     expect(cat.blocks().map((block) => block.id).sort()).toEqual([
+      "constant",
       "cos",
       "gpio_in",
       "gpio_out",
       "overshoot",
+      "product",
       "random",
       "scope",
       "sin",
@@ -526,6 +535,24 @@ describe("blocks", () => {
     expect(cat.block("sin")!.attributes.find((a) => a.name === "generator")).toBeUndefined();
     expect(cat.block("cos")!.attributes.find((a) => a.name === "generator")).toBeUndefined();
     expect(cat.block("overshoot")!.attributes.find((a) => a.name === "generator")).toBeUndefined();
+    expect(cat.block("product")!.attributes.find((a) => a.name === "generator")).toBeUndefined();
+    expect(cat.block("product")!.attributes.find((a) => a.name === "combiner")?.value).toBe("true");
+    expect(
+      new Set(
+        cat
+          .blocks()
+          .filter((block) => blockAttribute(block, "generator") === "true")
+          .map((block) => block.id),
+      ),
+    ).toEqual(GENERATOR_IDS);
+    expect(
+      new Set(
+        cat
+          .blocks()
+          .filter((block) => blockAttribute(block, "combiner") === "true")
+          .map((block) => block.id),
+      ),
+    ).toEqual(COMBINER_IDS);
     const scope = cat.block("scope")!;
     expect(scope.inputs.length).toBe(0);
     expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(Double) -> Unit]");
@@ -539,11 +566,21 @@ describe("blocks", () => {
     expect(displayType(cat.block("overshoot")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
     expect(displayType(cat.block("overshoot")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
     expect(displayType(cat.block("random")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(cat.block("constant")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(cat.block("constant")!.outputs).toEqual([]);
+    const productBlock = cat.block("product")!;
+    expect(displayType(productBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(productBlock.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(Double) -> Unit]");
+    expect(productBlock.outputs.find((port) => port.name === "out")!.attributes.find((a) => a.name === "dynamic")?.value).toBe(
+      "true",
+    );
     expect(timerBlock.ns).toBe("com.dauch.cs.gen");
     expect(cat.block("sin")!.ns).toBe("com.dauch.cs.tf");
     expect(cat.block("cos")!.ns).toBe("com.dauch.cs.tf");
     expect(cat.block("overshoot")!.ns).toBe("com.dauch.cs.tf");
+    expect(cat.block("product")!.ns).toBe("com.dauch.cs.tf");
     expect(cat.block("random")!.ns).toBe("com.dauch.cs.gen");
+    expect(cat.block("constant")!.ns).toBe("com.dauch.cs.gen");
     expect(scope.ns).toBe("com.dauch.cs.sink");
     expect(cat.block("gpio_in")!.ns).toBe("com.dauch.cs.gpio");
     expect(cat.block("gpio_out")!.ns).toBe("com.dauch.cs.gpio");
@@ -560,13 +597,19 @@ describe("blocks", () => {
     expect(cat.namespaceParent("com.dauch.cs.sink")).toBe("com.dauch.cs");
     expect(cat.namespaceParent("com.dauch.cs.gpio")).toBe("com.dauch.cs");
     expect(cat.namespaceParent("com.dauch.cs")).toBeNull();
-    for (const id of ["timer", "random"] as const) {
+    for (const id of ["timer", "random", "constant"] as const) {
       const period = cat.block(id)!.parameters.find((param) => param.name === "period");
       expect(period?.kind).toBe("integer-range-parameter");
       expect(period?.default).toBe("10");
       expect(period?.min).toBe(1);
       expect(period?.max).toBe(1000);
     }
+    const value = cat.block("constant")!.parameters.find((param) => param.name === "value");
+    expect(value?.kind).toBe("double-range-parameter");
+    expect(value?.default).toBe("1");
+    expect(value?.min).toBe(-100);
+    expect(value?.max).toBe(100);
+    expect(value?.step).toBe(0.1);
     expect(cat.block("sin")!.parameters).toEqual([]);
     expect(cat.block("cos")!.parameters).toEqual([]);
     const zeta = cat.block("overshoot")!.parameters.find((param) => param.name === "ζ");
@@ -581,6 +624,18 @@ describe("blocks", () => {
     expect(omega?.min).toBe(0.1);
     expect(omega?.max).toBe(20);
     expect(omega?.step).toBe(0.1);
+    const productN = cat.block("product")!.parameters.find((param) => param.name === "n");
+    const productDef = cat.block("product")!.parameters.find((param) => param.name === "def");
+    expect(productN?.kind).toBe("integer-range-parameter");
+    expect(productN?.description).toBe("Output count");
+    expect(productN?.default).toBe("2");
+    expect(productN?.min).toBe(1);
+    expect(productN?.max).toBe(8);
+    expect(productDef?.kind).toBe("double-range-parameter");
+    expect(productDef?.description).toBe("Default value of each output");
+    expect(productDef?.default).toBe("1");
+    expect(productDef?.min).toBe(-100);
+    expect(productDef?.max).toBe(100);
     const n = cat.block("scope")!.parameters.find((param) => param.name === "n");
     const m = cat.block("scope")!.parameters.find((param) => param.name === "m");
     expect(n?.kind).toBe("integer-range-parameter");
@@ -731,6 +786,9 @@ describe("blocks", () => {
     expect(new CosTransformer().map(0)).toBe(mapOnce("cos", 0));
     expect(new OvershootTransformer().map(0)).toBe(mapOnce("overshoot", 0));
     expect(sampleOnce("timer", 3.25)).toBe(3.25);
+    expect(sampleOnce("constant", 3.25)).toBe(1);
+    expect(sampleOnce("constant", 3.25, 2.5)).toBe(2.5);
+    expect(new ConstantGenerator(10, 4).sample(0)).toBe(4);
   });
 
   it("cos maps samples", () => {
@@ -768,6 +826,55 @@ describe("blocks", () => {
     expect(overshootStep(peak(1), zeta, 1)).toBeCloseTo(1 + overshoot, 8);
     expect(overshootStep(peak(4), zeta, 4)).toBeCloseTo(1 + overshoot, 8);
     expect(overshootStep(peak(1), zeta, 4)).not.toBeCloseTo(1 + overshoot, 2);
+  });
+
+  it("product updates one slot then pushes the product of all defaults", () => {
+    const out: number[] = [];
+    const factors = product(2, 1, (value) => out.push(value));
+    factors[0]!(3);
+    factors[1]!(4);
+    expect(out).toEqual([3, 12]);
+    factors[0]!(5);
+    expect(out.at(-1)).toBe(20);
+  });
+
+  it("compile generator constant into scope", () => {
+    const nodes = [
+      { id: 1, defId: "scope" },
+      { id: 3, defId: "constant", value: 2.5 },
+    ];
+    const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" }];
+    const buffers = new Map<number, SampleBuf>([[0, new SampleBuf()]]);
+    const compiled = compileTimer(3, nodes, links, buffers)!;
+    compiled.emit(0);
+    compiled.emit(1);
+    const got = buffers.get(0)!.snapshot();
+    expect(got.at(-2)).toBe(2.5);
+    expect(got.at(-1)).toBe(2.5);
+  });
+
+  it("compile generator product of two factors from a fork", () => {
+    const nodes = [
+      { id: 1, defId: "scope" },
+      { id: 2, defId: "product", count: 2, def: 1 },
+      { id: 3, defId: "sin" },
+      { id: 4, defId: "cos" },
+      { id: 5, defId: "timer" },
+    ];
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+      { fromBlock: 2, fromOut: "out[1]", toBlock: 4, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 5, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 5, toIn: "in" },
+    ];
+    expect(planGenerator(5, nodes, links)?.channels).toEqual([{ scopeId: 1, label: "product" }]);
+    const buffers = new Map<number, SampleBuf>([[0, new SampleBuf()]]);
+    const compiled = compileTimer(5, nodes, links, buffers)!;
+    compiled.emit(0);
+    expect(buffers.get(0)!.snapshot().at(-1)).toBeCloseTo(0, 8);
+    compiled.emit(Math.PI / 4);
+    expect(buffers.get(0)!.snapshot().at(-1)).toBeCloseTo(0.5, 8);
   });
 
   it("compile generator sines into scope", () => {

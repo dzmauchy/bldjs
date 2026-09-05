@@ -123,6 +123,45 @@ describe("compileGenerator", () => {
     expect(WebAssembly.validate(compiled.prodWasm.slice().buffer)).toBe(true);
   });
 
+  it("walks a constant generator and bakes value", async () => {
+    const nodes = [
+      { id: 1, defId: "scope" },
+      { id: 3, defId: "constant", value: 2.5 },
+    ];
+    const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" }];
+    const compiled = (await compileGenerator(3, nodes, links))!;
+    expect(compiled.defId).toBe("constant");
+    expect(compiled.text).toContain("fn constant(_ctx : Int, input : C1) -> Unit");
+    expect(compiled.text).toContain("input(2.5)");
+    expect(compiled.text).not.toContain("now()");
+    expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
+  });
+
+  it("walks a product combiner of sin and cos", async () => {
+    const nodes = [
+      { id: 1, defId: "scope" },
+      { id: 2, defId: "product", count: 2, def: 1 },
+      { id: 3, defId: "sin" },
+      { id: 4, defId: "cos" },
+      { id: 5, defId: "timer" },
+    ];
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+      { fromBlock: 2, fromOut: "out[1]", toBlock: 4, toIn: "in" },
+      { fromBlock: 3, fromOut: "out", toBlock: 5, toIn: "in" },
+      { fromBlock: 4, fromOut: "out", toBlock: 5, toIn: "in" },
+    ];
+    const compiled = (await compileGenerator(5, nodes, links))!;
+    expect(compiled.channels).toEqual([{ scopeId: 1, label: "product" }]);
+    expect(compiled.text).toContain("fn product(_ctx : Int, input : C1) -> (C1, C1)");
+    expect(compiled.text).toContain("fn sin(");
+    expect(compiled.text).toContain("fn cos(");
+    expect(compiled.text).toContain("fn fork_5_in(");
+    expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
+    expect(WebAssembly.validate(compiled.prodWasm.slice().buffer)).toBe(true);
+  });
+
   it("emits a fork into two push rings", async () => {
     const nodes = [
       { id: 1, defId: "scope" },

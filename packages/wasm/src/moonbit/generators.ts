@@ -1,4 +1,4 @@
-import { DEFAULT_PERIOD_MS } from "@bld/xml/blocks/cs/ids";
+import { DEFAULT_PERIOD_MS, DEFAULT_VALUE, valueFrom } from "@bld/xml/blocks/cs/ids";
 import { MoonBlock } from "./block";
 import { CTX_PARAM, type MoonBlockEmit } from "./types";
 
@@ -37,8 +37,30 @@ export class RandomMoonBlock extends MoonGenerator {
   }
 }
 
+function moonDouble(value: number): string {
+  return Number.isInteger(value) ? `${value}.0` : String(value);
+}
+
+export class ConstantMoonBlock extends MoonGenerator {
+  readonly defId = "constant";
+
+  protected sampleExpr(): string {
+    return "1.0";
+  }
+
+  override emit(opts: MoonBlockEmit = {}): string {
+    const name = opts.name ?? this.defId;
+    const value = valueFrom(opts.value ?? DEFAULT_VALUE);
+    return `fn ${name}(${CTX_PARAM}, input : C1) -> Unit {
+  input(${moonDouble(value)})
+}
+`;
+  }
+}
+
 export const TIMER_BLOCK = new TimerMoonBlock();
 export const RANDOM_BLOCK = new RandomMoonBlock();
+export const CONSTANT_BLOCK = new ConstantMoonBlock();
 
 export function emitTimer(opts: MoonBlockEmit = {}): string {
   return TIMER_BLOCK.emit(opts);
@@ -46,4 +68,8 @@ export function emitTimer(opts: MoonBlockEmit = {}): string {
 
 export function emitRandom(opts: MoonBlockEmit = {}): string {
   return RANDOM_BLOCK.emit(opts);
+}
+
+export function emitConstant(opts: MoonBlockEmit = {}): string {
+  return CONSTANT_BLOCK.emit(opts);
 }

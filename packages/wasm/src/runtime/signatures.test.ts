@@ -30,6 +30,7 @@ describe("XML ↔ WASM signatures", () => {
     for (const [id, name] of [
       ["timer", "Timer"],
       ["random", "Random"],
+      ["constant", "Constant"],
       ["gpio_in", "GPIO In"],
     ] as const) {
       expect(blockSignature(cat.block(id)!)).toEqual({
@@ -55,6 +56,13 @@ describe("XML ↔ WASM signatures", () => {
       expect(displayType(cat.block(id)!.inputs[0].ty, true)).toBe("(Double) -> Unit");
       expect(displayType(cat.block(id)!.outputs[0].ty, true)).toBe("(Double) -> Unit");
     }
+    expect(blockSignature(cat.block("product")!)).toEqual({
+      id: "product",
+      name: "Product",
+      params: [{ name: "in", type: "(ref $fn_Double_Unit)" }],
+      results: [{ name: "out", type: "(ref $array_fn_Double_Unit)" }],
+    });
+    expect(displayType(cat.block("product")!.outputs[0].ty, true)).toBe("Array[(Double) -> Unit]");
     expect(cat.block("quantizer")).toBeUndefined();
     expect(blockSignature(cat.block("scope")!)).toEqual({
       id: "scope",

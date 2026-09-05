@@ -394,6 +394,42 @@ describe("AppState run", () => {
     expect(app.toDiagramXml()).toContain('value="2"');
   });
 
+  it("seeds constant value at 1 and period at 10 ms", () => {
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("constant", 0, 0);
+    expect(app.blockValue(id)).toBe(1);
+    expect(app.blockPeriodMs(id)).toBe(10);
+    expect(app.blockInputs(id).map((input) => [input.def.name, input.value])).toEqual([
+      ["value", "1"],
+      ["period", "10"],
+    ]);
+    app.setBlockParameter(id, "value", "2.5");
+    expect(app.blockValue(id)).toBe(2.5);
+    expect(app.toDiagramXml()).toContain('name="value"');
+    expect(app.toDiagramXml()).toContain('value="2.5"');
+  });
+
+  it("seeds product n at 2 and def at 1", () => {
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("product", 0, 0);
+    expect(app.blockCount(id)).toBe(2);
+    expect(app.blockDefValue(id)).toBe(1);
+    expect(app.blockInputs(id).map((input) => [input.def.name, input.value])).toEqual([
+      ["n", "2"],
+      ["def", "1"],
+    ]);
+    app.setBlockParameter(id, "n", "3");
+    app.setBlockParameter(id, "def", "0.5");
+    expect(app.blockCount(id)).toBe(3);
+    expect(app.blockDefValue(id)).toBe(0.5);
+    expect(app.toDiagramXml()).toContain('name="n"');
+    expect(app.toDiagramXml()).toContain('value="3"');
+    expect(app.toDiagramXml()).toContain('name="def"');
+    expect(app.toDiagramXml()).toContain('value="0.5"');
+  });
+
   it("closes and ignores input configuration while a run is busy", async () => {
     const app = new AppState();
     const { generatorId } = wireCsPipeline(app);

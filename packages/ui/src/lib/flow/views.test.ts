@@ -130,6 +130,30 @@ describe("buildNodeState", () => {
     expect(catalog.block("overshoot")?.parameters.map((param) => param.name)).toEqual(["ζ", "ω"]);
   });
 
+  it("shows n product outputs from the count setting", () => {
+    const diagram = new Diagram("ws", "Workspace");
+    associateBuiltinModels(diagram);
+    const catalog = diagram.catalog();
+    const block: BlockInstance = { id: 2, defId: "product", x: 0, y: 0 };
+    const state = buildNodeState(block, new Map(), {
+      catalog,
+      links: [],
+      selected: -1,
+      linkingFrom: null,
+      isScopeLive: () => false,
+      gpioOn: () => false,
+      gpioPin: () => 0,
+      inputsEnabled: true,
+      inputIsGrounded: () => false,
+      blockDef: (defId) => catalog.block(defId),
+      kindOf: () => blockKindFromName("Process")!,
+      outputCount: () => 2,
+    });
+    expect(state?.showInputs).toBe(true);
+    expect(state?.outputs.map((port) => port.name)).toEqual(["out", "out[1]"]);
+    expect(catalog.block("product")?.parameters.map((param) => param.name)).toEqual(["n", "def"]);
+  });
+
   it("marks GPIO In as an interactive switch and GPIO Out as a disabled readout", () => {
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);

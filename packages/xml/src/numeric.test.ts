@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { clampDouble, clampInt, clampPositiveInt } from "./numeric";
 import { intervalMs } from "./flow";
-import { DEFAULT_PERIOD_MS, DEFAULT_PIN, DEFAULT_WINDOW_S, DEFAULT_OMEGA, DEFAULT_ZETA, MAX_OMEGA, MAX_ZETA, MIN_OMEGA, MIN_ZETA, meterMsFrom, omegaFrom, periodMsFrom, pinFrom, sampleCap, windowSecondsFrom, zetaFrom } from "./blocks/cs/ids";
+import { DEFAULT_COUNT, DEFAULT_PERIOD_MS, DEFAULT_PIN, DEFAULT_WINDOW_S, DEFAULT_OMEGA, DEFAULT_VALUE, DEFAULT_ZETA, MAX_COUNT, MAX_OMEGA, MAX_VALUE, MAX_ZETA, MIN_COUNT, MIN_OMEGA, MIN_VALUE, MIN_ZETA, countFrom, meterMsFrom, omegaFrom, periodMsFrom, pinFrom, sampleCap, valueFrom, windowSecondsFrom, zetaFrom } from "./blocks/cs/ids";
 
 describe("clampPositiveInt", () => {
   it("truncates and floors at 1", () => {
@@ -48,5 +48,13 @@ describe("clampDouble", () => {
     expect(omegaFrom("2")).toBe(2);
     expect(omegaFrom("0")).toBe(MIN_OMEGA);
     expect(omegaFrom("99")).toBe(MAX_OMEGA);
+    expect(valueFrom(undefined)).toBe(DEFAULT_VALUE);
+    expect(valueFrom("2.5")).toBe(2.5);
+    expect(valueFrom("-200")).toBe(MIN_VALUE);
+    expect(valueFrom("200")).toBe(MAX_VALUE);
+    expect(countFrom(undefined)).toBe(DEFAULT_COUNT);
+    expect(countFrom("4")).toBe(4);
+    expect(countFrom("0")).toBe(MIN_COUNT);
+    expect(countFrom("99")).toBe(MAX_COUNT);
   });
 });

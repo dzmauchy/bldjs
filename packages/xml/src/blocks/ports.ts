@@ -152,8 +152,11 @@ export function allocateIncomingSlot(links: readonly Link[], toBlock: number, ca
   return allocateSlot(links, toBlock, catalogIn, "in");
 }
 
-function slotsFor(catalogName: string, used: Iterable<string>): PortSlot[] {
-  const names = new Set<string>([catalogName, ...used]);
+function slotsFor(catalogName: string, used: Iterable<string>, minCount = 1): PortSlot[] {
+  const names = new Set<string>(used);
+  for (let i = 0; i < Math.max(minCount, 1); i++) {
+    names.add(slottedPortName(catalogName, i));
+  }
   return [...names]
     .sort((left, right) => portSlotIndex(left) - portSlotIndex(right) || left.localeCompare(right))
     .map((name) => ({ name, catalogName, index: portSlotIndex(name) }));
@@ -174,16 +177,18 @@ function slotsForPorts(
   blockId: number,
   links: readonly Link[],
   side: PortSide,
+  minCount = 1,
 ): PortSlot[] {
-  return ports.flatMap((port) => slotsFor(port.name, usedSlotNames(links, blockId, port.name, side)));
+  return ports.flatMap((port) => slotsFor(port.name, usedSlotNames(links, blockId, port.name, side), minCount));
 }
 
 export function outputSlotsFor(
   outputs: readonly PortDef[],
   blockId: number,
   links: readonly Link[],
+  minCount = 1,
 ): PortSlot[] {
-  return slotsForPorts(outputs, blockId, links, "out");
+  return slotsForPorts(outputs, blockId, links, "out", minCount);
 }
 
 export function inputSlotsFor(inputs: readonly PortDef[], blockId: number, links: readonly Link[]): PortSlot[] {

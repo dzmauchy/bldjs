@@ -7,9 +7,12 @@ export const QUANTIZER_DELAY_MS = DEFAULT_PERIOD_MS;
 
 export const PERIOD_PARAM = "period";
 export const PIN_PARAM = "pin";
+export const VALUE_PARAM = "value";
+export const DEF_PARAM = "def";
 export const ZETA_PARAM = "ζ";
 export const OMEGA_PARAM = "ω";
 export const WINDOW_PARAM = "n";
+export const COUNT_PARAM = "n";
 export const METER_PARAM = "m";
 /** Damping ratio for the underdamped second-order step response (`double-range-parameter` `ζ`). */
 export const DEFAULT_ZETA = 0.5;
@@ -21,6 +24,14 @@ export const MIN_OMEGA = 0.1;
 export const MAX_OMEGA = 20;
 export const DEFAULT_PIN = 0;
 export const MAX_PIN = 31;
+/** Constant generator sample and product slot default (`double-range-parameter` `value` / `def`). */
+export const DEFAULT_VALUE = 1;
+export const MIN_VALUE = -100;
+export const MAX_VALUE = 100;
+/** Product output count (`integer-range-parameter` `n`). */
+export const DEFAULT_COUNT = 2;
+export const MIN_COUNT = 1;
+export const MAX_COUNT = 8;
 
 /** Scope time-window width in seconds (`integer-range-parameter` `n`). */
 export const DEFAULT_WINDOW_S = 30;
@@ -31,10 +42,11 @@ export const DEFAULT_METER_MS = 10;
 export const MIN_METER_MS = 10;
 export const MAX_METER_MS = 1000;
 
-export const GENERATOR_IDS = new Set(["timer", "random", "gpio_in"]);
+export const GENERATOR_IDS = new Set(["timer", "random", "constant", "gpio_in"]);
 /** Generators that fire on a quantization period. GPIO In samples on start and pin edges. */
-export const QUANTIZED_GENERATOR_IDS = new Set(["timer", "random"]);
+export const QUANTIZED_GENERATOR_IDS = new Set(["timer", "random", "constant"]);
 export const TRANSFORMER_IDS = new Set(["sin", "cos", "overshoot"]);
+export const COMBINER_IDS = new Set(["product"]);
 export const SINK_IDS = new Set(["scope", "gpio_out"]);
 export const GPIO_IDS = new Set(["gpio_in", "gpio_out"]);
 
@@ -52,6 +64,10 @@ export function isQuantizedGenerator(defId: string): boolean {
 
 export function isTransformerId(defId: string): boolean {
   return TRANSFORMER_IDS.has(defId);
+}
+
+export function isCombinerId(defId: string): boolean {
+  return COMBINER_IDS.has(defId);
 }
 
 export function isSinkId(defId: string): boolean {
@@ -90,6 +106,20 @@ export function zetaFrom(value: number | string | undefined | null): number {
 export function omegaFrom(value: number | string | undefined | null): number {
   const parsed = typeof value === "number" ? value : value == null ? DEFAULT_OMEGA : Number(value);
   return clampDouble(parsed, MIN_OMEGA, MAX_OMEGA, DEFAULT_OMEGA);
+}
+
+export function valueFrom(value: number | string | undefined | null): number {
+  const parsed = typeof value === "number" ? value : value == null ? DEFAULT_VALUE : Number(value);
+  return clampDouble(parsed, MIN_VALUE, MAX_VALUE, DEFAULT_VALUE);
+}
+
+export function defFrom(value: number | string | undefined | null): number {
+  return valueFrom(value);
+}
+
+export function countFrom(value: number | string | undefined | null): number {
+  const parsed = typeof value === "number" ? value : value == null ? DEFAULT_COUNT : Number(value);
+  return clampInt(parsed, MIN_COUNT, MAX_COUNT, DEFAULT_COUNT);
 }
 
 /**

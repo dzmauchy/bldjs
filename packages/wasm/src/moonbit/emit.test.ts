@@ -121,4 +121,24 @@ describe("emitSolutionFiles", () => {
     expect(mcu["blocks.mbt"]).toContain("math_sin(");
     expect(mcu["blocks.mbt"]).toContain("math_sqrt(");
   });
+
+  it("emits product factor consumers and a baked constant", () => {
+    const view = solutionViewFrom(
+      [
+        { id: 1, defId: "scope" },
+        { id: 2, defId: "product", count: 2, def: 1 },
+        { id: 3, defId: "constant", value: 2 },
+      ],
+      [
+        { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+      ],
+    );
+    const sources = Object.fromEntries(emitSolutionFiles(catalog(), view, new Map()));
+    expect(sources["blocks.mbt"]).toContain("fn product(_ctx : Int, input : C1) -> (C1, C1)");
+    expect(sources["blocks.mbt"]).toContain("fn constant(_ctx : Int, input : C1) -> Unit");
+    expect(sources["blocks.mbt"]).toContain("input(2.0)");
+    expect(sources["main.mbt"]).toContain("let b2 = product(0,");
+    expect(sources["main.mbt"]).toContain("constant(0,");
+  });
 });
