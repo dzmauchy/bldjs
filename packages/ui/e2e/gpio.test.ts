@@ -41,6 +41,10 @@ test.describe("gpio", () => {
     await expect(outputToggle).toHaveAttribute("aria-label", "GPIO pin 1 LOW");
     await expect(nodeHost(page, "gpio_in").locator(".form-check-label")).toHaveCount(0);
     await expect(nodeHost(page, "gpio_out").locator(".form-check-label")).toHaveCount(0);
+    await expect(inputToggle).toHaveCSS("box-shadow", /rgba\(13,\s*110,\s*253/);
+    await expect(outputToggle).toHaveCSS("box-shadow", /rgba\(13,\s*110,\s*253/);
+    await expect(inputToggle).toHaveCSS("border-color", "rgb(134, 183, 254)");
+    await expect(outputToggle).toHaveCSS("border-color", "rgb(134, 183, 254)");
     for (const defId of ["gpio_in", "gpio_out"] as const) {
       const configBox = await boxOf(nodeHost(page, defId).locator('[data-testid^="inputs-"]'));
       const switchBox = await boxOf(nodeHost(page, defId).locator('[data-testid^="gpio-"]'));

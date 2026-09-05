@@ -156,6 +156,9 @@ export class BldNode extends LitElement {
       float: none;
       cursor: pointer;
       margin: 0;
+      border-color: #86b7fe;
+      outline: 0;
+      box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
     }
     .flow-node-gpio .form-check-input:disabled {
       cursor: not-allowed;

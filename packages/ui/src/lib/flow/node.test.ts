@@ -346,6 +346,8 @@ describe("BldNode", () => {
     expect(gpioCss).toMatch(/\.flow-node-gpio\s*\{[^}]*padding:\s*0/);
     expect(gpioCss).toMatch(/\.flow-node-gpio\.form-switch \.form-check-input\s*\{[^}]*float:\s*none/);
     expect(gpioCss).toMatch(/\.flow-node-gpio\.form-switch \.form-check-input\s*\{[^}]*margin:\s*0/);
+    expect(gpioCss).toMatch(/\.flow-node-gpio\.form-switch \.form-check-input\s*\{[^}]*border-color:\s*#86b7fe/);
+    expect(gpioCss).toMatch(/\.flow-node-gpio\.form-switch \.form-check-input\s*\{[^}]*box-shadow:\s*0 0 0 0\.25rem/);
     let toggled = false;
     node.addEventListener("gpioclick", () => {
       toggled = true;
