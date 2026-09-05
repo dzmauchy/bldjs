@@ -3,68 +3,27 @@
   <namespace id="types" name="Types"/>
 
   <!--
-    Language-agnostic catalog. WASM is a compilation target, recorded as attributes:
+    MoonBit catalog types. WASM is a compilation target, mapped in code:
 
-      f64  → wasm f64
-      f32  → wasm f32
-      i32  → wasm i32
-      i64  → wasm i64
-      str  → wasm js-string (wasm 3.0)
-      bool → wasm i32
-      c1<T>         consumer
-      c2<T1, T2>    consumer
-      s<R>          supplier
-      f1<T, R>      function
-      f2<T1, T2, R> function
-      T[]           array
+      Double → wasm f64
+      Float  → wasm f32
+      Int    → wasm i32
+      Int64  → wasm i64
+      String → wasm js-string (wasm 3.0)
+      Bool   → wasm i32
+      Unit
+      Array[T]
+      (T) -> R
   -->
 
-  <type name="f64">
-    <attribute name="wasm">f64</attribute>
-  </type>
-  <type name="f32">
-    <attribute name="wasm">f32</attribute>
-  </type>
-  <type name="i32">
-    <attribute name="wasm">i32</attribute>
-  </type>
-  <type name="i64">
-    <attribute name="wasm">i64</attribute>
-  </type>
-  <type name="str">
-    <attribute name="wasm">js-string</attribute>
-  </type>
-  <type name="bool">
-    <attribute name="wasm">i32</attribute>
-  </type>
-
-  <type name="c1">
-    <attribute name="wasm">(func (param T))</attribute>
-    <param name="T"/>
-  </type>
-  <type name="c2">
-    <attribute name="wasm">(func (param T1) (param T2))</attribute>
-    <param name="T1"/>
-    <param name="T2"/>
-  </type>
-  <type name="s">
-    <attribute name="wasm">(func (result R))</attribute>
-    <param name="R"/>
-  </type>
-  <type name="f1">
-    <attribute name="wasm">(func (param T) (result R))</attribute>
-    <param name="T"/>
-    <param name="R"/>
-  </type>
-  <type name="f2">
-    <attribute name="wasm">(func (param T1) (param T2) (result R))</attribute>
-    <param name="T1"/>
-    <param name="T2"/>
-    <param name="R"/>
-  </type>
-  <type name="[]">
-    <attribute name="wasm">array</attribute>
-    <attribute name="dynamic">true</attribute>
+  <type name="Double"/>
+  <type name="Float"/>
+  <type name="Int"/>
+  <type name="Int64"/>
+  <type name="String"/>
+  <type name="Bool"/>
+  <type name="Unit"/>
+  <type name="Array">
     <param name="T"/>
   </type>
 </blocks>

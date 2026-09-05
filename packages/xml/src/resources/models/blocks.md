@@ -1,6 +1,6 @@
 # XML Schema Definition (XSD) Guide: Types, Blocks, and Parameters
 
-**Purpose:** This document provides specification rules, constraints, and structural examples for generating and parsing block catalogs (`blocks.xsd` / `blocks.xml`). It models language-agnostic data types, generic type expressions (AST), functional execution nodes (blocks), and configurable constant parameters.
+**Purpose:** This document provides specification rules, constraints, and structural examples for generating and parsing block catalogs (`blocks.xsd` / `blocks.xml`). It models MoonBit types, functional execution nodes (blocks), and configurable constant parameters.
 
 ---
 
@@ -20,26 +20,24 @@ The root element is `<blocks>`. It acts as the catalog container for `<namespace
 
 ---
 
-## 2. Modeling Types & Generic AST
-The schema represents type constructs through a recursive Abstract Syntax Tree (AST). Base type expressions (`t`, `in`, `out`, `extends`, `super`, `ancestor`) can nest arbitrarily.
-
-### Variance & Generics
-* **Covariant (`+`):** `? extends T`
-* **Contravariant (`-`):** `? super T`
-* **Unbounded (`?`):** `?` (omits `type`)
-* **Param Constraints:** `<param name="T"><extends type="..."/></param>`
+## 2. Modeling Types
+Port and parameter types are MoonBit type strings on the `type` attribute. Nested type trees are not used.
 
 ```xml
-<type name="c1" ns="com.dsp">
-  <attribute name="wasm">(func (param T))</attribute>
-  <param name="T"/>
-</type>
-
-<type name="[]" ns="com.dsp">
-  <attribute name="wasm">array</attribute>
+<type name="Array">
   <param name="T"/>
 </type>
 ```
+
+Examples:
+
+* `Double`, `Float`, `Int`, `Int64`, `String`, `Bool`, `Unit`
+* `Array[T]`
+* `(Double) -> Unit`
+* `(T1, T2) -> R`
+* `() -> Double`
+* `_` (type hole)
+* `Self`
 
 ---
 
@@ -57,7 +55,7 @@ A `<block>` represents an executable node definition in the catalog.
 
 ### Ports (`<in>` and `<out>`)
 * `name`: Port name (required).
-* `type`: Type name reference (e.g., `c1`, `[]`, `f64`).
+* `type`: MoonBit type string (e.g. `Double`, `(Double) -> Unit`, `Array[T]`).
 * `vararg`: Boolean flag for variable arguments (default `false`).
 
 ---
@@ -101,12 +99,8 @@ Blocks declare static/configurable constant inputs under the `<parameters>` cont
     <text-parameter name="filterName" minChars="3" maxChars="32" pattern="^[a-zA-Z0-9_-]+$" default="default_filter"/>
   </parameters>
 
-  <in name="raw_in" type="c1">
-    <t type="f64"/>
-  </in>
-  <out name="scaled_out" type="c1">
-    <t type="f64"/>
-  </out>
+  <in name="raw_in" type="(Double) -> Unit"/>
+  <out name="scaled_out" type="(Double) -> Unit"/>
 </block>
 ```
 

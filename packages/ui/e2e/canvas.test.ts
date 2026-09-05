@@ -256,9 +256,9 @@ test.describe("canvas", () => {
     const inCenter = inBox.x + inBox.width / 2;
     expect(inCenter - nodeBox.x).toBeGreaterThanOrEqual(0.5);
     expect(inCenter - nodeBox.x).toBeLessThan(4);
-    await expect(host.locator('[data-testid="output-out"]')).toHaveAttribute("title", "c<f64>");
+    await expect(host.locator('[data-testid="output-out"]')).toHaveAttribute("title", "(Double) -> Unit");
     await expect(host.locator(".block-port-name")).toHaveCount(0);
-    await expect(host.locator('[data-testid="input-in"]')).toHaveAttribute("title", "c<f64>");
+    await expect(host.locator('[data-testid="input-in"]')).toHaveAttribute("title", "(Double) -> Unit");
     await expect(host.locator('[data-testid^="inputs-"]')).toHaveCount(0);
   });
 

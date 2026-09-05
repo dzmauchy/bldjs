@@ -83,9 +83,9 @@ test.describe("wiring", () => {
     await clickPortHandle(page, "scope", "output-out");
     await expect
       .poll(async () => portTypeText(page, "scope", "output-out"))
-      .toBe("c<f64>");
-    expect(await portTypeText(page, "sin", "input-in")).toBe("c<f64>");
-    expect(await portTypeText(page, "timer", "input-in")).toBe("c<f64>");
+      .toBe("(Double) -> Unit");
+    expect(await portTypeText(page, "sin", "input-in")).toBe("(Double) -> Unit");
+    expect(await portTypeText(page, "timer", "input-in")).toBe("(Double) -> Unit");
     expect(await portTypeText(page, "sin", "output-out")).toBeNull();
 
     const scopeAfter = await boxOf(nodeHost(page, "scope"));
@@ -126,7 +126,7 @@ test.describe("wiring", () => {
     await expect(diagram).toHaveAttribute("data-worker", "true");
   });
 
-  test("keeps a second c<f64> wire on the same input", async () => {
+  test("keeps a second (Double) -> Unit wire on the same input", async () => {
     await placeBlock(page, "scope");
     await placeBlock(page, "scope");
     await placeBlock(page, "timer");
@@ -165,10 +165,10 @@ test.describe("wiring", () => {
     expect(await portNames("cos", "in")).toEqual(["in"]);
     await expect(scope.locator('[data-vector="out"] [data-handle]')).toHaveCount(2);
     await expect(scope.locator('[data-vector="out"] .block-port-name')).toHaveCount(0);
-    await expect(scope.locator('[data-testid="output-out"]')).toHaveAttribute("title", "c<f64>");
-    await expect(scope.locator('[data-testid="output-out[1]"]')).toHaveAttribute("title", "c<f64>");
+    await expect(scope.locator('[data-testid="output-out"]')).toHaveAttribute("title", "(Double) -> Unit");
+    await expect(scope.locator('[data-testid="output-out[1]"]')).toHaveAttribute("title", "(Double) -> Unit");
     await clickPortHandle(page, "scope", "output-out");
-    await expect.poll(async () => portTypeText(page, "scope", "output-out")).toBe("c<f64>");
+    await expect.poll(async () => portTypeText(page, "scope", "output-out")).toBe("(Double) -> Unit");
     await page.keyboard.press("Escape");
     await expect(diagramRoot(page).locator('[data-testid="connector-preview"]')).toHaveCount(0);
     expect(await portTypeText(page, "scope", "output-out")).toBeNull();
@@ -279,17 +279,17 @@ test.describe("wiring", () => {
     }
 
     const timerIn = nodeHost(page, "timer").locator('[data-testid="input-in"]');
-    await expect(timerIn).toHaveAttribute("title", "c<f64>");
-    expect(await timerIn.innerText()).not.toContain("c<f64>");
-    await expect(nodeHost(page, "scope").locator('[data-testid="output-out"]')).toHaveAttribute("title", "c<f64>");
+    await expect(timerIn).toHaveAttribute("title", "(Double) -> Unit");
+    expect(await timerIn.innerText()).not.toContain("(Double) -> Unit");
+    await expect(nodeHost(page, "scope").locator('[data-testid="output-out"]')).toHaveAttribute("title", "(Double) -> Unit");
     const sinIn = nodeHost(page, "sin").locator('[data-testid="input-in"]');
-    expect(await sinIn.innerText()).not.toContain("c<f64>");
-    await expect(sinIn).toHaveAttribute("title", "c<f64>");
-    await expect(nodeHost(page, "sin").locator('[data-testid="output-out"]')).toHaveAttribute("title", "c<f64>");
+    expect(await sinIn.innerText()).not.toContain("(Double) -> Unit");
+    await expect(sinIn).toHaveAttribute("title", "(Double) -> Unit");
+    await expect(nodeHost(page, "sin").locator('[data-testid="output-out"]')).toHaveAttribute("title", "(Double) -> Unit");
     const cosIn = nodeHost(page, "cos").locator('[data-testid="input-in"]');
-    expect(await cosIn.innerText()).not.toContain("c<f64>");
-    await expect(cosIn).toHaveAttribute("title", "c<f64>");
-    await expect(nodeHost(page, "cos").locator('[data-testid="output-out"]')).toHaveAttribute("title", "c<f64>");
+    expect(await cosIn.innerText()).not.toContain("(Double) -> Unit");
+    await expect(cosIn).toHaveAttribute("title", "(Double) -> Unit");
+    await expect(nodeHost(page, "cos").locator('[data-testid="output-out"]')).toHaveAttribute("title", "(Double) -> Unit");
     expect(await portTypeText(page, "timer", "input-in")).toBeNull();
     const timerIcon = nodeHost(page, "timer").locator(".flow-node-icon svg");
     await expect(timerIcon).toBeVisible();

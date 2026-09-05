@@ -2,11 +2,11 @@ import { DEFAULT_PERIOD_MS, periodMsFrom } from "./ids";
 import type { DoubleConsumer } from "./types";
 
 /**
- * Pure push. Compact display writes c1 as c:
+ * Pure push. MoonBit ports:
  *
- *   timer(c) / random(c)  : c<f64> → void
- *   sin(c) / cos(c)       : c<f64> → c<f64>
- *   scope()               : c<f64>[]            (vector of plot sinks)
+ *   timer(c) / random(c)  : (Double) -> Unit → Unit
+ *   sin(c) / cos(c)       : (Double) -> Unit → (Double) -> Unit
+ *   scope()               : Array[(Double) -> Unit]   (vector of plot sinks)
  *
  * Composition: timer(sin(plot[0]))
  *
@@ -79,12 +79,12 @@ export function random(c: DoubleConsumer, running: () => boolean, now: () => num
   new RandomGenerator().run(c, running, now);
 }
 
-/** Plot sink — returns a vector of `c<f64>` channels. */
+/** Plot sink — returns a vector of `(Double) -> Unit` channels. */
 export function scope(...plots: DoubleConsumer[]): DoubleConsumer[] {
   return plots;
 }
 
-/** Hidden runtime fan-out: one `c<f64>` that forwards each sample to every downstream. */
+/** Hidden runtime fan-out: one `(Double) -> Unit` that forwards each sample to every downstream. */
 export function fork(...downstreams: DoubleConsumer[]): DoubleConsumer {
   if (downstreams.length === 1) {
     return downstreams[0];

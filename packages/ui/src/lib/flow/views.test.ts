@@ -54,7 +54,7 @@ describe("buildConnectorViews", () => {
 });
 
 describe("buildNodeState", () => {
-  it("labels every expanded scope channel as c<f64>", () => {
+  it("labels every expanded scope channel as (Double) -> Unit", () => {
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);
     const catalog = diagram.catalog();
@@ -76,8 +76,8 @@ describe("buildNodeState", () => {
     });
     expect(state?.name).toBe("Scope");
     expect(state?.outputs.map((port) => ({ name: port.name, typeLabel: port.typeLabel, showType: port.showType }))).toEqual([
-      { name: "out", typeLabel: "c<f64>", showType: true },
-      { name: "out[1]", typeLabel: "c<f64>", showType: false },
+      { name: "out", typeLabel: "(Double) -> Unit", showType: true },
+      { name: "out[1]", typeLabel: "(Double) -> Unit", showType: false },
     ]);
   });
 });

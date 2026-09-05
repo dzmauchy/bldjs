@@ -44,7 +44,7 @@ Do not repeat a UI walkthrough for inference cases that unit tests already cover
 Do not import `@bld/xml` or `@bld/wasm` package roots. Those packages have no
 kitchen-sink barrel. Import the file that owns the symbol:
 
-- `@bld/xml/blocks/ast`, `catalog`, `compat`, `ports`, `resolve`, `diagram`, `builtin`
+- `@bld/xml/blocks/ast`, `catalog`, `compat`, `ports`, `resolve`, `parse`, `moonbit-type`, `diagram`, `builtin`
 - `@bld/xml/blocks/cs/ids`, `cs/types`, `cs/plan` (not the CS generator classes unless needed)
 - `@bld/xml/diagram/xml`, `diagram/store`, `diagram/compile`
 - `@bld/xml/solution/view`, `@bld/xml/flow`, `@bld/xml/topology`, `@bld/xml/runner`

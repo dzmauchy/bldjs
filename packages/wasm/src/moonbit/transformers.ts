@@ -2,7 +2,7 @@ import { MoonBlock } from "./block";
 import { CTX_PARAM, type MoonBlockEmit } from "./types";
 
 /**
- * XML `c<f64> → c<f64>` wrapper: capture `input` and return a `C1` that maps then forwards.
+ * XML `(Double) -> Unit → (Double) -> Unit` wrapper: capture `input` and return a `C1` that maps then forwards.
  * Extra runtime param `_ctx` is not an XML port.
  */
 export function emitConsumerWrap(name: string, mapExpr: (value: string) => string): string {

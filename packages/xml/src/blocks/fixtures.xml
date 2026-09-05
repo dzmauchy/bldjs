@@ -3,59 +3,51 @@
   <namespace id="types" name="Types"/>
   <namespace id="flow" name="Flow"/>
 
-  <block id="b_i32" name="i32" ns="types" icon="i32">
+  <block id="b_Int" name="Int" ns="types" icon="i32">
     <attribute name="kind">Data</attribute>
-    <out name="value" type="i32"/>
+    <out name="value" type="Int"/>
   </block>
 
-  <block id="b_i64" name="i64" ns="types" icon="i64">
+  <block id="b_Int64" name="Int64" ns="types" icon="i64">
     <attribute name="kind">Data</attribute>
-    <out name="value" type="i64"/>
+    <out name="value" type="Int64"/>
   </block>
 
-  <block id="b_f32" name="f32" ns="types" icon="f32">
+  <block id="b_Float" name="Float" ns="types" icon="f32">
     <attribute name="kind">Data</attribute>
-    <out name="value" type="f32"/>
+    <out name="value" type="Float"/>
   </block>
 
-  <block id="b_f64" name="f64" ns="types" icon="f64">
+  <block id="b_Double" name="Double" ns="types" icon="f64">
     <attribute name="kind">Data</attribute>
-    <out name="value" type="f64"/>
+    <out name="value" type="Double"/>
   </block>
 
-  <block id="b_str" name="str" ns="types" icon="string">
+  <block id="b_String" name="String" ns="types" icon="string">
     <attribute name="kind">Data</attribute>
-    <out name="value" type="str"/>
+    <out name="value" type="String"/>
   </block>
 
-  <block id="b_bool" name="bool" ns="types" icon="bool">
+  <block id="b_Bool" name="Bool" ns="types" icon="bool">
     <attribute name="kind">Data</attribute>
-    <out name="value" type="bool"/>
+    <out name="value" type="Bool"/>
   </block>
 
   <block id="b_array_of" name="array" ns="types" icon="list">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">Vararg elements become T[]</attribute>
+    <attribute name="description">Vararg elements become Array[T]</attribute>
     <param name="T"/>
-    <factory id="array#of">
-      <t type="T"/>
-    </factory>
+    <factory id="Array::from"/>
     <in name="elems" type="T" vararg="true"/>
-    <out name="result" type="[]">
-      <t type="T"/>
-    </out>
+    <out name="result" type="Array[T]"/>
   </block>
 
   <block id="b_array_get" name="array.get" ns="types" icon="list">
     <attribute name="kind">Process</attribute>
     <param name="T"/>
-    <factory id="array#get">
-      <t type="T"/>
-    </factory>
-    <in name="array" type="[]">
-      <t type="T"/>
-    </in>
-    <in name="index" type="i32"/>
+    <factory id="Array::get"/>
+    <in name="array" type="Array[T]"/>
+    <in name="index" type="Int"/>
     <out name="elem" type="T"/>
   </block>
 

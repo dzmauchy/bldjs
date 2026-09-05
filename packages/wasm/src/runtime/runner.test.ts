@@ -3,7 +3,7 @@ import { createSharedMemory, readFlowCounts } from "./memory";
 import { interceptConsumerFrequency, startTickLoop } from "./runner";
 
 describe("generator runner", () => {
-  it("intercepts c<?> frequency without the runtime ticking", () => {
+  it("intercepts consumer frequency without the runtime ticking", () => {
     const memory = createSharedMemory();
     interceptConsumerFrequency(memory, 3);
     interceptConsumerFrequency(memory, 3);

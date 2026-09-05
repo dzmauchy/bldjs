@@ -3,42 +3,23 @@ export interface Attribute {
   value: string;
 }
 
-export type Variance = "covariant" | "contravariant" | "unbounded";
-
-export function parseVariance(value: string): Variance | undefined {
-  switch (value) {
-    case "+":
-      return "covariant";
-    case "-":
-      return "contravariant";
-    case "?":
-      return "unbounded";
-    default:
-      return undefined;
-  }
-}
-
-/** Short display heads used when `compact` is true. */
-const COMPACT_HEADS: Record<string, string> = {
-  c1: "c",
-};
-
 function rawTypeName(name: string): string {
   const parts = name.split(".");
   return parts[parts.length - 1] ?? name;
 }
 
-function compactHead(name: string): string {
-  const raw = rawTypeName(name);
-  return COMPACT_HEADS[raw] ?? raw;
+function displayHead(name: string, ns: string | null, compact: boolean): string {
+  if (compact || !ns) {
+    return name;
+  }
+  return name.includes(".") ? name : `${ns}.${name}`;
 }
 
-function displayArrayElem(elem: TypeExpr, compact: boolean): string {
-  const text = elem.display(compact);
-  if (elem.kind === "union" || elem.kind === "intersection") {
-    return `(${text})`;
+function parenthesize(expr: TypeExpr, compact: boolean): string {
+  if (expr.kind === "union" || expr.kind === "intersection") {
+    return `(${expr.display(compact)})`;
   }
-  return text;
+  return expr.display(compact);
 }
 
 abstract class TypeNode {
@@ -101,15 +82,11 @@ export class NamedType extends TypeNode {
   }
 
   display(compact: boolean): string {
-    if (this.isArray()) {
-      const elem = this.args[0];
-      return `${elem ? displayArrayElem(elem, compact) : "?"}[]`;
-    }
-    const head = compact ? compactHead(this.name) : this.ns ? `${this.ns}.${this.name}` : this.name;
+    const head = displayHead(this.name, this.ns, compact);
     if (this.args.length === 0) {
       return head;
     }
-    return `${head}<${this.args.map((arg) => arg.display(compact)).join(", ")}>`;
+    return `${head}[${this.args.map((arg) => parenthesize(arg, compact)).join(", ")}]`;
   }
 
   equals(other: TypeExpr): boolean {
@@ -133,15 +110,11 @@ export class NamedType extends TypeNode {
   }
 
   isArray(): boolean {
-    return this.name === "[]" || rawTypeName(this.name) === "array";
-  }
-
-  isConsumer(): boolean {
-    return rawTypeName(this.name) === "c1";
+    return rawTypeName(this.name) === "Array";
   }
 
   isPush(): boolean {
-    return this.isConsumer() || (this.isArray() && (this.args[0]?.isPush() ?? false));
+    return this.isArray() && (this.args[0]?.isPush() ?? false);
   }
 
   asParam(params: ParamDef[]): ParamDef | undefined {
@@ -152,45 +125,94 @@ export class NamedType extends TypeNode {
   }
 }
 
-export class WildcardType extends TypeNode {
-  readonly kind = "wildcard" as const;
+/** MoonBit function type `(T1, T2) -> R`. */
+export class FuncType extends TypeNode {
+  readonly kind = "func" as const;
 
   constructor(
-    readonly variance: Variance,
-    readonly bound: TypeExpr | null,
+    readonly params: TypeExpr[],
+    readonly ret: TypeExpr,
   ) {
     super();
   }
 
   children(): TypeExpr[] {
-    return this.bound ? [this.bound] : [];
+    return [...this.params, this.ret];
   }
 
   mapChildren(fn: (child: TypeExpr) => TypeExpr): TypeExpr {
-    return this.bound ? new WildcardType(this.variance, fn(this.bound)) : this;
+    return new FuncType(this.params.map(fn), fn(this.ret));
   }
 
   display(compact: boolean): string {
-    if (this.variance === "unbounded" || this.bound === null) {
-      return "?";
-    }
-    if (this.variance === "covariant") {
-      return `? extends ${this.bound.display(compact)}`;
-    }
-    return `? super ${this.bound.display(compact)}`;
+    return `(${this.params.map((param) => param.display(compact)).join(", ")}) -> ${this.ret.display(compact)}`;
   }
 
   equals(other: TypeExpr): boolean {
-    if (other.kind !== "wildcard" || this.variance !== other.variance) {
-      return false;
-    }
-    if (this.bound === null && other.bound === null) {
-      return true;
-    }
-    if (this.bound === null || other.bound === null) {
-      return false;
-    }
-    return this.bound.equals(other.bound);
+    return (
+      other.kind === "func" &&
+      this.params.length === other.params.length &&
+      this.params.every((param, index) => param.equals(other.params[index])) &&
+      this.ret.equals(other.ret)
+    );
+  }
+
+  isConsumer(): boolean {
+    return isUnitType(this.ret);
+  }
+}
+
+/** MoonBit tuple `(T1, T2)`. */
+export class TupleType extends TypeNode {
+  readonly kind = "tuple" as const;
+
+  constructor(readonly elems: TypeExpr[]) {
+    super();
+  }
+
+  children(): TypeExpr[] {
+    return this.elems;
+  }
+
+  mapChildren(fn: (child: TypeExpr) => TypeExpr): TypeExpr {
+    return new TupleType(this.elems.map(fn));
+  }
+
+  display(compact: boolean): string {
+    return `(${this.elems.map((elem) => elem.display(compact)).join(", ")})`;
+  }
+
+  equals(other: TypeExpr): boolean {
+    return (
+      other.kind === "tuple" &&
+      this.elems.length === other.elems.length &&
+      this.elems.every((elem, index) => elem.equals(other.elems[index]))
+    );
+  }
+}
+
+/** MoonBit type hole `_`. */
+export class HoleType extends TypeNode {
+  readonly kind = "hole" as const;
+
+  children(): TypeExpr[] {
+    return [];
+  }
+
+  mapChildren(_fn: (child: TypeExpr) => TypeExpr): TypeExpr {
+    return this;
+  }
+
+  display(_compact: boolean): string {
+    return "_";
+  }
+
+  equals(other: TypeExpr): boolean {
+    return other.kind === "hole";
+  }
+
+  isGround(_params: ParamDef[]): boolean {
+    return false;
   }
 }
 
@@ -210,7 +232,7 @@ export class SelfType extends TypeNode {
   }
 
   display(_compact: boolean): string {
-    return "this";
+    return "Self";
   }
 
   equals(other: TypeExpr): boolean {
@@ -261,7 +283,7 @@ export class IntersectionType extends MemberType {
   }
 }
 
-export type TypeExpr = NamedType | WildcardType | SelfType | UnionType | IntersectionType;
+export type TypeExpr = NamedType | FuncType | TupleType | HoleType | SelfType | UnionType | IntersectionType;
 
 export function named(name: string): TypeExpr {
   return new NamedType(name, null, []);
@@ -272,15 +294,24 @@ export function generic(name: string, args: TypeExpr[]): TypeExpr {
 }
 
 export function unbounded(): TypeExpr {
-  return new WildcardType("unbounded", null);
+  return new HoleType();
 }
 
-export function extendsBound(bound: TypeExpr): TypeExpr {
-  return new WildcardType("covariant", bound);
+export function unitType(): TypeExpr {
+  return named("Unit");
 }
 
-export function superBound(bound: TypeExpr): TypeExpr {
-  return new WildcardType("contravariant", bound);
+export function funcType(params: TypeExpr[], ret: TypeExpr = unitType()): TypeExpr {
+  return new FuncType(params, ret);
+}
+
+/** MoonBit consumer `(T) -> Unit`. */
+export function consumerType(...params: TypeExpr[]): TypeExpr {
+  return funcType(params, unitType());
+}
+
+export function isUnitType(expr: TypeExpr): boolean {
+  return expr.kind === "type" && rawTypeName(expr.name) === "Unit" && expr.args.length === 0;
 }
 
 export function isArrayType(expr: TypeExpr): boolean {
@@ -288,7 +319,7 @@ export function isArrayType(expr: TypeExpr): boolean {
 }
 
 export function arrayOf(elem: TypeExpr): TypeExpr {
-  return new NamedType("[]", null, [elem]);
+  return new NamedType("Array", null, [elem]);
 }
 
 export function displayType(expr: TypeExpr, compact: boolean): string {
@@ -328,9 +359,7 @@ function dedupSorted(members: TypeExpr[]): TypeExpr[] {
 }
 
 export function unionOf(membersIn: TypeExpr[]): TypeExpr {
-  const members = membersIn.filter(
-    (member) => !(member.kind === "wildcard" && member.variance === "unbounded" && member.bound === null),
-  );
+  const members = membersIn.filter((member) => member.kind !== "hole");
   flattenInto(members, true);
   members.sort((a, b) => displayKey(a).localeCompare(displayKey(b)));
   const unique = dedupSorted(members);
@@ -357,7 +386,7 @@ export function intersectionOf(membersIn: TypeExpr[]): TypeExpr {
   return new IntersectionType(unique);
 }
 
-/** Catalog consumer `c1<T>` / compact `c<T>`. Multiple such outputs may share one input via a hidden fork. */
+/** Catalog consumer `(T) -> Unit`. Multiple such outputs may share one input via a hidden fork. */
 export function isConsumerType(expr: TypeExpr): boolean {
   return expr.isConsumer();
 }
@@ -380,9 +409,7 @@ export function typesEqual(left: TypeExpr, right: TypeExpr): boolean {
 
 export interface ParamDef {
   name: string;
-  variance: Variance | null;
   extends: TypeExpr[];
-  superBounds: TypeExpr[];
   attributes: Attribute[];
 }
 
