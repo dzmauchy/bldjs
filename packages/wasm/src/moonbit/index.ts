@@ -3,6 +3,14 @@ import type { BlockScript } from "./types";
 
 export type { MoonBlockEmit, BlockScript } from "./types";
 export { QUANTIZER_PERIOD_NS } from "./blocks/generator";
+export {
+  I32_ATOMICS,
+  I32_ATOMIC_OPCODE,
+  emitI32Atomic,
+  emitI32Atomics,
+  hasThreadsOpcode,
+  i32Atomic,
+} from "./atomics";
 export { preamble, emitStart, emitStopped } from "./runtime";
 export { emitFork } from "./fork";
 export { emitConsumerWrap } from "./consumer";

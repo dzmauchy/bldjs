@@ -4,6 +4,7 @@ import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
 import { Diagram, type Link } from "@bld/xml/blocks/diagram";
 import { loadDiagramSolution } from "@bld/xml/diagram/compile";
 import { serializeCanvas } from "@bld/xml/diagram/xml";
+import { I32_ATOMIC_OPCODE, hasThreadsOpcode } from "./moonbit";
 import { compileGenerator, generatorText } from "./compile";
 
 function catalog() {
@@ -42,13 +43,16 @@ describe("compileGenerator", () => {
     expect(compiled.text).toContain('fn js_set_interval(cb : () -> Unit, ms : Int) -> Int = "js" "setInterval"');
     expect(compiled.text).toContain("pub fn tick() -> Unit");
     expect(compiled.text).toContain("let _ = stopped()");
-    expect(compiled.text).toContain('extern "wasm" fn stopped() -> Int');
+    expect(compiled.text).toContain("fn stopped() -> Int");
+    expect(compiled.text).toContain('extern "wasm" fn i32_atomic_load');
     expect(compiled.text).toContain("i32.atomic.load");
     expect(compiled.text).toContain("pub fn start(delay_ms : Int) -> Unit");
     expect(compiled.text).not.toContain("fn quantizer");
     expect(compiled.text).not.toContain("memory.atomic.wait32");
     expect(compiled.text).not.toContain("setTimeout");
     expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
+    expect(hasThreadsOpcode(compiled.wasm, I32_ATOMIC_OPCODE.load)).toBe(true);
+    expect(hasThreadsOpcode(compiled.wasm, I32_ATOMIC_OPCODE.store)).toBe(false);
   });
 
   it("walks a cos transformer", async () => {
