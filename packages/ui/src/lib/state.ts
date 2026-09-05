@@ -1,7 +1,7 @@
 import { type BlockDef, type BlockParameterDef, blockAttribute } from "@bld/xml/blocks/ast";
 import { associateBuiltinModels, xmlSourcesForFiles } from "@bld/xml/blocks/builtin";
 import { Catalog } from "@bld/xml/blocks/catalog";
-import { PERIOD_PARAM, PIN_PARAM, WINDOW_PARAM, METER_PARAM, isEventDrivenGenerator, periodMsFrom, pinFrom, windowSecondsFrom, meterMsFrom } from "@bld/xml/blocks/cs/ids";
+import { PERIOD_PARAM, PIN_PARAM, WINDOW_PARAM, METER_PARAM, ZETA_PARAM, OMEGA_PARAM, isEventDrivenGenerator, periodMsFrom, pinFrom, windowSecondsFrom, meterMsFrom, zetaFrom, omegaFrom } from "@bld/xml/blocks/cs/ids";
 import { Diagram, type Link, type XmlSource, linksEqual } from "@bld/xml/blocks/diagram";
 import { compactLinkSlots } from "@bld/xml/blocks/ports";
 import type { ResolvedBlock } from "@bld/xml/blocks/resolve";
@@ -128,11 +128,22 @@ export class AppState extends ObservableState {
     this.run.error = null;
   }
 
-  runNodes(): Array<{ id: number; defId: string; periodMs?: number; pin?: number; windowS?: number; meterMs?: number }> {
+  runNodes(): Array<{
+    id: number;
+    defId: string;
+    periodMs?: number;
+    pin?: number;
+    zeta?: number;
+    omega?: number;
+    windowS?: number;
+    meterMs?: number;
+  }> {
     return this.blocks.map((block) => ({
       ...block,
       periodMs: this.blockPeriodMs(block.id),
       pin: this.blockPin(block.id),
+      zeta: this.blockZeta(block.id),
+      omega: this.blockOmega(block.id),
       windowS: this.blockWindowS(block.id),
       meterMs: this.blockMeterMs(block.id),
     }));
@@ -366,6 +377,24 @@ export class AppState extends ObservableState {
     const defId = this.block(id)?.defId;
     const fallback = defId === "gpio_out" ? 1 : 0;
     return value == null && defId === "gpio_out" ? fallback : pinFrom(value ?? fallback);
+  }
+
+  blockZeta(id: number): number | undefined {
+    if (this.block(id)?.defId !== "overshoot") {
+      return undefined;
+    }
+    const extra = this.#extras.get(id);
+    const value = extra?.parameters.find((param) => param.name === ZETA_PARAM)?.value;
+    return zetaFrom(value);
+  }
+
+  blockOmega(id: number): number | undefined {
+    if (this.block(id)?.defId !== "overshoot") {
+      return undefined;
+    }
+    const extra = this.#extras.get(id);
+    const value = extra?.parameters.find((param) => param.name === OMEGA_PARAM)?.value;
+    return omegaFrom(value);
   }
 
   blockWindowS(id: number): number | undefined {

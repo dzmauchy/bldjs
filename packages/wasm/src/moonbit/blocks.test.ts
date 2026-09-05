@@ -3,7 +3,7 @@ import { BLOCK_SCRIPTS, QUANTIZER_PERIOD_NS, preamble, TimerMoonBlock } from "./
 import { CTX_PARAM } from "./types";
 import { emitRandom, emitTimer } from "./generators";
 import { emitGpioIn, emitGpioOut } from "./gpio";
-import { emitSin } from "./transformers";
+import { emitOvershoot, emitSin } from "./transformers";
 import { emitScope } from "./scope";
 
 describe("generator catalog", () => {
@@ -34,6 +34,20 @@ describe("transformer catalog", () => {
     expect(source).not.toContain("memory.atomic.wait32");
     expect(preamble()).toContain('fn math_sin(x : Double) -> Double = "Math" "sin"');
   });
+
+  it("bakes ζ and ω, then maps with runtime ωd = ω√(1−ζ²)", () => {
+    const source = emitOvershoot({ zeta: 0.5, omega: 2 });
+    expect(source).toContain(`fn overshoot(${CTX_PARAM}, input : C1) -> C1`);
+    expect(source).toContain("let zeta = 0.5");
+    expect(source).toContain("let w = 2.0");
+    expect(source).toContain("w * math_sqrt(1.0 - zeta * zeta)");
+    expect(source).toContain("math_exp(");
+    expect(source).toContain("math_sin(");
+    expect(source).toContain("math_cos(");
+    expect(source).not.toContain("-0.5 * t");
+    expect(source).toContain("let clock_overshoot");
+    expect(source).not.toContain("let _ = ctx");
+  });
 });
 
 describe("scope catalog", () => {
@@ -47,7 +61,16 @@ describe("scope catalog", () => {
 
 describe("MoonBit block library", () => {
   it("covers the runtime XML blocks", () => {
-    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["cos", "gpio_in", "gpio_out", "random", "scope", "sin", "timer"]);
+    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual([
+      "cos",
+      "gpio_in",
+      "gpio_out",
+      "overshoot",
+      "random",
+      "scope",
+      "sin",
+      "timer",
+    ]);
     expect(new TimerMoonBlock().emit()).toBe(emitTimer());
   });
 });

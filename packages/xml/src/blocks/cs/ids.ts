@@ -1,4 +1,4 @@
-import { clampInt, clampPositiveInt } from "../../numeric";
+import { clampDouble, clampInt, clampPositiveInt } from "../../numeric";
 
 /** Default generator quantization period (`integer-range-parameter` `period`). */
 export const DEFAULT_PERIOD_MS = 10;
@@ -7,8 +7,18 @@ export const QUANTIZER_DELAY_MS = DEFAULT_PERIOD_MS;
 
 export const PERIOD_PARAM = "period";
 export const PIN_PARAM = "pin";
+export const ZETA_PARAM = "ζ";
+export const OMEGA_PARAM = "ω";
 export const WINDOW_PARAM = "n";
 export const METER_PARAM = "m";
+/** Damping ratio for the underdamped second-order step response (`double-range-parameter` `ζ`). */
+export const DEFAULT_ZETA = 0.5;
+export const MIN_ZETA = 0.05;
+export const MAX_ZETA = 0.95;
+/** Natural frequency in rad/s (`double-range-parameter` `ω`). Damped frequency is `ωd = ω√(1−ζ²)`. */
+export const DEFAULT_OMEGA = 1;
+export const MIN_OMEGA = 0.1;
+export const MAX_OMEGA = 20;
 export const DEFAULT_PIN = 0;
 export const MAX_PIN = 31;
 
@@ -24,7 +34,7 @@ export const MAX_METER_MS = 1000;
 export const GENERATOR_IDS = new Set(["timer", "random", "gpio_in"]);
 /** Generators that fire on a quantization period. GPIO In samples on start and pin edges. */
 export const QUANTIZED_GENERATOR_IDS = new Set(["timer", "random"]);
-export const TRANSFORMER_IDS = new Set(["sin", "cos"]);
+export const TRANSFORMER_IDS = new Set(["sin", "cos", "overshoot"]);
 export const SINK_IDS = new Set(["scope", "gpio_out"]);
 export const GPIO_IDS = new Set(["gpio_in", "gpio_out"]);
 
@@ -70,6 +80,16 @@ export function windowSecondsFrom(value: number | string | undefined | null): nu
 export function meterMsFrom(value: number | string | undefined | null): number {
   const parsed = typeof value === "number" ? value : value == null ? DEFAULT_METER_MS : Number(value);
   return clampInt(parsed, MIN_METER_MS, MAX_METER_MS, DEFAULT_METER_MS);
+}
+
+export function zetaFrom(value: number | string | undefined | null): number {
+  const parsed = typeof value === "number" ? value : value == null ? DEFAULT_ZETA : Number(value);
+  return clampDouble(parsed, MIN_ZETA, MAX_ZETA, DEFAULT_ZETA);
+}
+
+export function omegaFrom(value: number | string | undefined | null): number {
+  const parsed = typeof value === "number" ? value : value == null ? DEFAULT_OMEGA : Number(value);
+  return clampDouble(parsed, MIN_OMEGA, MAX_OMEGA, DEFAULT_OMEGA);
 }
 
 /**

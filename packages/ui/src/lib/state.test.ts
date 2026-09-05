@@ -374,6 +374,26 @@ describe("AppState run", () => {
     expect(app.toDiagramXml()).toContain('value="20"');
   });
 
+  it("seeds overshoot ζ at 0.5 and ω at 1 and updates them", () => {
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("overshoot", 0, 0);
+    expect(app.blockZeta(id)).toBe(0.5);
+    expect(app.blockOmega(id)).toBe(1);
+    expect(app.blockInputs(id).map((input) => [input.def.name, input.value])).toEqual([
+      ["ζ", "0.5"],
+      ["ω", "1"],
+    ]);
+    app.setBlockParameter(id, "ζ", "0.7");
+    app.setBlockParameter(id, "ω", "2");
+    expect(app.blockZeta(id)).toBe(0.7);
+    expect(app.blockOmega(id)).toBe(2);
+    expect(app.toDiagramXml()).toContain('name="ζ"');
+    expect(app.toDiagramXml()).toContain('value="0.7"');
+    expect(app.toDiagramXml()).toContain('name="ω"');
+    expect(app.toDiagramXml()).toContain('value="2"');
+  });
+
   it("closes and ignores input configuration while a run is busy", async () => {
     const app = new AppState();
     const { generatorId } = wireCsPipeline(app);

@@ -68,6 +68,7 @@ test.describe("canvas", () => {
     await expect(page.locator('[data-testid="palette-random"]')).toContainText("Random");
     await expect(page.locator('[data-testid="palette-sin"]')).toContainText("Sin");
     await expect(page.locator('[data-testid="palette-cos"]')).toContainText("Cos");
+    await expect(page.locator('[data-testid="palette-overshoot"]')).toContainText("Overshoot");
     await expect(page.locator('[data-testid="palette-gpio_in"]')).toContainText("GPIO In");
     await expect(page.locator('[data-testid="palette-gpio_out"]')).toContainText("GPIO Out");
     await expect(page.locator('[data-testid="palette-quantizer"]')).toHaveCount(0);
@@ -281,6 +282,21 @@ test.describe("canvas", () => {
     await expect(page.locator('[data-testid="input-value-n"]')).toHaveText("30 s");
     await expect(page.locator('[data-testid="input-value-m"]')).toHaveText("10 ms");
     await page.locator('[data-testid="inputs-close"]').click();
+  });
+
+  test("opens overshoot inputs and defaults ζ to 0.5 and ω to 1", async () => {
+    await newCanvas(page);
+    await placeBlock(page, "overshoot");
+    await nodeHost(page, "overshoot").locator('[data-testid^="inputs-"]').click();
+    await expect(page.locator('[data-testid="inputs-modal"]')).toBeInViewport();
+    await expect(page.locator('[data-testid="input-value-ζ"]')).toHaveText("0.5");
+    await expect(page.locator('[data-testid="input-value-ω"]')).toHaveText("1");
+    await page.locator('[data-testid="input-range-ζ"]').fill("0.7");
+    await expect(page.locator('[data-testid="input-value-ζ"]')).toHaveText("0.7");
+    await page.locator('[data-testid="input-range-ω"]').fill("2");
+    await expect(page.locator('[data-testid="input-value-ω"]')).toHaveText("2");
+    await page.locator('[data-testid="inputs-close"]').click();
+    await expect(page.locator('[data-testid="inputs-modal"]')).toHaveCount(0);
   });
 
   test("disables block configuration while running", async () => {

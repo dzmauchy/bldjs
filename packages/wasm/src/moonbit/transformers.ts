@@ -1,5 +1,14 @@
+import { omegaFrom, zetaFrom } from "@bld/xml/blocks/cs/ids";
 import { MoonBlock } from "./block";
 import { CTX_PARAM, type MoonBlockEmit } from "./types";
+
+function moonDouble(value: number): string {
+  return Number.isInteger(value) ? `${value}.0` : String(value);
+}
+
+function moonIdent(name: string): string {
+  return name.replace(/[^A-Za-z0-9_]/g, "_");
+}
 
 /**
  * XML `(Double) -> Unit → (Double) -> Unit` wrapper: capture `input` and return a `C1` that maps then forwards.
@@ -36,8 +45,52 @@ export class CosMoonBlock extends MoonTransformer {
   }
 }
 
+/**
+ * Second-order underdamped unit-step. Time is the input relative to the first sample.
+ * `ζ` and `ω` are baked from catalog parameters; `ωd = ω√(1−ζ²)` and sin/cos/exp/sqrt run at sample time.
+ */
+export function emitOvershootWrap(name: string, zeta?: number, omega?: number): string {
+  const z = zetaFrom(zeta);
+  const w = omegaFrom(omega);
+  const ident = moonIdent(name);
+  return `priv struct OvershootClock_${ident} {
+  mut t0 : Double
+  mut on : Int
+}
+
+let clock_${ident} : OvershootClock_${ident} = { t0: 0.0, on: 0 }
+
+fn ${name}(${CTX_PARAM}, input : C1) -> C1 {
+  fn(v : Double) {
+    if clock_${ident}.on == 0 {
+      clock_${ident}.t0 = v
+      clock_${ident}.on = 1
+    }
+    let t = v - clock_${ident}.t0
+    let zeta = ${moonDouble(z)}
+    let w = ${moonDouble(w)}
+    let wd = w * math_sqrt(1.0 - zeta * zeta)
+    let sigma = zeta * w
+    let decay = math_exp(0.0 - sigma * t)
+    let phase = wd * t
+    let y = 1.0 - decay * (math_cos(phase) + sigma / wd * math_sin(phase))
+    input(if t < 0.0 { 0.0 } else { y })
+  }
+}
+`;
+}
+
+export class OvershootMoonBlock extends MoonBlock {
+  readonly defId = "overshoot";
+
+  emit(opts: MoonBlockEmit = {}): string {
+    return emitOvershootWrap(opts.name ?? this.defId, opts.zeta, opts.omega);
+  }
+}
+
 export const SIN_BLOCK = new SinMoonBlock();
 export const COS_BLOCK = new CosMoonBlock();
+export const OVERSHOOT_BLOCK = new OvershootMoonBlock();
 
 export function emitSin(opts: MoonBlockEmit = {}): string {
   return SIN_BLOCK.emit(opts);
@@ -45,4 +98,8 @@ export function emitSin(opts: MoonBlockEmit = {}): string {
 
 export function emitCos(opts: MoonBlockEmit = {}): string {
   return COS_BLOCK.emit(opts);
+}
+
+export function emitOvershoot(opts: MoonBlockEmit = {}): string {
+  return OVERSHOOT_BLOCK.emit(opts);
 }

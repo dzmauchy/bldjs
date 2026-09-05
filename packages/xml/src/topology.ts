@@ -9,6 +9,8 @@ type TopologyBlock = {
   defId: string;
   periodMs?: number;
   pin?: number;
+  zeta?: number;
+  omega?: number;
   windowS?: number;
   meterMs?: number;
 };
@@ -19,6 +21,8 @@ export function nodeSpecsFrom(blocks: readonly TopologyBlock[]): NodeSpec[] {
     defId: block.defId,
     periodMs: block.periodMs,
     pin: block.pin,
+    zeta: block.zeta,
+    omega: block.omega,
     windowS: block.windowS,
     meterMs: block.meterMs,
   }));
@@ -29,7 +33,7 @@ export function topologyKey(blocks: readonly TopologyBlock[], links: readonly Li
   const nodes = blocks
     .map(
       (block) =>
-        `${block.id}:${block.defId}:${block.periodMs ?? ""}:${block.pin ?? ""}:${block.windowS ?? ""}:${block.meterMs ?? ""}`,
+        `${block.id}:${block.defId}:${block.periodMs ?? ""}:${block.pin ?? ""}:${block.zeta ?? ""}:${block.omega ?? ""}:${block.windowS ?? ""}:${block.meterMs ?? ""}`,
     )
     .join(",");
   const wires = links.map((link) => connectorKey(link)).join(",");

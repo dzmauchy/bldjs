@@ -7,6 +7,8 @@ import { emitEmbeddedMath } from "./math";
 export interface PreambleNeeds {
   sin?: boolean;
   cos?: boolean;
+  exp?: boolean;
+  sqrt?: boolean;
   random?: boolean;
   now?: boolean;
   gpio?: boolean;
@@ -43,6 +45,12 @@ function jsBindings(needs: PreambleNeeds): string[] {
   }
   if (needs.cos) {
     bindings.push('fn math_cos(x : Double) -> Double = "Math" "cos"');
+  }
+  if (needs.exp) {
+    bindings.push('fn math_exp(x : Double) -> Double = "Math" "exp"');
+  }
+  if (needs.sqrt) {
+    bindings.push('fn math_sqrt(x : Double) -> Double = "Math" "sqrt"');
   }
   if (needs.random) {
     bindings.push('fn math_random() -> Double = "Math" "random"');
@@ -130,7 +138,13 @@ export function preamble(needs: PreambleNeeds = { sin: true, cos: true, random: 
 }
 
 function preambleProd(needs: PreambleNeeds): string {
-  const math = emitEmbeddedMath({ sin: needs.sin, cos: needs.cos, random: needs.random });
+  const math = emitEmbeddedMath({
+    sin: needs.sin,
+    cos: needs.cos,
+    exp: needs.exp,
+    sqrt: needs.sqrt,
+    random: needs.random,
+  });
   const parts = [
     `// XML-matching MoonBit wasm generator for MCU + RTOS (WAMR).
 // Host ABI is env (pin_*, wait_event, timer_start, usb_write). No JS Math or setInterval.`,

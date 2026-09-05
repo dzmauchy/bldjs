@@ -8,11 +8,15 @@ import {
   PERIOD_PARAM,
   PIN_PARAM,
   WINDOW_PARAM,
+  ZETA_PARAM,
+  OMEGA_PARAM,
   isEventDrivenGenerator,
   meterMsFrom,
   periodMsFrom,
   pinFrom,
   windowSecondsFrom,
+  zetaFrom,
+  omegaFrom,
 } from "../blocks/cs/ids";
 import { documentToCanvas, parseDiagramXml } from "./xml";
 import type { DiagramDocument } from "./types";
@@ -27,7 +31,16 @@ export class DiagramCompileError extends Error {
 export interface DiagramSolution {
   xml: string;
   doc: DiagramDocument;
-  nodes: Array<{ id: number; defId: string; periodMs?: number; pin?: number; windowS?: number; meterMs?: number }>;
+  nodes: Array<{
+    id: number;
+    defId: string;
+    periodMs?: number;
+    pin?: number;
+    zeta?: number;
+    omega?: number;
+    windowS?: number;
+    meterMs?: number;
+  }>;
   links: Link[];
   inferred: Map<number, ResolvedBlock>;
 }
@@ -47,6 +60,8 @@ export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolut
     const extra = canvas.extras.get(block.id);
     const period = extra?.parameters.find((param) => param.name === PERIOD_PARAM)?.value;
     const pin = extra?.parameters.find((param) => param.name === PIN_PARAM)?.value;
+    const zeta = extra?.parameters.find((param) => param.name === ZETA_PARAM)?.value;
+    const omega = extra?.parameters.find((param) => param.name === OMEGA_PARAM)?.value;
     const window = extra?.parameters.find((param) => param.name === WINDOW_PARAM)?.value;
     const meter = extra?.parameters.find((param) => param.name === METER_PARAM)?.value;
     return {
@@ -54,6 +69,8 @@ export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolut
       defId: block.defId,
       periodMs: isEventDrivenGenerator(block.defId) ? 0 : periodMsFrom(period),
       pin: pin == null ? undefined : pinFrom(pin),
+      zeta: block.defId === "overshoot" ? zetaFrom(zeta) : undefined,
+      omega: block.defId === "overshoot" ? omegaFrom(omega) : undefined,
       windowS: block.defId === "scope" ? windowSecondsFrom(window) : undefined,
       meterMs: block.defId === "scope" ? meterMsFrom(meter) : undefined,
     };

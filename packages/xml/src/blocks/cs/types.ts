@@ -14,6 +14,10 @@ export interface NodeSpec {
   defId: string;
   periodMs?: number;
   pin?: number;
+  /** Overshoot damping ratio (`ζ`). */
+  zeta?: number;
+  /** Overshoot natural frequency (`ω`). Damped frequency is `ωd = ω√(1−ζ²)`. */
+  omega?: number;
   /** Scope time-window width in seconds (`n`). */
   windowS?: number;
   /** Scope quantizer period in milliseconds (`m`). */

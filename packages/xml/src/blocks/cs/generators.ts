@@ -5,7 +5,7 @@ import type { DoubleConsumer } from "./types";
  * Pure push. MoonBit ports:
  *
  *   timer(c) / random(c)  : (Double) -> Unit → Unit
- *   sin(c) / cos(c)       : (Double) -> Unit → (Double) -> Unit
+ *   sin(c) / cos(c) / overshoot(c)  : (Double) -> Unit → (Double) -> Unit
  *   scope()               : Array[(Double) -> Unit]   (vector of plot sinks)
  *
  * Composition: timer(sin(plot[0]))

@@ -53,6 +53,34 @@ describe("MoonBit generator", () => {
     expect(samples.every((value) => Math.abs(value - 1) < 1e-9)).toBe(true);
   });
 
+  it("ticks the overshoot peak of a unit step", async () => {
+    const compiled = (await compileGenerator(
+      3,
+      [
+        { id: 1, defId: "scope" },
+        { id: 2, defId: "overshoot", zeta: 0.5 },
+        { id: 3, defId: "timer" },
+      ],
+      [
+        { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+      ],
+    ))!;
+    const zeta = 0.5;
+    const omega = 1;
+    const wd = omega * Math.sqrt(1 - zeta * zeta);
+    const peakTime = Math.PI / wd;
+    const overshoot = Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta));
+    const memory = createSharedMemory();
+    let now = 0;
+    const gen = await instantiateGenerator(compiled.wasm, memory, () => now);
+    gen.tick();
+    expect(readSamples(memory)[0]).toBeCloseTo(0, 8);
+    now = peakTime;
+    gen.tick();
+    expect(readSamples(memory)[1]).toBeCloseTo(1 + overshoot, 5);
+  });
+
   it("ticks on setInterval instead of parking", async () => {
     const wasm = await assembleWasm({ generator: "sin", delayMs: 10 });
     const handle = await startLocalGenerator({

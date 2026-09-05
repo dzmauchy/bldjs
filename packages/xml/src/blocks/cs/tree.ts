@@ -1,6 +1,6 @@
 import { fork } from "./generators";
 import { SampleBuf } from "./samples";
-import { mapOnce } from "./transformers";
+import { mapOnce, OvershootTransformer } from "./transformers";
 import type { F64Func, ScopeChannel } from "./types";
 
 /** Push-model consumer tree: `timer(sin(fork(plot[0], plot[1])))`. */
@@ -58,6 +58,8 @@ export class MapNode extends ConsumerNode {
     readonly defId: string,
     readonly id: number,
     readonly inner: ConsumerNode,
+    readonly zeta?: number,
+    readonly omega?: number,
   ) {
     super();
   }
@@ -68,6 +70,9 @@ export class MapNode extends ConsumerNode {
 
   compile(buffers: Map<number, SampleBuf>, next: { n: number }): F64Func {
     const inner = this.inner.compile(buffers, next);
+    if (this.defId === "overshoot") {
+      return new OvershootTransformer(this.zeta, this.omega).wrap(inner);
+    }
     return (value) => inner(mapOnce(this.defId, value));
   }
 }

@@ -35,6 +35,8 @@ import {
   CosTransformer,
   fork,
   mapOnce,
+  OvershootTransformer,
+  overshootStep,
   planGenerator,
   sampleOnce,
   scope,
@@ -192,6 +194,7 @@ describe("blocks", () => {
     expect(cat.block("timer")).toBeDefined();
     expect(cat.block("sin")).toBeDefined();
     expect(cat.block("cos")).toBeDefined();
+    expect(cat.block("overshoot")).toBeDefined();
     expect(cat.block("random")).toBeDefined();
     expect(cat.block("scope")).toBeDefined();
     expect(cat.block("gpio_in")).toBeDefined();
@@ -203,6 +206,7 @@ describe("blocks", () => {
       "cos",
       "gpio_in",
       "gpio_out",
+      "overshoot",
       "random",
       "scope",
       "sin",
@@ -521,6 +525,7 @@ describe("blocks", () => {
     expect(timerBlock.attributes.find((a) => a.name === "generator")?.value).toBe("true");
     expect(cat.block("sin")!.attributes.find((a) => a.name === "generator")).toBeUndefined();
     expect(cat.block("cos")!.attributes.find((a) => a.name === "generator")).toBeUndefined();
+    expect(cat.block("overshoot")!.attributes.find((a) => a.name === "generator")).toBeUndefined();
     const scope = cat.block("scope")!;
     expect(scope.inputs.length).toBe(0);
     expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(Double) -> Unit]");
@@ -531,10 +536,13 @@ describe("blocks", () => {
     expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
     expect(displayType(cat.block("cos")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
     expect(displayType(cat.block("cos")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(cat.block("overshoot")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(cat.block("overshoot")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
     expect(displayType(cat.block("random")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
     expect(timerBlock.ns).toBe("com.dauch.cs.gen");
     expect(cat.block("sin")!.ns).toBe("com.dauch.cs.tf");
     expect(cat.block("cos")!.ns).toBe("com.dauch.cs.tf");
+    expect(cat.block("overshoot")!.ns).toBe("com.dauch.cs.tf");
     expect(cat.block("random")!.ns).toBe("com.dauch.cs.gen");
     expect(scope.ns).toBe("com.dauch.cs.sink");
     expect(cat.block("gpio_in")!.ns).toBe("com.dauch.cs.gpio");
@@ -561,6 +569,18 @@ describe("blocks", () => {
     }
     expect(cat.block("sin")!.parameters).toEqual([]);
     expect(cat.block("cos")!.parameters).toEqual([]);
+    const zeta = cat.block("overshoot")!.parameters.find((param) => param.name === "ζ");
+    expect(zeta?.kind).toBe("double-range-parameter");
+    expect(zeta?.default).toBe("0.5");
+    expect(zeta?.min).toBe(0.05);
+    expect(zeta?.max).toBe(0.95);
+    expect(zeta?.step).toBe(0.01);
+    const omega = cat.block("overshoot")!.parameters.find((param) => param.name === "ω");
+    expect(omega?.kind).toBe("double-range-parameter");
+    expect(omega?.default).toBe("1");
+    expect(omega?.min).toBe(0.1);
+    expect(omega?.max).toBe(20);
+    expect(omega?.step).toBe(0.1);
     const n = cat.block("scope")!.parameters.find((param) => param.name === "n");
     const m = cat.block("scope")!.parameters.find((param) => param.name === "m");
     expect(n?.kind).toBe("integer-range-parameter");
@@ -709,6 +729,7 @@ describe("blocks", () => {
   it("transformer and generator classes share one registry", () => {
     expect(new SinTransformer().map(0)).toBe(mapOnce("sin", 0));
     expect(new CosTransformer().map(0)).toBe(mapOnce("cos", 0));
+    expect(new OvershootTransformer().map(0)).toBe(mapOnce("overshoot", 0));
     expect(sampleOnce("timer", 3.25)).toBe(3.25);
   });
 
@@ -719,6 +740,34 @@ describe("blocks", () => {
     mapped(Math.PI);
     expect(Math.abs(out[0] - 1)).toBeLessThan(1e-9);
     expect(Math.abs(out[1] + 1)).toBeLessThan(1e-9);
+  });
+
+  it("overshoot maps the classic second-order unit step", () => {
+    const zeta = 0.5;
+    const omega = 2;
+    const wd = omega * Math.sqrt(1 - zeta * zeta);
+    const peakTime = Math.PI / wd;
+    const overshoot = Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta));
+    expect(overshootStep(0, zeta, omega)).toBe(0);
+    expect(overshootStep(-1, zeta, omega)).toBe(0);
+    expect(overshootStep(peakTime, zeta, omega)).toBeCloseTo(1 + overshoot, 8);
+    expect(overshootStep(80, zeta, omega)).toBeCloseTo(1, 5);
+
+    const out: number[] = [];
+    const mapped = new OvershootTransformer(zeta, omega).wrap((value) => out.push(value));
+    mapped(10);
+    mapped(10 + peakTime);
+    expect(out[0]).toBe(0);
+    expect(out[1]).toBeCloseTo(1 + overshoot, 8);
+  });
+
+  it("overshoot peak time follows ω independently of ζ", () => {
+    const zeta = 0.5;
+    const overshoot = Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta));
+    const peak = (w: number) => Math.PI / (w * Math.sqrt(1 - zeta * zeta));
+    expect(overshootStep(peak(1), zeta, 1)).toBeCloseTo(1 + overshoot, 8);
+    expect(overshootStep(peak(4), zeta, 4)).toBeCloseTo(1 + overshoot, 8);
+    expect(overshootStep(peak(1), zeta, 4)).not.toBeCloseTo(1 + overshoot, 2);
   });
 
   it("compile generator sines into scope", () => {
@@ -740,6 +789,30 @@ describe("blocks", () => {
     expect(Math.abs(got.at(-2)!)).toBeLessThan(1e-9);
     expect(Math.abs(got.at(-1)! - 1)).toBeLessThan(1e-9);
     expect(compiled.delayMs).toBe(DEFAULT_PERIOD_MS);
+  });
+
+  it("compile generator overshoot into scope from the first sample", () => {
+    const zeta = 0.5;
+    const omega = 2;
+    const wd = omega * Math.sqrt(1 - zeta * zeta);
+    const peakTime = Math.PI / wd;
+    const overshoot = Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta));
+    const nodes = [
+      { id: 1, defId: "scope" },
+      { id: 2, defId: "overshoot", zeta, omega },
+      { id: 3, defId: "timer" },
+    ];
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+    ];
+    const buffers = new Map<number, SampleBuf>([[0, new SampleBuf()]]);
+    const compiled = compileTimer(3, nodes, links, buffers)!;
+    compiled.emit(4);
+    compiled.emit(4 + peakTime);
+    const got = buffers.get(0)!.snapshot();
+    expect(got.at(-2)).toBe(0);
+    expect(got.at(-1)).toBeCloseTo(1 + overshoot, 8);
   });
 
   it("plan generator walks a cos transformer", () => {

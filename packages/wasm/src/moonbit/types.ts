@@ -16,6 +16,10 @@ export interface MoonBlockEmit {
   rings?: readonly number[];
   /** GPIO pin number baked into gpio_in / gpio_out. */
   pin?: number;
+  /** Overshoot damping ratio `ζ` baked into the map. */
+  zeta?: number;
+  /** Overshoot natural frequency `ω` baked into the map. Damped frequency is `ωd = ω√(1−ζ²)`. */
+  omega?: number;
 }
 
 export type BlockScript = (opts?: MoonBlockEmit) => string;

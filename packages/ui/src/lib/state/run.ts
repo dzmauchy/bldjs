@@ -12,7 +12,16 @@ export interface RunHost {
   notify(): void;
   catalog: Catalog;
   links: Link[];
-  runNodes(): Array<{ id: number; defId: string; periodMs?: number; pin?: number; windowS?: number; meterMs?: number }>;
+  runNodes(): Array<{
+    id: number;
+    defId: string;
+    periodMs?: number;
+    pin?: number;
+    zeta?: number;
+    omega?: number;
+    windowS?: number;
+    meterMs?: number;
+  }>;
   toDiagramXml(): string;
   get scopeOpen(): number;
   set scopeOpen(id: number);

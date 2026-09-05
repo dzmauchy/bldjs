@@ -111,6 +111,23 @@ describe("modal overlay chrome", () => {
     expect(dialog?.classList.contains("d-block")).toBe(true);
     expect(modal.renderRoot.querySelector("[data-testid=input-value-period]")?.textContent).toBe("10 ms");
   });
+
+  it("opens overshoot ζ and ω configuration as range overlays", async () => {
+    const modal = document.createElement("bld-inputs-modal") as BldInputsModal;
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("overshoot", 0, 0);
+    modal.app = app;
+    document.body.append(modal);
+    await modal.updateComplete;
+
+    app.openInputs(id);
+    await modal.updateComplete;
+    expect(modal.renderRoot.querySelector("[data-testid=input-value-ζ]")?.textContent).toBe("0.5");
+    expect(modal.renderRoot.querySelector("[data-testid=input-range-ζ]")).not.toBeNull();
+    expect(modal.renderRoot.querySelector("[data-testid=input-value-ω]")?.textContent).toBe("1");
+    expect(modal.renderRoot.querySelector("[data-testid=input-range-ω]")).not.toBeNull();
+  });
 });
 
 describe("BldBlockIcon", () => {
