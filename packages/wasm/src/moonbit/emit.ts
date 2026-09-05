@@ -12,6 +12,8 @@ function tupleSlot(expr: string, slot: number, length: number): string {
   return length <= 1 ? expr : `${expr}.${slot}`;
 }
 
+const NOP = "fn(_v : Double) { }";
+
 function topoBlocks(view: SolutionView, catalog: Catalog): SolutionViewBlock[] {
   const remaining = new Map(view.blocks.map((block) => [block.id, block]));
   const ready: SolutionViewBlock[] = [];
@@ -58,7 +60,15 @@ export function emitSolutionMoonbit(
 ): string {
   const names = new Map<number, string>();
   const lengths = new Map<number, number>();
-  const parts: string[] = [preamble()];
+  const defIds = new Set(view.blocks.map((block) => block.defId));
+  const parts: string[] = [
+    preamble({
+      sin: defIds.has("sin"),
+      cos: defIds.has("cos"),
+      random: defIds.has("random"),
+      now: defIds.has("timer"),
+    }),
+  ];
 
   for (const block of view.blocks) {
     const add = BLOCK_SCRIPTS[block.defId];
@@ -112,7 +122,7 @@ export function emitSolutionMoonbit(
   ): string => {
     const stored = valueOf.get(link.fromBlock);
     if (!stored) {
-      return "nop";
+      return NOP;
     }
     const catalogOut = catalogPortName(link.fromOut);
     const srcPort = srcDef.outputs.find((port) => port.name === catalogOut);
@@ -140,10 +150,10 @@ export function emitSolutionMoonbit(
       const incoming = view.incoming(block.id, port.name);
       const pieces = incoming.map((link) => {
         const srcDef = catalog.block(view.defId(link.fromBlock) ?? "");
-        return srcDef ? readPort(link, srcDef) : "nop";
+        return srcDef ? readPort(link, srcDef) : NOP;
       });
       if (pieces.length === 0) {
-        args.push("nop");
+        args.push(NOP);
       } else if (pieces.length === 1) {
         args.push(pieces[0]!);
       } else {
@@ -167,7 +177,7 @@ export function emitSolutionMoonbit(
   }
 
   parts.push(`pub fn tick() -> Unit {
-${statements.join("\n") || "  nop(0.0)"}
+${statements.join("\n") || "  let _ = 0"}
 }
 `);
   parts.push(emitStart());

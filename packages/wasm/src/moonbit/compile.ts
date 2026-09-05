@@ -6,12 +6,12 @@ type MooncApi = {
 let mooncPreload: Promise<MooncApi> | undefined;
 
 function asMoonc(mod: unknown): MooncApi {
-  const rec = mod as MooncApi & { default?: MooncApi };
-  const api = rec.buildPackage ? rec : rec.default;
-  if (!api?.buildPackage || !api.linkCore) {
+  const rec = mod as { buildPackage?: unknown; linkCore?: unknown; default?: { buildPackage?: unknown; linkCore?: unknown } };
+  const api = typeof rec.buildPackage === "function" ? rec : rec.default;
+  if (typeof api?.buildPackage !== "function" || typeof api?.linkCore !== "function") {
     throw new Error("@moonbit/moonc-worker is missing buildPackage/linkCore");
   }
-  return api;
+  return api as MooncApi;
 }
 
 /** Start loading the MoonBit wasm-gc compiler before the user presses Run. */
