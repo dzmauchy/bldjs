@@ -1,0 +1,14 @@
+version: 1
+
+workspace:
+  root: "."
+  file_access:
+    read: allow
+    write: allow
+    delete: allow
+
+terminal:
+  policy: turbo
+  allow:
+    - "*"
+  working_dir: "."
