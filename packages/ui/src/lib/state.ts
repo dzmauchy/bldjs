@@ -1,7 +1,7 @@
 import { type BlockDef, type BlockParameterDef, blockAttribute } from "@bld/xml/blocks/ast";
 import { associateBuiltinModels, xmlSourcesForFiles } from "@bld/xml/blocks/builtin";
 import { Catalog } from "@bld/xml/blocks/catalog";
-import { PERIOD_PARAM, PIN_PARAM, WINDOW_PARAM, METER_PARAM, ZETA_PARAM, OMEGA_PARAM, isEventDrivenGenerator, periodMsFrom, pinFrom, windowSecondsFrom, meterMsFrom, zetaFrom, omegaFrom } from "@bld/xml/blocks/cs/ids";
+import { PERIOD_PARAM, PIN_PARAM, WINDOW_PARAM, METER_PARAM, ZETA_PARAM, OMEGA_PARAM, VALUE_PARAM, DEF_PARAM, COUNT_PARAM, isEventDrivenGenerator, periodMsFrom, pinFrom, windowSecondsFrom, meterMsFrom, zetaFrom, omegaFrom, valueFrom, defFrom, countFrom } from "@bld/xml/blocks/cs/ids";
 import { Diagram, type Link, type XmlSource, linksEqual } from "@bld/xml/blocks/diagram";
 import { compactLinkSlots } from "@bld/xml/blocks/ports";
 import type { ResolvedBlock } from "@bld/xml/blocks/resolve";
@@ -135,6 +135,9 @@ export class AppState extends ObservableState {
     pin?: number;
     zeta?: number;
     omega?: number;
+    value?: number;
+    count?: number;
+    def?: number;
     windowS?: number;
     meterMs?: number;
   }> {
@@ -144,6 +147,9 @@ export class AppState extends ObservableState {
       pin: this.blockPin(block.id),
       zeta: this.blockZeta(block.id),
       omega: this.blockOmega(block.id),
+      value: this.blockValue(block.id),
+      count: this.blockCount(block.id),
+      def: this.blockDefValue(block.id),
       windowS: this.blockWindowS(block.id),
       meterMs: this.blockMeterMs(block.id),
     }));
@@ -395,6 +401,33 @@ export class AppState extends ObservableState {
     const extra = this.#extras.get(id);
     const value = extra?.parameters.find((param) => param.name === OMEGA_PARAM)?.value;
     return omegaFrom(value);
+  }
+
+  blockValue(id: number): number | undefined {
+    if (this.block(id)?.defId !== "constant") {
+      return undefined;
+    }
+    const extra = this.#extras.get(id);
+    const value = extra?.parameters.find((param) => param.name === VALUE_PARAM)?.value;
+    return valueFrom(value);
+  }
+
+  blockCount(id: number): number | undefined {
+    if (this.block(id)?.defId !== "product") {
+      return undefined;
+    }
+    const extra = this.#extras.get(id);
+    const value = extra?.parameters.find((param) => param.name === COUNT_PARAM)?.value;
+    return countFrom(value);
+  }
+
+  blockDefValue(id: number): number | undefined {
+    if (this.block(id)?.defId !== "product") {
+      return undefined;
+    }
+    const extra = this.#extras.get(id);
+    const value = extra?.parameters.find((param) => param.name === DEF_PARAM)?.value;
+    return defFrom(value);
   }
 
   blockWindowS(id: number): number | undefined {

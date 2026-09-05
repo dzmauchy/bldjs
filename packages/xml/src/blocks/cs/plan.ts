@@ -1,10 +1,19 @@
 import type { Link } from "../diagram";
-import { incomingTo } from "../ports";
-import { isEventDrivenGenerator, isGeneratorId, isSinkId, isTransformerId, periodMsFrom } from "./ids";
+import { incomingTo, portSlotIndex } from "../ports";
+import {
+  countFrom,
+  defFrom,
+  isCombinerId,
+  isEventDrivenGenerator,
+  isGeneratorId,
+  isSinkId,
+  isTransformerId,
+  periodMsFrom,
+} from "./ids";
 import { nowSecs, sampleOnce } from "./generators";
 import { intervalMs } from "../../flow";
 import { SampleBuf } from "./samples";
-import { ForkNode, MapNode, ScopeSink, type ConsumerTree } from "./tree";
+import { ForkNode, MapNode, ProductGroup, ProductSlot, ScopeSink, type ConsumerTree } from "./tree";
 import type { F64Func, GeneratorPlan, NodeSpec } from "./types";
 
 export { collectChannels, collectScopeIds } from "./tree";
@@ -14,6 +23,7 @@ function walkConsumer(
   nodeOf: (id: number) => NodeSpec | undefined,
   links: Link[],
   depth: number,
+  products: Map<number, ProductGroup> = new Map(),
 ): ConsumerTree | undefined {
   if (depth > 64) {
     return undefined;
@@ -27,10 +37,23 @@ function walkConsumer(
       continue;
     }
     if (fromDef && isTransformerId(fromDef)) {
-      const inner = walkConsumer(link.fromBlock, nodeOf, links, depth + 1);
+      const inner = walkConsumer(link.fromBlock, nodeOf, links, depth + 1, products);
       if (inner) {
         parts.push(new MapNode(fromDef, link.fromBlock, inner, from?.zeta, from?.omega));
       }
+      continue;
+    }
+    if (fromDef && isCombinerId(fromDef) && from) {
+      let group = products.get(from.id);
+      if (!group) {
+        const inner = walkConsumer(from.id, nodeOf, links, depth + 1, products);
+        if (!inner) {
+          continue;
+        }
+        group = new ProductGroup(from.id, countFrom(from.count), defFrom(from.def), inner);
+        products.set(from.id, group);
+      }
+      parts.push(new ProductSlot(group, portSlotIndex(link.fromOut)));
     }
   }
   if (parts.length === 0) {
@@ -87,8 +110,9 @@ export function compileTimer(
     return undefined;
   }
   const sink = plan.tree.compile(buffers, { n: 0 });
+  const node = nodes.find((item) => item.id === generatorId);
   return {
-    emit: (time) => sink(sampleOnce(plan.defId, time)),
+    emit: (time) => sink(sampleOnce(plan.defId, time, node?.value)),
     delayMs: plan.delayMs,
   };
 }

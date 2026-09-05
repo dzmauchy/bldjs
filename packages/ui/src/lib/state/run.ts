@@ -19,6 +19,9 @@ export interface RunHost {
     pin?: number;
     zeta?: number;
     omega?: number;
+    value?: number;
+    count?: number;
+    def?: number;
     windowS?: number;
     meterMs?: number;
   }>;

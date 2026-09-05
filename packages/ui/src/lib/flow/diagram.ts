@@ -431,6 +431,7 @@ export class BldDiagram extends AppHost {
                 inputIsGrounded: (blockId, port) => app.inputIsGrounded(blockId, port),
                 blockDef: (defId) => app.blockDef(defId),
                 kindOf: (def) => app.kindOf(def),
+                outputCount: (id) => app.blockCount(id) ?? 1,
               });
               if (!state) {
                 return nothing;

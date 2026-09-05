@@ -141,4 +141,50 @@ describe("WasmSolutionBuilder", () => {
     expect(readSamples(memory, 0)[0]).toBeCloseTo(0.25);
     expect(readSamples(memory, 1)[0]).toBeCloseTo(0.25);
   });
+
+  it("multiplies sin and cos through product", async () => {
+    const view = solutionViewFrom(
+      [
+        { id: 1, defId: "scope" },
+        { id: 2, defId: "product", count: 2, def: 1 },
+        { id: 3, defId: "sin" },
+        { id: 4, defId: "cos" },
+        { id: 5, defId: "timer" },
+      ],
+      [
+        { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+        { fromBlock: 2, fromOut: "out[1]", toBlock: 4, toIn: "in" },
+        { fromBlock: 3, fromOut: "out", toBlock: 5, toIn: "in" },
+        { fromBlock: 4, fromOut: "out", toBlock: 5, toIn: "in" },
+      ],
+    );
+    const { text, wasm } = await new WasmSolutionBuilder().build(view, { generatorId: 5, delayMs: 0 });
+    expect(text).toContain("fn product(");
+    expect(text).toContain("fn fork_5_in(");
+    const memory = createSharedMemory();
+    let t = 0;
+    const gen = await instantiateGenerator(wasm, memory, () => t);
+    t = 0;
+    gen.tick();
+    expect(readSamples(memory, 0)[0]).toBeCloseTo(0, 8);
+    t = Math.PI / 4;
+    gen.tick();
+    expect(readSamples(memory, 0)[0]).toBeCloseTo(0.5, 8);
+  });
+
+  it("pushes a baked constant sample", async () => {
+    const view = solutionViewFrom(
+      [
+        { id: 1, defId: "scope" },
+        { id: 3, defId: "constant", value: 2.5 },
+      ],
+      [{ fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" }],
+    );
+    const { wasm } = await new WasmSolutionBuilder().build(view, { generatorId: 3, delayMs: 0 });
+    const memory = createSharedMemory();
+    const gen = await instantiateGenerator(wasm, memory, () => 9);
+    gen.tick();
+    expect(readSamples(memory, 0)[0]).toBeCloseTo(2.5);
+  });
 });

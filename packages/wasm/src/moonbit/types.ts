@@ -16,6 +16,10 @@ export interface MoonBlockEmit {
   rings?: readonly number[];
   /** GPIO pin number baked into gpio_in / gpio_out. */
   pin?: number;
+  /** Constant generator sample baked into `input(value)`. */
+  value?: number;
+  /** Product default factor for each output slot. */
+  def?: number;
   /** Overshoot damping ratio `ζ` baked into the map. */
   zeta?: number;
   /** Overshoot natural frequency `ω` baked into the map. Damped frequency is `ωd = ω√(1−ζ²)`. */

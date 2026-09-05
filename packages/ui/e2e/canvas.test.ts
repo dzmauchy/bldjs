@@ -69,6 +69,8 @@ test.describe("canvas", () => {
     await expect(page.locator('[data-testid="palette-sin"]')).toContainText("Sin");
     await expect(page.locator('[data-testid="palette-cos"]')).toContainText("Cos");
     await expect(page.locator('[data-testid="palette-overshoot"]')).toContainText("Overshoot");
+    await expect(page.locator('[data-testid="palette-constant"]')).toContainText("Constant");
+    await expect(page.locator('[data-testid="palette-product"]')).toContainText("Product");
     await expect(page.locator('[data-testid="palette-gpio_in"]')).toContainText("GPIO In");
     await expect(page.locator('[data-testid="palette-gpio_out"]')).toContainText("GPIO Out");
     await expect(page.locator('[data-testid="palette-quantizer"]')).toHaveCount(0);
@@ -297,6 +299,35 @@ test.describe("canvas", () => {
     await expect(page.locator('[data-testid="input-value-ω"]')).toHaveText("2");
     await page.locator('[data-testid="inputs-close"]').click();
     await expect(page.locator('[data-testid="inputs-modal"]')).toHaveCount(0);
+  });
+
+  test("opens constant inputs and defaults value to 1 and period to 10 ms", async () => {
+    await newCanvas(page);
+    await placeBlock(page, "constant");
+    await nodeHost(page, "constant").locator('[data-testid^="inputs-"]').click();
+    await expect(page.locator('[data-testid="inputs-modal"]')).toBeInViewport();
+    await expect(page.locator('[data-testid="input-value-value"]')).toHaveText("1");
+    await expect(page.locator('[data-testid="input-value-period"]')).toHaveText("10 ms");
+    await page.locator('[data-testid="input-range-value"]').fill("2.5");
+    await expect(page.locator('[data-testid="input-value-value"]')).toHaveText("2.5");
+    await page.locator('[data-testid="inputs-close"]').click();
+  });
+
+  test("opens product inputs and defaults n to 2 and def to 1", async () => {
+    await newCanvas(page);
+    await placeBlock(page, "product");
+    await nodeHost(page, "product").locator('[data-testid^="inputs-"]').click();
+    await expect(page.locator('[data-testid="inputs-modal"]')).toBeInViewport();
+    await expect(page.locator('[data-testid="input-value-n"]')).toHaveText("2");
+    await expect(page.locator('[data-testid="input-value-def"]')).toHaveText("1");
+    await page.locator('[data-testid="input-range-n"]').fill("3");
+    await expect(page.locator('[data-testid="input-value-n"]')).toHaveText("3");
+    await page.locator('[data-testid="inputs-close"]').click();
+    const host = nodeHost(page, "product");
+    await expect(host.locator('[data-testid="output-out"]')).toHaveCount(1);
+    await expect(host.locator('[data-testid="output-out[1]"]')).toHaveCount(1);
+    await expect(host.locator('[data-testid="output-out[2]"]')).toHaveCount(1);
+    await expect(host.locator('[data-testid="input-in"]')).toHaveCount(1);
   });
 
   test("disables block configuration while running", async () => {

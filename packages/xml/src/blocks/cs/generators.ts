@@ -1,18 +1,19 @@
-import { DEFAULT_PERIOD_MS, periodMsFrom } from "./ids";
+import { DEFAULT_PERIOD_MS, DEFAULT_VALUE, periodMsFrom, valueFrom } from "./ids";
 import type { DoubleConsumer } from "./types";
 
 /**
  * Pure push. MoonBit ports:
  *
- *   timer(c) / random(c)  : (Double) -> Unit → Unit
+ *   timer(c) / random(c) / constant(c)  : (Double) -> Unit → Unit
  *   sin(c) / cos(c) / overshoot(c)  : (Double) -> Unit → (Double) -> Unit
+ *   product(c)            : (Double) -> Unit → Array[(Double) -> Unit]
  *   scope()               : Array[(Double) -> Unit]   (vector of plot sinks)
  *
  * Composition: timer(sin(plot[0]))
  *
- * Quantized generators (`timer`, `random`) use an internal period (ms) from the
- * catalog `period` range input (default 10). GPIO In samples the pin once on
- * start, then again on each edge, and has no period. MoonBit blocks repeat the
+ * Quantized generators (`timer`, `random`, `constant`) use an internal period (ms)
+ * from the catalog `period` range input (default 10). GPIO In samples the pin once
+ * on start, then again on each edge, and has no period. MoonBit blocks repeat the
  * XML signature plus unused runtime `_ctx : Int`.
  */
 
@@ -60,6 +61,19 @@ export class RandomGenerator extends Generator {
   }
 }
 
+export class ConstantGenerator extends Generator {
+  readonly value: number;
+
+  constructor(periodMs = DEFAULT_PERIOD_MS, value = DEFAULT_VALUE) {
+    super(periodMs);
+    this.value = valueFrom(value);
+  }
+
+  sample(_time: number): number {
+    return this.value;
+  }
+}
+
 export class GpioInGenerator extends Generator {
   sample(_time: number): number {
     return 0;
@@ -78,7 +92,14 @@ const GENERATORS: Record<string, new (periodMs?: number) => Generator> = {
   gpio_in: GpioInGenerator,
 };
 
-export function generatorFor(defId: string, periodMs = DEFAULT_PERIOD_MS): Generator | undefined {
+export function generatorFor(
+  defId: string,
+  periodMs = DEFAULT_PERIOD_MS,
+  value = DEFAULT_VALUE,
+): Generator | undefined {
+  if (defId === "constant") {
+    return new ConstantGenerator(periodMs, value);
+  }
   const Ctor = GENERATORS[defId];
   return Ctor ? new Ctor(periodMs) : undefined;
 }
@@ -91,6 +112,16 @@ export function timer(c: DoubleConsumer, running: () => boolean, now: () => numb
 /** Accepts a sink and pushes random samples in `[0, 1)` while `running`. */
 export function random(c: DoubleConsumer, running: () => boolean, now: () => number = nowSecs): void {
   new RandomGenerator().run(c, running, now);
+}
+
+/** Accepts a sink and pushes a constant sample while `running`. */
+export function constant(
+  c: DoubleConsumer,
+  running: () => boolean,
+  now: () => number = nowSecs,
+  value = DEFAULT_VALUE,
+): void {
+  new ConstantGenerator(DEFAULT_PERIOD_MS, value).run(c, running, now);
 }
 
 /** Plot sink — returns a vector of `(Double) -> Unit` channels. */
@@ -114,6 +145,6 @@ export function nowSecs(): number {
   return Date.now() / 1000;
 }
 
-export function sampleOnce(defId: string, time: number): number {
-  return generatorFor(defId)?.sample(time) ?? time;
+export function sampleOnce(defId: string, time: number, value?: number): number {
+  return generatorFor(defId, DEFAULT_PERIOD_MS, value)?.sample(time) ?? time;
 }

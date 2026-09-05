@@ -92,9 +92,11 @@ export function emitSolutionFiles(
     const pin = block.pin ?? (block.defId === "gpio_out" ? 1 : 0);
     const zeta = block.zeta;
     const omega = block.omega;
+    const value = block.value;
+    const factorDef = block.def;
     if (arrayOut) {
       const outgoing = view.outgoing(block.id, arrayOut.name);
-      const length = Math.max(outgoing.length, 1);
+      const length = Math.max(outgoing.length, block.count ?? 1, 1);
       lengths.set(block.id, length);
       const slotRings = Array.from({ length }, (_, slot) => {
         const link = outgoing[slot];
@@ -103,9 +105,9 @@ export function emitSolutionFiles(
         }
         return rings.get(`${block.id}:${portSlotIndex(link.fromOut)}`) ?? slot;
       });
-      blockParts.push(add({ name, length, rings: slotRings, pin, zeta, omega }));
+      blockParts.push(add({ name, length, rings: slotRings, pin, zeta, omega, value, def: factorDef }));
     } else {
-      blockParts.push(add({ name, pin, zeta, omega }));
+      blockParts.push(add({ name, pin, zeta, omega, value, def: factorDef }));
     }
   }
 

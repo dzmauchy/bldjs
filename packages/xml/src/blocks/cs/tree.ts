@@ -5,7 +5,7 @@ import type { F64Func, ScopeChannel } from "./types";
 
 /** Push-model consumer tree: `timer(sin(fork(plot[0], plot[1])))`. */
 export abstract class ConsumerNode {
-  abstract readonly kind: "scope" | "fork" | "map";
+  abstract readonly kind: "scope" | "fork" | "map" | "product";
 
   abstract collectChannels(label: string): ScopeChannel[];
 
@@ -77,7 +77,73 @@ export class MapNode extends ConsumerNode {
   }
 }
 
-export type ConsumerTree = ScopeSink | ForkNode | MapNode;
+/** Shared factor slots for one product block. Downstream is compiled once. */
+export class ProductGroup {
+  readonly values: number[];
+  minSlot = Number.POSITIVE_INFINITY;
+  private sink: F64Func | undefined;
+
+  constructor(
+    readonly id: number,
+    count: number,
+    readonly def: number,
+    readonly inner: ConsumerNode,
+  ) {
+    this.values = Array.from({ length: Math.max(count, 1) }, () => def);
+  }
+
+  noteSlot(slot: number): void {
+    this.minSlot = Math.min(this.minSlot, slot);
+    while (this.values.length <= slot) {
+      this.values.push(this.def);
+    }
+  }
+
+  collectFrom(slot: number): ScopeChannel[] {
+    return slot === this.minSlot ? this.inner.collectChannels("product") : [];
+  }
+
+  compile(buffers: Map<number, SampleBuf>, next: { n: number }): F64Func {
+    this.sink ??= this.inner.compile(buffers, next);
+    return this.sink;
+  }
+
+  accept(slot: number, value: number): void {
+    this.values[slot] = value;
+    let p = 1;
+    for (const item of this.values) {
+      p *= item;
+    }
+    this.sink?.(p);
+  }
+}
+
+export class ProductSlot extends ConsumerNode {
+  readonly kind = "product" as const;
+
+  constructor(
+    readonly group: ProductGroup,
+    readonly slot: number,
+  ) {
+    super();
+    this.group.noteSlot(slot);
+  }
+
+  get id(): number {
+    return this.group.id;
+  }
+
+  collectChannels(_label: string): ScopeChannel[] {
+    return this.group.collectFrom(this.slot);
+  }
+
+  compile(buffers: Map<number, SampleBuf>, next: { n: number }): F64Func {
+    this.group.compile(buffers, next);
+    return (value) => this.group.accept(this.slot, value);
+  }
+}
+
+export type ConsumerTree = ScopeSink | ForkNode | MapNode | ProductSlot;
 
 export function collectChannels(tree: ConsumerTree, label = "out"): ScopeChannel[] {
   return tree.collectChannels(label);

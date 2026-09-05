@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { BLOCK_SCRIPTS, QUANTIZER_PERIOD_NS, preamble, TimerMoonBlock } from "./index";
 import { CTX_PARAM } from "./types";
-import { emitRandom, emitTimer } from "./generators";
+import { emitConstant, emitRandom, emitTimer } from "./generators";
 import { emitGpioIn, emitGpioOut } from "./gpio";
+import { emitProduct } from "./combiners";
 import { emitOvershoot, emitSin } from "./transformers";
 import { emitScope } from "./scope";
 
@@ -22,6 +23,12 @@ describe("generator catalog", () => {
   it("samples random through the Math.random browser binding", () => {
     expect(emitRandom()).toContain("math_random()");
     expect(preamble()).toContain('fn math_random() -> Double = "Math" "random"');
+  });
+
+  it("bakes the constant value into input", () => {
+    expect(emitConstant()).toContain(`fn constant(${CTX_PARAM}, input : C1) -> Unit`);
+    expect(emitConstant()).toContain("input(1.0)");
+    expect(emitConstant({ value: 2.5 })).toContain("input(2.5)");
   });
 });
 
@@ -59,13 +66,27 @@ describe("scope catalog", () => {
   });
 });
 
+describe("product catalog", () => {
+  it("returns n factor consumers that share def-initialized slots", () => {
+    const source = emitProduct({ length: 2, def: 1 });
+    expect(source).toContain(`fn product(${CTX_PARAM}, input : C1) -> (C1, C1)`);
+    expect(source).toContain("v0: 1.0");
+    expect(source).toContain("v1: 1.0");
+    expect(source).toContain("state_product.v0 = v");
+    expect(source).toContain("input(state_product.v0 * state_product.v1)");
+    expect(emitProduct({ length: 1, def: 0.5 })).toContain(`fn product(${CTX_PARAM}, input : C1) -> C1`);
+  });
+});
+
 describe("MoonBit block library", () => {
   it("covers the runtime XML blocks", () => {
     expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual([
+      "constant",
       "cos",
       "gpio_in",
       "gpio_out",
       "overshoot",
+      "product",
       "random",
       "scope",
       "sin",

@@ -128,6 +128,36 @@ describe("modal overlay chrome", () => {
     expect(modal.renderRoot.querySelector("[data-testid=input-value-ω]")?.textContent).toBe("1");
     expect(modal.renderRoot.querySelector("[data-testid=input-range-ω]")).not.toBeNull();
   });
+
+  it("opens constant value and period configuration", async () => {
+    const modal = document.createElement("bld-inputs-modal") as BldInputsModal;
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("constant", 0, 0);
+    modal.app = app;
+    document.body.append(modal);
+    await modal.updateComplete;
+
+    app.openInputs(id);
+    await modal.updateComplete;
+    expect(modal.renderRoot.querySelector("[data-testid=input-value-value]")?.textContent).toBe("1");
+    expect(modal.renderRoot.querySelector("[data-testid=input-value-period]")?.textContent).toBe("10 ms");
+  });
+
+  it("opens product n and def configuration without a seconds suffix on n", async () => {
+    const modal = document.createElement("bld-inputs-modal") as BldInputsModal;
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("product", 0, 0);
+    modal.app = app;
+    document.body.append(modal);
+    await modal.updateComplete;
+
+    app.openInputs(id);
+    await modal.updateComplete;
+    expect(modal.renderRoot.querySelector("[data-testid=input-value-n]")?.textContent).toBe("2");
+    expect(modal.renderRoot.querySelector("[data-testid=input-value-def]")?.textContent).toBe("1");
+  });
 });
 
 describe("BldBlockIcon", () => {

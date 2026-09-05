@@ -47,6 +47,19 @@ describe("topology", () => {
     expect(topologyKey([{ ...blocks[0], meterMs: 20 }], links)).not.toBe(topologyKey(blocks, links));
   });
 
+  it("changes when constant value changes", () => {
+    const blocks = [{ id: 1, defId: "constant", value: 1 }];
+    const links: Link[] = [];
+    expect(topologyKey([{ ...blocks[0], value: 2 }], links)).not.toBe(topologyKey(blocks, links));
+  });
+
+  it("changes when product count or default changes", () => {
+    const blocks = [{ id: 1, defId: "product", count: 2, def: 1 }];
+    const links: Link[] = [];
+    expect(topologyKey([{ ...blocks[0], count: 3 }], links)).not.toBe(topologyKey(blocks, links));
+    expect(topologyKey([{ ...blocks[0], def: 0.5 }], links)).not.toBe(topologyKey(blocks, links));
+  });
+
   it("plans generators from node specs without AppState", () => {
     const nodes = nodeSpecsFrom([
       { id: 1, defId: "scope" },

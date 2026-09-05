@@ -3,11 +3,11 @@ import { isNoneId } from "$lib/model";
 import type { AppState } from "$lib/state";
 import { BldModal } from "./modal";
 
-function inputSuffix(name: string): string {
+function inputSuffix(defId: string, name: string): string {
   if (name === "period" || name === "m") {
     return " ms";
   }
-  if (name === "n") {
+  if (defId === "scope" && name === "n") {
     return " s";
   }
   return "";
@@ -77,6 +77,7 @@ export class BldInputsModal extends BldModal {
     const app = this.app;
     const { def, value } = input;
     const label = def.description ?? def.name;
+    const defId = app.block(blockId)?.defId ?? "";
     if (def.kind === "integer-range-parameter" || def.kind === "double-range-parameter") {
       const min = def.min ?? 0;
       const max = def.max ?? 100;
@@ -85,7 +86,7 @@ export class BldInputsModal extends BldModal {
         <div class="input-row mb-3" data-testid=${`input-row-${def.name}`}>
           <div class="input-label">
             <span>${label}</span>
-            <span class="input-value" data-testid=${`input-value-${def.name}`}>${value}${inputSuffix(def.name)}</span>
+            <span class="input-value" data-testid=${`input-value-${def.name}`}>${value}${inputSuffix(defId, def.name)}</span>
           </div>
           <input
             type="range"

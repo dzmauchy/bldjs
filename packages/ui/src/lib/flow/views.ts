@@ -89,6 +89,7 @@ export interface NodeViewContext {
   inputIsGrounded: (blockId: number, port: string) => boolean;
   blockDef: (defId: string) => BlockDef | undefined;
   kindOf: (def: BlockDef) => BlockKindInfo;
+  outputCount?: (blockId: number) => number;
 }
 
 export function buildNodeState(
@@ -130,7 +131,7 @@ export function buildNodeState(
         showType: shouldShowPortType(linking, block.id, "in", slot.name, sourceOut, ty, ctx.catalog, def.params),
       });
     }),
-    outputs: outputSlotsFor(def.outputs, block.id, ctx.links).map((slot) => {
+    outputs: outputSlotsFor(def.outputs, block.id, ctx.links, ctx.outputCount?.(block.id) ?? 1).map((slot) => {
       const catalogPort = def.outputs.find((item) => item.name === slot.catalogName)!;
       const ty = resolvedBlock ? (resolvedOutput(resolvedBlock, slot.name) ?? catalogPort.ty) : catalogPort.ty;
       return portView(slot, catalogPort, ty, {
