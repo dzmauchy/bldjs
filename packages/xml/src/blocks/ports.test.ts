@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrayOf, generic, named, type PortDef } from "./ast";
+import { arrayOf, consumerType, named, type PortDef } from "./ast";
 import type { Link } from "./diagram";
 import {
   acceptsManyInputs,
@@ -17,7 +17,7 @@ import {
   slottedPortName,
 } from "./ports";
 
-const consumer = generic("c1", [named("f64")]);
+const consumer = consumerType(named("Double"));
 const vector = arrayOf(consumer);
 
 function port(name: string, ty = consumer, vararg = false): PortDef {
@@ -38,14 +38,14 @@ describe("port slot names", () => {
 
   it("treats consumer and vararg inputs as many-accepting", () => {
     expect(acceptsManyInputs(port("in"))).toBe(true);
-    expect(acceptsManyInputs(port("elems", named("f64"), true))).toBe(true);
-    expect(acceptsManyInputs(port("x", named("f64")))).toBe(false);
+    expect(acceptsManyInputs(port("elems", named("Double"), true))).toBe(true);
+    expect(acceptsManyInputs(port("x", named("Double")))).toBe(false);
   });
 
   it("unwraps every consumer-vector output pin to the channel type", () => {
     expect(slottedOutputType(vector, "out")).toEqual(consumer);
     expect(slottedOutputType(vector, "out[1]")).toEqual(consumer);
-    expect(slottedOutputType(arrayOf(named("f64")), "result[1]")).toEqual(arrayOf(named("f64")));
+    expect(slottedOutputType(arrayOf(named("Double")), "result[1]")).toEqual(arrayOf(named("Double")));
   });
 });
 

@@ -2,14 +2,6 @@
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            elementFormDefault="qualified">
 
-    <xs:simpleType name="VarianceType">
-        <xs:restriction base="xs:string">
-            <xs:enumeration value="+"/>
-            <xs:enumeration value="-"/>
-            <xs:enumeration value="?"/>
-        </xs:restriction>
-    </xs:simpleType>
-
     <!-- Duration Type (e.g. 100ms, 1s, 10000ns, 1d, 30m, 1h) -->
     <xs:simpleType name="DurationType">
         <xs:restriction base="xs:string">
@@ -25,42 +17,27 @@
         <xs:attribute name="name" type="xs:string" use="required"/>
     </xs:complexType>
 
-    <!-- Abstract Type Expression (AST) -->
-    <xs:complexType name="TExpr">
+    <!-- MoonBit type string (`Double`, `(Double) -> Unit`, `Array[T]`) -->
+    <xs:complexType name="TypeRef">
         <xs:sequence>
             <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-            <xs:choice minOccurs="0" maxOccurs="unbounded">
-                <xs:element name="t" type="TExpr"/>
-                <xs:element name="self">
-                    <xs:complexType>
-                        <xs:sequence>
-                            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-                        </xs:sequence>
-                    </xs:complexType>
-                </xs:element>
-                <xs:element name="union" type="TExpr"/>
-                <xs:element name="intersection" type="TExpr"/>
-            </xs:choice>
         </xs:sequence>
         <xs:attribute name="type" type="xs:string"/>
-        <xs:attribute name="variance" type="VarianceType"/>
     </xs:complexType>
 
     <!-- Generic Type Parameter Definition (e.g., <param name="T"/>) -->
     <xs:complexType name="TypeParamDef">
         <xs:sequence>
             <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-            <xs:element name="extends" type="TExpr" minOccurs="0" maxOccurs="unbounded"/>
-            <xs:element name="super" type="TExpr" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="extends" type="TypeRef" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
         <xs:attribute name="name" type="xs:string" use="required"/>
-        <xs:attribute name="variance" type="VarianceType"/>
     </xs:complexType>
 
     <!-- Port Definition (in/out) -->
     <xs:complexType name="PortDef">
         <xs:complexContent>
-            <xs:extension base="TExpr">
+            <xs:extension base="TypeRef">
                 <xs:attribute name="name" type="xs:string" use="required"/>
                 <xs:attribute name="vararg" type="xs:boolean" default="false"/>
                 <xs:attribute name="icon" type="xs:string"/>
@@ -220,11 +197,8 @@
                             <xs:sequence>
                                 <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
                                 <xs:element name="param" type="TypeParamDef" minOccurs="0" maxOccurs="unbounded"/>
-                                <xs:element name="ancestor" type="TExpr" minOccurs="0" maxOccurs="unbounded"/>
-                                <xs:choice minOccurs="0">
-                                    <xs:element name="union" type="TExpr"/>
-                                    <xs:element name="intersection" type="TExpr"/>
-                                </xs:choice>
+                                <xs:element name="ancestor" type="TypeRef" minOccurs="0" maxOccurs="unbounded"/>
+                                <xs:element name="alias" type="TypeRef" minOccurs="0"/>
                             </xs:sequence>
                             <xs:attribute name="name" type="xs:string" use="required"/>
                             <xs:attribute name="ns" type="xs:string"/>
@@ -241,20 +215,9 @@
                                     <xs:complexType>
                                         <xs:sequence>
                                             <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-                                            <xs:choice minOccurs="0" maxOccurs="unbounded">
-                                                <xs:element name="t" type="TExpr"/>
-                                                <xs:element name="self">
-                                                    <xs:complexType>
-                                                        <xs:sequence>
-                                                            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-                                                        </xs:sequence>
-                                                    </xs:complexType>
-                                                </xs:element>
-                                                <xs:element name="union" type="TExpr"/>
-                                                <xs:element name="intersection" type="TExpr"/>
-                                            </xs:choice>
                                         </xs:sequence>
                                         <xs:attribute name="id" type="xs:string" use="required"/>
+                                        <xs:attribute name="type" type="xs:string"/>
                                     </xs:complexType>
                                 </xs:element>
 

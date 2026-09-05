@@ -19,7 +19,7 @@ function sampleState(overrides: Partial<BldNodeState> = {}): BldNodeState {
     inputs: [
       { name: "elems", typeLabel: "f64", vararg: true, grounded: true, compatible: true },
     ],
-    outputs: [{ name: "result", typeLabel: "f64[]", vararg: false }],
+    outputs: [{ name: "result", typeLabel: "Array[Double]", vararg: false }],
     ...overrides,
   };
 }
@@ -59,7 +59,7 @@ describe("BldNode", () => {
     expect(shadow!.querySelector('[data-testid="output-result-type"]')).toBeNull();
     expect(shadow!.querySelector('[data-testid="input-elems-type"]')).toBeNull();
     expect(shadow!.querySelector('[data-vector="elems"] .block-port-vector-rail')).not.toBeNull();
-    expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("f64[]");
+    expect(shadow!.querySelector('[data-testid="output-result"]')?.getAttribute("title")).toBe("Array[Double]");
     expect(shadow!.querySelector('[data-testid="input-elems"]')?.getAttribute("title")).toBe("f64");
     expect(shadow!.querySelector(".flow-node-params")?.textContent).toContain("T = f64");
     expect(node.dataset.blockDef).toBe("b_array_of");
@@ -99,7 +99,7 @@ describe("BldNode", () => {
         chartEnabled: true,
         selected: true,
         inputs: [],
-        outputs: [{ name: "out", typeLabel: "c<f64>", vararg: false, vectorized: true }],
+        outputs: [{ name: "out", typeLabel: "(Double) -> Unit", vararg: false, vectorized: true }],
         paramsLine: "",
       }),
     );
@@ -130,7 +130,7 @@ describe("BldNode", () => {
         showChart: true,
         chartEnabled: false,
         inputs: [],
-        outputs: [{ name: "out", typeLabel: "c<f64>", vararg: false, vectorized: true }],
+        outputs: [{ name: "out", typeLabel: "(Double) -> Unit", vararg: false, vectorized: true }],
         paramsLine: "",
       }),
     );
@@ -147,7 +147,7 @@ describe("BldNode", () => {
     expect(node.shadowRoot!.querySelector('[data-vector="out"] .block-port-name')).toBeNull();
     expect(node.shadowRoot!.querySelector(".flow-node")?.getAttribute("title")).toBe("Scope");
     expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("Scope");
-    expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("c<f64>");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("(Double) -> Unit");
   });
 
   it("renders extra slotted ports with distinct handles", async () => {
@@ -157,8 +157,8 @@ describe("BldNode", () => {
         name: "Scope",
         inputs: [],
         outputs: [
-          { name: "out", typeLabel: "c<f64>", vararg: false, grounded: true, vectorized: true },
-          { name: "out[1]", typeLabel: "c<f64>", vararg: false, grounded: true },
+          { name: "out", typeLabel: "(Double) -> Unit", vararg: false, grounded: true, vectorized: true },
+          { name: "out[1]", typeLabel: "(Double) -> Unit", vararg: false, grounded: true },
         ],
         paramsLine: "",
       }),
@@ -169,8 +169,8 @@ describe("BldNode", () => {
     expect(node.shadowRoot!.querySelectorAll("[data-port][data-side='out']")).toHaveLength(2);
     expect(node.shadowRoot!.querySelectorAll('[data-vector="out"] .block-port-vector-rail')).toHaveLength(1);
     expect(node.shadowRoot!.querySelectorAll('[data-vector="out"] [data-handle]')).toHaveLength(2);
-    expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("c<f64>");
-    expect(node.shadowRoot!.querySelector('[data-testid="output-out[1]"]')?.getAttribute("title")).toBe("c<f64>");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("(Double) -> Unit");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-out[1]"]')?.getAttribute("title")).toBe("(Double) -> Unit");
   });
 
   it("renders a second extra input handle", async () => {
@@ -179,8 +179,8 @@ describe("BldNode", () => {
         defId: "timer",
         name: "Timer",
         inputs: [
-          { name: "in", typeLabel: "c<f64>", vararg: false, grounded: true },
-          { name: "in[1]", typeLabel: "c<f64>", vararg: false, grounded: true },
+          { name: "in", typeLabel: "(Double) -> Unit", vararg: false, grounded: true },
+          { name: "in[1]", typeLabel: "(Double) -> Unit", vararg: false, grounded: true },
         ],
         outputs: [],
         paramsLine: "",
@@ -196,11 +196,11 @@ describe("BldNode", () => {
   it("prints the type under a port only when showType is set", async () => {
     const node = await mountNode(
       sampleState({
-        outputs: [{ name: "result", typeLabel: "f64[]", vararg: false, showType: true }],
+        outputs: [{ name: "result", typeLabel: "Array[Double]", vararg: false, showType: true }],
         inputs: [{ name: "elems", typeLabel: "f64", vararg: true, showType: true }],
       }),
     );
-    expect(node.shadowRoot!.querySelector('[data-testid="output-result-type"]')?.textContent).toBe("f64[]");
+    expect(node.shadowRoot!.querySelector('[data-testid="output-result-type"]')?.textContent).toBe("Array[Double]");
     expect(node.shadowRoot!.querySelector('[data-testid="input-elems-type"]')?.textContent).toBe("f64");
     expect(node.shadowRoot!.querySelector('[data-testid="output-result"]')?.classList.contains("is-typed")).toBe(true);
     expect(node.shadowRoot!.querySelector('[data-vector="elems"] .block-port-type')?.textContent).toBe("f64");
@@ -214,7 +214,7 @@ describe("BldNode", () => {
       sampleState({
         name: "array.get",
         inputs: [
-          { name: "array", typeLabel: "f64[]", vararg: false },
+          { name: "array", typeLabel: "Array[Double]", vararg: false },
           { name: "index", typeLabel: "i32", vararg: false },
         ],
         outputs: [
@@ -256,7 +256,7 @@ describe("BldNode", () => {
         defId: "timer",
         name: "Timer",
         showInputs: true,
-        inputs: [{ name: "in", typeLabel: "c<f64>", vararg: false, grounded: true }],
+        inputs: [{ name: "in", typeLabel: "(Double) -> Unit", vararg: false, grounded: true }],
         outputs: [],
         paramsLine: "",
       }),
@@ -279,7 +279,7 @@ describe("BldNode", () => {
         name: "Scope",
         showInputs: false,
         inputs: [],
-        outputs: [{ name: "out", typeLabel: "c<f64>", vararg: false, vectorized: true }],
+        outputs: [{ name: "out", typeLabel: "(Double) -> Unit", vararg: false, vectorized: true }],
         paramsLine: "",
       }),
     );

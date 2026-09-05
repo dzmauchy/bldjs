@@ -40,8 +40,8 @@ export function acceptsManyInputs(port: PortDef | undefined): boolean {
 }
 
 /**
- * Each visual pin on a vector-of-consumer output is one channel (`c<T>`),
- * including the first slot — not the whole vector (`c<T>[]`).
+ * Each visual pin on a vector-of-consumer output is one channel (`(T) -> Unit`),
+ * including the first slot — not the whole vector (`Array[(T) -> Unit]`).
  */
 export function slottedOutputType(catalogType: TypeExpr, _slotName: string): TypeExpr {
   if (

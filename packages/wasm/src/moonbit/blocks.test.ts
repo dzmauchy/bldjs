@@ -25,7 +25,7 @@ describe("generator catalog", () => {
 });
 
 describe("transformer catalog", () => {
-  it("repeats the XML c<f64> → c<f64> signature plus _ctx", () => {
+  it("repeats the XML (Double) -> Unit → (Double) -> Unit signature plus _ctx", () => {
     const source = emitSin();
     expect(source).toContain(`fn sin(${CTX_PARAM}, input : C1) -> C1`);
     expect(source).toContain("math_sin(");

@@ -108,7 +108,7 @@ export function readFlowCounts(memory: WebAssembly.Memory, count: number): numbe
   return Array.from({ length: n }, (_, index) => words.load(index));
 }
 
-/** The runner records one c<?> invocation per connector after each `tick`. */
+/** The runner records one consumer invocation per connector after each `tick`. */
 export function bumpFlowCounts(memory: WebAssembly.Memory, count: number): void {
   const n = Math.max(0, Math.min(count, FLOW_COUNT_CAP));
   if (n === 0) {

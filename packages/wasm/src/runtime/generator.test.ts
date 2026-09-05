@@ -88,7 +88,7 @@ describe("MoonBit generator", () => {
     expect(sample).toBeLessThan(1);
   });
 
-  it("counts each c<f64> connector invocation in the runner, not the runtime", async () => {
+  it("counts each (Double) -> Unit connector invocation in the runner, not the runtime", async () => {
     const { wasm, connectors } = await assembleModule({ generator: "sin", delayMs: 10_000 });
     expect(connectors.length).toBeGreaterThan(0);
     const memory = createSharedMemory();

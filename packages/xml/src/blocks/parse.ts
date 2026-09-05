@@ -9,117 +9,40 @@ import {
   type PortDef,
   type TypeDef,
   type TypeExpr,
-  type Variance,
-  NamedType,
-  SelfType,
-  intersectionOf,
   isBlockParameterKind,
-  parseVariance,
-  unbounded,
-  unionOf,
-  extendsBound,
-  superBound,
 } from "./ast";
 import { ParseError, XmlElem } from "../dom";
+import { parseMoonbitType } from "./moonbit-type";
 
 export { ParseError };
+export { parseMoonbitType } from "./moonbit-type";
 
-function parseVarianceAttr(node: XmlElem): Variance | null {
-  const value = node.opt("variance");
-  if (value === undefined) {
-    return null;
-  }
-  const parsed = parseVariance(value);
-  if (!parsed) {
-    node.fail(`invalid variance \`${value}\``);
-  }
-  return parsed;
-}
-
-function wrapVariance(inner: TypeExpr, variance: Variance | null): TypeExpr {
-  if ((variance === null || variance === "unbounded") && inner.kind === "wildcard") {
-    return inner;
-  }
-  if (variance === "unbounded") {
-    return unbounded();
-  }
-  if (variance === "covariant") {
-    return extendsBound(inner);
-  }
-  if (variance === "contravariant") {
-    return superBound(inner);
-  }
-  return inner;
-}
-
-const ARRAY_SUFFIX = "[]";
-
-/** `f64[]` / `T[]` / `array` become the language-agnostic array type `[]`. */
-export function parseNamedType(typeName: string, args: TypeExpr[]): TypeExpr {
-  if (typeName === "array") {
-    return new NamedType("[]", null, args);
-  }
-  if (typeName.endsWith(ARRAY_SUFFIX)) {
-    const innerName = typeName.slice(0, -ARRAY_SUFFIX.length);
-    if (innerName.length === 0) {
-      return new NamedType("[]", null, args);
+function parseMoonbitAttr(node: XmlElem, fallback: TypeExpr | undefined): TypeExpr {
+  const raw = node.opt("type");
+  if (raw === undefined) {
+    if (fallback) {
+      return fallback;
     }
-    return new NamedType("[]", null, [parseNamedType(innerName, args)]);
+    return parseMoonbitType("");
   }
-  return new NamedType(typeName, null, args);
+  try {
+    return parseMoonbitType(raw);
+  } catch (error) {
+    node.fail(error instanceof Error ? error.message : `invalid MoonBit type \`${raw}\``);
+  }
 }
 
-function parseTypeParts(node: XmlElem, parent: string): TypeExpr[] {
-  const parts: TypeExpr[] = [];
+function rejectNestedTypes(node: XmlElem, parent: string): void {
   for (const child of node.kids()) {
-    switch (child.tag) {
-      case "attribute":
-        break;
-      case "t":
-      case "self":
-      case "union":
-      case "intersection":
-        parts.push(parseTexpr(child));
-        break;
-      default:
-        child.fail(`unsupported ${parent} child <${child.tag}>`);
+    if (child.tag === "attribute") {
+      continue;
     }
+    child.fail(`unsupported ${parent} child <${child.tag}>; use a MoonBit type string`);
   }
-  return parts;
 }
 
 export function parseTexpr(node: XmlElem): TypeExpr {
-  if (node.tag === "self") {
-    return new SelfType();
-  }
-
-  const parts = parseTypeParts(node, "type-expression");
-  if (node.tag === "union") {
-    return unionOf(parts);
-  }
-  if (node.tag === "intersection") {
-    return intersectionOf(parts);
-  }
-
-  const variance = parseVarianceAttr(node);
-  const typeName = node.opt("type");
-
-  if (variance === "unbounded" && typeName === undefined) {
-    return unbounded();
-  }
-
-  let inner: TypeExpr;
-  if (typeName !== undefined) {
-    inner = parseNamedType(typeName, parts);
-  } else if (parts.length === 1) {
-    inner = parts[0];
-  } else if (parts.length === 0) {
-    inner = unbounded();
-  } else {
-    inner = intersectionOf(parts);
-  }
-
-  return wrapVariance(inner, variance);
+  return parseMoonbitAttr(node, undefined);
 }
 
 function parseNamespace(node: XmlElem): Namespace {
@@ -135,17 +58,14 @@ function parseNamespace(node: XmlElem): Namespace {
 function parseParam(node: XmlElem): ParamDef {
   const attributes: Attribute[] = [];
   const extendsBounds: TypeExpr[] = [];
-  const superBounds: TypeExpr[] = [];
   for (const child of node.kids()) {
     switch (child.tag) {
       case "attribute":
         attributes.push({ name: child.req("name"), value: child.text() });
         break;
       case "extends":
-        extendsBounds.push(parseTexpr(child));
-        break;
-      case "super":
-        superBounds.push(parseTexpr(child));
+        extendsBounds.push(parseMoonbitAttr(child, undefined));
+        rejectNestedTypes(child, "<extends>");
         break;
       default:
         child.fail(`unsupported <param> child <${child.tag}>`);
@@ -153,18 +73,17 @@ function parseParam(node: XmlElem): ParamDef {
   }
   return {
     name: node.req("name"),
-    variance: parseVarianceAttr(node),
     extends: extendsBounds,
-    superBounds,
     attributes,
   };
 }
 
 function parsePort(node: XmlElem): PortDef {
+  rejectNestedTypes(node, `<${node.tag}>`);
   const vararg = node.opt("vararg");
   return {
     name: node.req("name"),
-    ty: parseTexpr(node),
+    ty: parseMoonbitAttr(node, undefined),
     vararg: vararg === "true" || vararg === "1",
     icon: node.opt("icon") ?? null,
     attributes: node.attributes(),
@@ -172,9 +91,11 @@ function parsePort(node: XmlElem): PortDef {
 }
 
 function parseFactory(node: XmlElem): Factory {
+  rejectNestedTypes(node, "<factory>");
+  const typeAttr = node.opt("type");
   return {
     id: node.req("id"),
-    args: parseTypeParts(node, "<factory>"),
+    args: typeAttr !== undefined ? [parseMoonbitAttr(node, undefined)] : [],
     attributes: node.attributes(),
   };
 }
@@ -193,14 +114,15 @@ function parseTypeDef(node: XmlElem, file: string): TypeDef {
         params.push(parseParam(child));
         break;
       case "ancestor":
-        ancestors.push(parseTexpr(child));
+        ancestors.push(parseMoonbitAttr(child, undefined));
+        rejectNestedTypes(child, "<ancestor>");
         break;
-      case "union":
-      case "intersection":
+      case "alias":
         if (alias !== null) {
-          child.fail("type may have only one union/intersection body");
+          child.fail("type may have only one alias");
         }
-        alias = parseTexpr(child);
+        alias = parseMoonbitAttr(child, undefined);
+        rejectNestedTypes(child, "<alias>");
         break;
       default:
         child.fail(`unsupported <type> child <${child.tag}>`);

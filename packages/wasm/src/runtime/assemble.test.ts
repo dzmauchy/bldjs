@@ -82,15 +82,15 @@ describe("block MoonBit assembly", () => {
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);
     expect(blockTypeWat(blockSignature(diagram.catalog().block("timer")!))).toContain(
-      "(type $fn_timer (func (param $ctx i32) (param $in (ref $c1_f64))))",
+      "(type $fn_timer (func (param $ctx i32) (param $in (ref $fn_Double_Unit))))",
     );
     expect(blockTypeWat(blockSignature(diagram.catalog().block("sin")!))).toContain(
-      "(type $fn_sin (func (param $ctx i32) (param $in (ref $c1_f64)) (result $out (ref $c1_f64))))",
+      "(type $fn_sin (func (param $ctx i32) (param $in (ref $fn_Double_Unit)) (result $out (ref $fn_Double_Unit))))",
     );
     expect(blockTypeWat(blockSignature(diagram.catalog().block("scope")!))).toContain(
-      "(type $fn_scope (func (param $ctx i32) (result $out (ref $array_c1_f64))))",
+      "(type $fn_scope (func (param $ctx i32) (result $out (ref $array_fn_Double_Unit))))",
     );
-    expect(runtimeTypeWat()).toContain("(type $fn_timer (func (param $ctx i32) (param $in (ref $c1_f64))))");
+    expect(runtimeTypeWat()).toContain("(type $fn_timer (func (param $ctx i32) (param $in (ref $fn_Double_Unit))))");
   });
 
   it("can skip MoonBit source on the run path", async () => {

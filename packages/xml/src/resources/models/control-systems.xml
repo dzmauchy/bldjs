@@ -9,14 +9,12 @@
     <attribute name="kind">Start</attribute>
     <attribute name="runnable">true</attribute>
     <attribute name="generator">true</attribute>
-    <attribute name="description">Push source. Accepts c&lt;f64&gt; and writes timestamps while running.</attribute>
+    <attribute name="description">Push source. Accepts (Double) -&gt; Unit and writes timestamps while running.</attribute>
     <factory id="timer"/>
     <parameters>
       <integer-range-parameter name="period" description="Quantization period in milliseconds" min="1" max="1000" step="1" default="10"/>
     </parameters>
-    <in name="in" type="c1">
-      <t type="f64"/>
-    </in>
+    <in name="in" type="(Double) -> Unit"/>
   </block>
 
   <block id="random" name="Random" ns="com.dauch.cs.gen" icon="random">
@@ -28,44 +26,31 @@
     <parameters>
       <integer-range-parameter name="period" description="Quantization period in milliseconds" min="1" max="1000" step="1" default="10"/>
     </parameters>
-    <in name="in" type="c1">
-      <t type="f64"/>
-    </in>
+    <in name="in" type="(Double) -> Unit"/>
   </block>
 
   <block id="sin" name="Sin" ns="com.dauch.cs.tf" icon="sin">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">Transformer. Maps each sample with sin. c&lt;f64&gt; → c&lt;f64&gt;.</attribute>
+    <attribute name="description">Transformer. Maps each sample with sin. (Double) -&gt; Unit → (Double) -&gt; Unit.</attribute>
     <factory id="sin"/>
-    <in name="in" type="c1">
-      <t type="f64"/>
-    </in>
-    <out name="out" type="c1">
-      <t type="f64"/>
-    </out>
+    <in name="in" type="(Double) -> Unit"/>
+    <out name="out" type="(Double) -> Unit"/>
   </block>
 
   <block id="cos" name="Cos" ns="com.dauch.cs.tf" icon="cos">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">Transformer. Maps each sample with cos. c&lt;f64&gt; → c&lt;f64&gt;.</attribute>
+    <attribute name="description">Transformer. Maps each sample with cos. (Double) -&gt; Unit → (Double) -&gt; Unit.</attribute>
     <factory id="cos"/>
-    <in name="in" type="c1">
-      <t type="f64"/>
-    </in>
-    <out name="out" type="c1">
-      <t type="f64"/>
-    </out>
+    <in name="in" type="(Double) -> Unit"/>
+    <out name="out" type="(Double) -> Unit"/>
   </block>
 
   <block id="scope" name="Scope" ns="com.dauch.cs.sink" icon="scope">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Plot sink. Returns a dynamically sized vector of c&lt;f64&gt;. Wire into a transformer or generator. After Run, Chart is a multi-axis plot.</attribute>
+    <attribute name="description">Plot sink. Returns a dynamically sized Array[(Double) -&gt; Unit]. Wire into a transformer or generator. After Run, Chart is a multi-axis plot.</attribute>
     <factory id="scope"/>
-    <out name="out" type="[]">
+    <out name="out" type="Array[(Double) -> Unit]">
       <attribute name="dynamic">true</attribute>
-      <t type="c1">
-        <t type="f64"/>
-      </t>
     </out>
   </block>
 </blocks>

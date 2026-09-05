@@ -3,7 +3,7 @@ import { groupPortViews } from "./port-groups";
 import type { PortView } from "./types";
 
 function port(name: string, overrides: Partial<PortView> = {}): PortView {
-  return { name, typeLabel: "c<f64>", vararg: false, ...overrides };
+  return { name, typeLabel: "(Double) -> Unit", vararg: false, ...overrides };
 }
 
 describe("groupPortViews", () => {
@@ -20,14 +20,14 @@ describe("groupPortViews", () => {
       label: "elems…",
       vectorized: true,
     });
-    const vector = groupPortViews([port("out", { vectorized: true, typeLabel: "c<f64>" })]);
+    const vector = groupPortViews([port("out", { vectorized: true, typeLabel: "(Double) -> Unit" })]);
     expect(vector[0]?.vectorized).toBe(true);
   });
 
   it("merges extra slots onto one named rail", () => {
     const groups = groupPortViews([
-      port("out", { vectorized: true, typeLabel: "c<f64>" }),
-      port("out[1]", { typeLabel: "c<f64>" }),
+      port("out", { vectorized: true, typeLabel: "(Double) -> Unit" }),
+      port("out[1]", { typeLabel: "(Double) -> Unit" }),
     ]);
     expect(groups).toHaveLength(1);
     expect(groups[0]).toMatchObject({

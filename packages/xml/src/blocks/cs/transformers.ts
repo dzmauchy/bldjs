@@ -1,6 +1,6 @@
 import type { DoubleConsumer, F64Func } from "./types";
 
-/** XML `c<f64> → c<f64>`: map a sample, then forward it to a captured sink. */
+/** XML `(Double) -> Unit → (Double) -> Unit`: map a sample, then forward it to a captured sink. */
 export abstract class Transformer {
   abstract readonly defId: string;
 
@@ -36,12 +36,12 @@ export function transformerOf(defId: string): Transformer | undefined {
   return TRANSFORMERS[defId];
 }
 
-/** XML `c<f64> → c<f64>`: capture a sink and return a consumer that maps then forwards. */
+/** XML `(Double) -> Unit → (Double) -> Unit`: capture a sink and return a consumer that maps then forwards. */
 export function sin(sink: DoubleConsumer): DoubleConsumer {
   return TRANSFORMERS.sin.wrap(sink);
 }
 
-/** XML `c<f64> → c<f64>`: capture a sink and return a consumer that maps then forwards. */
+/** XML `(Double) -> Unit → (Double) -> Unit`: capture a sink and return a consumer that maps then forwards. */
 export function cos(sink: DoubleConsumer): DoubleConsumer {
   return TRANSFORMERS.cos.wrap(sink);
 }

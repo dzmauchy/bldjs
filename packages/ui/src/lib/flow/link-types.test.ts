@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generic, named } from "@bld/xml/blocks/ast";
+import { arrayOf, consumerType, named } from "@bld/xml/blocks/ast";
 import { associateBuiltinModels, associateFixtureModels } from "@bld/xml/blocks/builtin";
 import { Diagram } from "@bld/xml/blocks/diagram";
 import { AppState } from "$lib/state";
@@ -11,7 +11,7 @@ describe("shouldShowPortType", () => {
     associateBuiltinModels(diagram);
     return diagram.catalog();
   })();
-  const consumer = generic("c1", [named("f64")]);
+  const consumer = consumerType(named("Double"));
   const linking = { blockId: 1, port: "out" };
 
   it("hides every port when not linking", () => {
@@ -27,11 +27,11 @@ describe("shouldShowPortType", () => {
   });
 
   it("hides incompatible inputs", () => {
-    expect(shouldShowPortType(linking, 2, "in", "in", consumer, named("f64"), catalog, [])).toBe(false);
+    expect(shouldShowPortType(linking, 2, "in", "in", consumer, named("Double"), catalog, [])).toBe(false);
   });
 
-  it("shows c<f64> inputs when the source is a consumer vector", () => {
-    const vector = generic("[]", [consumer]);
+  it("shows (Double) -> Unit inputs when the source is a consumer vector", () => {
+    const vector = arrayOf(consumer);
     expect(shouldShowPortType({ blockId: 1, port: "out" }, 2, "in", "in", vector, consumer, catalog, [])).toBe(true);
   });
 
@@ -54,7 +54,7 @@ describe("uniqueCompatibleInput", () => {
     associateBuiltinModels(diagram);
     return diagram.catalog();
   })();
-  const consumer = generic("c1", [named("f64")]);
+  const consumer = consumerType(named("Double"));
   const linking = { blockId: 1, port: "out" };
 
   it("returns the only compatible input", () => {
@@ -81,7 +81,7 @@ describe("uniqueCompatibleInput", () => {
       uniqueCompatibleInput(
         linking,
         consumer,
-        { blockId: 2, params: [], inputs: [{ name: "in", ty: named("f64") }] },
+        { blockId: 2, params: [], inputs: [{ name: "in", ty: named("Double") }] },
         catalog,
       ),
     ).toBeUndefined();
@@ -91,13 +91,13 @@ describe("uniqueCompatibleInput", () => {
     expect(
       uniqueCompatibleInput(
         linking,
-        named("f64"),
+        named("Double"),
         {
           blockId: 2,
           params: [],
           inputs: [
-            { name: "left", ty: named("f64") },
-            { name: "right", ty: named("f64") },
+            { name: "left", ty: named("Double") },
+            { name: "right", ty: named("Double") },
           ],
         },
         catalog,
@@ -115,7 +115,7 @@ describe("uniqueCompatibleInput", () => {
     expect(
       uniqueCompatibleInput(
         linking,
-        named("i32"),
+        named("Int"),
         {
           blockId: 2,
           params: get.params,

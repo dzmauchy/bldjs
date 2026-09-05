@@ -1,6 +1,6 @@
-/** Language-agnostic consumer `c1<T>` / Java `Consumer<T>`. */
+/** MoonBit consumer `(T) -> Unit`. */
 export type Func<T> = (value: T) => void;
-/** Java `DoubleConsumer` — catalog `c<f64>`. */
+/** Catalog `(Double) -> Unit`. */
 export type DoubleConsumer = Func<number>;
 export type F64Func = DoubleConsumer;
 /** @deprecated Push model uses {@link DoubleConsumer} on every port. */

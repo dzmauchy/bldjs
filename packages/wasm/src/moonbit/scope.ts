@@ -10,7 +10,7 @@ function plotClosure(ring: number): string {
 }
 
 /**
- * scope — XML `() → c<f64>[]`. Extra `_ctx`.
+ * scope — XML `() → Array[(Double) -> Unit]`. Extra `_ctx`.
  * Returns plot sinks; `length` is the number of outgoing connectors.
  */
 export class ScopeMoonBlock extends MoonBlock {

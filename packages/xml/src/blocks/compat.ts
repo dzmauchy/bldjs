@@ -1,12 +1,4 @@
-import {
-  type ParamDef,
-  type TypeExpr,
-  type Variance,
-  isArrayType,
-  isConsumerType,
-  NamedType,
-  unbounded,
-} from "./ast";
+import { type ParamDef, type TypeExpr, isArrayType, isConsumerType, NamedType } from "./ast";
 import { type Catalog, sameRaw } from "./catalog";
 import { isPrimitive } from "./types";
 
@@ -53,24 +45,14 @@ function visit(
     return true;
   }
 
-  // A vector of consumers `c<T>[]` may ground a `c<T>` input (one channel per wire).
+  // A vector of consumers `Array[(T) -> Unit]` may ground a `(T) -> Unit` input (one channel per wire).
   if (to.kind === "type" && isArrayType(to) && to.args[0] && isConsumerType(to.args[0])) {
     return visit(catalog, params, from, to.args[0], visited, covariant, depth + 1, onMatch);
   }
 
   switch (to.kind) {
-    case "wildcard":
-      return visitActualWildcard(
-        catalog,
-        params,
-        from,
-        to.variance,
-        to.bound,
-        visited,
-        covariant,
-        depth,
-        onMatch,
-      );
+    case "hole":
+      return true;
     case "union":
       return to.members.every((member) =>
         visit(catalog, params, from, member, visited, covariant, depth + 1, onMatch),
@@ -89,8 +71,8 @@ function visit(
   }
 
   switch (from.kind) {
-    case "wildcard":
-      return visitFormalWildcard(catalog, params, from.variance, from.bound, to, visited, depth, onMatch);
+    case "hole":
+      return true;
     case "union":
       return from.members.some((member) =>
         visit(catalog, params, member, to, visited, covariant, depth + 1, onMatch),
@@ -101,6 +83,16 @@ function visit(
       );
     case "self":
       return false;
+    case "func":
+      return visitFunc(catalog, params, from, to, visited, depth, onMatch);
+    case "tuple":
+      return (
+        to.kind === "tuple" &&
+        from.elems.length === to.elems.length &&
+        from.elems.every((elem, index) =>
+          visit(catalog, params, elem, to.elems[index], visited, covariant, depth + 1, onMatch),
+        )
+      );
     case "type":
       return visitNamed(
         catalog,
@@ -117,51 +109,22 @@ function visit(
   }
 }
 
-function visitActualWildcard(
+function visitFunc(
   catalog: Catalog,
   params: ParamDef[],
-  from: TypeExpr,
-  variance: Variance,
-  bound: TypeExpr | null,
-  visited: string[],
-  covariant: boolean | null,
-  depth: number,
-  onMatch: (name: string, ty: TypeExpr) => void,
-): boolean {
-  switch (variance) {
-    case "unbounded":
-      return true;
-    case "covariant":
-      return visit(catalog, params, from, bound ?? unbounded(), visited, covariant, depth + 1, onMatch);
-    case "contravariant":
-      if (bound) {
-        visit(catalog, params, from, bound, visited, covariant, depth + 1, onMatch);
-      }
-      return false;
-  }
-}
-
-function visitFormalWildcard(
-  catalog: Catalog,
-  params: ParamDef[],
-  variance: Variance,
-  bound: TypeExpr | null,
+  from: Extract<TypeExpr, { kind: "func" }>,
   to: TypeExpr,
   visited: string[],
   depth: number,
   onMatch: (name: string, ty: TypeExpr) => void,
 ): boolean {
-  switch (variance) {
-    case "unbounded":
-      return true;
-    case "contravariant":
-      if (!bound) {
-        return true;
-      }
-      return visit(catalog, params, bound, to, visited, false, depth + 1, onMatch);
-    case "covariant":
-      return visit(catalog, params, bound ?? unbounded(), to, visited, true, depth + 1, onMatch);
+  if (to.kind !== "func" || from.params.length !== to.params.length) {
+    return false;
   }
+  const paramsOk = from.params.every((formal, index) =>
+    visit(catalog, params, formal, to.params[index], visited, null, depth + 1, onMatch),
+  );
+  return paramsOk && visit(catalog, params, from.ret, to.ret, visited, true, depth + 1, onMatch);
 }
 
 function visitVar(
@@ -177,13 +140,9 @@ function visitVar(
     return true;
   }
   const next = [...visited, param.name];
-  const boundsOk =
-    param.extends.every((bound) =>
-      visit(catalog, params, bound, to, next, true, depth + 1, onMatch),
-    ) &&
-    param.superBounds.every((bound) =>
-      visit(catalog, params, to, bound, next, true, depth + 1, onMatch),
-    );
+  const boundsOk = param.extends.every((bound) =>
+    visit(catalog, params, bound, to, next, true, depth + 1, onMatch),
+  );
   if (boundsOk) {
     onMatch(param.name, to);
     return true;
@@ -271,17 +230,21 @@ function typeEq(catalog: Catalog, left: TypeExpr, right: TypeExpr): boolean {
       left.args.every((arg, index) => typeEq(catalog, arg, right.args[index]))
     );
   }
-  if (left.kind === "wildcard" && right.kind === "wildcard") {
-    if (left.variance !== right.variance) {
-      return false;
-    }
-    if (left.bound === null && right.bound === null) {
-      return true;
-    }
-    if (left.bound && right.bound) {
-      return typeEq(catalog, left.bound, right.bound);
-    }
-    return false;
+  if (left.kind === "func" && right.kind === "func") {
+    return (
+      left.params.length === right.params.length &&
+      left.params.every((param, index) => typeEq(catalog, param, right.params[index])) &&
+      typeEq(catalog, left.ret, right.ret)
+    );
+  }
+  if (left.kind === "tuple" && right.kind === "tuple") {
+    return (
+      left.elems.length === right.elems.length &&
+      left.elems.every((elem, index) => typeEq(catalog, elem, right.elems[index]))
+    );
+  }
+  if (left.kind === "hole" && right.kind === "hole") {
+    return true;
   }
   if (left.kind === "self" && right.kind === "self") {
     return true;

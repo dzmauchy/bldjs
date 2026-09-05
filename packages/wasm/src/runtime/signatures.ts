@@ -1,9 +1,19 @@
 import { type BlockDef, type PortDef, type TypeExpr, displayType, isArrayType } from "@bld/xml/blocks/ast";
 
-/** WASM value type emitted for a language-agnostic XML type expression. */
+/** WASM value type emitted for a MoonBit XML type expression. */
 export type WasmVal = string;
 
-const WASM_PRIMITIVES = new Set(["i32", "i64", "f32", "f64"]);
+const WASM_PRIMITIVES: Record<string, string> = {
+  Int: "i32",
+  UInt: "i32",
+  Bool: "i32",
+  Byte: "i32",
+  Char: "i32",
+  Int64: "i64",
+  UInt64: "i64",
+  Float: "f32",
+  Double: "f64",
+};
 
 function rawName(expr: TypeExpr): string {
   if (expr.kind !== "type") {
@@ -21,70 +31,47 @@ export function funcTypeId(expr: TypeExpr): string {
 }
 
 /**
- * Heap type name for an XML type (`c1_f64`, `array_c1_f64`).
- * Array types keep the element constructor so `c<f64>[]` does not collapse to `c_f64`.
+ * Heap type name for a MoonBit XML type (`fn_Double_Unit`, `array_fn_Double_Unit`).
  */
 export function wasmHeapTypeName(expr: TypeExpr): string {
-  if (expr.kind !== "type") {
-    return typeToken(expr);
+  if (expr.kind === "func") {
+    const params = expr.params.map(typeToken).filter((token) => token.length > 0);
+    const ret = typeToken(expr.ret);
+    return ["fn", ...params, ret].filter((token) => token.length > 0).join("_");
   }
-  const name = rawName(expr);
-  if (name === "c1" && expr.args.length === 1) {
-    return `c1_${typeToken(expr.args[0])}`;
+  if (expr.kind === "tuple") {
+    return `tuple_${expr.elems.map(wasmHeapTypeName).join("_")}`;
   }
-  if (name === "c2" && expr.args.length === 2) {
-    return `c2_${typeToken(expr.args[0])}_${typeToken(expr.args[1])}`;
-  }
-  if (name === "s" && expr.args.length === 1) {
-    return `s_${typeToken(expr.args[0])}`;
-  }
-  if (name === "f1" && expr.args.length === 2) {
-    return `f1_${typeToken(expr.args[0])}_${typeToken(expr.args[1])}`;
-  }
-  if (name === "f2" && expr.args.length === 3) {
-    return `f2_${typeToken(expr.args[0])}_${typeToken(expr.args[1])}_${typeToken(expr.args[2])}`;
-  }
-  if (isArrayType(expr) && expr.args.length === 1) {
+  if (expr.kind === "type" && isArrayType(expr) && expr.args.length === 1) {
     return `array_${wasmHeapTypeName(expr.args[0])}`;
   }
   return typeToken(expr);
 }
 
 /**
- * Map a language-agnostic XML type to a WASM valtype.
+ * Map a MoonBit XML type to a WASM valtype.
  *
- *   f64 / f32 / i32 / i64 → themselves
- *   bool                  → i32
- *   str                   → externref (js-string builtins)
- *   c1<T>                 → (ref $c1_T)
- *   c2<T1, T2>            → (ref $c2_T1_T2)
- *   s<R>                  → (ref $s_R)
- *   f1<T, R>              → (ref $f1_T_R)
- *   f2<T1, T2, R>         → (ref $f2_T1_T2_R)
- *   T[]                   → (ref $array_T)  (dynamically sized)
+ *   Double / Float / Int / Int64 → f64 / f32 / i32 / i64
+ *   Bool                         → i32
+ *   String                       → externref (js-string builtins)
+ *   (T) -> R                     → (ref $fn_T_R)
+ *   Array[T]                     → (ref $array_T)
  */
 export function wasmValType(expr: TypeExpr): WasmVal {
+  if (expr.kind === "func" || expr.kind === "tuple") {
+    return `(ref $${wasmHeapTypeName(expr)})`;
+  }
   if (expr.kind !== "type") {
     return "externref";
   }
   const name = rawName(expr);
-  if (WASM_PRIMITIVES.has(name) && expr.args.length === 0) {
-    return name;
+  if (expr.args.length === 0 && name in WASM_PRIMITIVES) {
+    return WASM_PRIMITIVES[name]!;
   }
-  if (name === "bool" && expr.args.length === 0) {
-    return "i32";
-  }
-  if (name === "str" && expr.args.length === 0) {
+  if (name === "String" && expr.args.length === 0) {
     return "externref";
   }
-  if (
-    (name === "c1" && expr.args.length === 1) ||
-    (name === "c2" && expr.args.length === 2) ||
-    (name === "s" && expr.args.length === 1) ||
-    (name === "f1" && expr.args.length === 2) ||
-    (name === "f2" && expr.args.length === 3) ||
-    (isArrayType(expr) && expr.args.length === 1)
-  ) {
+  if (isArrayType(expr) && expr.args.length === 1) {
     return `(ref $${wasmHeapTypeName(expr)})`;
   }
   return "externref";

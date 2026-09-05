@@ -2,20 +2,20 @@ import { describe, expect, it } from "vitest";
 import {
   type TypeExpr,
   arrayOf,
+  consumerType,
   displayType,
-  extendsBound,
+  funcType,
   isConsumerType,
   isPushType,
   SelfType,
   typeToString,
   generic,
   named,
-  parseVariance,
-  superBound,
   typesEqual,
   unbounded,
   unionOf,
 } from "./ast";
+import { parseMoonbitType } from "./moonbit-type";
 import {
   CONTROL_SYSTEMS_XML,
   FIXTURES_XML,
@@ -53,6 +53,10 @@ function t(name: string): TypeExpr {
 
 function g(name: string, args: TypeExpr[]): TypeExpr {
   return generic(name, args);
+}
+
+function ty(src: string): TypeExpr {
+  return parseMoonbitType(src);
 }
 
 function catalog(): Catalog {
@@ -112,14 +116,8 @@ describe("blocks", () => {
         <block id="b_apply" name="Apply" ns="types" icon="func.png">
           <param name="T"/>
           <param name="R"/>
-          <factory id="f1#apply">
-            <t type="T"/>
-            <t type="R"/>
-          </factory>
-          <in name="fn" type="f1">
-            <t type="T"/>
-            <t type="R"/>
-          </in>
+          <factory id="apply"/>
+          <in name="fn" type="(T) -> R"/>
           <in name="arg" type="T"/>
           <out name="result" type="R"/>
         </block>
@@ -129,86 +127,60 @@ describe("blocks", () => {
     expect(doc.id).toBe("workspace_01");
     const block = doc.blocks[0];
     expect(block.params.length).toBe(2);
-    expectType(block.inputs[0].ty, g("f1", [t("T"), t("R")]));
+    expectType(block.inputs[0].ty, funcType([t("T")], t("R")));
     expectType(block.inputs[1].ty, t("T"));
     expectType(block.outputs[0].ty, t("R"));
   });
 
-  it("parses variance wildcards", () => {
+  it("parses MoonBit holes and arrays", () => {
     const xml = `
-      <blocks id="w" name="Wildcards">
+      <blocks id="w" name="Holes">
         <block id="b" name="W" ns="test">
-          <in name="covariantInput" type="[]">
-            <t type="i32" variance="+"/>
-          </in>
-          <in name="contravariantInput" type="c1">
-            <t type="f64" variance="-"/>
-          </in>
-          <in name="unboundedInput" type="[]">
-            <t variance="?"/>
-          </in>
+          <in name="ints" type="Array[Int]"/>
+          <in name="consumer" type="(Double) -> Unit"/>
+          <in name="unboundedInput" type="Array[_]"/>
         </block>
       </blocks>
     `;
     const doc = parseBlocks("wild.xml", xml);
     const block = doc.blocks[0];
-    expectType(block.inputs[0].ty, arrayOf(extendsBound(t("i32"))));
-    expectType(block.inputs[1].ty, g("c1", [superBound(t("f64"))]));
+    expectType(block.inputs[0].ty, arrayOf(t("Int")));
+    expectType(block.inputs[1].ty, consumerType(t("Double")));
     expectType(block.inputs[2].ty, arrayOf(unbounded()));
   });
 
-  it("parses union intersection and self", () => {
+  it("parses union intersection and Self", () => {
     const xml = `
       <blocks id="u" name="U">
         <block id="b_path" name="path" ns="example.Builder">
-          <in name="segment" type="str"/>
-          <in name="complexPayload">
-            <intersection>
-              <t type="c1">
-                <t type="T"/>
-              </t>
-              <t type="s">
-                <t type="T"/>
-              </t>
-            </intersection>
-          </in>
-          <out name="result">
-            <union>
-              <t type="i32"/>
-              <t type="i64"/>
-            </union>
-          </out>
-          <out name="this">
-            <self/>
-          </out>
+          <in name="segment" type="String"/>
+          <in name="complexPayload" type="((T) -> Unit) &amp; (() -> T)"/>
+          <out name="result" type="Int | Int64"/>
+          <out name="this" type="Self"/>
         </block>
       </blocks>
     `;
     const doc = parseBlocks("u.xml", xml);
     const block = doc.blocks[0];
-    expectType(block.outputs[0].ty, unionOf([t("i32"), t("i64")]));
+    expectType(block.outputs[0].ty, unionOf([t("Int"), t("Int64")]));
     expect(block.outputs[1].ty.kind).toBe("self");
     expect(block.inputs[1].ty.kind).toBe("intersection");
   });
 
-  it("parses f-bounded rec param", () => {
+  it("parses f-bounded Rec param", () => {
     const xml = `
       <blocks id="e" name="E">
         <block id="b_rec_new" name="rec.new" ns="example">
           <param name="T">
-            <extends type="rec">
-              <t type="T"/>
-            </extends>
+            <extends type="Rec[T]"/>
           </param>
-          <in name="cls" type="c1">
-            <t type="T"/>
-          </in>
+          <in name="cls" type="(T) -> Unit"/>
           <out name="value" type="T"/>
         </block>
       </blocks>
     `;
     const doc = parseBlocks("e.xml", xml);
-    expectType(doc.blocks[0].params[0].extends[0], g("rec", [t("T")]));
+    expectType(doc.blocks[0].params[0].extends[0], g("Rec", [t("T")]));
   });
 
   it("builtin models merge", () => {
@@ -230,17 +202,14 @@ describe("blocks", () => {
       "sin",
       "timer",
     ]);
-    expect(cat.findType("c1")).toBeDefined();
-    expect(cat.findType("f64")).toBeDefined();
-    expect(cat.findType("[]")).toBeDefined();
-    expect(cat.findType("[]")?.attributes.find((attribute) => attribute.name === "dynamic")?.value).toBe("true");
-    expect(cat.findType("str")).toBeDefined();
-    expect(cat.findType("bool")).toBeDefined();
-    expect(cat.findType("str")?.attributes.find((attribute) => attribute.name === "wasm")?.value).toBe("js-string");
-    expect(cat.findType("bool")?.attributes.find((attribute) => attribute.name === "wasm")?.value).toBe("i32");
-    expect(cat.findType("c1")?.attributes.find((attribute) => attribute.name === "wasm")?.value).toBe(
-      "(func (param T))",
-    );
+    expect(cat.findType("Double")).toBeDefined();
+    expect(cat.findType("Array")).toBeDefined();
+    expect(cat.findType("String")).toBeDefined();
+    expect(cat.findType("Bool")).toBeDefined();
+    expect(cat.findType("Unit")).toBeDefined();
+    expect(cat.findType("Int")).toBeDefined();
+    expect(cat.findType("c1")).toBeUndefined();
+    expect(cat.findType("f64")).toBeUndefined();
     expect(cat.sources().length).toBe(2);
     expect(cat.catalogs().map((item) => [item.file, item.name])).toEqual([
       ["types.xml", "Types"],
@@ -254,67 +223,65 @@ describe("blocks", () => {
     expect(() => xmlSourcesForFiles(["models/types.xml"])).toThrow("unknown catalog");
   });
 
-  it("array of f64 is compatible with array wildcard", () => {
+  it("Array[Double] is compatible with Array[_]", () => {
     const cat = catalog();
-    const formal = arrayOf(extendsBound(t("f64")));
-    const actual = arrayOf(t("f64"));
+    const formal = arrayOf(unbounded());
+    const actual = arrayOf(t("Double"));
     expect(isCompatible(cat, [], formal, actual)).toBe(true);
-    const invariant = arrayOf(t("i32"));
+    const invariant = arrayOf(t("Int"));
     expect(isCompatible(cat, [], invariant, actual)).toBe(false);
   });
 
-  it("c1 and f1 are distinct function types", () => {
+  it("consumers and functions are distinct MoonBit types", () => {
     const cat = catalog();
-    expect(isCompatible(cat, [], g("c1", [t("f64")]), g("c1", [t("f64")]))).toBe(true);
-    expect(isCompatible(cat, [], g("c1", [t("f64")]), g("f1", [t("f64"), t("f64")]))).toBe(false);
-    expect(isCompatible(cat, [], g("s", [t("f64")]), g("c1", [t("f64")]))).toBe(false);
+    expect(isCompatible(cat, [], consumerType(t("Double")), consumerType(t("Double")))).toBe(true);
+    expect(isCompatible(cat, [], consumerType(t("Double")), funcType([t("Double")], t("Double")))).toBe(false);
+    expect(isCompatible(cat, [], funcType([], t("Double")), consumerType(t("Double")))).toBe(false);
   });
 
-  it("c1 contravariance", () => {
+  it("function types are contravariant in arguments", () => {
     const cat = catalog();
-    const formal = g("c1", [superBound(g("c1", [t("f64")]))]);
-    expect(isCompatible(cat, [], formal, g("c1", [g("s", [t("f64")])]))).toBe(false);
-    expect(isCompatible(cat, [], formal, g("c1", [t("i32")]))).toBe(false);
-    expect(isCompatible(cat, [], formal, g("c1", [g("c1", [t("f64")])]))).toBe(true);
+    const formal = consumerType(consumerType(t("Double")));
+    expect(isCompatible(cat, [], formal, consumerType(funcType([], t("Double"))))).toBe(false);
+    expect(isCompatible(cat, [], formal, consumerType(t("Int")))).toBe(false);
+    expect(isCompatible(cat, [], formal, consumerType(consumerType(t("Double"))))).toBe(true);
   });
 
-  it("parses T[] sugar and array as []", () => {
+  it("parses Array[T] MoonBit notation", () => {
     const xml = `
       <blocks id="a" name="A">
         <block id="b" name="B" ns="test">
-          <in name="sugar" type="f64[]"/>
-          <in name="nested" type="i32[][]"/>
-          <out name="alias" type="array">
-            <t type="str"/>
-          </out>
+          <in name="sugar" type="Array[Double]"/>
+          <in name="nested" type="Array[Array[Int]]"/>
+          <out name="alias" type="Array[String]"/>
         </block>
       </blocks>
     `;
     const doc = parseBlocks("arr.xml", xml);
-    expectType(doc.blocks[0].inputs[0].ty, arrayOf(t("f64")));
-    expectType(doc.blocks[0].inputs[1].ty, arrayOf(arrayOf(t("i32"))));
-    expectType(doc.blocks[0].outputs[0].ty, arrayOf(t("str")));
+    expectType(doc.blocks[0].inputs[0].ty, arrayOf(t("Double")));
+    expectType(doc.blocks[0].inputs[1].ty, arrayOf(arrayOf(t("Int"))));
+    expectType(doc.blocks[0].outputs[0].ty, arrayOf(t("String")));
   });
 
-  it("catalog primitives do not widen and bool is not i32", () => {
+  it("catalog primitives do not widen and Bool is not Int", () => {
     const cat = catalog();
-    expect(isCompatible(cat, [], t("i64"), t("i32"))).toBe(false);
-    expect(isCompatible(cat, [], t("i32"), t("i64"))).toBe(false);
-    expect(isCompatible(cat, [], t("f64"), t("f32"))).toBe(false);
-    expect(isCompatible(cat, [], t("f64"), t("f64"))).toBe(true);
-    expect(isCompatible(cat, [], t("bool"), t("i32"))).toBe(false);
-    expect(isCompatible(cat, [], t("i32"), t("bool"))).toBe(false);
-    expect(isCompatible(cat, [], t("str"), t("i32"))).toBe(false);
+    expect(isCompatible(cat, [], t("Int64"), t("Int"))).toBe(false);
+    expect(isCompatible(cat, [], t("Int"), t("Int64"))).toBe(false);
+    expect(isCompatible(cat, [], t("Double"), t("Float"))).toBe(false);
+    expect(isCompatible(cat, [], t("Double"), t("Double"))).toBe(true);
+    expect(isCompatible(cat, [], t("Bool"), t("Int"))).toBe(false);
+    expect(isCompatible(cat, [], t("Int"), t("Bool"))).toBe(false);
+    expect(isCompatible(cat, [], t("String"), t("Int"))).toBe(false);
   });
 
-  it("infer array of from f64 grounding", () => {
+  it("infer array of from Double grounding", () => {
     const resolved = resolveBlock(
       catalog(),
       "b_array_of",
-      new Map([["elems", { kind: "single", ty: t("f64") }]]),
+      new Map([["elems", { kind: "single", ty: t("Double") }]]),
     );
-    expectType(resolved.params.get("T"), t("f64"));
-    expectType(resolvedOutput(resolved, "result"), arrayOf(t("f64")));
+    expectType(resolved.params.get("T"), t("Double"));
+    expectType(resolvedOutput(resolved, "result"), arrayOf(t("Double")));
     expect(resolved.compatible.get("elems")).toBe(true);
   });
 
@@ -322,12 +289,12 @@ describe("blocks", () => {
     const resolved = resolveBlock(
       catalog(),
       "b_array_of",
-      new Map([["elems", { kind: "varargs", items: [t("f64"), t("i32")] }]]),
+      new Map([["elems", { kind: "varargs", items: [t("Double"), t("Int")] }]]),
     );
-    expectType(resolvedOutput(resolved, "result"), arrayOf(unionOf([t("f64"), t("i32")])));
+    expectType(resolvedOutput(resolved, "result"), arrayOf(unionOf([t("Double"), t("Int")])));
   });
 
-  it("infer f2 from two inputs", () => {
+  it("infer (T1, T2) -> R from two inputs", () => {
     const cat = catalog();
     cat.addXml(
       "f2.xml",
@@ -337,11 +304,7 @@ describe("blocks", () => {
             <param name="T1"/>
             <param name="T2"/>
             <param name="R"/>
-            <in name="fn" type="f2">
-              <t type="T1"/>
-              <t type="T2"/>
-              <t type="R"/>
-            </in>
+            <in name="fn" type="(T1, T2) -> R"/>
             <in name="a" type="T1"/>
             <in name="b" type="T2"/>
             <out name="result" type="R"/>
@@ -353,18 +316,18 @@ describe("blocks", () => {
       cat,
       "b_apply_f2",
       new Map([
-        ["fn", { kind: "single", ty: g("f2", [t("i32"), t("str"), t("bool")]) }],
-        ["a", { kind: "single", ty: t("i32") }],
-        ["b", { kind: "single", ty: t("str") }],
+        ["fn", { kind: "single", ty: funcType([t("Int"), t("String")], t("Bool")) }],
+        ["a", { kind: "single", ty: t("Int") }],
+        ["b", { kind: "single", ty: t("String") }],
       ]),
     );
-    expectType(resolved.params.get("T1"), t("i32"));
-    expectType(resolved.params.get("T2"), t("str"));
-    expectType(resolved.params.get("R"), t("bool"));
-    expectType(resolvedOutput(resolved, "result"), t("bool"));
+    expectType(resolved.params.get("T1"), t("Int"));
+    expectType(resolved.params.get("T2"), t("String"));
+    expectType(resolved.params.get("R"), t("Bool"));
+    expectType(resolvedOutput(resolved, "result"), t("Bool"));
   });
 
-  it("unbound param grounds to wildcard", () => {
+  it("unbound param grounds to a hole", () => {
     const resolved = resolveBlock(catalog(), "b_process", new Map());
     expectType(resolvedOutput(resolved, "out"), unbounded());
   });
@@ -373,9 +336,9 @@ describe("blocks", () => {
     const resolved = resolveBlock(
       catalog(),
       "b_process",
-      new Map([["in", { kind: "single", ty: arrayOf(t("f64")) }]]),
+      new Map([["in", { kind: "single", ty: arrayOf(t("Double")) }]]),
     );
-    expectType(resolvedOutput(resolved, "out"), arrayOf(t("f64")));
+    expectType(resolvedOutput(resolved, "out"), arrayOf(t("Double")));
   });
 
   it("array get infers element type", () => {
@@ -383,45 +346,35 @@ describe("blocks", () => {
       catalog(),
       "b_array_get",
       new Map([
-        ["array", { kind: "single", ty: arrayOf(t("f64")) }],
-        ["index", { kind: "single", ty: t("i32") }],
+        ["array", { kind: "single", ty: arrayOf(t("Double")) }],
+        ["index", { kind: "single", ty: t("Int") }],
       ]),
     );
-    expectType(resolvedOutput(resolved, "elem"), t("f64"));
+    expectType(resolvedOutput(resolved, "elem"), t("Double"));
   });
 
-  it("f-bounded rec resolves through a multi-file catalog", () => {
+  it("f-bounded Rec resolves through a multi-file catalog", () => {
     const cat = catalog();
     cat.addXml(
       "color.xml",
       `
         <blocks id="example" name="Example">
-          <type name="rec" ns="example">
+          <type name="Rec" ns="example">
             <param name="E">
-              <extends type="rec">
-                <t type="E"/>
-              </extends>
+              <extends type="Rec[E]"/>
             </param>
           </type>
           <type name="Color" ns="example">
-            <ancestor type="rec">
-              <t type="Color"/>
-            </ancestor>
+            <ancestor type="Rec[Color]"/>
           </type>
           <block id="b_color_fn" name="Color.fn" ns="example">
-            <out name="value" type="c1">
-              <t type="Color"/>
-            </out>
+            <out name="value" type="(Color) -> Unit"/>
           </block>
           <block id="b_rec_new" name="rec.new" ns="example">
             <param name="T">
-              <extends type="rec">
-                <t type="T"/>
-              </extends>
+              <extends type="Rec[T]"/>
             </param>
-            <in name="cls" type="c1">
-              <t type="T"/>
-            </in>
+            <in name="cls" type="(T) -> Unit"/>
             <out name="value" type="T"/>
           </block>
         </blocks>
@@ -430,7 +383,7 @@ describe("blocks", () => {
     const resolved = resolveBlock(
       cat,
       "b_rec_new",
-      new Map([["cls", { kind: "single", ty: g("c1", [t("Color")]) }]]),
+      new Map([["cls", { kind: "single", ty: consumerType(t("Color")) }]]),
     );
     expectType(resolvedOutput(resolved, "value"), t("Color"));
     expect(resolved.compatible.get("cls")).toBe(true);
@@ -444,9 +397,7 @@ describe("blocks", () => {
         <blocks id="b" name="B">
           <block id="need_c1" name="Need" ns="test">
             <param name="N">
-              <extends type="c1">
-                <t type="f64"/>
-              </extends>
+              <extends type="(Double) -> Unit"/>
             </param>
             <in name="in" type="N"/>
             <out name="out" type="N"/>
@@ -454,11 +405,11 @@ describe("blocks", () => {
         </blocks>
       `,
     );
-    const resolved = resolveBlock(cat, "need_c1", new Map([["in", { kind: "single", ty: t("i32") }]]));
+    const resolved = resolveBlock(cat, "need_c1", new Map([["in", { kind: "single", ty: t("Int") }]]));
     expect(resolved.compatible.get("in")).toBe(false);
   });
 
-  it("builder self type is namespace", () => {
+  it("builder Self type is namespace", () => {
     const cat = new Catalog();
     cat.addXml(
       "mod.xml",
@@ -466,15 +417,13 @@ describe("blocks", () => {
         <blocks id="mod" name="Module">
           <block id="b_path" name="path" ns="example.Builder">
             <factory id="Builder#path"/>
-            <in name="segment" type="str"/>
-            <out name="this">
-              <self/>
-            </out>
+            <in name="segment" type="String"/>
+            <out name="this" type="Self"/>
           </block>
         </blocks>
       `,
     );
-    const resolved = resolveBlock(cat, "b_path", new Map([["segment", { kind: "single", ty: t("str") }]]));
+    const resolved = resolveBlock(cat, "b_path", new Map([["segment", { kind: "single", ty: t("String") }]]));
     expectType(resolvedOutput(resolved, "this"), t("example.Builder"));
   });
 
@@ -483,31 +432,31 @@ describe("blocks", () => {
     associateFixtureModels(diagram);
     expect(diagram.sources().length).toBe(3);
 
-    const f64Id = diagram.addNode("b_f64");
-    const i32Id = diagram.addNode("b_i32");
+    const doubleId = diagram.addNode("b_Double");
+    const intId = diagram.addNode("b_Int");
     const arrayId = diagram.addNode("b_array_of");
     const getId = diagram.addNode("b_array_get");
     const processId = diagram.addNode("b_process");
 
-    diagram.addLink(f64Id, "value", arrayId, "elems");
+    diagram.addLink(doubleId, "value", arrayId, "elems");
     diagram.addLink(arrayId, "result", getId, "array");
-    diagram.addLink(i32Id, "value", getId, "index");
+    diagram.addLink(intId, "value", getId, "index");
     diagram.addLink(arrayId, "result", processId, "in");
 
-    expectType(resolvedOutput(diagram.resolveNode(arrayId)!, "result"), arrayOf(t("f64")));
-    expectType(resolvedOutput(diagram.resolveNode(getId)!, "elem"), t("f64"));
-    expectType(resolvedOutput(diagram.resolveNode(processId)!, "out"), arrayOf(t("f64")));
+    expectType(resolvedOutput(diagram.resolveNode(arrayId)!, "result"), arrayOf(t("Double")));
+    expectType(resolvedOutput(diagram.resolveNode(getId)!, "elem"), t("Double"));
+    expectType(resolvedOutput(diagram.resolveNode(processId)!, "out"), arrayOf(t("Double")));
   });
 
   it("diagram chain grounds through identity", () => {
     const diagram = new Diagram("d2", "Chain");
     associateFixtureModels(diagram);
-    const f64Id = diagram.addNode("b_f64");
+    const doubleId = diagram.addNode("b_Double");
     const identId = diagram.addNode("b_identity");
     const arrayId = diagram.addNode("b_array_of");
-    diagram.addLink(f64Id, "value", identId, "in");
+    diagram.addLink(doubleId, "value", identId, "in");
     diagram.addLink(identId, "out", arrayId, "elems");
-    expectType(resolvedOutput(diagram.resolveNode(arrayId)!, "result"), arrayOf(t("f64")));
+    expectType(resolvedOutput(diagram.resolveNode(arrayId)!, "result"), arrayOf(t("Double")));
   });
 
   it("dissociate xml rebuilds catalog", () => {
@@ -521,35 +470,38 @@ describe("blocks", () => {
     expect(diagram.catalog().catalogs().map((item) => item.name)).toEqual(["Types", "Control Systems"]);
   });
 
-  it("variance display", () => {
-    expect(displayType(extendsBound(t("i32")), true)).toBe("? extends i32");
-    expect(parseVariance("+")).toBe("covariant");
+  it("hole display", () => {
+    expect(displayType(unbounded(), true)).toBe("_");
+    expect(ty("_").kind).toBe("hole");
   });
 
-  it("substitutes params, replaces self, and flattens unions", () => {
-    const substituted = g("c1", [t("T")]).subst(new Map([["T", t("f64")]]));
-    expect(displayType(substituted, true)).toBe("c<f64>");
-    expect(displayType(new SelfType().replaceSelf(t("i32")), true)).toBe("i32");
-    expect(typesEqual(unionOf([t("i32"), t("i32")]), t("i32"))).toBe(true);
-    expect(g("c1", [t("f64")]).isConsumer()).toBe(true);
-    expect(arrayOf(g("c1", [t("f64")])).isPush()).toBe(true);
+  it("substitutes params, replaces Self, and flattens unions", () => {
+    const substituted = consumerType(t("T")).subst(new Map([["T", t("Double")]]));
+    expect(displayType(substituted, true)).toBe("(Double) -> Unit");
+    expect(displayType(new SelfType().replaceSelf(t("Int")), true)).toBe("Int");
+    expect(typesEqual(unionOf([t("Int"), t("Int")]), t("Int"))).toBe(true);
+    expect(consumerType(t("Double")).isConsumer()).toBe(true);
+    expect(arrayOf(consumerType(t("Double"))).isPush()).toBe(true);
   });
 
-  it("displays common types in compact form", () => {
-    expect(displayType(g("c1", [t("f64")]), true)).toBe("c<f64>");
-    expect(displayType(g("c1", [g("c1", [t("f64")])]), true)).toBe("c<c<f64>>");
-    expect(displayType(g("c1", [g("c1", [g("c1", [t("f64")])])]), true)).toBe("c<c<c<f64>>>");
-    expect(typeToString(g("c1", [g("c1", [g("c1", [t("f64")])])]))).toBe("c<c<c<f64>>>");
-    expect(displayType(g("c1", [g("c1", [g("c1", [t("f64")])])]), false)).toBe("c1<c1<c1<f64>>>");
-    expect(displayType(g("f1", [t("i32"), t("str")]), true)).toBe("f1<i32, str>");
-    expect(displayType(g("f2", [t("i32"), t("i64"), t("bool")]), true)).toBe("f2<i32, i64, bool>");
-    expect(displayType(g("s", [t("f64")]), true)).toBe("s<f64>");
-    expect(displayType(g("c2", [t("str"), t("bool")]), true)).toBe("c2<str, bool>");
-    expect(displayType(t("f64"), true)).toBe("f64");
-    expect(displayType(arrayOf(t("f64")), true)).toBe("f64[]");
-    expect(displayType(arrayOf(arrayOf(t("i32"))), true)).toBe("i32[][]");
-    expect(displayType(unionOf([t("i32"), t("i64")]), true)).toBe("i32 | i64");
-    expect(displayType(arrayOf(unionOf([t("i32"), t("i64")])), true)).toBe("(i32 | i64)[]");
+  it("displays common MoonBit types", () => {
+    expect(displayType(consumerType(t("Double")), true)).toBe("(Double) -> Unit");
+    expect(displayType(consumerType(consumerType(t("Double"))), true)).toBe("((Double) -> Unit) -> Unit");
+    expect(displayType(consumerType(consumerType(consumerType(t("Double")))), true)).toBe(
+      "(((Double) -> Unit) -> Unit) -> Unit",
+    );
+    expect(typeToString(consumerType(consumerType(consumerType(t("Double")))))).toBe(
+      "(((Double) -> Unit) -> Unit) -> Unit",
+    );
+    expect(displayType(funcType([t("Int")], t("String")), true)).toBe("(Int) -> String");
+    expect(displayType(funcType([t("Int"), t("Int64")], t("Bool")), true)).toBe("(Int, Int64) -> Bool");
+    expect(displayType(funcType([], t("Double")), true)).toBe("() -> Double");
+    expect(displayType(consumerType(t("String"), t("Bool")), true)).toBe("(String, Bool) -> Unit");
+    expect(displayType(t("Double"), true)).toBe("Double");
+    expect(displayType(arrayOf(t("Double")), true)).toBe("Array[Double]");
+    expect(displayType(arrayOf(arrayOf(t("Int"))), true)).toBe("Array[Array[Int]]");
+    expect(displayType(unionOf([t("Int"), t("Int64")]), true)).toBe("Int | Int64");
+    expect(displayType(arrayOf(unionOf([t("Int"), t("Int64")])), true)).toBe("Array[(Int | Int64)]");
   });
 
   it("control systems model and types", () => {
@@ -557,7 +509,7 @@ describe("blocks", () => {
     const timerBlock = cat.block("timer")!;
     expect(timerBlock.inputs.length).toBe(1);
     expect(timerBlock.outputs.length).toBe(0);
-    expect(displayType(timerBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
+    expect(displayType(timerBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
     expect(timerBlock.inputs.find((port) => port.name === "in")!.attributes.find((a) => a.name === "wasm")).toBeUndefined();
     expect(timerBlock.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
     expect(timerBlock.attributes.find((a) => a.name === "generator")?.value).toBe("true");
@@ -565,15 +517,15 @@ describe("blocks", () => {
     expect(cat.block("cos")!.attributes.find((a) => a.name === "generator")).toBeUndefined();
     const scope = cat.block("scope")!;
     expect(scope.inputs.length).toBe(0);
-    expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>[]");
+    expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(Double) -> Unit]");
     expect(scope.outputs.find((port) => port.name === "out")!.attributes.find((a) => a.name === "dynamic")?.value).toBe(
       "true",
     );
-    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
-    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
-    expect(displayType(cat.block("cos")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
-    expect(displayType(cat.block("cos")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
-    expect(displayType(cat.block("random")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
+    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(cat.block("cos")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(cat.block("cos")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(cat.block("random")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
     expect(timerBlock.ns).toBe("com.dauch.cs.gen");
     expect(cat.block("sin")!.ns).toBe("com.dauch.cs.tf");
     expect(cat.block("cos")!.ns).toBe("com.dauch.cs.tf");
@@ -599,20 +551,20 @@ describe("blocks", () => {
     }
     expect(cat.block("sin")!.parameters).toEqual([]);
     expect(cat.block("cos")!.parameters).toEqual([]);
-    expect(cat.findType("f64")).toBeDefined();
-    expect(cat.findType("c1")).toBeDefined();
-    expect(cat.findType("s")).toBeDefined();
-    expect(cat.findType("f1")).toBeDefined();
+    expect(cat.findType("Double")).toBeDefined();
+    expect(cat.findType("Array")).toBeDefined();
+    expect(cat.findType("Unit")).toBeDefined();
+    expect(cat.findType("Int")).toBeDefined();
   });
 
-  it("nested consumers are not f64 sample ports", () => {
+  it("nested consumers are not Double sample ports", () => {
     const cat = catalog();
-    const nested = g("c1", [g("c1", [g("c1", [t("f64")])])]);
-    const mid = g("c1", [g("c1", [t("f64")])]);
-    const leaf = g("c1", [t("f64")]);
-    expect(isCompatible(cat, [], nested, t("f64"))).toBe(false);
-    expect(isCompatible(cat, [], mid, t("f64"))).toBe(false);
-    expect(isCompatible(cat, [], leaf, t("f64"))).toBe(false);
+    const nested = consumerType(consumerType(consumerType(t("Double"))));
+    const mid = consumerType(consumerType(t("Double")));
+    const leaf = consumerType(t("Double"));
+    expect(isCompatible(cat, [], nested, t("Double"))).toBe(false);
+    expect(isCompatible(cat, [], mid, t("Double"))).toBe(false);
+    expect(isCompatible(cat, [], leaf, t("Double"))).toBe(false);
     expect(isCompatible(cat, [], mid, nested)).toBe(false);
     expect(isCompatible(cat, [], leaf, mid)).toBe(false);
     expect(isCompatible(cat, [], nested, nested)).toBe(true);
@@ -620,20 +572,20 @@ describe("blocks", () => {
     expect(isCompatible(cat, [], leaf, leaf)).toBe(true);
   });
 
-  it("c1 is a consumer type that can be forked into one input", () => {
-    expect(isConsumerType(g("c1", [t("f64")]))).toBe(true);
-    expect(isConsumerType(t("f64"))).toBe(false);
-    expect(isConsumerType(g("f1", [t("f64"), t("f64")]))).toBe(false);
+  it("(Double) -> Unit is a consumer type that can be forked into one input", () => {
+    expect(isConsumerType(consumerType(t("Double")))).toBe(true);
+    expect(isConsumerType(t("Double"))).toBe(false);
+    expect(isConsumerType(funcType([t("Double")], t("Double")))).toBe(false);
   });
 
   it("detects push-model wires from consumers and consumer vectors", () => {
-    expect(isPushType(g("c1", [t("f64")]))).toBe(true);
-    expect(isPushType(arrayOf(g("c1", [t("f64")])))).toBe(true);
-    expect(isPushType(arrayOf(arrayOf(g("c1", [t("f64")]))))).toBe(true);
-    expect(isPushType(t("f64"))).toBe(false);
-    expect(isPushType(g("s", [t("f64")]))).toBe(false);
-    expect(isPushType(g("f1", [t("f64"), t("f64")]))).toBe(false);
-    expect(isPushType(arrayOf(t("f64")))).toBe(false);
+    expect(isPushType(consumerType(t("Double")))).toBe(true);
+    expect(isPushType(arrayOf(consumerType(t("Double"))))).toBe(true);
+    expect(isPushType(arrayOf(arrayOf(consumerType(t("Double")))))).toBe(true);
+    expect(isPushType(t("Double"))).toBe(false);
+    expect(isPushType(funcType([], t("Double")))).toBe(false);
+    expect(isPushType(funcType([t("Double")], t("Double")))).toBe(false);
+    expect(isPushType(arrayOf(t("Double")))).toBe(false);
     expect(isPushType(undefined)).toBe(false);
   });
 
@@ -793,21 +745,21 @@ describe("blocks", () => {
 
     const sinResolved = diagram.resolveNode(sinId)!;
     expect(sinResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("c<f64>");
-    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>");
+    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
 
     const scopeResolved = diagram.resolveNode(scopeId)!;
-    expect(displayType(scopeResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("c<f64>[]");
+    expect(displayType(scopeResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(Double) -> Unit]");
     expect(diagram.resolveNode(timerId)!.compatible.get("in") ?? true).toBe(true);
   });
 
-  it("a consumer vector may ground a c<f64> input", () => {
+  it("a consumer vector may ground a (Double) -> Unit input", () => {
     const cat = catalog();
-    expect(isCompatible(cat, [], g("c1", [t("f64")]), arrayOf(g("c1", [t("f64")])))).toBe(true);
-    expect(isCompatible(cat, [], g("c1", [t("f64")]), arrayOf(t("f64")))).toBe(false);
+    expect(isCompatible(cat, [], consumerType(t("Double")), arrayOf(consumerType(t("Double"))))).toBe(true);
+    expect(isCompatible(cat, [], consumerType(t("Double")), arrayOf(t("Double")))).toBe(false);
   });
 
-  it("two scopes may ground the same c<f64> input", () => {
+  it("two scopes may ground the same (Double) -> Unit input", () => {
     const diagram = new Diagram("cs", "Fork");
     associateBuiltinModels(diagram);
     const scopeA = diagram.addNode("scope");
@@ -828,19 +780,19 @@ describe("blocks", () => {
     diagram.addLink(scopeId, "out", sinId, "in");
     diagram.addLink(scopeId, "out[1]", cosId, "in");
     const scope = diagram.resolveNode(scopeId)!;
-    expect(displayType(resolvedOutput(scope, "out")!, true)).toBe("c<f64>");
-    expect(displayType(resolvedOutput(scope, "out[1]")!, true)).toBe("c<f64>");
+    expect(displayType(resolvedOutput(scope, "out")!, true)).toBe("(Double) -> Unit");
+    expect(displayType(resolvedOutput(scope, "out[1]")!, true)).toBe("(Double) -> Unit");
     expect(isPushType(resolvedOutput(scope, "out"))).toBe(true);
     expect(isPushType(resolvedOutput(scope, "out[1]"))).toBe(true);
     expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
     expect(diagram.resolveNode(cosId)!.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(resolvedInput(diagram.resolveNode(sinId)!, "in")!, true)).toBe("c<f64>");
-    expect(displayType(resolvedOutput(diagram.resolveNode(sinId)!, "out")!, true)).toBe("c<f64>");
-    expect(displayType(resolvedInput(diagram.resolveNode(cosId)!, "in")!, true)).toBe("c<f64>");
-    expect(displayType(resolvedOutput(diagram.resolveNode(cosId)!, "out")!, true)).toBe("c<f64>");
+    expect(displayType(resolvedInput(diagram.resolveNode(sinId)!, "in")!, true)).toBe("(Double) -> Unit");
+    expect(displayType(resolvedOutput(diagram.resolveNode(sinId)!, "out")!, true)).toBe("(Double) -> Unit");
+    expect(displayType(resolvedInput(diagram.resolveNode(cosId)!, "in")!, true)).toBe("(Double) -> Unit");
+    expect(displayType(resolvedOutput(diagram.resolveNode(cosId)!, "out")!, true)).toBe("(Double) -> Unit");
   });
 
-  it("scope vector wires to sin because c<f64>[] grounds c<f64>", () => {
+  it("scope vector wires to sin because Array[(Double) -> Unit] grounds (Double) -> Unit", () => {
     const diagram = new Diagram("cs", "Same");
     associateBuiltinModels(diagram);
     const scopeId = diagram.addNode("scope");
@@ -849,7 +801,7 @@ describe("blocks", () => {
     expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
   });
 
-  it("array is incompatible with an f64 sample port", () => {
+  it("array is incompatible with a (Double) -> Unit port", () => {
     const diagram = new Diagram("cs", "Skip");
     associateFixtureModels(diagram);
     const tableId = diagram.addNode("b_array_of");

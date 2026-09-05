@@ -73,7 +73,7 @@ describe("AppState placement", () => {
 });
 
 describe("AppState wiring", () => {
-  it("keeps multiple c<f64> wires into one input", () => {
+  it("keeps multiple (Double) -> Unit wires into one input", () => {
     const app = new AppState();
     const scopeA = app.nextId;
     app.addBlock("scope", 0, 0);

@@ -1,4 +1,4 @@
-/** XML `c<f64>` as a MoonBit consumer. */
+/** XML `(Double) -> Unit` as a MoonBit consumer. */
 export const C1_TYPE = "C1";
 
 /**
