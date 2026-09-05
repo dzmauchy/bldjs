@@ -277,7 +277,10 @@ test.describe("canvas", () => {
     await page.locator('[data-testid="inputs-close"]').click();
     await expect(page.locator('[data-testid="inputs-modal"]')).toHaveCount(0);
     await placeBlock(page, "scope");
-    await expect(nodeHost(page, "scope").locator('[data-testid^="inputs-"]')).toHaveCount(0);
+    await nodeHost(page, "scope").locator('[data-testid^="inputs-"]').click();
+    await expect(page.locator('[data-testid="input-value-n"]')).toHaveText("30 s");
+    await expect(page.locator('[data-testid="input-value-m"]')).toHaveText("10 ms");
+    await page.locator('[data-testid="inputs-close"]').click();
   });
 
   test("disables block configuration while running", async () => {
@@ -287,15 +290,18 @@ test.describe("canvas", () => {
     await clickPortHandle(page, "scope", "output-out");
     await clickPortHandle(page, "timer", "input-in");
     await waitForLinks(page, "1 link");
-    const config = nodeHost(page, "timer").locator('[data-testid^="inputs-"]');
-    await expect(config).toBeEnabled();
+    const timerConfig = nodeHost(page, "timer").locator('[data-testid^="inputs-"]');
+    const scopeConfig = nodeHost(page, "scope").locator('[data-testid^="inputs-"]');
+    await expect(timerConfig).toBeEnabled();
+    await expect(scopeConfig).toBeEnabled();
     await page.locator('[data-testid="toolbar-run"]').click();
     await expect(page.locator('[data-testid="status-run"]')).toHaveText("Running", { timeout: 30_000 });
-    await expect(config).toBeDisabled();
-    await config.click({ force: true });
+    await expect(timerConfig).toBeDisabled();
+    await expect(scopeConfig).toBeDisabled();
+    await timerConfig.click({ force: true });
     await expect(page.locator('[data-testid="inputs-modal"]')).toHaveCount(0);
     await page.locator('[data-testid="toolbar-stop"]').click();
     await expect(page.locator('[data-testid="status-run"]')).toHaveText("Stopped");
-    await expect(config).toBeEnabled();
+    await expect(timerConfig).toBeEnabled();
   });
 });
