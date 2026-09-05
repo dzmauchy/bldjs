@@ -24,6 +24,7 @@ async function start(
   memory = shared;
   gen = await bootGeneratorInstance(wasm, shared, { connectorCount: count });
   if (eventDriven) {
+    gen.tick();
     stopTimers = () => {
       if (memory) {
         requestStop(memory);

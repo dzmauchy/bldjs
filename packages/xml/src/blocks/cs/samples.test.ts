@@ -33,48 +33,50 @@ describe("scope window", () => {
     expect(sampleCap(10, 1000)).toBe(10);
   });
 
-  it("fills a Float64Array with NaN and slides with head and tail", () => {
+  it("keeps Float64Array.length as the window size and slides with one write index", () => {
     const buf = new WindowBuf(4);
     expect(buf.values).toBeInstanceOf(Float64Array);
     expect(buf.values.length).toBe(4);
     expect([...buf.values].every((value) => Number.isNaN(value))).toBe(true);
-    expect(buf.head).toBe(0);
-    expect(buf.tail).toBe(0);
-    expect(buf.snapshot()).toEqual([]);
+    expect(buf.index).toBe(0);
+    expect(buf.snapshot()).toHaveLength(4);
+    expect(buf.snapshot().every((value) => Number.isNaN(value))).toBe(true);
 
     buf.push(1);
-    expect(buf.head).toBe(0);
-    expect(buf.tail).toBe(1);
+    expect(buf.index).toBe(1);
     expect(buf.values[0]).toBe(1);
+    expect(buf.snapshot()).toHaveLength(4);
+    expect(buf.snapshot().at(-1)).toBe(1);
     buf.push(Number.NaN);
-    expect(Number.isNaN(buf.snapshot()[1])).toBe(true);
+    expect(Number.isNaN(buf.snapshot().at(-1))).toBe(true);
     buf.push(3);
     buf.push(4);
-    expect(buf.head).toBe(0);
-    expect(buf.tail).toBe(0);
+    expect(buf.index).toBe(0);
+    expect(buf.snapshot()).toHaveLength(4);
     expect(buf.snapshot().slice(0, 1)).toEqual([1]);
     expect(buf.snapshot().slice(2)).toEqual([3, 4]);
 
     const before = Float64Array.from(buf.values);
     buf.push(5);
-    expect(buf.head).toBe(1);
-    expect(buf.tail).toBe(1);
+    expect(buf.index).toBe(1);
     expect(buf.values[0]).toBe(5);
     expect(buf.values[1]).toBe(before[1]);
     expect(buf.values[2]).toBe(before[2]);
     expect(buf.values[3]).toBe(before[3]);
+    expect(buf.snapshot()).toHaveLength(4);
     expect(buf.snapshot()[0]).toBeNaN();
     expect(buf.snapshot().slice(1)).toEqual([3, 4, 5]);
 
     buf.clear();
-    expect(buf.head).toBe(0);
-    expect(buf.tail).toBe(0);
-    expect(buf.snapshot()).toEqual([]);
+    expect(buf.index).toBe(0);
+    expect(buf.snapshot()).toHaveLength(4);
+    expect(buf.snapshot().every((value) => Number.isNaN(value))).toBe(true);
     expect([...buf.values].every((value) => Number.isNaN(value))).toBe(true);
   });
 
-  it("uses the default time-based capacity on SampleBuf", () => {
+  it("uses the default time-based length on SampleBuf", () => {
     const buf = new SampleBuf();
+    expect(buf.snapshot()).toHaveLength(sampleCap());
     for (let i = 0; i < sampleCap() + 5; i += 1) {
       buf.push(i);
     }

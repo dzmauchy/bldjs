@@ -28,7 +28,9 @@ import { Catalog } from "./catalog";
 import { isCompatible } from "./compat";
 import {
   DEFAULT_PERIOD_MS,
+  GpioInGenerator,
   SampleBuf,
+  sampleCap,
   compileTimer,
   CosTransformer,
   fork,
@@ -734,8 +736,9 @@ describe("blocks", () => {
     compiled.emit(0);
     compiled.emit(Math.PI / 2);
     const got = buffers.get(0)!.snapshot();
-    expect(Math.abs(got[0])).toBeLessThan(1e-9);
-    expect(Math.abs(got[1] - 1)).toBeLessThan(1e-9);
+    expect(got).toHaveLength(sampleCap());
+    expect(Math.abs(got.at(-2)!)).toBeLessThan(1e-9);
+    expect(Math.abs(got.at(-1)! - 1)).toBeLessThan(1e-9);
     expect(compiled.delayMs).toBe(DEFAULT_PERIOD_MS);
   });
 
@@ -761,6 +764,20 @@ describe("blocks", () => {
     const nodes = [{ id: 4, defId: "timer" }];
     expect(planGenerator(4, nodes, [])).toBeUndefined();
     expect(compileTimer(4, nodes, [], new Map())).toBeUndefined();
+  });
+
+  it("GPIO In supplies 0 once on start", () => {
+    const out: number[] = [];
+    let live = true;
+    new GpioInGenerator().run(
+      (value) => out.push(value),
+      () => {
+        const next = live;
+        live = false;
+        return next;
+      },
+    );
+    expect(out).toEqual([0]);
   });
 
   it("plans GPIO output into a GPIO input generator", () => {
@@ -884,8 +901,12 @@ describe("blocks", () => {
     ]);
     const compiled = compileTimer(4, nodes, links, buffers)!;
     compiled.emit(3);
-    expect(buffers.get(0)!.snapshot()).toEqual([3]);
-    expect(buffers.get(1)!.snapshot()).toEqual([3]);
+    const left = buffers.get(0)!.snapshot();
+    const right = buffers.get(1)!.snapshot();
+    expect(left).toHaveLength(sampleCap());
+    expect(right).toHaveLength(sampleCap());
+    expect(left.at(-1)).toBe(3);
+    expect(right.at(-1)).toBe(3);
   });
 
   it("compile generator writes one ring per transformer channel", async () => {
@@ -906,8 +927,9 @@ describe("blocks", () => {
       [1, new SampleBuf()],
     ]);
     compileTimer(4, nodes, links, buffers)!.emit(0);
-    expect(Math.abs(buffers.get(0)!.snapshot()[0])).toBeLessThan(1e-9);
-    expect(Math.abs(buffers.get(1)!.snapshot()[0] - 1)).toBeLessThan(1e-9);
+    expect(buffers.get(0)!.snapshot()).toHaveLength(sampleCap());
+    expect(Math.abs(buffers.get(0)!.snapshot().at(-1)!)).toBeLessThan(1e-9);
+    expect(Math.abs(buffers.get(1)!.snapshot().at(-1)! - 1)).toBeLessThan(1e-9);
   });
 
   it("interprets the wired chain as timer(sin(plot[0]))", () => {
@@ -933,9 +955,13 @@ describe("blocks", () => {
     const halt = spawnTimer(compiled, running);
     halt();
     stop(running);
-    expect(buf.snapshot().length).toBeGreaterThan(0);
+    const live = buf.snapshot();
+    expect(live).toHaveLength(sampleCap());
+    expect(live.some((value) => Number.isFinite(value))).toBe(true);
     buf.clear();
-    expect(buf.snapshot().length).toBe(0);
+    const cleared = buf.snapshot();
+    expect(cleared).toHaveLength(sampleCap());
+    expect(cleared.every((value) => Number.isNaN(value))).toBe(true);
   });
 
 });

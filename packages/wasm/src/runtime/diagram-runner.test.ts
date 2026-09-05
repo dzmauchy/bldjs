@@ -65,7 +65,7 @@ describe("DiagramRunner", () => {
     await expect(pending).rejects.toBeInstanceOf(DiagramRunCancelled);
   });
 
-  it("meters NaN into the sliding buffer while GPIO has not pushed", async () => {
+  it("meters GPIO In's current pin level from start without waiting for an edge", async () => {
     const runner = new DiagramRunner();
     const nodes = [
       { id: 1, defId: "scope", windowS: 10, meterMs: 10 },
@@ -77,13 +77,13 @@ describe("DiagramRunner", () => {
     const before = session.snapshotScope(1);
     expect(before).toHaveLength(1);
     expect(before[0]?.samples.length).toBeGreaterThan(2);
-    expect(before[0]?.samples.every((value) => Number.isNaN(value))).toBe(true);
+    expect(before[0]?.samples.some((value) => value === 0)).toBe(true);
     session.setGpio(0, 1);
     session.tick(2);
     await new Promise((resolve) => setTimeout(resolve, 35));
     const after = session.snapshotScope(1);
     expect(after[0]?.samples.some((value) => value === 1)).toBe(true);
-    expect(after[0]?.samples.some((value) => Number.isNaN(value))).toBe(true);
+    expect(after[0]?.samples.some((value) => value === 0)).toBe(true);
     runner.stop();
   });
 

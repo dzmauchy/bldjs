@@ -22,7 +22,7 @@ export const MIN_METER_MS = 10;
 export const MAX_METER_MS = 1000;
 
 export const GENERATOR_IDS = new Set(["timer", "random", "gpio_in"]);
-/** Generators that fire on a quantization period. GPIO In is edge-driven instead. */
+/** Generators that fire on a quantization period. GPIO In samples on start and pin edges. */
 export const QUANTIZED_GENERATOR_IDS = new Set(["timer", "random"]);
 export const TRANSFORMER_IDS = new Set(["sin", "cos"]);
 export const SINK_IDS = new Set(["scope", "gpio_out"]);

@@ -113,7 +113,7 @@ describe("MoonBit generator", () => {
     handle.stop();
   });
 
-  it("does not emit an event-driven GPIO In until tick()", async () => {
+  it("samples the current GPIO In pin once on start, then only on tick()", async () => {
     const compiled = (await compileGenerator(
       2,
       [
@@ -130,12 +130,12 @@ describe("MoonBit generator", () => {
       eventDriven: true,
       gpio: new Map([[0, 1]]),
     });
-    expect(handle.gpioLevel(1)).toBe(0);
+    expect(handle.gpioLevel(1)).toBe(1);
     await new Promise((resolve) => setTimeout(resolve, 40));
-    expect(handle.gpioLevel(1)).toBe(0);
+    expect(handle.gpioLevel(1)).toBe(1);
+    expect(handle.readFlowCounts().every((count) => count === 1)).toBe(true);
     handle.tick?.();
     expect(handle.gpioLevel(1)).toBe(1);
-    handle.tick?.();
     expect(handle.readFlowCounts().every((count) => count === 1)).toBe(true);
     handle.setGpio(0, 0);
     handle.tick?.();

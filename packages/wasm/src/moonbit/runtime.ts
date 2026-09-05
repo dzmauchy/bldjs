@@ -10,7 +10,7 @@ export interface PreambleNeeds {
   random?: boolean;
   now?: boolean;
   gpio?: boolean;
-  /** MCU hardware timer. GPIO In is edge-driven and does not start one. */
+  /** MCU hardware timer. GPIO In samples on start and pin edges, not a period. */
   timer?: boolean;
   /** Atomic wrappers to emit. Defaults to load, which `stopped` uses. */
   atomics?: readonly I32AtomicFn[];
@@ -169,7 +169,7 @@ export function emitStart(): string {
 export interface AppMainEmit {
   delayMs: number;
   pins?: readonly { pin: number; mode: number }[];
-  /** GPIO In ticks on wait_event type 2 instead of a hardware timer. */
+  /** GPIO In samples once, then ticks on wait_event type 2 instead of a hardware timer. */
   eventDriven?: boolean;
 }
 
@@ -186,6 +186,7 @@ ${irq}`;
   if (opts.eventDriven) {
     return `pub fn app_main() -> Unit {
 ${setup}
+  tick()
   while true {
     let event = host_wait_event(50)
     let event_type = (event >> 16) & 0xFFFF
