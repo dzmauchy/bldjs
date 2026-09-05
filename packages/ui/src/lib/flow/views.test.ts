@@ -81,5 +81,27 @@ describe("buildNodeState", () => {
       { name: "out", typeLabel: "(Double) -> Unit", showType: true },
       { name: "out[1]", typeLabel: "(Double) -> Unit", showType: false },
     ]);
+    expect(state?.showInputs).toBe(false);
+  });
+
+  it("shows the config control on generators with a period parameter", () => {
+    const diagram = new Diagram("ws", "Workspace");
+    associateBuiltinModels(diagram);
+    const catalog = diagram.catalog();
+    const block: BlockInstance = { id: 2, defId: "timer", x: 0, y: 0 };
+    const state = buildNodeState(block, new Map(), {
+      catalog,
+      links: [],
+      selected: -1,
+      linkingFrom: null,
+      isScopeLive: () => false,
+      gpioOn: () => false,
+      gpioPin: () => 0,
+      inputIsGrounded: () => false,
+      blockDef: (defId) => catalog.block(defId),
+      kindOf: () => blockKindFromName("Start")!,
+    });
+    expect(state?.showInputs).toBe(true);
+    expect(catalog.block("timer")?.parameters.map((param) => param.name)).toEqual(["period"]);
   });
 });

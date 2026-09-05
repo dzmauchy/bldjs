@@ -1,4 +1,4 @@
-import { css, html, nothing } from "lit";
+import { css, html, nothing, type CSSResultGroup } from "lit";
 import type { PropertyValues } from "lit";
 import type { AppState } from "$lib/state";
 import { BldModal } from "./modal";
@@ -6,7 +6,8 @@ import { BldModal } from "./modal";
 export class BldDiagramIoModal extends BldModal {
   #saveName = "";
 
-  static override styles = [
+  static override styles: CSSResultGroup = [
+    super.styles,
     css`
     .saved-list {
       max-height: 16rem;

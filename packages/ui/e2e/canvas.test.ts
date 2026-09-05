@@ -268,7 +268,7 @@ test.describe("canvas", () => {
     await newCanvas(page);
     await placeBlock(page, "timer");
     await nodeHost(page, "timer").locator('[data-testid^="inputs-"]').click();
-    await expect(page.locator('[data-testid="inputs-modal"]')).toBeVisible();
+    await expect(page.locator('[data-testid="inputs-modal"]')).toBeInViewport();
     await expect(page.locator('[data-testid="input-value-period"]')).toHaveText("10 ms");
     await page.locator('[data-testid="input-range-period"]').fill("25");
     await expect(page.locator('[data-testid="input-value-period"]')).toHaveText("25 ms");

@@ -4,6 +4,9 @@ import "$lib/ui/app-element";
 import { AppState } from "$lib/state";
 import { BldApp } from "./app-element";
 import { BldBlockIcon } from "./block-icon";
+import { BldDiagramIoModal } from "./diagram-io-modal";
+import { BldInputsModal } from "./inputs-modal";
+import { BldModal } from "./modal";
 import { BldScopeModal } from "./scope-modal";
 import { BldWorkspace } from "./workspace";
 
@@ -11,6 +14,18 @@ function litChangeInUpdateWarnings(spy: ReturnType<typeof vi.spyOn>): string[] {
   return spy.mock.calls
     .map((args: unknown[]) => String(args[0] ?? ""))
     .filter((message: string) => message.includes("scheduled an update"));
+}
+
+function flattenedStyles(styles: unknown): unknown[] {
+  return Array.isArray(styles) ? styles.flat(Infinity) : [styles];
+}
+
+function expectOverlayChrome(styles: unknown): void {
+  const inherited = flattenedStyles(BldModal.styles);
+  const actual = flattenedStyles(styles);
+  for (const style of inherited) {
+    expect(actual).toContain(style);
+  }
 }
 
 function stubScopeCanvas(): { fillRect: ReturnType<typeof vi.fn> } {
@@ -64,6 +79,37 @@ describe("custom elements", () => {
     expect(customElements.get("bld-diagram")).toBeDefined();
     expect(customElements.get("bld-node")).toBeDefined();
     expect(customElements.get("bld-connector")).toBeDefined();
+  });
+});
+
+describe("modal overlay chrome", () => {
+  afterEach(() => {
+    document.body.replaceChildren();
+  });
+
+  it("keeps Bootstrap overlay styles on inputs and save/open subclasses", () => {
+    expectOverlayChrome(BldInputsModal.styles);
+    expectOverlayChrome(BldDiagramIoModal.styles);
+  });
+
+  it("opens generator period configuration as a fixed overlay", async () => {
+    const modal = document.createElement("bld-inputs-modal") as BldInputsModal;
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("timer", 0, 0);
+    modal.app = app;
+    document.body.append(modal);
+    await modal.updateComplete;
+    expect(modal.renderRoot.querySelector("[data-testid=inputs-modal]")).toBeNull();
+
+    app.openInputs(id);
+    await modal.updateComplete;
+    const dialog = modal.renderRoot.querySelector("[data-testid=inputs-modal]");
+    expect(dialog).not.toBeNull();
+    expect(dialog?.classList.contains("modal")).toBe(true);
+    expect(dialog?.classList.contains("show")).toBe(true);
+    expect(dialog?.classList.contains("d-block")).toBe(true);
+    expect(modal.renderRoot.querySelector("[data-testid=input-value-period]")?.textContent).toBe("10 ms");
   });
 });
 

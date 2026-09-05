@@ -1,10 +1,11 @@
-import { css, html, nothing } from "lit";
+import { css, html, nothing, type CSSResultGroup } from "lit";
 import { isNoneId } from "$lib/model";
 import type { AppState } from "$lib/state";
 import { BldModal } from "./modal";
 
 export class BldInputsModal extends BldModal {
-  static override styles = [
+  static override styles: CSSResultGroup = [
+    super.styles,
     css`
     .input-row {
       display: flex;
