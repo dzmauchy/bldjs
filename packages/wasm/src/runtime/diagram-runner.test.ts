@@ -48,4 +48,20 @@ describe("DiagramRunner", () => {
     runner.stop();
     expect(runner.current).toBeNull();
   });
+
+  it("does not arm a fake Hertz for GPIO In", async () => {
+    const runner = new DiagramRunner();
+    const nodes = [
+      { id: 1, defId: "gpio_out", pin: 1 },
+      { id: 2, defId: "gpio_in", pin: 0 },
+    ];
+    const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
+    const pending = runner.start(nodes, links, {
+      yieldForPaint: async () => {
+        expect(runner.current?.connectorHz(links[0]!)).toBe(0);
+        runner.stop();
+      },
+    });
+    await expect(pending).rejects.toBeInstanceOf(DiagramRunCancelled);
+  });
 });

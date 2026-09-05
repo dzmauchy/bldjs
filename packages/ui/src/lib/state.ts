@@ -1,7 +1,7 @@
 import { type BlockDef, type BlockParameterDef, blockAttribute } from "@bld/xml/blocks/ast";
 import { associateBuiltinModels, xmlSourcesForFiles } from "@bld/xml/blocks/builtin";
 import { Catalog } from "@bld/xml/blocks/catalog";
-import { PERIOD_PARAM, PIN_PARAM, periodMsFrom, pinFrom } from "@bld/xml/blocks/cs/ids";
+import { PERIOD_PARAM, PIN_PARAM, isEventDrivenGenerator, periodMsFrom, pinFrom } from "@bld/xml/blocks/cs/ids";
 import { Diagram, type Link, type XmlSource, linksEqual } from "@bld/xml/blocks/diagram";
 import { compactLinkSlots } from "@bld/xml/blocks/ports";
 import type { ResolvedBlock } from "@bld/xml/blocks/resolve";
@@ -350,6 +350,9 @@ export class AppState extends ObservableState {
   }
 
   blockPeriodMs(id: number): number {
+    if (isEventDrivenGenerator(this.block(id)?.defId ?? "")) {
+      return 0;
+    }
     const extra = this.#extras.get(id);
     const value = extra?.parameters.find((param) => param.name === PERIOD_PARAM)?.value;
     return periodMsFrom(value);
@@ -378,6 +381,7 @@ export class AppState extends ObservableState {
     const next = !this.gpioOn(id);
     this.#gpioLevels.set(id, next);
     this.run.setGpio(this.blockPin(id), next ? 1 : 0);
+    this.run.tick(id);
     this.notify();
   }
 

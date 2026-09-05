@@ -80,6 +80,10 @@ export class RunSession extends HostedState<RunHost> {
     this.#runner.current?.setGpio(pin, level);
   }
 
+  tick(id: number): void {
+    this.#runner.current?.tick(id);
+  }
+
   prodWasm(): Uint8Array | null {
     return this.#runner.current?.prodWasm ?? this.#runner.lastProdWasm;
   }

@@ -1,6 +1,6 @@
 import { isArrayType, type BlockDef } from "@bld/xml/blocks/ast";
 import type { Catalog } from "@bld/xml/blocks/catalog";
-import { DEFAULT_PERIOD_MS, isGeneratorId } from "@bld/xml/blocks/cs/ids";
+import { DEFAULT_PERIOD_MS, isEventDrivenGenerator, isGeneratorId } from "@bld/xml/blocks/cs/ids";
 import { catalogPortName, portSlotIndex } from "@bld/xml/blocks/ports";
 import type { SolutionView, SolutionViewBlock } from "@bld/xml/solution/view";
 import { DEV_TARGET, type MoonbitTarget } from "./compile";
@@ -186,7 +186,8 @@ export function emitSolutionFiles(
   }
 
   const generator = view.blocks.find((block) => isGeneratorId(block.defId));
-  const delayMs = generator?.periodMs ?? DEFAULT_PERIOD_MS;
+  const eventDriven = generator ? isEventDrivenGenerator(generator.defId) : false;
+  const delayMs = eventDriven ? 0 : (generator?.periodMs ?? DEFAULT_PERIOD_MS);
   const pins = view.blocks.flatMap((block) => {
     if (block.defId === "gpio_in") {
       return [{ pin: block.pin ?? 0, mode: PIN_INPUT_PULLUP }];
@@ -207,7 +208,7 @@ export function emitSolutionFiles(
             gpio: defIds.has("gpio_in") || defIds.has("gpio_out"),
             target,
           }),
-          emitAppMain({ delayMs, pins }),
+          emitAppMain({ delayMs, pins, eventDriven }),
         ]
       : [
           preamble({

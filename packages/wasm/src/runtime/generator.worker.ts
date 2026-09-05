@@ -1,10 +1,13 @@
-import { bootGeneratorInstance } from "./boot";
+import { bootGeneratorInstance, type InstantiatedGenerator } from "./boot";
 import { requestStop } from "./memory";
+import { interceptConsumerFrequency } from "./runner";
 
 // Stay off @bld/xml: DOMParser is not defined in workers, and pulling the
 // catalog would leave the sample ring empty so the Scope plot never appears.
 
 let memory: WebAssembly.Memory | undefined;
+let gen: InstantiatedGenerator | undefined;
+let connectorCount = 0;
 let stopTimers: (() => void) | undefined;
 
 function clearTimer(): void {
@@ -16,13 +19,23 @@ async function start(
   wasm: ArrayBuffer,
   shared: WebAssembly.Memory,
   delayMs: number,
-  connectorCount: number,
+  count: number,
+  eventDriven: boolean,
 ): Promise<void> {
   clearTimer();
   memory = shared;
-  const gen = await bootGeneratorInstance(wasm, shared, { connectorCount });
+  connectorCount = count;
+  gen = await bootGeneratorInstance(wasm, shared, { connectorCount: count });
+  if (eventDriven) {
+    stopTimers = () => {
+      if (memory) {
+        requestStop(memory);
+      }
+    };
+    return;
+  }
   gen.start(delayMs);
-  stopTimers = () => gen.stopTimers();
+  stopTimers = () => gen?.stopTimers();
 }
 
 self.onmessage = (
@@ -32,15 +45,24 @@ self.onmessage = (
     memory?: WebAssembly.Memory;
     delayMs?: number;
     connectorCount?: number;
+    eventDriven?: boolean;
   }>,
 ) => {
   const msg = event.data;
   if (msg.type === "start" && msg.wasm && msg.memory) {
-    void start(msg.wasm, msg.memory, msg.delayMs ?? 1, msg.connectorCount ?? 0);
+    void start(msg.wasm, msg.memory, msg.delayMs ?? 1, msg.connectorCount ?? 0, msg.eventDriven === true);
+    return;
+  }
+  if (msg.type === "tick") {
+    gen?.tick();
+    if (memory) {
+      interceptConsumerFrequency(memory, connectorCount);
+    }
     return;
   }
   if (msg.type === "stop") {
     clearTimer();
+    gen = undefined;
     if (memory) {
       requestStop(memory);
     }

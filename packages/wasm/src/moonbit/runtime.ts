@@ -148,10 +148,11 @@ export function emitStart(): string {
 export interface AppMainEmit {
   delayMs: number;
   pins?: readonly { pin: number; mode: number }[];
+  /** GPIO In ticks on wait_event type 2 instead of a hardware timer. */
+  eventDriven?: boolean;
 }
 
 export function emitAppMain(opts: AppMainEmit): string {
-  const periodUs = Math.max(1, Math.trunc(opts.delayMs)) * 1000;
   const pinSetup = (opts.pins ?? [])
     .map((item) => `  host_pin_mode(${item.pin}, ${item.mode})`)
     .join("\n");
@@ -159,9 +160,25 @@ export function emitAppMain(opts: AppMainEmit): string {
     .filter((item) => item.mode !== PIN_OUTPUT)
     .map((item) => `  host_attach_irq(${item.pin}, 3)`)
     .join("\n");
+  const setup = `${pinSetup || "  ()"}
+${irq}`;
+  if (opts.eventDriven) {
+    return `pub fn app_main() -> Unit {
+${setup}
+  while true {
+    let event = host_wait_event(50)
+    let event_type = (event >> 16) & 0xFFFF
+    if event_type == 2 {
+      mcu.tick_count = mcu.tick_count + 1.0
+      tick()
+    }
+  }
+}
+`;
+  }
+  const periodUs = Math.max(1, Math.trunc(opts.delayMs)) * 1000;
   return `pub fn app_main() -> Unit {
-${pinSetup || "  ()"}
-${irq}
+${setup}
   host_timer_start(0, ${periodUs})
   while true {
     let event = host_wait_event(50)

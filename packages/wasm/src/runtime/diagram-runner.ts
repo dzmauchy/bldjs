@@ -1,5 +1,6 @@
 import { assembleGenerator } from "../compile";
 import type { GeneratorPlan, NodeSpec, ScopeSeries } from "@bld/xml/blocks/cs/types";
+import { isEventDrivenGenerator } from "@bld/xml/blocks/cs/ids";
 import type { Link } from "@bld/xml/blocks/diagram";
 import { hzFromDelta, intervalMs } from "@bld/xml/flow";
 import type { Runner, RunnerSession, RunnerStartOptions } from "@bld/xml/runner";
@@ -127,12 +128,18 @@ export class RunningDiagram implements RunnerSession {
     }
   }
 
+  tick(id: number): void {
+    this.generators.get(id)?.tick?.();
+  }
+
   arm(plans: GeneratorPlan[], nodes: NodeSpec[], links: Link[]): void {
     const view = solutionViewFrom(nodes, links);
     for (const plan of plans) {
-      const nominalHz = 1000 / intervalMs(plan.delayMs);
-      for (const link of view.subgraphFromGenerator(plan.generatorId).connectors) {
-        this.linkHz.set(connectorKey(link), nominalHz);
+      if (!isEventDrivenGenerator(plan.defId)) {
+        const nominalHz = 1000 / intervalMs(plan.delayMs);
+        for (const link of view.subgraphFromGenerator(plan.generatorId).connectors) {
+          this.linkHz.set(connectorKey(link), nominalHz);
+        }
       }
       plan.channels.forEach((channel, index) => {
         if (nodes.find((node) => node.id === channel.scopeId)?.defId !== "scope") {
@@ -194,15 +201,18 @@ export class DiagramRunner implements Runner {
         delayMs: plan.delayMs,
         connectors,
         gpio: options.gpio,
+        eventDriven: isEventDrivenGenerator(plan.defId),
       });
       if (op !== this.#op) {
         handle.stop();
         throw new DiagramRunCancelled();
       }
       session.generators.set(plan.generatorId, handle);
-      const nominalHz = 1000 / intervalMs(plan.delayMs);
-      for (const link of connectors) {
-        session.linkHz.set(connectorKey(link), nominalHz);
+      if (!isEventDrivenGenerator(plan.defId)) {
+        const nominalHz = 1000 / intervalMs(plan.delayMs);
+        for (const link of connectors) {
+          session.linkHz.set(connectorKey(link), nominalHz);
+        }
       }
     }
     if (op !== this.#op) {

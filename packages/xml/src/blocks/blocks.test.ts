@@ -563,6 +563,7 @@ describe("blocks", () => {
     expect(gpioIn.attributes.find((item) => item.name === "generator")?.value).toBe("true");
     expect(displayType(gpioIn.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
     expect(gpioIn.parameters.find((param) => param.name === "pin")?.default).toBe("0");
+    expect(gpioIn.parameters.find((param) => param.name === "period")).toBeUndefined();
     const gpioOut = cat.block("gpio_out")!;
     expect(gpioOut.inputs.length).toBe(0);
     expect(displayType(gpioOut.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
@@ -753,11 +754,12 @@ describe("blocks", () => {
   it("plans GPIO output into a GPIO input generator", () => {
     const nodes = [
       { id: 1, defId: "gpio_out", pin: 1 },
-      { id: 2, defId: "gpio_in", pin: 0, periodMs: 10 },
+      { id: 2, defId: "gpio_in", pin: 0 },
     ];
     const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
     const plan = planGenerator(2, nodes, links)!;
     expect(plan.defId).toBe("gpio_in");
+    expect(plan.delayMs).toBe(0);
     expect(plan.tree).toEqual({ kind: "scope", id: 1 });
     expect(plan.scopeIds).toEqual([1]);
   });

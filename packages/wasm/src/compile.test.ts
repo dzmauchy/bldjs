@@ -125,11 +125,12 @@ describe("compileGenerator", () => {
   it("compiles GPIO in/out with a simulated pin toggle", async () => {
     const nodes = [
       { id: 1, defId: "gpio_out", pin: 1 },
-      { id: 2, defId: "gpio_in", pin: 0, periodMs: 10 },
+      { id: 2, defId: "gpio_in", pin: 0 },
     ];
     const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
     const compiled = (await compileGenerator(2, nodes, links))!;
     expect(compiled.defId).toBe("gpio_in");
+    expect(compiled.delayMs).toBe(0);
     expect(compiled.text).toContain("host_pin_read(0)");
     expect(compiled.text).toContain("host_pin_write(1,");
     expect(compiled.text).toContain('fn host_pin_read(pin : Int) -> Int = "host" "pin_read"');

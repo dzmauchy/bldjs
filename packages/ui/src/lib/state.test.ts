@@ -386,6 +386,28 @@ describe("AppState run", () => {
     app.toggleGpio(outId);
     expect(app.gpioOn(outId)).toBe(false);
   });
+
+  it("pushes GPIO In only when the switch is toggled while running", async () => {
+    const app = new AppState();
+    const outId = app.nextId;
+    app.addBlock("gpio_out", 0, 0);
+    const inId = app.nextId;
+    app.addBlock("gpio_in", 120, 0);
+    app.toggleLink(outId, "out", inId, "in");
+    expect(app.blockPeriodMs(inId)).toBe(0);
+    await app.run.start();
+    expect(app.run.running).toBe(true);
+    expect(app.gpioOn(outId)).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(app.gpioOn(outId)).toBe(false);
+    app.toggleGpio(inId);
+    expect(app.gpioOn(inId)).toBe(true);
+    expect(app.gpioOn(outId)).toBe(true);
+    app.toggleGpio(inId);
+    expect(app.gpioOn(inId)).toBe(false);
+    expect(app.gpioOn(outId)).toBe(false);
+    app.run.stop();
+  });
 });
 
 describe("AppState diagram XML", () => {

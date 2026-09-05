@@ -108,4 +108,31 @@ describe("MoonBit generator", () => {
     expect(handle.readFlowCounts().every((count) => count === 2)).toBe(true);
     handle.stop();
   });
+
+  it("does not emit an event-driven GPIO In until tick()", async () => {
+    const compiled = (await compileGenerator(
+      2,
+      [
+        { id: 1, defId: "gpio_out", pin: 1 },
+        { id: 2, defId: "gpio_in", pin: 0 },
+      ],
+      [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }],
+    ))!;
+    expect(compiled.delayMs).toBe(0);
+    const handle = await startLocalGenerator({
+      wasm: compiled.wasm,
+      delayMs: compiled.delayMs,
+      eventDriven: true,
+      gpio: new Map([[0, 1]]),
+    });
+    expect(handle.gpioLevel(1)).toBe(0);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(handle.gpioLevel(1)).toBe(0);
+    handle.tick?.();
+    expect(handle.gpioLevel(1)).toBe(1);
+    handle.setGpio(0, 0);
+    handle.tick?.();
+    expect(handle.gpioLevel(1)).toBe(0);
+    handle.stop();
+  });
 });

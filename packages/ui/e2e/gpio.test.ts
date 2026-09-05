@@ -55,6 +55,8 @@ test.describe("gpio", () => {
     await inputToggle.click();
     await expect(inputToggle).toBeChecked();
     await expect(inputToggle).toHaveAttribute("aria-label", "GPIO pin 0 HIGH");
+    await inputToggle.click();
+    await expect(inputToggle).not.toBeChecked();
 
     await clickPortHandle(page, "gpio_out", "output-out");
     await clickPortHandle(page, "gpio_in", "input-in");
@@ -62,6 +64,11 @@ test.describe("gpio", () => {
 
     await page.locator('[data-testid="toolbar-run"]').click();
     await expect(page.locator('[data-testid="status-run"]')).toHaveText("Running", { timeout: 30_000 });
+    await page.waitForTimeout(200);
+    await expect(outputToggle).not.toBeChecked();
+    await expect(outputToggle).toHaveAttribute("aria-label", "GPIO pin 1 LOW");
+    await inputToggle.click();
+    await expect(inputToggle).toBeChecked();
     await expect(outputToggle).toBeChecked({ timeout: 5_000 });
     await expect(outputToggle).toHaveAttribute("aria-label", "GPIO pin 1 HIGH");
     await expect(nodeHost(page, "gpio_in").locator('[data-testid^="inputs-"]')).toBeDisabled();

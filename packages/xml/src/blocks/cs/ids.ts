@@ -11,12 +11,22 @@ export const DEFAULT_PIN = 0;
 export const MAX_PIN = 31;
 
 export const GENERATOR_IDS = new Set(["timer", "random", "gpio_in"]);
+/** Generators that fire on a quantization period. GPIO In is edge-driven instead. */
+export const QUANTIZED_GENERATOR_IDS = new Set(["timer", "random"]);
 export const TRANSFORMER_IDS = new Set(["sin", "cos"]);
 export const SINK_IDS = new Set(["scope", "gpio_out"]);
 export const GPIO_IDS = new Set(["gpio_in", "gpio_out"]);
 
 export function isGeneratorId(defId: string): boolean {
   return GENERATOR_IDS.has(defId);
+}
+
+export function isEventDrivenGenerator(defId: string): boolean {
+  return defId === "gpio_in";
+}
+
+export function isQuantizedGenerator(defId: string): boolean {
+  return QUANTIZED_GENERATOR_IDS.has(defId);
 }
 
 export function isTransformerId(defId: string): boolean {

@@ -48,12 +48,30 @@ describe("emitSolutionFiles", () => {
     expect(sources["runtime.mbt"]).toContain('extern "wasm" fn host_wait_event');
     expect(sources["runtime.mbt"]).toContain('= "env" "wait_event"');
     expect(sources["runtime.mbt"]).toContain("pub fn app_main() -> Unit");
+    expect(sources["runtime.mbt"]).toContain("host_timer_start");
+    expect(sources["runtime.mbt"]).toContain("if event_type == 1");
     expect(sources["runtime.mbt"]).toContain("fn math_sin(");
     expect(sources["runtime.mbt"]).not.toContain('= "Math" "sin"');
     expect(sources["runtime.mbt"]).not.toContain("js_set_interval");
     expect(sources["runtime.mbt"]).not.toContain("to_double");
     expect(sources["runtime.mbt"]).not.toContain(" % ");
     expect(sources["main.mbt"]).toContain("pub fn tick() -> Unit");
+  });
+
+  it("emits MCU app_main that ticks GPIO In on pin events, not a timer", () => {
+    const view = solutionViewFrom(
+      [
+        { id: 1, defId: "gpio_out", pin: 1 },
+        { id: 2, defId: "gpio_in", pin: 0 },
+      ],
+      [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }],
+    );
+    const files = emitSolutionFiles(catalog(), view, new Map(), "wasm");
+    const sources = Object.fromEntries(files);
+    expect(sources["runtime.mbt"]).toContain("host_attach_irq(0, 3)");
+    expect(sources["runtime.mbt"]).toContain("if event_type == 2");
+    expect(sources["runtime.mbt"]).not.toContain("host_timer_start(0,");
+    expect(sources["runtime.mbt"]).not.toContain("if event_type == 1");
   });
 
   it("joins the package files for emitText", () => {

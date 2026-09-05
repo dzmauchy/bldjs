@@ -10,9 +10,9 @@ import type { DoubleConsumer } from "./types";
  *
  * Composition: timer(sin(plot[0]))
  *
- * Each generator uses an internal quantizer whose period (ms) comes from the
- * catalog `period` range input (default 10). MoonBit blocks repeat the XML
- * signature plus unused runtime `_ctx : Int`.
+ * Quantized generators (`timer`, `random`) use an internal period (ms) from the
+ * catalog `period` range input (default 10). GPIO In is edge-driven and has no
+ * period. MoonBit blocks repeat the XML signature plus unused runtime `_ctx : Int`.
  */
 
 function parkNanos(periodNs: number): void {
@@ -62,6 +62,10 @@ export class RandomGenerator extends Generator {
 export class GpioInGenerator extends Generator {
   sample(_time: number): number {
     return 0;
+  }
+
+  override run(_c: DoubleConsumer, _running: () => boolean, _now: () => number = nowSecs): void {
+    // Edge-driven: the host pushes a sample when the pin changes.
   }
 }
 

@@ -6,7 +6,9 @@ function pinLit(opts: MoonBlockEmit): number {
 }
 
 /**
- * gpio_in — XML `(Double) -> Unit` generator. Samples `host_pin_read` as 0.0/1.0.
+ * gpio_in — XML `(Double) -> Unit` generator. Samples `host_pin_read` as 0.0/1.0
+ * when ticked. The host ticks on a pin edge (browser switch or MCU GPIO IRQ),
+ * not a quantization period.
  */
 export class GpioInMoonBlock extends MoonBlock {
   readonly defId = "gpio_in";

@@ -3,7 +3,7 @@ import type { Link } from "../blocks/diagram";
 import { infer } from "../blocks/diagram";
 import type { ResolvedBlock } from "../blocks/resolve";
 import { isResolvedCompatible } from "../blocks/resolve";
-import { PERIOD_PARAM, PIN_PARAM, periodMsFrom, pinFrom } from "../blocks/cs/ids";
+import { PERIOD_PARAM, PIN_PARAM, isEventDrivenGenerator, periodMsFrom, pinFrom } from "../blocks/cs/ids";
 import { documentToCanvas, parseDiagramXml } from "./xml";
 import type { DiagramDocument } from "./types";
 
@@ -40,7 +40,7 @@ export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolut
     return {
       id: block.id,
       defId: block.defId,
-      periodMs: periodMsFrom(period),
+      periodMs: isEventDrivenGenerator(block.defId) ? 0 : periodMsFrom(period),
       pin: pin == null ? undefined : pinFrom(pin),
     };
   });
