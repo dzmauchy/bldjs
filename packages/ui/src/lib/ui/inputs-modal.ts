@@ -7,6 +7,9 @@ function inputSuffix(name: string): string {
   if (name === "period" || name === "m") {
     return " ms";
   }
+  if (name === "n") {
+    return " s";
+  }
   return "";
 }
 

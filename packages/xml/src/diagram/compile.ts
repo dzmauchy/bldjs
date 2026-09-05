@@ -12,7 +12,7 @@ import {
   meterMsFrom,
   periodMsFrom,
   pinFrom,
-  sampleCountFrom,
+  windowSecondsFrom,
 } from "../blocks/cs/ids";
 import { documentToCanvas, parseDiagramXml } from "./xml";
 import type { DiagramDocument } from "./types";
@@ -27,7 +27,7 @@ export class DiagramCompileError extends Error {
 export interface DiagramSolution {
   xml: string;
   doc: DiagramDocument;
-  nodes: Array<{ id: number; defId: string; periodMs?: number; pin?: number; sampleCount?: number; meterMs?: number }>;
+  nodes: Array<{ id: number; defId: string; periodMs?: number; pin?: number; windowS?: number; meterMs?: number }>;
   links: Link[];
   inferred: Map<number, ResolvedBlock>;
 }
@@ -54,7 +54,7 @@ export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolut
       defId: block.defId,
       periodMs: isEventDrivenGenerator(block.defId) ? 0 : periodMsFrom(period),
       pin: pin == null ? undefined : pinFrom(pin),
-      sampleCount: block.defId === "scope" ? sampleCountFrom(window) : undefined,
+      windowS: block.defId === "scope" ? windowSecondsFrom(window) : undefined,
       meterMs: block.defId === "scope" ? meterMsFrom(meter) : undefined,
     };
   });

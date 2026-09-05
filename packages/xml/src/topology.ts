@@ -9,7 +9,7 @@ type TopologyBlock = {
   defId: string;
   periodMs?: number;
   pin?: number;
-  sampleCount?: number;
+  windowS?: number;
   meterMs?: number;
 };
 
@@ -19,17 +19,17 @@ export function nodeSpecsFrom(blocks: readonly TopologyBlock[]): NodeSpec[] {
     defId: block.defId,
     periodMs: block.periodMs,
     pin: block.pin,
-    sampleCount: block.sampleCount,
+    windowS: block.windowS,
     meterMs: block.meterMs,
   }));
 }
 
-/** Block ids, definitions, period, pin, scope samples, and links — not positions — so moving a block does not restart generators. */
+/** Block ids, definitions, period, pin, scope window, and links — not positions — so moving a block does not restart generators. */
 export function topologyKey(blocks: readonly TopologyBlock[], links: readonly Link[]): string {
   const nodes = blocks
     .map(
       (block) =>
-        `${block.id}:${block.defId}:${block.periodMs ?? ""}:${block.pin ?? ""}:${block.sampleCount ?? ""}:${block.meterMs ?? ""}`,
+        `${block.id}:${block.defId}:${block.periodMs ?? ""}:${block.pin ?? ""}:${block.windowS ?? ""}:${block.meterMs ?? ""}`,
     )
     .join(",");
   const wires = links.map((link) => connectorKey(link)).join(",");

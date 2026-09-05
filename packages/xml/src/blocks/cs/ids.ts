@@ -12,11 +12,11 @@ export const METER_PARAM = "m";
 export const DEFAULT_PIN = 0;
 export const MAX_PIN = 31;
 
-/** Scope sliding-buffer length (`integer-range-parameter` `n`). */
-export const DEFAULT_SAMPLE_COUNT = 30;
-export const MIN_SAMPLE_COUNT = 10;
-export const MAX_SAMPLE_COUNT = 600;
-/** Scope sampling period in milliseconds (`integer-range-parameter` `m`). */
+/** Scope time-window width in seconds (`integer-range-parameter` `n`). */
+export const DEFAULT_WINDOW_S = 30;
+export const MIN_WINDOW_S = 10;
+export const MAX_WINDOW_S = 600;
+/** Scope quantizer period in milliseconds (`integer-range-parameter` `m`). */
 export const DEFAULT_METER_MS = 10;
 export const MIN_METER_MS = 10;
 export const MAX_METER_MS = 1000;
@@ -62,9 +62,9 @@ export function pinFrom(value: number | string | undefined | null): number {
   return clampInt(parsed, DEFAULT_PIN, MAX_PIN, DEFAULT_PIN);
 }
 
-export function sampleCountFrom(value: number | string | undefined | null): number {
-  const parsed = typeof value === "number" ? value : value == null ? DEFAULT_SAMPLE_COUNT : Number(value);
-  return clampInt(parsed, MIN_SAMPLE_COUNT, MAX_SAMPLE_COUNT, DEFAULT_SAMPLE_COUNT);
+export function windowSecondsFrom(value: number | string | undefined | null): number {
+  const parsed = typeof value === "number" ? value : value == null ? DEFAULT_WINDOW_S : Number(value);
+  return clampInt(parsed, MIN_WINDOW_S, MAX_WINDOW_S, DEFAULT_WINDOW_S);
 }
 
 export function meterMsFrom(value: number | string | undefined | null): number {
@@ -72,9 +72,15 @@ export function meterMsFrom(value: number | string | undefined | null): number {
   return clampInt(parsed, MIN_METER_MS, MAX_METER_MS, DEFAULT_METER_MS);
 }
 
-/** Sliding `Float64Array` capacity: Scope parameter `n`. */
-export function sampleCap(n: number | string | undefined | null = DEFAULT_SAMPLE_COUNT): number {
-  return sampleCountFrom(n);
+/**
+ * Sliding `Float64Array` capacity: `N` seconds at `1000 / M` samples per second.
+ * Default `N = 30`, `M = 10` → 3000 measurements.
+ */
+export function sampleCap(
+  n: number | string | undefined | null = DEFAULT_WINDOW_S,
+  m: number | string | undefined | null = DEFAULT_METER_MS,
+): number {
+  return Math.max(1, Math.round((windowSecondsFrom(n) * 1000) / meterMsFrom(m)));
 }
 
 /** WASM generator event ring. The live Scope plot uses {@link sampleCap}, not this. */

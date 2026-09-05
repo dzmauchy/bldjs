@@ -28,10 +28,10 @@ describe("topology", () => {
     expect(topologyKey([{ ...blocks[0], periodMs: 25 }], links)).not.toBe(topologyKey(blocks, links));
   });
 
-  it("changes when scope sample count or sampling period changes", () => {
-    const blocks = [{ id: 1, defId: "scope", sampleCount: 30, meterMs: 10 }];
+  it("changes when scope window or quantizer period changes", () => {
+    const blocks = [{ id: 1, defId: "scope", windowS: 30, meterMs: 10 }];
     const links: Link[] = [];
-    expect(topologyKey([{ ...blocks[0], sampleCount: 60 }], links)).not.toBe(topologyKey(blocks, links));
+    expect(topologyKey([{ ...blocks[0], windowS: 60 }], links)).not.toBe(topologyKey(blocks, links));
     expect(topologyKey([{ ...blocks[0], meterMs: 20 }], links)).not.toBe(topologyKey(blocks, links));
   });
 

@@ -278,7 +278,7 @@ test.describe("canvas", () => {
     await expect(page.locator('[data-testid="inputs-modal"]')).toHaveCount(0);
     await placeBlock(page, "scope");
     await nodeHost(page, "scope").locator('[data-testid^="inputs-"]').click();
-    await expect(page.locator('[data-testid="input-value-n"]')).toHaveText("30");
+    await expect(page.locator('[data-testid="input-value-n"]')).toHaveText("30 s");
     await expect(page.locator('[data-testid="input-value-m"]')).toHaveText("10 ms");
     await page.locator('[data-testid="inputs-close"]').click();
   });

@@ -68,7 +68,7 @@ describe("DiagramRunner", () => {
   it("meters NaN into the sliding buffer while GPIO has not pushed", async () => {
     const runner = new DiagramRunner();
     const nodes = [
-      { id: 1, defId: "scope", sampleCount: 10, meterMs: 10 },
+      { id: 1, defId: "scope", windowS: 10, meterMs: 10 },
       { id: 2, defId: "gpio_in", pin: 0 },
     ];
     const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];

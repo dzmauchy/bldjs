@@ -1,10 +1,15 @@
-import { DEFAULT_SAMPLE_COUNT, sampleCap } from "./ids";
+import { DEFAULT_METER_MS, DEFAULT_WINDOW_S, sampleCap } from "./ids";
 
-/** Circular window of `cap` measurements in a `Float64Array` (oldest → newest). */
+/**
+ * Sliding window of `cap` measurements in a `Float64Array`.
+ * Slots start as `NaN`. Head and tail walk the ring; samples are never shifted.
+ */
 export class WindowBuf {
   readonly cap: number;
   #buf: Float64Array;
-  #count = 0;
+  #head = 0;
+  #tail = 0;
+  #size = 0;
 
   constructor(cap: number) {
     this.cap = Math.max(1, Math.trunc(cap));
@@ -13,7 +18,17 @@ export class WindowBuf {
   }
 
   get length(): number {
-    return Math.min(this.#count, this.cap);
+    return this.#size;
+  }
+
+  /** Oldest occupied slot. */
+  get head(): number {
+    return this.#head;
+  }
+
+  /** Next write slot. */
+  get tail(): number {
+    return this.#tail;
   }
 
   /** Backing store for tests; do not mutate. */
@@ -22,34 +37,42 @@ export class WindowBuf {
   }
 
   push(value: number): void {
-    this.#buf[this.#count % this.cap] = value;
-    this.#count += 1;
+    this.#buf[this.#tail] = value;
+    this.#tail = this.#tail + 1 === this.cap ? 0 : this.#tail + 1;
+    if (this.#size < this.cap) {
+      this.#size += 1;
+      return;
+    }
+    this.#head = this.#tail;
   }
 
   snapshot(): number[] {
-    const n = this.length;
+    const n = this.#size;
     if (n === 0) {
       return [];
     }
-    const start = this.#count > this.cap ? this.#count % this.cap : 0;
     const out = new Array<number>(n);
+    let index = this.#head;
     for (let i = 0; i < n; i += 1) {
-      out[i] = this.#buf[(start + i) % this.cap]!;
+      out[i] = this.#buf[index]!;
+      index = index + 1 === this.cap ? 0 : index + 1;
     }
     return out;
   }
 
   clear(): void {
-    this.#count = 0;
+    this.#head = 0;
+    this.#tail = 0;
+    this.#size = 0;
     this.#buf.fill(Number.NaN);
   }
 }
 
-/** Sliding Scope buffer. Capacity is the configured sample count `n`. */
+/** Time-windowed scope buffer. Capacity is `N * (1000 / M)` measurements. */
 export class SampleBuf {
   private readonly window: WindowBuf;
 
-  constructor(cap = sampleCap(DEFAULT_SAMPLE_COUNT)) {
+  constructor(cap = sampleCap(DEFAULT_WINDOW_S, DEFAULT_METER_MS)) {
     this.window = new WindowBuf(cap);
   }
 

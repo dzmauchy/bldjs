@@ -1,6 +1,6 @@
 import { assembleGenerator } from "../compile";
 import type { GeneratorPlan, NodeSpec, ScopeSeries } from "@bld/xml/blocks/cs/types";
-import { isEventDrivenGenerator, meterMsFrom, sampleCap, sampleCountFrom } from "@bld/xml/blocks/cs/ids";
+import { isEventDrivenGenerator, meterMsFrom, sampleCap, windowSecondsFrom } from "@bld/xml/blocks/cs/ids";
 import { WindowBuf } from "@bld/xml/blocks/cs/samples";
 import type { Link } from "@bld/xml/blocks/diagram";
 import { hzFromDelta, intervalMs } from "@bld/xml/flow";
@@ -177,9 +177,9 @@ export class RunningDiagram implements RunnerSession {
     this.#stopMeters();
     for (const [scopeId, channels] of this.scopeChannels) {
       const spec = nodes.find((node) => node.id === scopeId);
-      const n = sampleCountFrom(spec?.sampleCount);
+      const n = windowSecondsFrom(spec?.windowS);
       const m = meterMsFrom(spec?.meterMs);
-      const buffers = channels.map(() => new WindowBuf(sampleCap(n)));
+      const buffers = channels.map(() => new WindowBuf(sampleCap(n, m)));
       this.#meterScope(channels, buffers);
       const timer = setInterval(() => {
         if (this.#disposed) {
