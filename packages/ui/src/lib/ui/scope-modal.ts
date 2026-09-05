@@ -1,4 +1,5 @@
 import { css, html, nothing } from "lit";
+import { classMap } from "lit/directives/class-map.js";
 import { createRef, ref } from "lit/directives/ref.js";
 import { isNoneId } from "$lib/model";
 import type { ScopeSeries } from "@bld/xml/blocks/cs/types";
@@ -24,16 +25,29 @@ export class BldScopeModal extends AppHost {
       }
       .modal,
       .modal-dialog,
-      .modal-backdrop {
-        transition: none;
+      .modal-backdrop,
+      .modal-content {
+        transition: none !important;
+        animation: none !important;
         transform: none;
       }
+      .modal,
+      .modal-backdrop {
+        display: block !important;
+      }
       /* Keep the overlay in the box tree while closed so the canvas is
-         already sized before the first open. Do not use display: none. */
+         already sized and the 2d context is warm before the first open.
+         Do not use display: none. */
       :host(:not([open])) .modal,
-      :host(:not([open])) .modal-backdrop {
+      :host(:not([open])) .modal-backdrop,
+      .modal.is-closed,
+      .modal-backdrop.is-closed {
         visibility: hidden;
         pointer-events: none;
+        opacity: 0;
+      }
+      .modal-dialog {
+        width: min(800px, calc(100% - 2rem));
       }
       .modal-content {
         overflow: hidden;
@@ -43,6 +57,7 @@ export class BldScopeModal extends AppHost {
         height: 280px;
         background: #14171a;
         position: relative;
+        content-visibility: visible;
       }
       .scope-footer {
         display: flex;
@@ -109,21 +124,24 @@ export class BldScopeModal extends AppHost {
       void canvas.parentElement?.offsetWidth;
       this.#laidOut = true;
     }
+    if (!this.#plot) {
+      this.#startPlot(canvas);
+    }
+    const plot = this.#plot;
+    if (!plot) {
+      return;
+    }
     if (isNoneId(id)) {
       this.#stopTicks();
       this.#openId = -1;
-      return;
-    }
-    if (!this.#plot) {
-      this.#startPlot(canvas, id);
       return;
     }
     if (this.#openId === id) {
       return;
     }
     this.#openId = id;
-    this.#applySeries(this.#plot, this.app.run.snapshotScope(id));
-    this.#plot.fit();
+    this.#applySeries(plot, this.app.run.snapshotScope(id));
+    plot.fit();
     this.#startTicks(id);
   }
 
@@ -174,7 +192,7 @@ export class BldScopeModal extends AppHost {
     }, 50);
   }
 
-  #startPlot(canvas: HTMLCanvasElement, id: number): void {
+  #startPlot(canvas: HTMLCanvasElement): void {
     const plot = new ScopeCanvasPlot(canvas, (painted) => {
       if (this.#plot !== plot) {
         return;
@@ -182,11 +200,9 @@ export class BldScopeModal extends AppHost {
       this.#writeSeriesCount(plot.seriesCount, this.#sampleCount, painted);
     });
     this.#plot = plot;
-    this.#openId = id;
     void canvas.parentElement?.offsetWidth;
-    this.#applySeries(plot, this.app.run.snapshotScope(id));
+    plot.setSeries([]);
     plot.fit();
-    this.#startTicks(id);
   }
 
   protected override render() {
@@ -197,7 +213,7 @@ export class BldScopeModal extends AppHost {
     const open = !isNoneId(app.scopeOpen);
     return html`
       <div
-        class="modal-backdrop show"
+        class=${classMap({ "modal-backdrop": true, show: true, "is-closed": !open })}
         role="button"
         tabindex="0"
         ?inert=${!open}
@@ -210,7 +226,7 @@ export class BldScopeModal extends AppHost {
         }}
       ></div>
       <div
-        class="modal show d-block"
+        class=${classMap({ modal: true, show: true, "d-block": true, "is-closed": !open })}
         tabindex="-1"
         role="dialog"
         data-testid="scope-modal"

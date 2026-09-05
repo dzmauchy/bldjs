@@ -124,6 +124,7 @@ describe("Lit update scheduling", () => {
     expect(chart.renderRoot.querySelector("[data-testid=scope-modal]")).not.toBeNull();
     expect(chart.renderRoot.querySelector("[data-testid=scope-chart] canvas")).not.toBeNull();
     expect(chart.renderRoot.querySelector("[data-testid=scope-modal]")?.getAttribute("aria-hidden")).toBe("true");
+    expect(chart.renderRoot.querySelector(".modal")?.classList.contains("is-closed")).toBe(true);
 
     app.scopeOpen = id;
     await chart.updateComplete;
@@ -134,6 +135,7 @@ describe("Lit update scheduling", () => {
     expect(chart.hasAttribute("open")).toBe(true);
     expect(chart.renderRoot.querySelector(".modal")?.classList.contains("fade")).toBe(false);
     expect(chart.renderRoot.querySelector(".modal-backdrop")?.classList.contains("fade")).toBe(false);
+    expect(chart.renderRoot.querySelector(".modal")?.classList.contains("is-closed")).toBe(false);
     expect(chart.renderRoot.querySelector(".modal-title")).toBeNull();
     expect(host?.querySelector("[data-testid=scope-close]")).toBeNull();
     expect(close).not.toBeNull();
@@ -172,14 +174,16 @@ describe("Lit update scheduling", () => {
     chart.app = app;
     document.body.append(chart);
     await chart.updateComplete;
-    expect(fillRect).not.toHaveBeenCalled();
+    expect(fillRect).toHaveBeenCalled();
     expect(chart.renderRoot.querySelector("[data-testid=scope-chart] canvas")).not.toBeNull();
+    const warmed = fillRect.mock.calls.length;
 
     app.scopeOpen = id;
     await chart.updateComplete;
     expect(chart.hasAttribute("open")).toBe(true);
     expect(chart.renderRoot.querySelector("[data-testid=scope-chart]")?.getAttribute("data-painted")).toBe("true");
-    expect(fillRect).toHaveBeenCalled();
+    expect(chart.renderRoot.querySelector("[data-testid=scope-chart]")?.getAttribute("data-series-count")).toBe("1");
+    expect(fillRect.mock.calls.length).toBeGreaterThan(warmed);
   });
 
   it("labels the scope footer with the instance name when one exists", async () => {
