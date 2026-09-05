@@ -1,7 +1,7 @@
 import { canShareMemory, canUseIsolatedWorker } from "../isolation";
 import type { SolutionViewConnector } from "@bld/xml/solution/view";
 import { intervalMs } from "@bld/xml/flow";
-import { bootGeneratorInstance } from "./boot";
+import { bootGeneratorInstance, type InstantiatedGenerator } from "./boot";
 import { type HostOptions } from "./host";
 import { createMemory, initGpio, readFlowCounts, readGpio, readSamples, requestStop, writeGpio } from "./memory";
 import { interceptConsumerFrequency } from "./runner";
