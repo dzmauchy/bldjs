@@ -1,9 +1,22 @@
+import { MEM } from "../runtime/memory";
+
 /** Official MoonBit browser bindings (`module.function` → JS `Math.sin`, `Date.now`, …). */
 export interface PreambleNeeds {
   sin?: boolean;
   cos?: boolean;
   random?: boolean;
   now?: boolean;
+}
+
+/**
+ * One `extern "wasm"` WAT function: `i32.atomic.load` at `$stop`.
+ * MoonBit inlines unnamed WAT; this is not `memory.atomic.wait32`.
+ */
+export function emitStopped(): string {
+  return `extern "wasm" fn stopped() -> Int =
+  #|(func (result i32)
+  #|  (i32.atomic.load (i32.const ${MEM.stop}))
+  #|)`;
 }
 
 export function preamble(needs: PreambleNeeds = { sin: true, cos: true, random: true, now: true }): string {
@@ -22,6 +35,7 @@ export function preamble(needs: PreambleNeeds = { sin: true, cos: true, random: 
   }
   bindings.push('fn js_set_interval(cb : () -> Unit, ms : Int) -> Int = "js" "setInterval"');
   bindings.push('fn host_push(v : Double, ring : Int) -> Unit = "host" "push"');
+  bindings.push(emitStopped());
   const nowFn = needs.now
     ? `
 fn now() -> Double {
@@ -31,6 +45,7 @@ fn now() -> Double {
     : "";
   return `// XML-matching MoonBit wasm-gc generator.
 // Browser bindings: Math, Date, js.setInterval. Samples go through host.push.
+// stopped is extern "wasm" WAT with i32.atomic.load (not wait).
 ${bindings.join("\n")}
 
 type C1 = (Double) -> Unit

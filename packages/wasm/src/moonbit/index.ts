@@ -3,7 +3,7 @@ import type { BlockScript } from "./types";
 
 export type { MoonBlockEmit, BlockScript } from "./types";
 export { QUANTIZER_PERIOD_NS } from "./blocks/generator";
-export { preamble, emitStart } from "./runtime";
+export { preamble, emitStart, emitStopped } from "./runtime";
 export { emitFork } from "./fork";
 export { emitConsumerWrap } from "./consumer";
 export {

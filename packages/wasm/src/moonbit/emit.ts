@@ -177,6 +177,7 @@ export function emitSolutionMoonbit(
   }
 
   parts.push(`pub fn tick() -> Unit {
+  let _ = stopped()
 ${statements.join("\n") || "  let _ = 0"}
 }
 `);
