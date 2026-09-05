@@ -32,3 +32,28 @@ export function flowPeriodMs(hz: number): number | null {
 export function intervalMs(delayMs: number): number {
   return clampPositiveInt(delayMs, 1);
 }
+
+/**
+ * Per-connector introspector: count value *changes*, not invocations.
+ * A steady GPIO level therefore measures 0 Hz after the edge.
+ */
+export class ConnectorIntrospector {
+  #last: Array<number | undefined>;
+
+  constructor(readonly count: number) {
+    this.#last = Array.from({ length: Math.max(0, count) }, () => undefined);
+  }
+
+  /** Record one sample. Returns true when this connector's value changed. */
+  observe(index: number, value: number): boolean {
+    if (index < 0 || index >= this.count) {
+      return false;
+    }
+    const prev = this.#last[index];
+    if (prev !== undefined && Object.is(prev, value)) {
+      return false;
+    }
+    this.#last[index] = value;
+    return true;
+  }
+}

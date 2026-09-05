@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   FLOW_PERIOD_MAX_MS,
   FLOW_PERIOD_MIN_MS,
+  ConnectorIntrospector,
   flowPeriodMs,
   hzFromDelta,
   intervalMs,
@@ -30,5 +31,18 @@ describe("flow rate", () => {
     expect(intervalMs(0)).toBe(1);
     expect(intervalMs(-4)).toBe(1);
     expect(intervalMs(2.9)).toBe(2);
+  });
+
+  it("counts value changes per connector, not repeated samples", () => {
+    const tap = new ConnectorIntrospector(2);
+    expect(tap.observe(0, 1)).toBe(true);
+    expect(tap.observe(0, 1)).toBe(false);
+    expect(tap.observe(0, 0)).toBe(true);
+    expect(tap.observe(1, 0.5)).toBe(true);
+    expect(tap.observe(1, 0.5)).toBe(false);
+    expect(tap.observe(-1, 1)).toBe(false);
+    expect(tap.observe(2, 1)).toBe(false);
+    expect(tap.observe(0, Number.NaN)).toBe(true);
+    expect(tap.observe(0, Number.NaN)).toBe(false);
   });
 });

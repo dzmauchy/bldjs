@@ -161,7 +161,15 @@ export function emitSolutionFiles(
       const incoming = view.incoming(block.id, port.name);
       const pieces = incoming.map((link) => {
         const srcDef = catalog.block(view.defId(link.fromBlock) ?? "");
-        return srcDef ? readPort(link, srcDef) : NOP;
+        const expr = srcDef ? readPort(link, srcDef) : NOP;
+        const idx = view.connectors.findIndex(
+          (item) =>
+            item.fromBlock === link.fromBlock &&
+            item.fromOut === link.fromOut &&
+            item.toBlock === link.toBlock &&
+            item.toIn === link.toIn,
+        );
+        return idx >= 0 ? `introspect(${idx}, ${expr})` : expr;
       });
       if (pieces.length === 0) {
         args.push(NOP);

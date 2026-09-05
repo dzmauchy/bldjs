@@ -27,8 +27,9 @@ export class BldAboutModal extends BldModal {
             <li>Run writes diagram XML, infers types, then compiles MoonBit twice: wasm-gc for the browser and linear wasm for the MCU</li>
             <li>Each Timer ticks with the imported browser setInterval (a worker thread when the page is cross-origin isolated)</li>
             <li>GPIO In emits one sample when you toggle the switch, not on a quantization period; GPIO Out shows the same switch as a disabled readout</li>
+            <li>Live wires animate at the frequency of value changes on that connector, not the generator tick rate</li>
             <li>File → Hardware can deploy the MCU wasm over WebSerial</li>
-            <li>After Run, Chart on Scope reads samples from that buffer</li>
+            <li>After Run, Chart on Scope meters each input every M ms into an N-second window (default 10 ms × 30 s)</li>
             <li>Delete or Backspace removes the selection</li>
             <li>Ctrl/Cmd + 0 resets the view</li>
           </ul>

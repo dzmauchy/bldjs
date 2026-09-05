@@ -31,6 +31,8 @@ describe("emitSolutionFiles", () => {
     expect(files.map(([name]) => name)).toEqual(["runtime.mbt", "blocks.mbt", "main.mbt"]);
     const sources = Object.fromEntries(files);
     expect(sources["runtime.mbt"]).toContain("type C1 = (Double) -> Unit");
+    expect(sources["runtime.mbt"]).toContain("fn introspect(idx : Int, inner : C1)");
+    expect(sources["runtime.mbt"]).toContain('fn host_tap(v : Double, idx : Int) -> Unit = "host" "tap"');
     expect(sources["runtime.mbt"]).toContain("fn stopped() -> Unit");
     expect(sources["runtime.mbt"]).toContain("pub fn start(delay_ms : Int) -> Unit");
     expect(sources["blocks.mbt"]).toContain(`fn sin(${CTX_PARAM}, input : C1) -> C1`);
@@ -40,6 +42,7 @@ describe("emitSolutionFiles", () => {
     expect(sources["main.mbt"]).toContain("pub fn tick() -> Unit");
     expect(sources["main.mbt"]).toContain("  stopped()");
     expect(sources["main.mbt"]).not.toContain("let _ = stopped()");
+    expect(sources["main.mbt"]).toContain("introspect(");
   });
 
   it("emits MCU env FFI and app_main for the linear wasm target", () => {
@@ -55,6 +58,9 @@ describe("emitSolutionFiles", () => {
     expect(sources["runtime.mbt"]).not.toContain("js_set_interval");
     expect(sources["runtime.mbt"]).not.toContain("to_double");
     expect(sources["runtime.mbt"]).not.toContain(" % ");
+    expect(sources["runtime.mbt"]).toContain("type C1 = (Double) -> Unit");
+    expect(sources["runtime.mbt"]).toContain("fn introspect(_idx : Int, inner : C1)");
+    expect(sources["runtime.mbt"]).not.toContain('= "host" "tap"');
     expect(sources["main.mbt"]).toContain("pub fn tick() -> Unit");
   });
 

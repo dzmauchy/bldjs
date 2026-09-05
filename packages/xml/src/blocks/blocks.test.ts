@@ -559,6 +559,16 @@ describe("blocks", () => {
     }
     expect(cat.block("sin")!.parameters).toEqual([]);
     expect(cat.block("cos")!.parameters).toEqual([]);
+    const n = cat.block("scope")!.parameters.find((param) => param.name === "n");
+    const m = cat.block("scope")!.parameters.find((param) => param.name === "m");
+    expect(n?.kind).toBe("integer-range-parameter");
+    expect(n?.default).toBe("30");
+    expect(n?.min).toBe(10);
+    expect(n?.max).toBe(600);
+    expect(m?.kind).toBe("integer-range-parameter");
+    expect(m?.default).toBe("10");
+    expect(m?.min).toBe(10);
+    expect(m?.max).toBe(1000);
     const gpioIn = cat.block("gpio_in")!;
     expect(gpioIn.attributes.find((item) => item.name === "generator")?.value).toBe("true");
     expect(displayType(gpioIn.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");

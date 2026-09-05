@@ -3,7 +3,17 @@ import type { Link } from "../blocks/diagram";
 import { infer } from "../blocks/diagram";
 import type { ResolvedBlock } from "../blocks/resolve";
 import { isResolvedCompatible } from "../blocks/resolve";
-import { PERIOD_PARAM, PIN_PARAM, isEventDrivenGenerator, periodMsFrom, pinFrom } from "../blocks/cs/ids";
+import {
+  METER_PARAM,
+  PERIOD_PARAM,
+  PIN_PARAM,
+  WINDOW_PARAM,
+  isEventDrivenGenerator,
+  meterMsFrom,
+  periodMsFrom,
+  pinFrom,
+  windowSecondsFrom,
+} from "../blocks/cs/ids";
 import { documentToCanvas, parseDiagramXml } from "./xml";
 import type { DiagramDocument } from "./types";
 
@@ -17,7 +27,7 @@ export class DiagramCompileError extends Error {
 export interface DiagramSolution {
   xml: string;
   doc: DiagramDocument;
-  nodes: Array<{ id: number; defId: string; periodMs?: number; pin?: number }>;
+  nodes: Array<{ id: number; defId: string; periodMs?: number; pin?: number; windowS?: number; meterMs?: number }>;
   links: Link[];
   inferred: Map<number, ResolvedBlock>;
 }
@@ -37,11 +47,15 @@ export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolut
     const extra = canvas.extras.get(block.id);
     const period = extra?.parameters.find((param) => param.name === PERIOD_PARAM)?.value;
     const pin = extra?.parameters.find((param) => param.name === PIN_PARAM)?.value;
+    const window = extra?.parameters.find((param) => param.name === WINDOW_PARAM)?.value;
+    const meter = extra?.parameters.find((param) => param.name === METER_PARAM)?.value;
     return {
       id: block.id,
       defId: block.defId,
       periodMs: isEventDrivenGenerator(block.defId) ? 0 : periodMsFrom(period),
       pin: pin == null ? undefined : pinFrom(pin),
+      windowS: block.defId === "scope" ? windowSecondsFrom(window) : undefined,
+      meterMs: block.defId === "scope" ? meterMsFrom(meter) : undefined,
     };
   });
   const inferred = infer(

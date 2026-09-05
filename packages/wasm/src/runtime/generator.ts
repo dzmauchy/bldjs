@@ -3,14 +3,14 @@ import type { SolutionViewConnector } from "@bld/xml/solution/view";
 import { intervalMs } from "@bld/xml/flow";
 import { bootGeneratorInstance, type InstantiatedGenerator } from "./boot";
 import { type HostOptions } from "./host";
-import { createMemory, initGpio, readFlowCounts, readGpio, readSamples, requestStop, writeGpio } from "./memory";
-import { interceptConsumerFrequency } from "./runner";
+import { createMemory, initGpio, readFlowCounts, readGpio, readLatest, readSamples, requestStop, writeGpio } from "./memory";
 
 export type { InstantiatedGenerator } from "./boot";
 
 export interface GeneratorHandle {
   connectors: readonly SolutionViewConnector[];
   snapshot(scopeIndex?: number): number[];
+  latest(scopeIndex?: number): number | undefined;
   readFlowCounts(): number[];
   gpioLevel(pin: number): number;
   setGpio(pin: number, level: number): void;
@@ -52,6 +52,7 @@ function bindHandle(
   return {
     connectors,
     snapshot: (scopeIndex = 0) => readSamples(memory, scopeIndex),
+    latest: (scopeIndex = 0) => readLatest(memory, scopeIndex),
     readFlowCounts: () => readFlowCounts(memory, connectors.length),
     gpioLevel: (pin) => readGpio(memory, pin),
     setGpio: (pin, level) => writeGpio(memory, pin, level),
@@ -70,10 +71,7 @@ export async function startLocalGenerator(options: StartGeneratorOptions): Promi
     connectorCount: connectors.length,
   });
   if (options.eventDriven) {
-    return bindHandle(memory, connectors, () => gen.stopTimers(), () => {
-      gen.tick();
-      interceptConsumerFrequency(memory, connectors.length);
-    });
+    return bindHandle(memory, connectors, () => gen.stopTimers(), () => gen.tick());
   }
   gen.start(options.delayMs);
   return bindHandle(memory, connectors, () => gen.stopTimers(), () => gen.fire());

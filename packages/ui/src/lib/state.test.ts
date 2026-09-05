@@ -354,6 +354,26 @@ describe("AppState run", () => {
     expect(app.toDiagramXml()).toContain('value="25"');
   });
 
+  it("seeds scope window N=30 s and meter M=10 ms", () => {
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("scope", 0, 0);
+    expect(app.blockWindowS(id)).toBe(30);
+    expect(app.blockMeterMs(id)).toBe(10);
+    expect(app.blockInputs(id).map((input) => [input.def.name, input.value])).toEqual([
+      ["n", "30"],
+      ["m", "10"],
+    ]);
+    app.setBlockParameter(id, "n", "60");
+    app.setBlockParameter(id, "m", "20");
+    expect(app.blockWindowS(id)).toBe(60);
+    expect(app.blockMeterMs(id)).toBe(20);
+    expect(app.toDiagramXml()).toContain('name="n"');
+    expect(app.toDiagramXml()).toContain('value="60"');
+    expect(app.toDiagramXml()).toContain('name="m"');
+    expect(app.toDiagramXml()).toContain('value="20"');
+  });
+
   it("closes and ignores input configuration while a run is busy", async () => {
     const app = new AppState();
     const { generatorId } = wireCsPipeline(app);
@@ -406,6 +426,25 @@ describe("AppState run", () => {
     app.toggleGpio(inId);
     expect(app.gpioOn(inId)).toBe(false);
     expect(app.gpioOn(outId)).toBe(false);
+    app.run.stop();
+  });
+
+  it("stops GPIO connector animation after the level stops changing", async () => {
+    const app = new AppState();
+    const outId = app.nextId;
+    app.addBlock("gpio_out", 0, 0);
+    const inId = app.nextId;
+    app.addBlock("gpio_in", 120, 0);
+    app.toggleLink(outId, "out", inId, "in");
+    await app.run.start();
+    const link = app.links[0]!;
+    const t0 = 1_000;
+    app.run.sampleFlowRates(t0);
+    app.toggleGpio(inId);
+    app.run.sampleFlowRates(t0 + 50);
+    expect(app.run.connectorHz(link)).toBeGreaterThan(0);
+    app.run.sampleFlowRates(t0 + 150);
+    expect(app.run.connectorHz(link)).toBe(0);
     app.run.stop();
   });
 });

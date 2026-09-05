@@ -52,6 +52,7 @@ function jsBindings(needs: PreambleNeeds): string[] {
   }
   bindings.push('fn js_set_interval(cb : () -> Unit, ms : Int) -> Int = "js" "setInterval"');
   bindings.push('fn host_push(v : Double, ring : Int) -> Unit = "host" "push"');
+  bindings.push('fn host_tap(v : Double, idx : Int) -> Unit = "host" "tap"');
   if (needs.gpio) {
     bindings.push('fn host_pin_read(pin : Int) -> Int = "host" "pin_read"');
     bindings.push('fn host_pin_write(pin : Int, val : Int) -> Unit = "host" "pin_write"');
@@ -121,6 +122,12 @@ export function preamble(needs: PreambleNeeds = { sin: true, cos: true, random: 
     emitStopped(target),
     "///|",
     "type C1 = (Double) -> Unit",
+    `fn introspect(idx : Int, inner : C1) -> C1 {
+  fn(v : Double) {
+    host_tap(v, idx)
+    inner(v)
+  }
+}`,
     nowFn,
   ];
   return `${parts.filter((part) => part.length > 0).join("\n")}
@@ -137,6 +144,9 @@ function preambleProd(needs: PreambleNeeds): string {
     math,
     emitStopped("wasm"),
     "type C1 = (Double) -> Unit",
+    `fn introspect(_idx : Int, inner : C1) -> C1 {
+  inner
+}`,
   ];
   return `${parts.filter((part) => part.length > 0).join("\n")}
 `;

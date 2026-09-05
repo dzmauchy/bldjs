@@ -88,7 +88,7 @@ describe("MoonBit generator", () => {
     expect(sample).toBeLessThan(1);
   });
 
-  it("counts each (Double) -> Unit connector invocation in the runner, not the runtime", async () => {
+  it("counts connector value changes, not repeated samples", async () => {
     const { wasm, connectors } = await assembleModule({ generator: "sin", delayMs: 10_000 });
     expect(connectors.length).toBeGreaterThan(0);
     const memory = createSharedMemory();
@@ -97,13 +97,17 @@ describe("MoonBit generator", () => {
     gen.tick();
     expect(readFlowCounts(memory, connectors.length).every((count) => count === 0)).toBe(true);
 
+    let now = 0;
     const handle = await startLocalGenerator({
       wasm,
       delayMs: 10_000,
       connectors,
-      now: () => 0,
+      now: () => now,
     });
     expect(handle.readFlowCounts().every((count) => count === 1)).toBe(true);
+    handle.tick?.();
+    expect(handle.readFlowCounts().every((count) => count === 1)).toBe(true);
+    now = 1;
     handle.tick?.();
     expect(handle.readFlowCounts().every((count) => count === 2)).toBe(true);
     handle.stop();
@@ -122,6 +126,7 @@ describe("MoonBit generator", () => {
     const handle = await startLocalGenerator({
       wasm: compiled.wasm,
       delayMs: compiled.delayMs,
+      connectors: compiled.connectors,
       eventDriven: true,
       gpio: new Map([[0, 1]]),
     });
@@ -130,9 +135,12 @@ describe("MoonBit generator", () => {
     expect(handle.gpioLevel(1)).toBe(0);
     handle.tick?.();
     expect(handle.gpioLevel(1)).toBe(1);
+    handle.tick?.();
+    expect(handle.readFlowCounts().every((count) => count === 1)).toBe(true);
     handle.setGpio(0, 0);
     handle.tick?.();
     expect(handle.gpioLevel(1)).toBe(0);
+    expect(handle.readFlowCounts().every((count) => count === 2)).toBe(true);
     handle.stop();
   });
 });

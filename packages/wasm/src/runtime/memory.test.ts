@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import { SAMPLE_CAP as XML_SAMPLE_CAP } from "@bld/xml/blocks/cs/ids";
 import {
   SAMPLE_CAP,
+  bumpFlowCount,
   bumpFlowCounts,
   createMemory,
   createSharedMemory,
   isStopped,
   readFlowCounts,
   readGpio,
+  readLatest,
   readSamples,
   requestStop,
   scopeCountAddr,
@@ -38,6 +40,8 @@ describe("runtime memory", () => {
     bumpFlowCounts(memory, 2);
     bumpFlowCounts(memory, 2);
     expect(readFlowCounts(memory, 2)).toEqual([2, 2]);
+    bumpFlowCount(memory, 0);
+    expect(readFlowCounts(memory, 2)).toEqual([3, 2]);
   });
 
   it("reads and writes stop/flow counts without SharedArrayBuffer", () => {
@@ -60,6 +64,7 @@ describe("runtime memory", () => {
     expect(samples).toHaveLength(2);
     expect(samples[0]).toBeCloseTo(Math.sin(1));
     expect(samples[1]).toBeCloseTo(Math.sin(2));
+    expect(readLatest(memory)).toBeCloseTo(Math.sin(2));
   });
 
   it("simulates GPIO pin levels in the shared page", () => {

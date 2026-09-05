@@ -28,6 +28,13 @@ describe("topology", () => {
     expect(topologyKey([{ ...blocks[0], periodMs: 25 }], links)).not.toBe(topologyKey(blocks, links));
   });
 
+  it("changes when scope window or meter interval changes", () => {
+    const blocks = [{ id: 1, defId: "scope", windowS: 30, meterMs: 10 }];
+    const links: Link[] = [];
+    expect(topologyKey([{ ...blocks[0], windowS: 60 }], links)).not.toBe(topologyKey(blocks, links));
+    expect(topologyKey([{ ...blocks[0], meterMs: 20 }], links)).not.toBe(topologyKey(blocks, links));
+  });
+
   it("plans generators from node specs without AppState", () => {
     const nodes = nodeSpecsFrom([
       { id: 1, defId: "scope" },

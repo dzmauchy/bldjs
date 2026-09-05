@@ -1,6 +1,7 @@
 import { assembleGenerator } from "../compile";
 import type { GeneratorPlan, NodeSpec, ScopeSeries } from "@bld/xml/blocks/cs/types";
-import { isEventDrivenGenerator } from "@bld/xml/blocks/cs/ids";
+import { isEventDrivenGenerator, meterMsFrom, sampleCap, windowSecondsFrom } from "@bld/xml/blocks/cs/ids";
+import { WindowBuf } from "@bld/xml/blocks/cs/samples";
 import type { Link } from "@bld/xml/blocks/diagram";
 import { hzFromDelta, intervalMs } from "@bld/xml/flow";
 import type { Runner, RunnerSession, RunnerStartOptions } from "@bld/xml/runner";
@@ -33,6 +34,11 @@ export class DiagramRunCancelled extends Error {
 
 export const EMPTY_RUN_MESSAGE = "Wire a Scope or GPIO into a generator, then Run.";
 
+type ScopeMeter = {
+  buffers: WindowBuf[];
+  timer: ReturnType<typeof setInterval>;
+};
+
 /** Live generator session: handles, scope bindings, and connector Hertz. */
 export class RunningDiagram implements RunnerSession {
   readonly generators = new Map<number, GeneratorHandle>();
@@ -42,6 +48,7 @@ export class RunningDiagram implements RunnerSession {
   prodWasm: Uint8Array | null = null;
   #flowPrev = new Map<GeneratorHandle, number[]>();
   #flowSampleAt = 0;
+  #meters = new Map<number, ScopeMeter>();
   #disposed = false;
 
   constructor(topology: string) {
@@ -53,6 +60,7 @@ export class RunningDiagram implements RunnerSession {
       return;
     }
     this.#disposed = true;
+    this.#stopMeters();
     for (const handle of this.generators.values()) {
       handle.stop();
     }
@@ -80,9 +88,10 @@ export class RunningDiagram implements RunnerSession {
     if (!channels?.length) {
       return [];
     }
-    return channels.map((channel) => ({
+    const meter = this.#meters.get(id);
+    return channels.map((channel, index) => ({
       label: channel.label,
-      samples: this.generators.get(channel.generatorId)?.snapshot(channel.ring) ?? [],
+      samples: meter?.buffers[index]?.snapshot() ?? [],
     }));
   }
 
@@ -106,10 +115,7 @@ export class RunningDiagram implements RunnerSession {
       const counts = handle.readFlowCounts();
       const prev = this.#flowPrev.get(handle) ?? [];
       handle.connectors.forEach((link, index) => {
-        const hz = hzFromDelta(prev[index] ?? 0, counts[index] ?? 0, dt);
-        if (hz > 0) {
-          this.linkHz.set(connectorKey(link), hz);
-        }
+        this.linkHz.set(connectorKey(link), hzFromDelta(prev[index] ?? 0, counts[index] ?? 0, dt));
       });
       this.#flowPrev.set(handle, counts);
     }
@@ -149,6 +155,39 @@ export class RunningDiagram implements RunnerSession {
         series.push({ label: channel.label, ring: index, generatorId: plan.generatorId });
         this.scopeChannels.set(channel.scopeId, series);
       });
+    }
+    this.#startMeters(nodes);
+  }
+
+  #stopMeters(): void {
+    for (const meter of this.#meters.values()) {
+      clearInterval(meter.timer);
+    }
+    this.#meters.clear();
+  }
+
+  #meterScope(channels: ScopeChannelBinding[], buffers: WindowBuf[]): void {
+    channels.forEach((channel, index) => {
+      const latest = this.generators.get(channel.generatorId)?.latest(channel.ring);
+      buffers[index]?.push(latest ?? 0);
+    });
+  }
+
+  #startMeters(nodes: NodeSpec[]): void {
+    this.#stopMeters();
+    for (const [scopeId, channels] of this.scopeChannels) {
+      const spec = nodes.find((node) => node.id === scopeId);
+      const n = windowSecondsFrom(spec?.windowS);
+      const m = meterMsFrom(spec?.meterMs);
+      const buffers = channels.map(() => new WindowBuf(sampleCap(n, m)));
+      this.#meterScope(channels, buffers);
+      const timer = setInterval(() => {
+        if (this.#disposed) {
+          return;
+        }
+        this.#meterScope(channels, buffers);
+      }, m);
+      this.#meters.set(scopeId, { buffers, timer });
     }
   }
 }

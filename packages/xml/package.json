@@ -19,6 +19,7 @@
     "./blocks/cs/ids": "./src/blocks/cs/ids.ts",
     "./blocks/cs/types": "./src/blocks/cs/types.ts",
     "./blocks/cs/plan": "./src/blocks/cs/plan.ts",
+    "./blocks/cs/samples": "./src/blocks/cs/samples.ts",
     "./diagram": "./src/diagram/index.ts",
     "./diagram/xml": "./src/diagram/xml.ts",
     "./diagram/store": "./src/diagram/store.ts",

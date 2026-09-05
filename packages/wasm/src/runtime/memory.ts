@@ -112,6 +112,14 @@ export function readFlowCounts(memory: WebAssembly.Memory, count: number): numbe
   return Array.from({ length: n }, (_, index) => words.load(index));
 }
 
+/** Increment the change counter for one connector. */
+export function bumpFlowCount(memory: WebAssembly.Memory, index: number): void {
+  if (index < 0 || index >= FLOW_COUNT_CAP) {
+    return;
+  }
+  new I32Words(memory.buffer, FLOW_COUNTS, FLOW_COUNT_CAP).add(index, 1);
+}
+
 /** The runner records one consumer invocation per connector after each `tick`. */
 export function bumpFlowCounts(memory: WebAssembly.Memory, count: number): void {
   const n = Math.max(0, Math.min(count, FLOW_COUNT_CAP));
@@ -146,6 +154,12 @@ export function readSamples(memory: WebAssembly.Memory, scopeIndex = 0): number[
     out.push(view.getFloat64(samplesAddr + slot * 8, true));
   }
   return out;
+}
+
+/** Newest sample in a ring, or `undefined` when the generator has not pushed yet. */
+export function readLatest(memory: WebAssembly.Memory, scopeIndex = 0): number | undefined {
+  const samples = readSamples(memory, scopeIndex);
+  return samples.length === 0 ? undefined : samples[samples.length - 1];
 }
 
 function gpioWords(memory: WebAssembly.Memory): I32Words {

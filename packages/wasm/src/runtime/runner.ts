@@ -1,10 +1,7 @@
 import { bumpFlowCounts, isStopped, requestStop } from "./memory";
 import { startQuantizedLoop } from "./tick";
 
-/**
- * Count one invocation on each consumer connector the runner just fired.
- * Frequency lives here, not in WASM runtime taps.
- */
+/** Count one invocation on each consumer connector. Live wires use `host.tap` instead. */
 export function interceptConsumerFrequency(memory: WebAssembly.Memory, connectorCount: number): void {
   bumpFlowCounts(memory, connectorCount);
 }
