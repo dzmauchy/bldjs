@@ -42,6 +42,20 @@ describe("emitSolutionFiles", () => {
     expect(sources["main.mbt"]).not.toContain("let _ = stopped()");
   });
 
+  it("emits MCU env FFI and app_main for the linear wasm target", () => {
+    const files = emitSolutionFiles(catalog(), sinView(), new Map(), "wasm");
+    const sources = Object.fromEntries(files);
+    expect(sources["runtime.mbt"]).toContain('extern "wasm" fn host_wait_event');
+    expect(sources["runtime.mbt"]).toContain('= "env" "wait_event"');
+    expect(sources["runtime.mbt"]).toContain("pub fn app_main() -> Unit");
+    expect(sources["runtime.mbt"]).toContain("fn math_sin(");
+    expect(sources["runtime.mbt"]).not.toContain('= "Math" "sin"');
+    expect(sources["runtime.mbt"]).not.toContain("js_set_interval");
+    expect(sources["runtime.mbt"]).not.toContain("to_double");
+    expect(sources["runtime.mbt"]).not.toContain(" % ");
+    expect(sources["main.mbt"]).toContain("pub fn tick() -> Unit");
+  });
+
   it("joins the package files for emitText", () => {
     const text = emitSolutionMoonbit(catalog(), sinView(), new Map());
     expect(text).toContain("type C1 = (Double) -> Unit");

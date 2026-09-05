@@ -1,7 +1,7 @@
 import { type BlockDef, type BlockParameterDef, blockAttribute } from "@bld/xml/blocks/ast";
 import { associateBuiltinModels, xmlSourcesForFiles } from "@bld/xml/blocks/builtin";
 import { Catalog } from "@bld/xml/blocks/catalog";
-import { PERIOD_PARAM, periodMsFrom } from "@bld/xml/blocks/cs/ids";
+import { PERIOD_PARAM, PIN_PARAM, periodMsFrom, pinFrom } from "@bld/xml/blocks/cs/ids";
 import { Diagram, type Link, type XmlSource, linksEqual } from "@bld/xml/blocks/diagram";
 import { compactLinkSlots } from "@bld/xml/blocks/ports";
 import type { ResolvedBlock } from "@bld/xml/blocks/resolve";
@@ -27,6 +27,7 @@ import { ObservableState } from "./observable";
 import { catalogChoices, type CatalogChoice } from "./state/catalog";
 import { DiagramIo } from "./state/io";
 import { RunSession } from "./state/run";
+import { DeploySession } from "./state/deploy";
 import { portAcceptsMany, remapSelectedLink, WiringGraph } from "./wiring";
 
 export type { BlockInstance, CatalogChoice };
@@ -40,6 +41,7 @@ export interface LinkingFrom {
 export class AppState extends ObservableState {
   readonly run: RunSession;
   readonly io: DiagramIo;
+  readonly deploy: DeploySession;
 
   declare catalog: Catalog;
   declare sources: XmlSource[];
@@ -66,6 +68,7 @@ export class AppState extends ObservableState {
   #createdAt = nowIso();
   #updatedAt = this.#createdAt;
   #extras = new Map<number, BlockExtras>();
+  #gpioLevels = new Map<number, boolean>();
 
   constructor(repo: DiagramRepository = defaultDiagramRepository()) {
     super();
@@ -95,6 +98,10 @@ export class AppState extends ObservableState {
     });
     this.run = new RunSession(this);
     this.io = new DiagramIo(this, repo);
+    this.deploy = new DeploySession({
+      notify: () => this.notify(),
+      prodWasm: () => this.run.prodWasm(),
+    });
   }
 
   get createdAt(): string {
@@ -121,8 +128,12 @@ export class AppState extends ObservableState {
     this.run.error = null;
   }
 
-  runNodes(): Array<{ id: number; defId: string; periodMs?: number }> {
-    return this.blocks.map((block) => ({ ...block, periodMs: this.blockPeriodMs(block.id) }));
+  runNodes(): Array<{ id: number; defId: string; periodMs?: number; pin?: number }> {
+    return this.blocks.map((block) => ({
+      ...block,
+      periodMs: this.blockPeriodMs(block.id),
+      pin: this.blockPin(block.id),
+    }));
   }
 
   get blocks(): BlockInstance[] {
@@ -206,6 +217,7 @@ export class AppState extends ObservableState {
     this.run.stop();
     this.#diagram.clear();
     this.#extras.clear();
+    this.#gpioLevels.clear();
     this.links = [];
     this.#clearInteraction();
     this.io.error = null;
@@ -222,6 +234,7 @@ export class AppState extends ObservableState {
     this.#forgetBlock(id);
     this.#replaceLinks(this.#wiring().withoutBlock(id).links);
     this.#extras.delete(id);
+    this.#gpioLevels.delete(id);
     this.touch();
     this.notify();
     this.run.invalidate();
@@ -258,6 +271,7 @@ export class AppState extends ObservableState {
     this.#diagram.replace(canvas.blocks);
     this.#diagram.nextId = canvas.nextId;
     this.#extras = new Map(canvas.extras);
+    this.#gpioLevels.clear();
     this.links = canvas.links;
     this.diagramId = canvas.id;
     this.diagramName = canvas.name;
@@ -336,6 +350,40 @@ export class AppState extends ObservableState {
     const extra = this.#extras.get(id);
     const value = extra?.parameters.find((param) => param.name === PERIOD_PARAM)?.value;
     return periodMsFrom(value);
+  }
+
+  blockPin(id: number): number {
+    const extra = this.#extras.get(id);
+    const value = extra?.parameters.find((param) => param.name === PIN_PARAM)?.value;
+    const defId = this.block(id)?.defId;
+    const fallback = defId === "gpio_out" ? 1 : 0;
+    return value == null && defId === "gpio_out" ? fallback : pinFrom(value ?? fallback);
+  }
+
+  gpioOn(id: number): boolean {
+    const pin = this.blockPin(id);
+    if (this.run.busy()) {
+      return (this.run.gpioLevel(pin) ?? 0) !== 0;
+    }
+    return this.#gpioLevels.get(id) ?? false;
+  }
+
+  toggleGpio(id: number): void {
+    const next = !this.gpioOn(id);
+    this.#gpioLevels.set(id, next);
+    this.run.setGpio(this.blockPin(id), next ? 1 : 0);
+    this.notify();
+  }
+
+  gpioSnapshot(): Map<number, number> {
+    const levels = new Map<number, number>();
+    for (const block of this.blocks) {
+      if (block.defId !== "gpio_in" && block.defId !== "gpio_out") {
+        continue;
+      }
+      levels.set(this.blockPin(block.id), this.#gpioLevels.get(block.id) ? 1 : 0);
+    }
+    return levels;
   }
 
   #wiring(): WiringGraph {

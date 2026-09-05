@@ -12,10 +12,11 @@ export interface RunHost {
   notify(): void;
   catalog: Catalog;
   links: Link[];
-  runNodes(): Array<{ id: number; defId: string; periodMs?: number }>;
+  runNodes(): Array<{ id: number; defId: string; periodMs?: number; pin?: number }>;
   toDiagramXml(): string;
   get scopeOpen(): number;
   set scopeOpen(id: number);
+  gpioSnapshot?(): ReadonlyMap<number, number>;
 }
 
 /** WASM runner lifecycle. UI reads `running` / `error`; canvas samples Hertz from here. */
@@ -69,6 +70,18 @@ export class RunSession extends HostedState<RunHost> {
     this.#runner.current?.sampleFlowRates(now);
   }
 
+  gpioLevel(pin: number): number {
+    return this.#runner.current?.gpioLevel(pin) ?? 0;
+  }
+
+  setGpio(pin: number, level: number): void {
+    this.#runner.current?.setGpio(pin, level);
+  }
+
+  prodWasm(): Uint8Array | null {
+    return this.#runner.current?.prodWasm ?? this.#runner.lastProdWasm;
+  }
+
   stop(): void {
     this.#runner.stop();
     const changed = this.starting || this.running;
@@ -95,6 +108,7 @@ export class RunSession extends HostedState<RunHost> {
       const solution = loadDiagramSolution(this.host.toDiagramXml(), this.host.catalog);
       await this.#runner.start(solution.nodes, solution.links, {
         onArmed: () => this.host.notify(),
+        gpio: this.host.gpioSnapshot?.(),
       });
       if (!this.#runner.current) {
         return;

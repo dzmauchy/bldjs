@@ -1,13 +1,21 @@
 export {
   DEFAULT_PERIOD_MS,
+  DEFAULT_PIN,
   GENERATOR_IDS,
+  GPIO_IDS,
+  MAX_PIN,
   PERIOD_PARAM,
+  PIN_PARAM,
   QUANTIZER_DELAY_MS,
   SAMPLE_CAP,
+  SINK_IDS,
   TRANSFORMER_IDS,
   isGeneratorId,
+  isGpioId,
+  isSinkId,
   isTransformerId,
   periodMsFrom,
+  pinFrom,
 } from "./ids";
 export type {
   ConsumerTree,
@@ -25,6 +33,7 @@ export type {
 export { SampleBuf } from "./samples";
 export {
   Generator,
+  GpioInGenerator,
   RandomGenerator,
   TimerGenerator,
   fork,

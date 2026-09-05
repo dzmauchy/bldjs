@@ -24,8 +24,10 @@ export class BldAboutModal extends BldModal {
             <li>Drag empty space to pan</li>
             <li>Drag a placed block to move it</li>
             <li>Click or drag from an output handle to an input handle to ground a type</li>
-            <li>Run writes diagram XML, infers types, then compiles MoonBit to wasm-gc</li>
+            <li>Run writes diagram XML, infers types, then compiles MoonBit twice: wasm-gc for the browser and linear wasm for the MCU</li>
             <li>Each Timer ticks with the imported browser setInterval (a worker thread when the page is cross-origin isolated)</li>
+            <li>GPIO blocks have a HIGH/LOW toggle that simulates the pin in the browser</li>
+            <li>File → Hardware can deploy the MCU wasm over WebSerial</li>
             <li>After Run, Chart on Scope reads samples from that buffer</li>
             <li>Delete or Backspace removes the selection</li>
             <li>Ctrl/Cmd + 0 resets the view</li>

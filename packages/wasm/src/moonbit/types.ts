@@ -14,9 +14,11 @@ export interface MoonBlockEmit {
   length?: number;
   /** Ring index for each array slot. */
   rings?: readonly number[];
+  /** GPIO pin number baked into gpio_in / gpio_out. */
+  pin?: number;
 }
 
 export type BlockScript = (opts?: MoonBlockEmit) => string;
 
-/** One named MoonBit source file inside the generated `main` package. */
+/** One named MoonBit source file inside the generated package. */
 export type MoonbitFile = readonly [name: string, source: string];

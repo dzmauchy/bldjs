@@ -59,9 +59,16 @@ export class RandomGenerator extends Generator {
   }
 }
 
+export class GpioInGenerator extends Generator {
+  sample(_time: number): number {
+    return 0;
+  }
+}
+
 const GENERATORS: Record<string, new (periodMs?: number) => Generator> = {
   timer: TimerGenerator,
   random: RandomGenerator,
+  gpio_in: GpioInGenerator,
 };
 
 export function generatorFor(defId: string, periodMs = DEFAULT_PERIOD_MS): Generator | undefined {

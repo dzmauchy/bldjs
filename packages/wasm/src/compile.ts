@@ -8,6 +8,7 @@ import { WasmSolutionBuilder } from "./solution/wasm";
 export interface CompiledGenerator extends GeneratorPlan {
   text: string;
   wasm: Uint8Array;
+  prodWasm: Uint8Array;
   connectors: readonly SolutionViewConnector[];
 }
 
@@ -30,13 +31,14 @@ export async function assembleGenerator(
   plan: Pick<GeneratorPlan, "delayMs" | "generatorId" | "timerId">,
   nodes: NodeSpec[],
   links: Link[],
-): Promise<{ wasm: Uint8Array; connectors: readonly SolutionViewConnector[] }> {
+): Promise<{ wasm: Uint8Array; prodWasm: Uint8Array; connectors: readonly SolutionViewConnector[] }> {
   const assembled = await buildGenerator(plan, nodes, links, false);
-  return { wasm: assembled.wasm, connectors: assembled.connectors };
+  return { wasm: assembled.wasm, prodWasm: assembled.prodWasm, connectors: assembled.connectors };
 }
 
 /**
- * Walk Scope → transformers → Generator (sink flow), then compile MoonBit to wasm-gc.
+ * Walk Scope → transformers → Generator (sink flow), then compile MoonBit to
+ * wasm-gc (browser) and linear wasm (MCU).
  * `runDiagram` does the same assemble step when the simulation starts.
  */
 export async function compileGenerator(
@@ -49,7 +51,13 @@ export async function compileGenerator(
     return undefined;
   }
   const assembled = await buildGenerator(plan, nodes, links);
-  return { ...plan, text: assembled.text, wasm: assembled.wasm, connectors: assembled.connectors };
+  return {
+    ...plan,
+    text: assembled.text,
+    wasm: assembled.wasm,
+    prodWasm: assembled.prodWasm,
+    connectors: assembled.connectors,
+  };
 }
 
 /** Assemble the catalog block functions into one module and return MoonBit source. */

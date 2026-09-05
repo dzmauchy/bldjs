@@ -92,6 +92,9 @@ describe("BldToolbar", () => {
     await bar.updateComplete;
     expect(dropdown()?.classList.contains("show")).toBe(true);
     expect(dropdown()?.querySelector('[data-testid="menu-about"]')).not.toBeNull();
+    expect(dropdown()?.querySelector('[data-testid="menu-hardware"]')?.textContent).toBe("Hardware");
+    expect(dropdown()?.querySelector('[data-testid="menu-connect-mcu"]')).not.toBeNull();
+    expect(dropdown()?.querySelector('[data-testid="menu-deploy-mcu"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-new-canvas"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-save-diagram"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-open-diagram"]')).not.toBeNull();

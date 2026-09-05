@@ -334,6 +334,32 @@ export class BldToolbar extends AppHost {
             )}
 
             <div class="dropdown-divider"></div>
+            <div class="dropdown-header" data-testid="menu-hardware">Hardware</div>
+            <button
+              class="dropdown-item"
+              type="button"
+              data-testid="menu-connect-mcu"
+              ?disabled=${!app.deploy.available() || app.deploy.connecting}
+              @click=${() => {
+                void app.deploy.connect();
+                this.#close();
+              }}
+            >
+              ${app.deploy.connected ? "MCU connected" : "Connect MCU…"}
+            </button>
+            <button
+              class="dropdown-item"
+              type="button"
+              data-testid="menu-deploy-mcu"
+              ?disabled=${!app.deploy.available() || app.deploy.connecting}
+              @click=${() => {
+                void app.deploy.deploy();
+                this.#close();
+              }}
+            >
+              Deploy MCU wasm
+            </button>
+            <div class="dropdown-divider"></div>
             <div class="dropdown-header" data-testid="menu-view">View</div>
             <button
               class="dropdown-item"

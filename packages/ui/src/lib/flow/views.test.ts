@@ -70,6 +70,8 @@ describe("buildNodeState", () => {
       selected: -1,
       linkingFrom: { blockId: 1, port: "out" },
       isScopeLive: () => false,
+      gpioOn: () => false,
+      gpioPin: () => 0,
       inputIsGrounded: () => false,
       blockDef: (defId) => catalog.block(defId),
       kindOf: () => blockKindFromName("Output")!,

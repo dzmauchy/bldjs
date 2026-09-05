@@ -90,8 +90,9 @@ export function assignRings(view: SolutionView, generatorId: number): Map<string
 }
 
 /**
- * WASM SolutionBuilder: emit MoonBit for each SolutionViewBlock, compile to wasm-gc.
- * `start` registers the imported browser `js.setInterval`; there is no atomic wait.
+ * WASM SolutionBuilder: emit MoonBit for each SolutionViewBlock.
+ * Compiles two modules: browser `wasm-gc` (`wasm`) and MCU linear `wasm` (`prodWasm`).
+ * Dev `start` registers the imported browser `js.setInterval`; prod exports `app_main`.
  */
 export class WasmSolutionBuilder implements SolutionBuilder {
   constructor(private readonly catalog: Catalog = builtinCatalog()) {}
@@ -113,12 +114,14 @@ async function emitWasm(
 ): Promise<SolutionAssembly> {
   preloadAssembler();
   const rings = options.generatorId !== undefined ? assignRings(view, options.generatorId) : new Map<string, number>();
-  const files = emitSolutionFiles(catalog, view, rings);
-  const wasm = await compileMoonbit(files);
+  const files = emitSolutionFiles(catalog, view, rings, "wasm-gc");
+  const prodFiles = emitSolutionFiles(catalog, view, rings, "wasm");
+  const wasm = await compileMoonbit(files, { target: "wasm-gc" });
+  const prodWasm = await compileMoonbit(prodFiles, { target: "wasm" });
   if (options.emitText === false) {
-    return { wasm, text: "", connectors: view.connectors };
+    return { wasm, prodWasm, text: "", connectors: view.connectors };
   }
-  return { wasm, text: moonbitText(files), connectors: view.connectors };
+  return { wasm, prodWasm, text: moonbitText(files), connectors: view.connectors };
 }
 
 export function linearSolutionView(generatorOrStages: string | readonly string[] = "timer"): SolutionView {

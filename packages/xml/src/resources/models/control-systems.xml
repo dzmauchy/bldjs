@@ -2,6 +2,7 @@
 <blocks id="cs" name="Control Systems" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
   <namespace id="com.dauch.cs" name="Control Systems"/>
   <namespace id="com.dauch.cs.gen" name="Gen" parent="com.dauch.cs"/>
+  <namespace id="com.dauch.cs.gpio" name="GPIO" parent="com.dauch.cs"/>
   <namespace id="com.dauch.cs.tf" name="Transform" parent="com.dauch.cs"/>
   <namespace id="com.dauch.cs.sink" name="Sink" parent="com.dauch.cs"/>
 
@@ -43,6 +44,29 @@
     <factory id="cos"/>
     <in name="in" type="(Double) -> Unit"/>
     <out name="out" type="(Double) -> Unit"/>
+  </block>
+
+  <block id="gpio_in" name="GPIO In" ns="com.dauch.cs.gpio" icon="gpio_in">
+    <attribute name="kind">Start</attribute>
+    <attribute name="runnable">true</attribute>
+    <attribute name="generator">true</attribute>
+    <attribute name="description">Digital input. Pushes the pin level (0 or 1) while running. In the browser, the toggle simulates the pin.</attribute>
+    <factory id="gpio_in"/>
+    <parameters>
+      <integer-range-parameter name="pin" description="GPIO pin number" min="0" max="31" step="1" default="0"/>
+      <integer-range-parameter name="period" description="Quantization period in milliseconds" min="1" max="1000" step="1" default="10"/>
+    </parameters>
+    <in name="in" type="(Double) -&gt; Unit"/>
+  </block>
+
+  <block id="gpio_out" name="GPIO Out" ns="com.dauch.cs.gpio" icon="gpio_out">
+    <attribute name="kind">Output</attribute>
+    <attribute name="description">Digital output. Consumes each sample and writes the pin (HIGH when the value is greater than 0.5). In the browser, the toggle simulates the pin.</attribute>
+    <factory id="gpio_out"/>
+    <parameters>
+      <integer-range-parameter name="pin" description="GPIO pin number" min="0" max="31" step="1" default="1"/>
+    </parameters>
+    <out name="out" type="(Double) -&gt; Unit"/>
   </block>
 
   <block id="scope" name="Scope" ns="com.dauch.cs.sink" icon="scope">

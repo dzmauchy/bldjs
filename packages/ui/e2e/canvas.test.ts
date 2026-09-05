@@ -66,6 +66,8 @@ test.describe("canvas", () => {
     await expect(page.locator('[data-testid="palette-random"]')).toContainText("Random");
     await expect(page.locator('[data-testid="palette-sin"]')).toContainText("Sin");
     await expect(page.locator('[data-testid="palette-cos"]')).toContainText("Cos");
+    await expect(page.locator('[data-testid="palette-gpio_in"]')).toContainText("GPIO In");
+    await expect(page.locator('[data-testid="palette-gpio_out"]')).toContainText("GPIO Out");
     await expect(page.locator('[data-testid="palette-quantizer"]')).toHaveCount(0);
     const paletteIcon = page.locator('[data-testid="palette-timer"] bld-block-icon svg');
     await expect(paletteIcon).toBeVisible();

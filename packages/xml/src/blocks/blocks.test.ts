@@ -192,11 +192,15 @@ describe("blocks", () => {
     expect(cat.block("cos")).toBeDefined();
     expect(cat.block("random")).toBeDefined();
     expect(cat.block("scope")).toBeDefined();
+    expect(cat.block("gpio_in")).toBeDefined();
+    expect(cat.block("gpio_out")).toBeDefined();
     expect(cat.block("quantizer")).toBeUndefined();
     expect(cat.block("b_array_of")).toBeUndefined();
     expect(cat.block("b_start")).toBeUndefined();
     expect(cat.blocks().map((block) => block.id).sort()).toEqual([
       "cos",
+      "gpio_in",
+      "gpio_out",
       "random",
       "scope",
       "sin",
@@ -531,6 +535,8 @@ describe("blocks", () => {
     expect(cat.block("cos")!.ns).toBe("com.dauch.cs.tf");
     expect(cat.block("random")!.ns).toBe("com.dauch.cs.gen");
     expect(scope.ns).toBe("com.dauch.cs.sink");
+    expect(cat.block("gpio_in")!.ns).toBe("com.dauch.cs.gpio");
+    expect(cat.block("gpio_out")!.ns).toBe("com.dauch.cs.gpio");
     expect(cat.namespaceLabel("com.dauch.cs")).toBe("Control Systems");
     expect(cat.namespaceLabel("com.dauch.cs.gen")).toBe("Gen");
     expect(cat.namespaceLabel("com.dauch.cs.tf")).toBe("Transform");
@@ -538,9 +544,11 @@ describe("blocks", () => {
     expect(cat.namespaces.get("com.dauch.cs.gen")?.parent).toBe("com.dauch.cs");
     expect(cat.namespaces.get("com.dauch.cs.tf")?.parent).toBe("com.dauch.cs");
     expect(cat.namespaces.get("com.dauch.cs.sink")?.parent).toBe("com.dauch.cs");
+    expect(cat.namespaces.get("com.dauch.cs.gpio")?.parent).toBe("com.dauch.cs");
     expect(cat.namespaceParent("com.dauch.cs.gen")).toBe("com.dauch.cs");
     expect(cat.namespaceParent("com.dauch.cs.tf")).toBe("com.dauch.cs");
     expect(cat.namespaceParent("com.dauch.cs.sink")).toBe("com.dauch.cs");
+    expect(cat.namespaceParent("com.dauch.cs.gpio")).toBe("com.dauch.cs");
     expect(cat.namespaceParent("com.dauch.cs")).toBeNull();
     for (const id of ["timer", "random"] as const) {
       const period = cat.block(id)!.parameters.find((param) => param.name === "period");
@@ -551,6 +559,14 @@ describe("blocks", () => {
     }
     expect(cat.block("sin")!.parameters).toEqual([]);
     expect(cat.block("cos")!.parameters).toEqual([]);
+    const gpioIn = cat.block("gpio_in")!;
+    expect(gpioIn.attributes.find((item) => item.name === "generator")?.value).toBe("true");
+    expect(displayType(gpioIn.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(gpioIn.parameters.find((param) => param.name === "pin")?.default).toBe("0");
+    const gpioOut = cat.block("gpio_out")!;
+    expect(gpioOut.inputs.length).toBe(0);
+    expect(displayType(gpioOut.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
+    expect(gpioOut.parameters.find((param) => param.name === "pin")?.default).toBe("1");
     expect(cat.findType("Double")).toBeDefined();
     expect(cat.findType("Array")).toBeDefined();
     expect(cat.findType("Unit")).toBeDefined();
@@ -732,6 +748,18 @@ describe("blocks", () => {
     const nodes = [{ id: 4, defId: "timer" }];
     expect(planGenerator(4, nodes, [])).toBeUndefined();
     expect(compileTimer(4, nodes, [], new Map())).toBeUndefined();
+  });
+
+  it("plans GPIO output into a GPIO input generator", () => {
+    const nodes = [
+      { id: 1, defId: "gpio_out", pin: 1 },
+      { id: 2, defId: "gpio_in", pin: 0, periodMs: 10 },
+    ];
+    const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }];
+    const plan = planGenerator(2, nodes, links)!;
+    expect(plan.defId).toBe("gpio_in");
+    expect(plan.tree).toEqual({ kind: "scope", id: 1 });
+    expect(plan.scopeIds).toEqual([1]);
   });
 
   it("control systems diagram grounds nested func chain", () => {

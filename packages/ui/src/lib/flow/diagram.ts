@@ -236,6 +236,9 @@ export class BldDiagram extends AppHost {
     }
     if (this.app.run.running) {
       this.app.run.sampleFlowRates();
+      if (this.app.blocks.some((block) => block.defId === "gpio_in" || block.defId === "gpio_out")) {
+        this.requestUpdate();
+      }
     }
     for (const host of this.renderRoot.querySelectorAll("bld-connector")) {
       if (!(host instanceof BldConnector) || host.preview) {
@@ -422,6 +425,8 @@ export class BldDiagram extends AppHost {
                 selected: app.selected,
                 linkingFrom: app.linkingFrom,
                 isScopeLive: (id) => app.run.isScopeLive(id),
+                gpioOn: (id) => app.gpioOn(id),
+                gpioPin: (id) => app.blockPin(id),
                 inputIsGrounded: (blockId, port) => app.inputIsGrounded(blockId, port),
                 blockDef: (defId) => app.blockDef(defId),
                 kindOf: (def) => app.kindOf(def),
@@ -441,6 +446,7 @@ export class BldDiagram extends AppHost {
                   @portpointerup=${(event: CustomEvent<PortPointerDetail>) =>
                     this.#interaction.onPortUp(event.detail)}
                   @chartclick=${() => app.openScope(block.id)}
+                  @gpioclick=${() => app.toggleGpio(block.id)}
                   @inputsclick=${() => app.openInputs(block.id)}
                   @noderesize=${(event: CustomEvent<NodeLayout>) => this.#rememberLayout(block.id, event.detail)}
                 ></bld-node>
