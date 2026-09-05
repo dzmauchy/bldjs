@@ -8,6 +8,7 @@ export interface SolutionViewBlock {
   defId: string;
   pin?: number;
   periodMs?: number;
+  zeta?: number;
 }
 
 /** One wire between XML ports. Extra vector slots use `out[1]`, `in[1]`, … */
@@ -26,7 +27,7 @@ export class SolutionView {
   ) {}
 
   static from(
-    blocks: readonly { id: number; defId: string; pin?: number; periodMs?: number }[],
+    blocks: readonly { id: number; defId: string; pin?: number; periodMs?: number; zeta?: number }[],
     connectors: readonly Link[],
   ): SolutionView {
     return new SolutionView(
@@ -35,6 +36,7 @@ export class SolutionView {
         defId: block.defId,
         pin: block.pin,
         periodMs: block.periodMs,
+        zeta: block.zeta,
       })),
       connectors.map((link) => ({
         fromBlock: link.fromBlock,
@@ -97,7 +99,7 @@ export class SolutionView {
 }
 
 export function solutionViewFrom(
-  blocks: readonly { id: number; defId: string; pin?: number; periodMs?: number }[],
+  blocks: readonly { id: number; defId: string; pin?: number; periodMs?: number; zeta?: number }[],
   connectors: readonly Link[],
 ): SolutionView {
   return SolutionView.from(blocks, connectors);

@@ -98,6 +98,25 @@ describe("compileGenerator", () => {
     expect(compiled.text).toContain("timer(0,");
   });
 
+  it("walks an overshoot transformer and bakes ζ", async () => {
+    const nodes = [
+      { id: 1, defId: "scope" },
+      { id: 2, defId: "overshoot", zeta: 0.5 },
+      { id: 3, defId: "timer" },
+    ];
+    const links: Link[] = [
+      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+    ];
+    const compiled = (await compileGenerator(3, nodes, links))!;
+    expect(compiled.channels).toEqual([{ scopeId: 1, label: "overshoot" }]);
+    expect(compiled.text).toContain("fn overshoot(_ctx : Int, input : C1) -> C1");
+    expect(compiled.text).toContain("math_exp(");
+    expect(compiled.text).toContain('fn math_exp(x : Double) -> Double = "Math" "exp"');
+    expect(compiled.text).toContain('fn math_sqrt(x : Double) -> Double = "Math" "sqrt"');
+    expect(WebAssembly.validate(compiled.wasm.slice().buffer)).toBe(true);
+  });
+
   it("emits a fork into two push rings", async () => {
     const nodes = [
       { id: 1, defId: "scope" },

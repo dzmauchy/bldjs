@@ -27,6 +27,7 @@ describe("palette tree", () => {
     ]);
     expect(cs.children.find((group) => group.id === "com.dauch.cs.tf")?.blocks.map((block) => block.id)).toEqual([
       "cos",
+      "overshoot",
       "sin",
     ]);
     expect(cs.children.find((group) => group.id === "com.dauch.cs.sink")?.blocks.map((block) => block.id)).toEqual([

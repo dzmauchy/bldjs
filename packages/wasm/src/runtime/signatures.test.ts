@@ -44,6 +44,7 @@ describe("XML ↔ WASM signatures", () => {
     for (const [id, name] of [
       ["sin", "Sin"],
       ["cos", "Cos"],
+      ["overshoot", "Overshoot"],
     ] as const) {
       expect(blockSignature(cat.block(id)!)).toEqual({
         id,

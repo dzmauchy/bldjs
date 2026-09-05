@@ -16,18 +16,28 @@ function wasmImports(wasm: Uint8Array): { module: string; name: string }[] {
 
 describe("block MoonBit assembly", () => {
   it("keeps one MoonBit script per XML block", () => {
-    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual(["cos", "gpio_in", "gpio_out", "random", "scope", "sin", "timer"]);
+    expect(Object.keys(BLOCK_SCRIPTS).sort()).toEqual([
+      "cos",
+      "gpio_in",
+      "gpio_out",
+      "overshoot",
+      "random",
+      "scope",
+      "sin",
+      "timer",
+    ]);
     for (const id of ["timer", "random", "gpio_in"] as const) {
       const source = BLOCK_SCRIPTS[id]!();
       expect(source).toContain(`fn ${id}(_ctx : Int, input : C1) -> Unit`);
     }
-    for (const id of ["sin", "cos"] as const) {
+    for (const id of ["sin", "cos", "overshoot"] as const) {
       const source = BLOCK_SCRIPTS[id]!();
       expect(source).toContain(`fn ${id}(_ctx : Int, input : C1) -> C1`);
     }
     expect(BLOCK_SCRIPTS.scope!()).toContain("fn scope(_ctx : Int) -> C1");
     expect(BLOCK_SCRIPTS.gpio_out!()).toContain("fn gpio_out(_ctx : Int) -> C1");
     expect(BLOCK_SCRIPTS.gpio_in!({ pin: 3 })).toContain("host_pin_read(3)");
+    expect(BLOCK_SCRIPTS.overshoot!({ zeta: 0.7 })).toContain("-0.7 * t");
     expect(BLOCK_SCRIPTS.scope!({ length: 2, rings: [0, 1] })).toContain("fn scope(_ctx : Int) -> (C1, C1)");
   });
 

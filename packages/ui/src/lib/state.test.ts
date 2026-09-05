@@ -374,6 +374,18 @@ describe("AppState run", () => {
     expect(app.toDiagramXml()).toContain('value="20"');
   });
 
+  it("seeds overshoot ζ at 0.5 and updates it", () => {
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("overshoot", 0, 0);
+    expect(app.blockZeta(id)).toBe(0.5);
+    expect(app.blockInputs(id).map((input) => [input.def.name, input.value])).toEqual([["ζ", "0.5"]]);
+    app.setBlockParameter(id, "ζ", "0.7");
+    expect(app.blockZeta(id)).toBe(0.7);
+    expect(app.toDiagramXml()).toContain('name="ζ"');
+    expect(app.toDiagramXml()).toContain('value="0.7"');
+  });
+
   it("closes and ignores input configuration while a run is busy", async () => {
     const app = new AppState();
     const { generatorId } = wireCsPipeline(app);

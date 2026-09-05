@@ -11,7 +11,7 @@ export { collectChannels, collectScopeIds } from "./tree";
 
 function walkConsumer(
   id: number,
-  defOf: (id: number) => string | undefined,
+  nodeOf: (id: number) => NodeSpec | undefined,
   links: Link[],
   depth: number,
 ): ConsumerTree | undefined {
@@ -20,15 +20,16 @@ function walkConsumer(
   }
   const parts: ConsumerTree[] = [];
   for (const link of incomingTo(links, id, "in")) {
-    const fromDef = defOf(link.fromBlock);
+    const from = nodeOf(link.fromBlock);
+    const fromDef = from?.defId;
     if (fromDef && isSinkId(fromDef)) {
       parts.push(new ScopeSink(link.fromBlock));
       continue;
     }
     if (fromDef && isTransformerId(fromDef)) {
-      const inner = walkConsumer(link.fromBlock, defOf, links, depth + 1);
+      const inner = walkConsumer(link.fromBlock, nodeOf, links, depth + 1);
       if (inner) {
-        parts.push(new MapNode(fromDef, link.fromBlock, inner));
+        parts.push(new MapNode(fromDef, link.fromBlock, inner, from?.zeta));
       }
     }
   }
@@ -47,8 +48,8 @@ export function planGenerator(generatorId: number, nodes: NodeSpec[], links: Lin
   if (!node || !isGeneratorId(node.defId)) {
     return undefined;
   }
-  const defOf = (id: number): string | undefined => nodes.find((item) => item.id === id)?.defId;
-  const tree = walkConsumer(generatorId, defOf, links, 0);
+  const nodeOf = (id: number): NodeSpec | undefined => nodes.find((item) => item.id === id);
+  const tree = walkConsumer(generatorId, nodeOf, links, 0);
   if (!tree) {
     return undefined;
   }

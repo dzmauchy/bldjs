@@ -108,6 +108,28 @@ describe("buildNodeState", () => {
     expect(catalog.block("timer")?.parameters.map((param) => param.name)).toEqual(["period"]);
   });
 
+  it("shows the config control on overshoot with a ζ parameter", () => {
+    const diagram = new Diagram("ws", "Workspace");
+    associateBuiltinModels(diagram);
+    const catalog = diagram.catalog();
+    const block: BlockInstance = { id: 2, defId: "overshoot", x: 0, y: 0 };
+    const state = buildNodeState(block, new Map(), {
+      catalog,
+      links: [],
+      selected: -1,
+      linkingFrom: null,
+      isScopeLive: () => false,
+      gpioOn: () => false,
+      gpioPin: () => 0,
+      inputsEnabled: true,
+      inputIsGrounded: () => false,
+      blockDef: (defId) => catalog.block(defId),
+      kindOf: () => blockKindFromName("Process")!,
+    });
+    expect(state?.showInputs).toBe(true);
+    expect(catalog.block("overshoot")?.parameters.map((param) => param.name)).toEqual(["ζ"]);
+  });
+
   it("marks GPIO In as an interactive switch and GPIO Out as a disabled readout", () => {
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);

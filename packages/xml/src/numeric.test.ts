@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { clampInt, clampPositiveInt } from "./numeric";
+import { clampDouble, clampInt, clampPositiveInt } from "./numeric";
 import { intervalMs } from "./flow";
-import { DEFAULT_PERIOD_MS, DEFAULT_PIN, DEFAULT_WINDOW_S, meterMsFrom, periodMsFrom, pinFrom, sampleCap, windowSecondsFrom } from "./blocks/cs/ids";
+import { DEFAULT_PERIOD_MS, DEFAULT_PIN, DEFAULT_WINDOW_S, DEFAULT_ZETA, MAX_ZETA, MIN_ZETA, meterMsFrom, periodMsFrom, pinFrom, sampleCap, windowSecondsFrom, zetaFrom } from "./blocks/cs/ids";
 
 describe("clampPositiveInt", () => {
   it("truncates and floors at 1", () => {
@@ -32,5 +32,17 @@ describe("clampInt", () => {
     expect(windowSecondsFrom("5")).toBe(10);
     expect(meterMsFrom("5")).toBe(10);
     expect(sampleCap(30, 10)).toBe(3000);
+  });
+});
+
+describe("clampDouble", () => {
+  it("clamps the overshoot damping ratio without truncating", () => {
+    expect(clampDouble(0.5, 0.05, 0.95)).toBe(0.5);
+    expect(clampDouble(0.01, MIN_ZETA, MAX_ZETA, DEFAULT_ZETA)).toBe(MIN_ZETA);
+    expect(clampDouble(1.2, MIN_ZETA, MAX_ZETA, DEFAULT_ZETA)).toBe(MAX_ZETA);
+    expect(clampDouble(Number.NaN, MIN_ZETA, MAX_ZETA, DEFAULT_ZETA)).toBe(DEFAULT_ZETA);
+    expect(zetaFrom(undefined)).toBe(DEFAULT_ZETA);
+    expect(zetaFrom("0.7")).toBe(0.7);
+    expect(zetaFrom("0")).toBe(MIN_ZETA);
   });
 });

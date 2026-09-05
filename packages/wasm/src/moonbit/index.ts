@@ -13,7 +13,7 @@ export { preamble, emitStart, emitStopped, emitAppMain, PIN_INPUT, PIN_OUTPUT, P
 export { emitFork } from "./fork";
 export { MoonBlock } from "./block";
 export { MoonGenerator, RandomMoonBlock, TimerMoonBlock, emitRandom, emitTimer } from "./generators";
-export { CosMoonBlock, MoonTransformer, SinMoonBlock, emitConsumerWrap, emitCos, emitSin } from "./transformers";
+export { CosMoonBlock, MoonTransformer, OvershootMoonBlock, SinMoonBlock, emitConsumerWrap, emitCos, emitOvershoot, emitSin } from "./transformers";
 export { ScopeMoonBlock, emitScope } from "./scope";
 export { GpioInMoonBlock, GpioOutMoonBlock, emitGpioIn, emitGpioOut } from "./gpio";
 export { BLOCK_SCRIPTS, MOON_BLOCKS } from "./scripts";

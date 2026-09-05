@@ -64,13 +64,56 @@ fn math_sin(rad : Double) -> Double {
 ${cos}`;
 }
 
-export function emitEmbeddedMath(needs: { sin?: boolean; cos?: boolean; random?: boolean } = {}): string {
+function emitMathExp(): string {
+  return `fn math_exp(x : Double) -> Double {
+  if x < -20.0 {
+    return 0.0
+  }
+  if x > 20.0 {
+    return 485165195.4097903
+  }
+  let mut sum = 1.0
+  let mut term = 1.0
+  let mut n = 1.0
+  while n < 24.0 {
+    term = term * x / n
+    sum = sum + term
+    n = n + 1.0
+  }
+  sum
+}
+`;
+}
+
+function emitMathSqrt(): string {
+  return `fn math_sqrt(x : Double) -> Double {
+  if x <= 0.0 {
+    return 0.0
+  }
+  let mut g = x
+  let mut i = 0.0
+  while i < 16.0 {
+    g = 0.5 * (g + x / g)
+    i = i + 1.0
+  }
+  g
+}
+`;
+}
+
+export function emitEmbeddedMath(needs: { sin?: boolean; cos?: boolean; exp?: boolean; sqrt?: boolean; random?: boolean } = {}): string {
   const parts: string[] = [];
   if (needs.random) {
     parts.push(emitMathRandom());
   }
   if (needs.sin || needs.cos) {
     parts.push(emitMathTrig(Boolean(needs.cos)));
+  }
+  if (needs.exp) {
+    parts.push(emitMathExp());
+  }
+  if (needs.sqrt) {
+    parts.push(emitMathSqrt());
   }
   return parts.join("\n");
 }
