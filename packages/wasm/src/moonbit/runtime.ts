@@ -58,31 +58,40 @@ function jsBindings(needs: PreambleNeeds): string[] {
   return bindings;
 }
 
-function envBindings(): string {
-  return `extern "wasm" fn host_wait_event(timeout_ms : Int) -> Int = "env" "wait_event"
-extern "wasm" fn host_pin_mode(pin : Int, mode : Int) = "env" "pin_mode"
-extern "wasm" fn host_pin_write(pin : Int, val : Int) = "env" "pin_write"
-extern "wasm" fn host_pin_read(pin : Int) -> Int = "env" "pin_read"
-extern "wasm" fn host_attach_irq(pin : Int, edge_mode : Int) = "env" "attach_irq"
-extern "wasm" fn host_timer_start(timer_id : Int, period_us : Int) = "env" "timer_start"
-extern "wasm" fn host_adc_read_raw(channel : Int) -> Int = "env" "adc_read_raw"
-extern "wasm" fn host_usb_write(ptr : Int, len : Int) -> Int = "env" "usb_write"
-`;
+function envBindings(needs: PreambleNeeds): string {
+  const lines = [
+    `extern "wasm" fn host_wait_event(timeout_ms : Int) -> Int = "env" "wait_event"`,
+    `extern "wasm" fn host_timer_start(timer_id : Int, period_us : Int) = "env" "timer_start"`,
+    `extern "wasm" fn host_usb_write(ptr : Int, len : Int) -> Int = "env" "usb_write"`,
+  ];
+  if (needs.gpio) {
+    lines.push(
+      `extern "wasm" fn host_pin_mode(pin : Int, mode : Int) = "env" "pin_mode"`,
+      `extern "wasm" fn host_pin_write(pin : Int, val : Int) = "env" "pin_write"`,
+      `extern "wasm" fn host_pin_read(pin : Int) -> Int = "env" "pin_read"`,
+      `extern "wasm" fn host_attach_irq(pin : Int, edge_mode : Int) = "env" "attach_irq"`,
+    );
+  }
+  return `${lines.join("\n")}\n`;
 }
 
-function emitTelemetry(): string {
-  return `priv struct McuState {
-  mut tick_count : Double
-  mut rng : Double
-}
-
-let mcu : McuState = { tick_count: 0.0, rng: 0.1234567 }
-
-fn now() -> Double {
+function emitTelemetry(needs: PreambleNeeds): string {
+  const rngField = needs.random ? "\n  mut rng : Double" : "";
+  const rngInit = needs.random ? ", rng: 0.1234567" : "";
+  const nowFn = needs.now
+    ? `fn now() -> Double {
   mcu.tick_count * 0.001
 }
 
-fn host_push(_v : Double, _ring : Int) -> Unit {
+`
+    : "";
+  return `priv struct McuState {
+  mut tick_count : Double${rngField}
+}
+
+let mcu : McuState = { tick_count: 0.0${rngInit} }
+
+${nowFn}fn host_push(_v : Double, _ring : Int) -> Unit {
   let _ = host_usb_write(0, 0)
 }
 `;
@@ -119,8 +128,8 @@ function preambleProd(needs: PreambleNeeds): string {
   const parts = [
     `// XML-matching MoonBit wasm generator for MCU + RTOS (WAMR).
 // Host ABI is env (pin_*, wait_event, timer_start, usb_write). No JS Math or setInterval.`,
-    envBindings(),
-    emitTelemetry(),
+    envBindings(needs),
+    emitTelemetry(needs),
     math,
     emitStopped("wasm"),
     "type C1 = (Double) -> Unit",

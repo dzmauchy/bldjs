@@ -10,7 +10,14 @@ function emitMathRandom(): string {
 `;
 }
 
-function emitMathTrig(): string {
+function emitMathTrig(includeCos: boolean): string {
+  const cos = includeCos
+    ? `
+fn math_cos(rad : Double) -> Double {
+  math_sin(rad + 1.5707963267948966)
+}
+`
+    : "";
   return `fn rem_two_pi(rad : Double) -> Double {
   let two_pi = 6.283185307179586
   let mut x = rad
@@ -54,11 +61,7 @@ fn math_sin(rad : Double) -> Double {
   let x7 = x5 * x2
   x - (x3 / 6.0) + (x5 / 120.0) - (x7 / 5040.0)
 }
-
-fn math_cos(rad : Double) -> Double {
-  math_sin(rad + 1.5707963267948966)
-}
-`;
+${cos}`;
 }
 
 export function emitEmbeddedMath(needs: { sin?: boolean; cos?: boolean; random?: boolean } = {}): string {
@@ -67,7 +70,7 @@ export function emitEmbeddedMath(needs: { sin?: boolean; cos?: boolean; random?:
     parts.push(emitMathRandom());
   }
   if (needs.sin || needs.cos) {
-    parts.push(emitMathTrig());
+    parts.push(emitMathTrig(Boolean(needs.cos)));
   }
   return parts.join("\n");
 }

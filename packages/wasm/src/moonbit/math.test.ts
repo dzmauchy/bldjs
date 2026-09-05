@@ -15,6 +15,7 @@ describe("embedded MCU math", () => {
   it("omits unused helpers", () => {
     expect(emitEmbeddedMath({ random: true })).not.toContain("math_sin");
     expect(emitEmbeddedMath({ sin: true })).not.toContain("math_random");
+    expect(emitEmbeddedMath({ sin: true })).not.toContain("math_cos");
     expect(emitEmbeddedMath()).toBe("");
   });
 });

@@ -63,6 +63,6 @@ export class DeploySession extends HostedState<DeployHost> {
 
   async disconnect(): Promise<void> {
     await this.transport.disconnect();
-    this.notify();
+    this.host.notify();
   }
 }
