@@ -24,7 +24,9 @@ describe("extern wasm stopped", () => {
   });
 
   it("compiles stopped into wasm-gc and runs tick", async () => {
-    const source = `${preamble({ now: false })}
+    const source = `${emitStopped()}
+fn js_set_interval(cb : () -> Unit, ms : Int) -> Int = "js" "setInterval"
+
 pub fn tick() -> Unit {
   let _ = stopped()
 }
@@ -35,7 +37,6 @@ ${emitStart()}
     expect(hasI32AtomicLoad(wasm)).toBe(true);
     const inst = await WebAssembly.instantiate(wasm.slice().buffer, {
       js: { setInterval: () => 0 },
-      host: { push: () => undefined },
       "moonbit:ffi": {
         make_closure: (fn: (...args: unknown[]) => unknown, closure: unknown) => fn.bind(null, closure),
       },
