@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compileGenerator } from "../compile";
-import { createSharedMemory, readSamples } from "../runtime/memory";
+import { createSharedMemory, readLatest, readSamples } from "../runtime/memory";
 import { instantiateGenerator } from "../runtime/generator";
 import { solutionViewFrom } from "@bld/xml/solution/view";
 import { WasmSolutionBuilder } from "./wasm";
@@ -167,10 +167,10 @@ describe("WasmSolutionBuilder", () => {
     const gen = await instantiateGenerator(wasm, memory, () => t);
     t = 0;
     gen.tick();
-    expect(readSamples(memory, 0)[0]).toBeCloseTo(0, 8);
+    expect(readLatest(memory, 0)).toBeCloseTo(0, 8);
     t = Math.PI / 4;
     gen.tick();
-    expect(readSamples(memory, 0)[0]).toBeCloseTo(0.5, 8);
+    expect(readLatest(memory, 0)).toBeCloseTo(0.5, 8);
   });
 
   it("pushes a baked constant sample", async () => {
