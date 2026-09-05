@@ -78,8 +78,11 @@ describe("i32 atomic library", () => {
 describe("atomics in generated blocks", () => {
   it("keeps i32.atomic.load when tick uses stopped", async () => {
     expect(emitStopped()).toContain(`${i32Atomic("load").name}(${MEM.stop})`);
-    expect(preamble()).toContain(emitI32Atomics());
-    const wasm = await compileTick(`  let _ = stopped()`, `${emitI32Atomics()}\n${emitStopped()}`);
+    expect(preamble()).toContain(emitI32Atomics([i32Atomic("load")]));
+    const wasm = await compileTick(
+      `  let _ = stopped()`,
+      `${emitI32Atomics([i32Atomic("load")])}\n${emitStopped()}`,
+    );
     expect(hasThreadsOpcode(wasm, I32_ATOMIC_OPCODE.load)).toBe(true);
     expect(hasThreadsOpcode(wasm, I32_ATOMIC_OPCODE.store)).toBe(false);
     expect(hasThreadsOpcode(wasm, I32_ATOMIC_OPCODE.add)).toBe(false);
@@ -89,7 +92,13 @@ describe("atomics in generated blocks", () => {
     const load = i32Atomic("load");
     const store = i32Atomic("store");
     const add = i32Atomic("add");
-    const source = `${preamble({ sin: false, cos: false, random: false, now: true })}
+    const source = `${preamble({
+      sin: false,
+      cos: false,
+      random: false,
+      now: true,
+      atomics: [load, store, add],
+    })}
 fn timer(ctx : Int, input : C1) -> Unit {
   let _ = ctx
   let flag = ${load.name}(${MEM.stop})
@@ -100,7 +109,7 @@ fn timer(ctx : Int, input : C1) -> Unit {
 
 fn scope(ctx : Int) -> C1 {
   let _ = ctx
-  fn(_v : Double) { }
+  fn(v : Double) { host_push(v, 0) }
 }
 
 pub fn tick() -> Unit {

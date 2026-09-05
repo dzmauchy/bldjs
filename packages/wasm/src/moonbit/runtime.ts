@@ -1,5 +1,5 @@
 import { MEM } from "../runtime/memory";
-import { emitI32Atomics, i32Atomic } from "./atomics";
+import { type I32AtomicFn, emitI32Atomics, i32Atomic } from "./atomics";
 
 /** Official MoonBit browser bindings (`module.function` → JS `Math.sin`, `Date.now`, …). */
 export interface PreambleNeeds {
@@ -7,6 +7,8 @@ export interface PreambleNeeds {
   cos?: boolean;
   random?: boolean;
   now?: boolean;
+  /** Atomic wrappers to emit. Defaults to load, which `stopped` uses. */
+  atomics?: readonly I32AtomicFn[];
 }
 
 /**
@@ -35,7 +37,7 @@ export function preamble(needs: PreambleNeeds = { sin: true, cos: true, random: 
   }
   bindings.push('fn js_set_interval(cb : () -> Unit, ms : Int) -> Int = "js" "setInterval"');
   bindings.push('fn host_push(v : Double, ring : Int) -> Unit = "host" "push"');
-  bindings.push(emitI32Atomics());
+  bindings.push(emitI32Atomics(needs.atomics ?? [i32Atomic("load")]));
   bindings.push(emitStopped());
   const nowFn = needs.now
     ? `
@@ -46,7 +48,7 @@ fn now() -> Double {
     : "";
   return `// XML-matching MoonBit wasm-gc generator.
 // Browser bindings: Math, Date, js.setInterval. Samples go through host.push.
-// i32 atomics are extern "wasm" WAT (not wait). stopped uses i32.atomic.load.
+// i32 atomics are extern "wasm" WAT (not wait). Default is i32.atomic.load for stopped.
 ${bindings.join("\n")}
 
 type C1 = (Double) -> Unit

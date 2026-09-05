@@ -11,13 +11,14 @@ describe("extern wasm stopped", () => {
     expect(source).toContain(`${i32Atomic("load").name}(${MEM.stop})`);
     expect(source).not.toContain("memory.atomic.wait32");
     expect(source).not.toContain("memory.atomic.wait64");
-    expect(preamble()).toContain(emitI32Atomics());
+    expect(preamble()).toContain(emitI32Atomics([i32Atomic("load")]));
     expect(preamble()).toContain(source);
     expect(preamble()).toContain("i32.atomic.load");
+    expect(preamble()).not.toContain("i32.atomic.store");
   });
 
   it("compiles stopped into wasm-gc and runs tick", async () => {
-    const source = `${emitI32Atomics()}
+    const source = `${emitI32Atomics([i32Atomic("load")])}
 ${emitStopped()}
 fn js_set_interval(cb : () -> Unit, ms : Int) -> Int = "js" "setInterval"
 
