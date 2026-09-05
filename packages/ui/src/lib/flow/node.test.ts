@@ -338,6 +338,14 @@ describe("BldNode", () => {
     expect(toggle.checked).toBe(false);
     expect(toggle.getAttribute("aria-label")).toBe("GPIO pin 0 LOW");
     expect(node.shadowRoot!.querySelector(".form-check-label")).toBeNull();
+    const gpioCss = (Array.isArray(BldNode.styles) ? BldNode.styles : [BldNode.styles])
+      .flat(Infinity)
+      .map((sheet) => (sheet as { cssText: string }).cssText)
+      .join("\n");
+    expect(gpioCss).toContain(".flow-node-gpio.form-switch .form-check-input");
+    expect(gpioCss).toMatch(/\.flow-node-gpio\s*\{[^}]*padding:\s*0/);
+    expect(gpioCss).toMatch(/\.flow-node-gpio\.form-switch \.form-check-input\s*\{[^}]*float:\s*none/);
+    expect(gpioCss).toMatch(/\.flow-node-gpio\.form-switch \.form-check-input\s*\{[^}]*margin:\s*0/);
     let toggled = false;
     node.addEventListener("gpioclick", () => {
       toggled = true;

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  boxOf,
   clickPortHandle,
   newCanvas,
   nodeHost,
@@ -40,6 +41,13 @@ test.describe("gpio", () => {
     await expect(outputToggle).toHaveAttribute("aria-label", "GPIO pin 1 LOW");
     await expect(nodeHost(page, "gpio_in").locator(".form-check-label")).toHaveCount(0);
     await expect(nodeHost(page, "gpio_out").locator(".form-check-label")).toHaveCount(0);
+    for (const defId of ["gpio_in", "gpio_out"] as const) {
+      const configBox = await boxOf(nodeHost(page, defId).locator('[data-testid^="inputs-"]'));
+      const switchBox = await boxOf(nodeHost(page, defId).locator('[data-testid^="gpio-"]'));
+      const configCenter = configBox.x + configBox.width / 2;
+      const switchCenter = switchBox.x + switchBox.width / 2;
+      expect(Math.abs(configCenter - switchCenter)).toBeLessThan(2);
+    }
     await inputToggle.click();
     await expect(inputToggle).toBeChecked();
     await expect(inputToggle).toHaveAttribute("aria-label", "GPIO pin 0 HIGH");
