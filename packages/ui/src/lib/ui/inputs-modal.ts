@@ -4,7 +4,8 @@ import type { AppState } from "$lib/state";
 import { BldModal } from "./modal";
 
 export class BldInputsModal extends BldModal {
-  static override styles = css`
+  static override styles = [
+    css`
     .input-row {
       display: flex;
       flex-direction: column;
@@ -23,7 +24,8 @@ export class BldInputsModal extends BldModal {
     input[type="range"] {
       width: 100%;
     }
-  `;
+    `,
+  ];
 
   protected isOpen(): boolean {
     return Boolean(this.app) && !isNoneId(this.app.inputsOpen);

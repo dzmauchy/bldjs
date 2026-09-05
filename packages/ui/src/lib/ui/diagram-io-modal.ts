@@ -6,12 +6,14 @@ import { BldModal } from "./modal";
 export class BldDiagramIoModal extends BldModal {
   #saveName = "";
 
-  static override styles = css`
+  static override styles = [
+    css`
     .saved-list {
       max-height: 16rem;
       overflow: auto;
     }
-  `;
+    `,
+  ];
 
   protected override willUpdate(changed: PropertyValues): void {
     super.willUpdate(changed);
