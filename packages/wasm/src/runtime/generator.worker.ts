@@ -1,13 +1,11 @@
 import { bootGeneratorInstance, type InstantiatedGenerator } from "./boot";
 import { requestStop } from "./memory";
-import { interceptConsumerFrequency } from "./runner";
 
 // Stay off @bld/xml: DOMParser is not defined in workers, and pulling the
 // catalog would leave the sample ring empty so the Scope plot never appears.
 
 let memory: WebAssembly.Memory | undefined;
 let gen: InstantiatedGenerator | undefined;
-let connectorCount = 0;
 let stopTimers: (() => void) | undefined;
 
 function clearTimer(): void {
@@ -24,7 +22,6 @@ async function start(
 ): Promise<void> {
   clearTimer();
   memory = shared;
-  connectorCount = count;
   gen = await bootGeneratorInstance(wasm, shared, { connectorCount: count });
   if (eventDriven) {
     stopTimers = () => {
@@ -55,9 +52,6 @@ self.onmessage = (
   }
   if (msg.type === "tick") {
     gen?.tick();
-    if (memory) {
-      interceptConsumerFrequency(memory, connectorCount);
-    }
     return;
   }
   if (msg.type === "stop") {

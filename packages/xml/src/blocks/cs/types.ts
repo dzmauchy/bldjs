@@ -14,6 +14,10 @@ export interface NodeSpec {
   defId: string;
   periodMs?: number;
   pin?: number;
+  /** Scope time-window width in seconds (`n`). */
+  windowS?: number;
+  /** Scope quantizer period in milliseconds (`m`). */
+  meterMs?: number;
 }
 
 import type { ConsumerTree } from "./tree";

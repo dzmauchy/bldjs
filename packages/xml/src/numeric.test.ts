@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { clampInt, clampPositiveInt } from "./numeric";
 import { intervalMs } from "./flow";
-import { DEFAULT_PERIOD_MS, DEFAULT_PIN, periodMsFrom, pinFrom } from "./blocks/cs/ids";
+import { DEFAULT_PERIOD_MS, DEFAULT_PIN, DEFAULT_WINDOW_S, meterMsFrom, periodMsFrom, pinFrom, sampleCap, windowSecondsFrom } from "./blocks/cs/ids";
 
 describe("clampPositiveInt", () => {
   it("truncates and floors at 1", () => {
@@ -28,5 +28,9 @@ describe("clampInt", () => {
     expect(pinFrom(undefined)).toBe(DEFAULT_PIN);
     expect(pinFrom("13")).toBe(13);
     expect(pinFrom("-1")).toBe(0);
+    expect(windowSecondsFrom(undefined)).toBe(DEFAULT_WINDOW_S);
+    expect(windowSecondsFrom("5")).toBe(10);
+    expect(meterMsFrom("5")).toBe(10);
+    expect(sampleCap(30, 10)).toBe(3000);
   });
 });

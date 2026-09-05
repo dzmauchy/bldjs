@@ -98,6 +98,21 @@ describe("scope multi-axis canvas plot", () => {
     expect(ctx.calls.some((call) => call.name === "clip")).toBe(true);
   });
 
+  it("does not stroke NaN samples and breaks the path across gaps", () => {
+    const nanOnly = recordingContext();
+    drawScopePlot(nanOnly, 640, 280, [{ label: "idle", samples: [Number.NaN, Number.NaN] }]);
+    const nanSeriesStrokes = nanOnly.calls.filter((call) => call.name === "stroke").length;
+    const finite = recordingContext();
+    drawScopePlot(finite, 640, 280, [{ label: "idle", samples: [0, 1] }]);
+    expect(finite.calls.filter((call) => call.name === "stroke").length).toBeGreaterThan(nanSeriesStrokes);
+
+    const gapped = recordingContext();
+    drawScopePlot(gapped, 640, 280, [{ label: "ch", samples: [1, Number.NaN, 2] }]);
+    const clipAt = gapped.calls.findIndex((call) => call.name === "clip");
+    const afterClip = gapped.calls.slice(clipAt);
+    expect(afterClip.filter((call) => call.name === "moveTo").length).toBeGreaterThanOrEqual(2);
+  });
+
   it("still paints axes when there are no samples yet", () => {
     const ctx = recordingContext();
     drawScopePlot(ctx, 400, 200, []);

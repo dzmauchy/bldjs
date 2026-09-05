@@ -82,7 +82,8 @@ describe("buildNodeState", () => {
       { name: "out", typeLabel: "(Double) -> Unit", showType: true },
       { name: "out[1]", typeLabel: "(Double) -> Unit", showType: false },
     ]);
-    expect(state?.showInputs).toBe(false);
+    expect(state?.showInputs).toBe(true);
+    expect(catalog.block("scope")?.parameters.map((param) => param.name)).toEqual(["n", "m"]);
   });
 
   it("shows the config control on generators with a period parameter", () => {

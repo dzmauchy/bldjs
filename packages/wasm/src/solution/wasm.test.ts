@@ -65,8 +65,8 @@ describe("WasmSolutionBuilder", () => {
     expect(text).toContain("fn sin(_ctx : Int, input : C1) -> C1");
     expect(text).toContain("fn timer(_ctx : Int, input : C1) -> Unit");
     expect(text).toContain("let b1 = scope(0)");
-    expect(text).toContain("let b2 = sin(0, b1)");
-    expect(text).toContain("timer(0, b2)");
+    expect(text).toContain("let b2 = sin(0, introspect(0, b1))");
+    expect(text).toContain("timer(0, introspect(1, b2))");
     expect(text).not.toContain("fn cos(");
     expect(text).not.toContain("memory.atomic.wait32");
     expect(WebAssembly.validate(wasm.slice().buffer)).toBe(true);

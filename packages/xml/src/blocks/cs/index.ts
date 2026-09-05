@@ -1,9 +1,16 @@
 export {
+  DEFAULT_METER_MS,
   DEFAULT_PERIOD_MS,
   DEFAULT_PIN,
+  DEFAULT_WINDOW_S,
   GENERATOR_IDS,
   GPIO_IDS,
+  MAX_METER_MS,
   MAX_PIN,
+  MAX_WINDOW_S,
+  METER_PARAM,
+  MIN_METER_MS,
+  MIN_WINDOW_S,
   PERIOD_PARAM,
   PIN_PARAM,
   QUANTIZED_GENERATOR_IDS,
@@ -11,14 +18,18 @@ export {
   SAMPLE_CAP,
   SINK_IDS,
   TRANSFORMER_IDS,
+  WINDOW_PARAM,
   isEventDrivenGenerator,
   isGeneratorId,
   isGpioId,
   isQuantizedGenerator,
   isSinkId,
   isTransformerId,
+  meterMsFrom,
   periodMsFrom,
   pinFrom,
+  sampleCap,
+  windowSecondsFrom,
 } from "./ids";
 export type {
   ConsumerTree,
@@ -33,7 +44,7 @@ export type {
   ScopeChannel,
   ScopeSeries,
 } from "./types";
-export { SampleBuf } from "./samples";
+export { SampleBuf, WindowBuf } from "./samples";
 export {
   Generator,
   GpioInGenerator,

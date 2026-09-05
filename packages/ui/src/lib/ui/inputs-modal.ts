@@ -3,6 +3,16 @@ import { isNoneId } from "$lib/model";
 import type { AppState } from "$lib/state";
 import { BldModal } from "./modal";
 
+function inputSuffix(name: string): string {
+  if (name === "period" || name === "m") {
+    return " ms";
+  }
+  if (name === "n") {
+    return " s";
+  }
+  return "";
+}
+
 export class BldInputsModal extends BldModal {
   static override styles: CSSResultGroup = [
     super.styles,
@@ -75,7 +85,7 @@ export class BldInputsModal extends BldModal {
         <div class="input-row mb-3" data-testid=${`input-row-${def.name}`}>
           <div class="input-label">
             <span>${label}</span>
-            <span class="input-value" data-testid=${`input-value-${def.name}`}>${value}${def.name === "period" ? " ms" : ""}</span>
+            <span class="input-value" data-testid=${`input-value-${def.name}`}>${value}${inputSuffix(def.name)}</span>
           </div>
           <input
             type="range"

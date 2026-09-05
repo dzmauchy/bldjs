@@ -77,6 +77,7 @@ describe("block MoonBit assembly", () => {
     expect(imports).toContainEqual({ module: "Date", name: "now" });
     expect(imports).toContainEqual({ module: "js", name: "setInterval" });
     expect(imports).toContainEqual({ module: "host", name: "push" });
+    expect(imports).toContainEqual({ module: "host", name: "tap" });
     expect(imports).toContainEqual({ module: "moonbit:ffi", name: "make_closure" });
     expect(imports.some((item) => item.module === "host" && item.name === "sin")).toBe(false);
     expect(imports.some((item) => item.module === "env")).toBe(false);

@@ -36,6 +36,12 @@ export const FLOW_COUNTS = MEMORY_BYTES - FLOW_COUNT_CAP * 4;
 export const GPIO_CAP = 32;
 export const GPIO_WORDS = FLOW_COUNTS - GPIO_CAP * 4;
 
+/** Last pushed f64 per ring (NaN until `host.push`), packed just before GPIO. */
+export const LATEST_CAP = 32;
+export const LATEST = GPIO_WORDS - LATEST_CAP * 8;
+/** Publication word so the browser timer observes the latest f64 write. */
+export const LATEST_PUB = LATEST - 4;
+
 function isSharedBuffer(buffer: ArrayBufferLike): buffer is SharedArrayBuffer {
   return typeof SharedArrayBuffer === "function" && buffer instanceof SharedArrayBuffer;
 }
@@ -83,16 +89,60 @@ class I32Words {
 }
 
 export function createMemory(shared: boolean): WebAssembly.Memory {
-  return new WebAssembly.Memory({
+  const memory = new WebAssembly.Memory({
     initial: MEMORY_PAGES,
     maximum: MEMORY_PAGES,
     shared,
   });
+  initLatest(memory);
+  return memory;
 }
 
 /** Shared memory for worker threads. Throws if the page is not cross-origin isolated. */
 export function createSharedMemory(): WebAssembly.Memory {
   return createMemory(true);
+}
+
+function latestIndex(ring: number): number {
+  if (!Number.isFinite(ring)) {
+    return 0;
+  }
+  const index = Math.trunc(ring);
+  if (index < 0) {
+    return 0;
+  }
+  if (index >= LATEST_CAP) {
+    return LATEST_CAP - 1;
+  }
+  return index;
+}
+
+function latestView(memory: WebAssembly.Memory): Float64Array {
+  return new Float64Array(memory.buffer, LATEST, LATEST_CAP);
+}
+
+function latestPub(memory: WebAssembly.Memory): I32Words {
+  return new I32Words(memory.buffer, LATEST_PUB, 1);
+}
+
+export function initLatest(memory: WebAssembly.Memory): void {
+  latestView(memory).fill(Number.NaN);
+}
+
+export function writeLatest(memory: WebAssembly.Memory, value: number, ring = 0): void {
+  latestView(memory)[latestIndex(ring)] = value;
+  latestPub(memory).add(0, 1);
+}
+
+/** Current value for a ring. `NaN` until the worker has pushed. */
+export function readLatest(memory: WebAssembly.Memory, scopeIndex = 0): number {
+  const buffer = memory.buffer;
+  if (isSharedBuffer(buffer)) {
+    Atomics.load(new Int32Array(buffer, LATEST_PUB, 1), 0);
+  } else {
+    latestPub(memory).load(0);
+  }
+  return latestView(memory)[latestIndex(scopeIndex)]!;
 }
 
 export function isStopped(memory: WebAssembly.Memory): boolean {
@@ -110,6 +160,14 @@ export function readFlowCounts(memory: WebAssembly.Memory, count: number): numbe
   }
   const words = new I32Words(memory.buffer, FLOW_COUNTS, n);
   return Array.from({ length: n }, (_, index) => words.load(index));
+}
+
+/** Increment the change counter for one connector. */
+export function bumpFlowCount(memory: WebAssembly.Memory, index: number): void {
+  if (index < 0 || index >= FLOW_COUNT_CAP) {
+    return;
+  }
+  new I32Words(memory.buffer, FLOW_COUNTS, FLOW_COUNT_CAP).add(index, 1);
 }
 
 /** The runner records one consumer invocation per connector after each `tick`. */

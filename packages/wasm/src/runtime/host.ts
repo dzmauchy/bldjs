@@ -1,9 +1,20 @@
-import { SAMPLE_CAP, isStopped, readGpio, requestStop, scopeCountAddr, scopeSamplesAddr, writeGpio } from "./memory";
-import { interceptConsumerFrequency } from "./runner";
+import { ConnectorIntrospector } from "@bld/xml/flow";
+import {
+  SAMPLE_CAP,
+  bumpFlowCount,
+  isStopped,
+  readGpio,
+  requestStop,
+  scopeCountAddr,
+  scopeSamplesAddr,
+  writeGpio,
+  writeLatest,
+} from "./memory";
 import { startQuantizedLoop } from "./tick";
 
-/** Write one sample into the JS-owned ring (MoonBit wasm-gc has its own tiny memory). */
+/** Write the current value (`NaN` until the first push) and append the JS-owned event ring. */
 export function pushSample(memory: WebAssembly.Memory, value: number, ring: number): void {
+  writeLatest(memory, value, ring);
   const view = new DataView(memory.buffer);
   const countAddr = scopeCountAddr(ring);
   const samplesAddr = scopeSamplesAddr(ring);
@@ -26,13 +37,14 @@ export interface WasmHost {
 /**
  * Imports for a MoonBit wasm-gc generator.
  * Math/Date are browser bindings (`fn sin = "Math" "sin"`). `js.setInterval` is
- * the browser timer. `host.push` writes the sample ring. `moonbit:ffi.make_closure`
- * lets `start` pass `tick` into `setInterval`. `host.pin_read` / `pin_write`
- * simulate GPIO in the browser.
+ * the browser timer. `host.push` updates the current Scope value. `host.tap` records
+ * connector value changes. `moonbit:ffi.make_closure` lets `start` pass `tick`
+ * into `setInterval`. `host.pin_read` / `pin_write` simulate GPIO in the browser.
  */
 export function createHost(memory: WebAssembly.Memory, options: HostOptions = {}): WasmHost {
   const nowSecs = options.now ?? (() => Date.now() / 1000);
   const connectorCount = options.connectorCount ?? 0;
+  const introspector = new ConnectorIntrospector(connectorCount);
   const timers = new Set<() => void>();
   let intervalFire: (() => void) | undefined;
 
@@ -55,7 +67,6 @@ export function createHost(memory: WebAssembly.Memory, options: HostOptions = {}
           isStopped: () => isStopped(memory),
           fire() {
             cb();
-            interceptConsumerFrequency(memory, connectorCount);
           },
         });
         intervalFire = loop.fire;
@@ -66,6 +77,11 @@ export function createHost(memory: WebAssembly.Memory, options: HostOptions = {}
     host: {
       push(value: number, ring: number): void {
         pushSample(memory, value, ring);
+      },
+      tap(value: number, index: number): void {
+        if (introspector.observe(index, value)) {
+          bumpFlowCount(memory, index);
+        }
       },
       pin_read(pin: number): number {
         return readGpio(memory, pin);

@@ -73,6 +73,8 @@ test.describe("gpio", () => {
     await expect(outputToggle).toHaveAttribute("aria-label", "GPIO pin 1 HIGH");
     await expect(nodeHost(page, "gpio_in").locator('[data-testid^="inputs-"]')).toBeDisabled();
     await expect(nodeHost(page, "gpio_out").locator('[data-testid^="inputs-"]')).toBeDisabled();
+    await page.waitForTimeout(300);
+    await expect(page.locator("bld-connector:not([data-preview])[data-flow]")).toHaveCount(0);
 
     await openAppMenu(page);
     await expect(page.locator('[data-testid="menu-hardware"]')).toHaveText("Hardware");
