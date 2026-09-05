@@ -294,9 +294,18 @@ export function drawScopePlot(
   }
 }
 
+function clientBox(el: Element | null): { width: number; height: number } {
+  if (!(el instanceof HTMLElement)) {
+    return { width: 0, height: 0 };
+  }
+  return { width: el.clientWidth, height: el.clientHeight };
+}
+
 export function fitScopeCanvas(canvas: HTMLCanvasElement): { width: number; height: number; dpr: number } | null {
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
+  let { width, height } = clientBox(canvas);
+  if (width < 2 || height < 2) {
+    ({ width, height } = clientBox(canvas.parentElement));
+  }
   if (width < 2 || height < 2) {
     return null;
   }
