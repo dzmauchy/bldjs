@@ -7,7 +7,7 @@ import { BldBlockIcon } from "./block-icon";
 import { BldDiagramIoModal } from "./diagram-io-modal";
 import { BldInputsModal } from "./inputs-modal";
 import { BldModal } from "./modal";
-import { BldScopeModal } from "./scope-modal";
+import { BldScopeModal, clampScopePanelPosition } from "./scope-modal";
 import { BldWorkspace } from "./workspace";
 
 function litChangeInUpdateWarnings(spy: ReturnType<typeof vi.spyOn>): string[] {
@@ -170,7 +170,8 @@ describe("Lit update scheduling", () => {
     expect(chart.renderRoot.querySelector("[data-testid=scope-modal]")).not.toBeNull();
     expect(chart.renderRoot.querySelector("[data-testid=scope-chart] canvas")).not.toBeNull();
     expect(chart.renderRoot.querySelector("[data-testid=scope-modal]")?.getAttribute("aria-hidden")).toBe("true");
-    expect(chart.renderRoot.querySelector(".modal")?.classList.contains("is-closed")).toBe(true);
+    expect(chart.renderRoot.querySelector(".scope-panel")?.classList.contains("is-closed")).toBe(true);
+    expect(chart.renderRoot.querySelector(".modal-backdrop")).toBeNull();
 
     app.scopeOpen = id;
     await chart.updateComplete;
@@ -178,14 +179,16 @@ describe("Lit update scheduling", () => {
     const close = chart.renderRoot.querySelector("[data-testid=scope-close]");
     const caption = chart.renderRoot.querySelector("[data-testid=scope-caption]");
     const canvas = host?.querySelector("canvas");
+    const panel = chart.renderRoot.querySelector("[data-testid=scope-modal]");
     expect(chart.hasAttribute("open")).toBe(true);
-    expect(chart.renderRoot.querySelector(".modal")?.classList.contains("fade")).toBe(false);
-    expect(chart.renderRoot.querySelector(".modal-backdrop")?.classList.contains("fade")).toBe(false);
-    expect(chart.renderRoot.querySelector(".modal")?.classList.contains("is-closed")).toBe(false);
+    expect(panel?.classList.contains("modal")).toBe(false);
+    expect(panel?.getAttribute("role")).toBe("region");
+    expect(chart.renderRoot.querySelector(".modal-backdrop")).toBeNull();
+    expect(chart.renderRoot.querySelector(".scope-panel")?.classList.contains("is-closed")).toBe(false);
     expect(chart.renderRoot.querySelector(".modal-title")).toBeNull();
     expect(host?.querySelector("[data-testid=scope-close]")).toBeNull();
     expect(close).not.toBeNull();
-    expect(close?.closest(".scope-footer")).not.toBeNull();
+    expect(close?.closest("[data-testid=scope-footer]")).not.toBeNull();
     expect(close?.getAttribute("aria-label")).toBe("Close");
     expect(caption?.textContent?.trim()).toBe(`blk_${id}`);
     expect(caption?.textContent).not.toContain("timer(");
@@ -256,5 +259,82 @@ describe("Lit update scheduling", () => {
     app.scopeOpen = id;
     await chart.updateComplete;
     expect(chart.renderRoot.querySelector("[data-testid=scope-caption]")?.textContent?.trim()).toBe("Probe");
+  });
+
+  it("moves the floating scope panel from its status line", async () => {
+    stubScopeCanvas();
+    const chart = document.createElement("bld-scope-modal") as BldScopeModal;
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("scope", 0, 0);
+    vi.spyOn(app.run, "snapshotScope").mockReturnValue([{ label: "sin", samples: [0, 1] }]);
+    chart.app = app;
+    document.body.append(chart);
+    await chart.updateComplete;
+    app.scopeOpen = id;
+    await chart.updateComplete;
+    const panel = chart.renderRoot.querySelector("[data-testid=scope-modal]") as HTMLElement;
+    const footer = chart.renderRoot.querySelector("[data-testid=scope-footer]") as HTMLElement;
+    expect(panel).not.toBeNull();
+    expect(footer).not.toBeNull();
+    vi.spyOn(panel, "getBoundingClientRect").mockReturnValue({
+      x: 100,
+      y: 80,
+      left: 100,
+      top: 80,
+      width: 640,
+      height: 320,
+      right: 740,
+      bottom: 400,
+      toJSON: () => ({}),
+    });
+    Object.defineProperty(panel, "offsetWidth", { configurable: true, value: 640 });
+    Object.defineProperty(panel, "offsetHeight", { configurable: true, value: 320 });
+    footer.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        composed: true,
+        pointerId: 1,
+        isPrimary: true,
+        button: 0,
+        buttons: 1,
+        clientX: 180,
+        clientY: 380,
+      }),
+    );
+    window.dispatchEvent(
+      new PointerEvent("pointermove", {
+        bubbles: true,
+        pointerId: 1,
+        isPrimary: true,
+        button: -1,
+        buttons: 1,
+        clientX: 260,
+        clientY: 330,
+      }),
+    );
+    window.dispatchEvent(
+      new PointerEvent("pointerup", {
+        bubbles: true,
+        pointerId: 1,
+        isPrimary: true,
+        button: 0,
+        buttons: 0,
+        clientX: 260,
+        clientY: 330,
+      }),
+    );
+    expect(panel.style.left).toBe("180px");
+    expect(panel.style.top).toBe("30px");
+    expect(panel.classList.contains("is-placed")).toBe(true);
+    expect(app.scopeOpen).toBe(id);
+  });
+});
+
+describe("scope panel position", () => {
+  it("keeps the floating chart inside the viewport", () => {
+    expect(clampScopePanelPosition(-40, -20, 640, 320, 1400, 900)).toEqual({ left: 0, top: 0 });
+    expect(clampScopePanelPosition(2000, 800, 640, 320, 1400, 900)).toEqual({ left: 760, top: 580 });
+    expect(clampScopePanelPosition(10, 20, 1600, 1000, 1400, 900)).toEqual({ left: 0, top: 0 });
   });
 });

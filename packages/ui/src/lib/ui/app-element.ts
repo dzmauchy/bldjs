@@ -95,7 +95,7 @@ export class BldApp extends LitElement {
     switch (event.key) {
       case "Delete":
       case "Backspace":
-        if (app.aboutOpen || app.io.mode !== "closed" || !isNoneId(app.scopeOpen) || !isNoneId(app.inputsOpen)) {
+        if (app.aboutOpen || app.io.mode !== "closed" || !isNoneId(app.inputsOpen)) {
           break;
         }
         if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {

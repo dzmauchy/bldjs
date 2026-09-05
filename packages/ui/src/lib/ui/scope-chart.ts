@@ -294,7 +294,7 @@ export function drawScopePlot(
   }
 }
 
-/** Matches `.scope-chart { height: 280px }` and Bootstrap `modal-lg`. */
+/** Matches `.scope-chart { height: 280px }` and the floating panel max width. */
 export const SCOPE_CHART_HEIGHT = 280;
 export const SCOPE_CHART_MAX_WIDTH = 800;
 

@@ -65,10 +65,22 @@ export async function expectHiddenScopeChartLaidOut(page: Page): Promise<void> {
 }
 
 export async function waitForScopeOverlay(page: Page): Promise<void> {
-  const modal = page.locator('[data-testid="scope-modal"]');
-  await expect(modal).toBeVisible();
-  await expect(modal).toHaveCSS("opacity", "1");
-  await expect(page.locator('[data-testid="scope-modal"] .modal-dialog')).toHaveCSS("transform", "none");
+  const panel = page.locator('[data-testid="scope-modal"]');
+  await expect(panel).toBeVisible();
+  await expect(panel).toHaveCSS("opacity", "1");
+  await expect(panel).toHaveAttribute("role", "region");
+  await expect(page.locator(".modal-backdrop")).toHaveCount(0);
+}
+
+export async function dragScopeBy(page: Page, dx: number, dy: number): Promise<void> {
+  const footer = page.locator('[data-testid="scope-footer"]');
+  const box = await boxOf(footer);
+  const startX = box.x + Math.min(80, Math.max(12, box.width * 0.25));
+  const startY = box.y + box.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + Math.round(dx), startY + Math.round(dy));
+  await page.mouse.up();
 }
 
 export async function statusBlocks(page: Page): Promise<string> {

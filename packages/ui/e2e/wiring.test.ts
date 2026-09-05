@@ -8,6 +8,7 @@ import {
   diagramCss,
   diagramRoot,
   dragNodeBy,
+  dragScopeBy,
   expectHiddenScopeChartLaidOut,
   expectScopeOverlayHidden,
   newCanvas,
@@ -323,6 +324,8 @@ test.describe("wiring", () => {
     await chart.click();
     await waitForScopeOverlay(page);
     await expect(page.locator('[data-testid="scope-modal"] .modal-title')).toHaveCount(0);
+    await expect(page.locator('[data-testid="scope-modal"]')).toHaveAttribute("role", "region");
+    await expect(page.locator('[data-testid="scope-footer"]')).toBeVisible();
     await expect(page.locator('[data-testid="scope-caption"]')).toHaveText("blk_5");
     await expect(page.locator('[data-testid="scope-caption"]')).not.toContainText("timer(");
     await expect(page.locator('[data-testid="scope-close"]')).toBeVisible();
@@ -401,6 +404,8 @@ test.describe("wiring", () => {
     await chart.click();
     await waitForScopeOverlay(page);
     await expect(page.locator('[data-testid="scope-modal"] .modal-title')).toHaveCount(0);
+    await expect(page.locator('[data-testid="scope-modal"]')).toHaveAttribute("role", "region");
+    await expect(page.locator('[data-testid="scope-footer"]')).toBeVisible();
     await expect(page.locator('[data-testid="scope-caption"]')).toHaveText("blk_1");
     await expect(page.locator('[data-testid="scope-caption"]')).not.toContainText("timer(");
     await expect(page.locator('[data-testid="scope-close"]')).toBeVisible();
@@ -417,6 +422,31 @@ test.describe("wiring", () => {
       })
       .toBeGreaterThan(1);
     await expect.poll(async () => scopeChartHasInk(page), { timeout: 2_000 }).toBe(true);
+  });
+
+  test("moves the open scope chart by dragging its status line", async () => {
+    await placeBlock(page, "scope");
+    await placeBlock(page, "sin");
+    await placeBlock(page, "timer");
+    await clickPortHandle(page, "scope", "output-out");
+    await clickPortHandle(page, "sin", "input-in");
+    await waitForLinks(page, "1 link");
+    await clickPortHandle(page, "sin", "output-out");
+    await clickPortHandle(page, "timer", "input-in");
+    await waitForLinks(page, "2 links");
+    await runDiagram(page);
+    await nodeHost(page, "scope").locator('[data-testid^="chart-"]').click();
+    await waitForScopeOverlay(page);
+    const panel = page.locator('[data-testid="scope-modal"]');
+    const before = await boxOf(panel);
+    await dragScopeBy(page, 120, -80);
+    const after = await boxOf(panel);
+    expect(after.x).toBeGreaterThan(before.x + 60);
+    expect(after.y).toBeLessThan(before.y - 40);
+    await expect(panel).toBeVisible();
+    await dragNodeBy(page, "sin", 70, 20);
+    await expect(panel).toBeVisible();
+    await expect(page.locator(".modal-backdrop")).toHaveCount(0);
   });
 
   test("moves the connector when a wired node is dragged", async () => {
