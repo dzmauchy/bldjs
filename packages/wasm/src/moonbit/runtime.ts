@@ -16,12 +16,12 @@ export interface PreambleNeeds {
  * MoonBit inlines unnamed WAT; this is not `memory.atomic.wait32`.
  */
 export function emitStopped(): string {
-  return `fn stopped() -> Int {
-  ${i32Atomic("load").name}(${MEM.stop})
+  return `fn stopped() -> Unit {
+  let _ = ${i32Atomic("load").name}(${MEM.stop})
 }`;
 }
 
-export function preamble(needs: PreambleNeeds = { sin: true, cos: true, random: true, now: true }): string {
+function jsBindings(needs: PreambleNeeds): string[] {
   const bindings: string[] = [];
   if (needs.sin) {
     bindings.push('fn math_sin(x : Double) -> Double = "Math" "sin"');
@@ -37,22 +37,29 @@ export function preamble(needs: PreambleNeeds = { sin: true, cos: true, random: 
   }
   bindings.push('fn js_set_interval(cb : () -> Unit, ms : Int) -> Int = "js" "setInterval"');
   bindings.push('fn host_push(v : Double, ring : Int) -> Unit = "host" "push"');
-  bindings.push(emitI32Atomics(needs.atomics ?? [i32Atomic("load")]));
-  bindings.push(emitStopped());
-  const nowFn = needs.now
-    ? `
-fn now() -> Double {
-  date_now() / 1000.0
+  return bindings;
 }
-`
-    : "";
-  return `// XML-matching MoonBit wasm-gc generator.
-// Browser bindings: Math, Date, js.setInterval. Samples go through host.push.
-// i32 atomics are extern "wasm" WAT (not wait). Default is i32.atomic.load for stopped.
-${bindings.join("\n")}
 
-type C1 = (Double) -> Unit
-${nowFn}`;
+export function preamble(needs: PreambleNeeds = { sin: true, cos: true, random: true, now: true }): string {
+  const nowFn = needs.now
+    ? `fn now() -> Double {
+  date_now() / 1000.0
+}`
+    : "";
+  const parts = [
+    `// XML-matching MoonBit wasm-gc generator.
+// Browser bindings: Math, Date, js.setInterval. Samples go through host.push.
+// i32 atomics are extern "wasm" WAT (not wait). Default is i32.atomic.load for stopped.`,
+    jsBindings(needs).join("\n"),
+    emitI32Atomics(needs.atomics ?? [i32Atomic("load")]),
+    "///|",
+    emitStopped(),
+    "///|",
+    "type C1 = (Double) -> Unit",
+    nowFn,
+  ];
+  return `${parts.filter((part) => part.length > 0).join("\n")}
+`;
 }
 
 export function emitStart(): string {

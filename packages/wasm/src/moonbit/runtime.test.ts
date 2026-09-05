@@ -7,7 +7,7 @@ import { emitStart, emitStopped, preamble } from "./runtime";
 describe("extern wasm stopped", () => {
   it("loads the stop word through i32.atomic.load, not wait", () => {
     const source = emitStopped();
-    expect(source).toContain("fn stopped() -> Int");
+    expect(source).toContain("fn stopped() -> Unit");
     expect(source).toContain(`${i32Atomic("load").name}(${MEM.stop})`);
     expect(source).not.toContain("memory.atomic.wait32");
     expect(source).not.toContain("memory.atomic.wait64");
@@ -23,7 +23,7 @@ ${emitStopped()}
 fn js_set_interval(cb : () -> Unit, ms : Int) -> Int = "js" "setInterval"
 
 pub fn tick() -> Unit {
-  let _ = stopped()
+  stopped()
 }
 ${emitStart()}
 `;

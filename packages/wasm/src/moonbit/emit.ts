@@ -2,7 +2,10 @@ import { isArrayType, type BlockDef } from "@bld/xml/blocks/ast";
 import type { Catalog } from "@bld/xml/blocks/catalog";
 import { catalogPortName, portSlotIndex } from "@bld/xml/blocks/ports";
 import type { SolutionView, SolutionViewBlock } from "@bld/xml/solution/view";
-import { BLOCK_SCRIPTS, emitFork, emitStart, preamble } from "./index";
+import { emitFork } from "./fork";
+import { emitStart, preamble } from "./runtime";
+import { BLOCK_SCRIPTS } from "./scripts";
+import type { MoonbitFile } from "./types";
 
 function moonIdent(name: string): string {
   return name.replace(/[^A-Za-z0-9_]/g, "_");
@@ -49,26 +52,30 @@ function topoBlocks(view: SolutionView, catalog: Catalog): SolutionViewBlock[] {
   return ready;
 }
 
+function joinParts(parts: string[]): string {
+  return `${parts.filter((part) => part.trim().length > 0).join("\n")}\n`;
+}
+
+/** Concatenate generated package files for tests and `emitText`. */
+export function moonbitText(files: readonly MoonbitFile[]): string {
+  return `${files.map(([, source]) => source.replace(/\n+$/, "")).join("\n\n")}\n`;
+}
+
 /**
- * MoonBit source for one connected SolutionView (C1 consumers, block functions, tick, start).
- * `start` registers the imported browser `setInterval`; there is no atomic wait.
+ * MoonBit package files for one connected SolutionView.
+ * `runtime.mbt` holds FFI, atomics, `C1`, and `start`.
+ * `blocks.mbt` holds XML block functions and hidden forks.
+ * `main.mbt` holds `tick`.
  */
-export function emitSolutionMoonbit(
+export function emitSolutionFiles(
   catalog: Catalog,
   view: SolutionView,
   rings: Map<string, number>,
-): string {
+): MoonbitFile[] {
   const names = new Map<number, string>();
   const lengths = new Map<number, number>();
   const defIds = new Set(view.blocks.map((block) => block.defId));
-  const parts: string[] = [
-    preamble({
-      sin: defIds.has("sin"),
-      cos: defIds.has("cos"),
-      random: defIds.has("random"),
-      now: defIds.has("timer"),
-    }),
-  ];
+  const blockParts: string[] = [];
 
   for (const block of view.blocks) {
     const add = BLOCK_SCRIPTS[block.defId];
@@ -90,9 +97,9 @@ export function emitSolutionMoonbit(
         }
         return rings.get(`${block.id}:${portSlotIndex(link.fromOut)}`) ?? slot;
       });
-      parts.push(add({ name, length, rings: slotRings }));
+      blockParts.push(add({ name, length, rings: slotRings }));
     } else {
-      parts.push(add({ name }));
+      blockParts.push(add({ name }));
     }
   }
 
@@ -108,13 +115,13 @@ export function emitSolutionMoonbit(
         continue;
       }
       const forkName = `fork_${block.id}_${moonIdent(port.name)}`;
-      parts.push(emitFork(forkName, incoming.length));
+      blockParts.push(emitFork(forkName, incoming.length));
       forkNames.set(`${block.id}:${port.name}`, forkName);
     }
   }
 
   const order = topoBlocks(view, catalog);
-  const valueOf = new Map<number, { expr: string; length: number; array: boolean }>();
+  const valueOf = new Map<number, { expr: string; length: number }>();
 
   const readPort = (
     link: { fromBlock: number; fromOut: string; toBlock: number; toIn: string },
@@ -167,20 +174,46 @@ export function emitSolutionMoonbit(
     } else {
       const local = `b${block.id}`;
       statements.push(`  let ${local} = ${call}`);
-      const length = lengths.get(block.id) ?? 1;
       valueOf.set(block.id, {
         expr: local,
-        length,
-        array: Boolean(def.outputs[0] && isArrayType(def.outputs[0].ty)),
+        length: lengths.get(block.id) ?? 1,
       });
     }
   }
 
-  parts.push(`pub fn tick() -> Unit {
-  let _ = stopped()
-${statements.join("\n") || "  let _ = 0"}
+  return [
+    [
+      "runtime.mbt",
+      joinParts([
+        preamble({
+          sin: defIds.has("sin"),
+          cos: defIds.has("cos"),
+          random: defIds.has("random"),
+          now: defIds.has("timer"),
+        }),
+        emitStart(),
+      ]),
+    ],
+    ["blocks.mbt", joinParts(blockParts)],
+    [
+      "main.mbt",
+      `pub fn tick() -> Unit {
+  stopped()
+${statements.join("\n") || "  ()"}
 }
-`);
-  parts.push(emitStart());
-  return parts.join("\n");
+`,
+    ],
+  ];
+}
+
+/**
+ * MoonBit source for one connected SolutionView (C1 consumers, block functions, tick, start).
+ * `start` registers the imported browser `setInterval`; there is no atomic wait.
+ */
+export function emitSolutionMoonbit(
+  catalog: Catalog,
+  view: SolutionView,
+  rings: Map<string, number>,
+): string {
+  return moonbitText(emitSolutionFiles(catalog, view, rings));
 }
