@@ -34,6 +34,12 @@ describe("topology", () => {
     expect(topologyKey([{ ...blocks[0], zeta: 0.7 }], links)).not.toBe(topologyKey(blocks, links));
   });
 
+  it("changes when overshoot damped frequency changes", () => {
+    const blocks = [{ id: 1, defId: "overshoot", zeta: 0.5, wd: 1 }];
+    const links: Link[] = [];
+    expect(topologyKey([{ ...blocks[0], wd: 2 }], links)).not.toBe(topologyKey(blocks, links));
+  });
+
   it("changes when scope window or quantizer period changes", () => {
     const blocks = [{ id: 1, defId: "scope", windowS: 30, meterMs: 10 }];
     const links: Link[] = [];

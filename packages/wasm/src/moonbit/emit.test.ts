@@ -88,4 +88,37 @@ describe("emitSolutionFiles", () => {
     expect(text).toContain("timer(0,");
     expect(text).toContain("scope(0)");
   });
+
+  it("binds overshoot math to browser Math on wasm-gc and embedded math on wasm", () => {
+    const view = solutionViewFrom(
+      [
+        { id: 1, defId: "scope" },
+        { id: 2, defId: "overshoot", zeta: 0.5, wd: 2 },
+        { id: 3, defId: "timer" },
+      ],
+      [
+        { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+      ],
+    );
+    const gc = Object.fromEntries(emitSolutionFiles(catalog(), view, new Map(), "wasm-gc"));
+    expect(gc["runtime.mbt"]).toContain('fn math_sin(x : Double) -> Double = "Math" "sin"');
+    expect(gc["runtime.mbt"]).toContain('fn math_cos(x : Double) -> Double = "Math" "cos"');
+    expect(gc["runtime.mbt"]).toContain('fn math_exp(x : Double) -> Double = "Math" "exp"');
+    expect(gc["runtime.mbt"]).toContain('fn math_sqrt(x : Double) -> Double = "Math" "sqrt"');
+    expect(gc["blocks.mbt"]).toContain("let zeta = 0.5");
+    expect(gc["blocks.mbt"]).toContain("let wd = 2.0");
+    expect(gc["blocks.mbt"]).toContain("math_sqrt(");
+
+    const mcu = Object.fromEntries(emitSolutionFiles(catalog(), view, new Map(), "wasm"));
+    expect(mcu["runtime.mbt"]).toContain("fn math_sin(rad : Double) -> Double");
+    expect(mcu["runtime.mbt"]).toContain("fn math_cos(rad : Double) -> Double");
+    expect(mcu["runtime.mbt"]).toContain("fn math_exp(x : Double) -> Double");
+    expect(mcu["runtime.mbt"]).toContain("fn math_sqrt(x : Double) -> Double");
+    expect(mcu["runtime.mbt"]).not.toContain('= "Math" "sin"');
+    expect(mcu["runtime.mbt"]).not.toContain('= "Math" "sqrt"');
+    expect(mcu["runtime.mbt"]).not.toContain("js_set_interval");
+    expect(mcu["blocks.mbt"]).toContain("math_sin(");
+    expect(mcu["blocks.mbt"]).toContain("math_sqrt(");
+  });
 });

@@ -1,4 +1,4 @@
-import { DEFAULT_ZETA, zetaFrom } from "./ids";
+import { DEFAULT_WD, DEFAULT_ZETA, wdFrom, zetaFrom } from "./ids";
 import type { DoubleConsumer, F64Func } from "./types";
 
 /** XML `(Double) -> Unit → (Double) -> Unit`: map a sample, then forward it to a captured sink. */
@@ -29,28 +29,30 @@ export class CosTransformer extends Transformer {
 }
 
 /**
- * Classic underdamped second-order unit-step response with ωn = 1:
- * `1 - e^{-ζt} (cos(ωd t) + (ζ/ωd) sin(ωd t))`, `ωd = √(1-ζ²)`.
+ * Classic underdamped second-order unit-step response:
+ * `1 - e^{-σt} (cos(ωd t) + (σ/ωd) sin(ωd t))`, `σ = ζωd / √(1-ζ²)`.
  * Input is treated as time in seconds from the first sample.
  */
 export class OvershootTransformer extends Transformer {
   readonly defId = "overshoot";
   readonly zeta: number;
+  readonly wd: number;
 
-  constructor(zeta: number = DEFAULT_ZETA) {
+  constructor(zeta: number = DEFAULT_ZETA, wd: number = DEFAULT_WD) {
     super();
     this.zeta = zetaFrom(zeta);
+    this.wd = wdFrom(wd);
   }
 
   map(value: number): number {
-    return overshootStep(value, this.zeta);
+    return overshootStep(value, this.zeta, this.wd);
   }
 
   override wrap(sink: DoubleConsumer): DoubleConsumer {
     let t0: number | undefined;
     return (value) => {
       t0 ??= value;
-      sink(overshootStep(value - t0, this.zeta));
+      sink(overshootStep(value - t0, this.zeta, this.wd));
     };
   }
 }
@@ -76,8 +78,8 @@ export function cos(sink: DoubleConsumer): DoubleConsumer {
 }
 
 /** XML `(Double) -> Unit → (Double) -> Unit`: capture a sink and return a second-order step response. */
-export function overshoot(sink: DoubleConsumer, zeta: number = DEFAULT_ZETA): DoubleConsumer {
-  return new OvershootTransformer(zeta).wrap(sink);
+export function overshoot(sink: DoubleConsumer, zeta: number = DEFAULT_ZETA, wd: number = DEFAULT_WD): DoubleConsumer {
+  return new OvershootTransformer(zeta, wd).wrap(sink);
 }
 
 export const sinFunc = sin;
@@ -86,18 +88,19 @@ export const sinConsumer = sin;
 export const cosFunc = cos;
 export const overshootFunc = overshoot;
 
-export function overshootStep(time: number, zeta: number = DEFAULT_ZETA): number {
+export function overshootStep(time: number, zeta: number = DEFAULT_ZETA, wd: number = DEFAULT_WD): number {
   if (!(time > 0)) {
     return 0;
   }
   const z = zetaFrom(zeta);
-  const wd = Math.sqrt(1 - z * z);
-  return 1 - Math.exp(-z * time) * (Math.cos(wd * time) + (z / wd) * Math.sin(wd * time));
+  const omega = wdFrom(wd);
+  const sigma = (z * omega) / Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-sigma * time) * (Math.cos(omega * time) + (sigma / omega) * Math.sin(omega * time));
 }
 
-export function mapOnce(defId: string, value: number, zeta?: number): number {
+export function mapOnce(defId: string, value: number, zeta?: number, wd?: number): number {
   if (defId === "overshoot") {
-    return overshootStep(value, zeta);
+    return overshootStep(value, zeta, wd);
   }
   return TRANSFORMERS[defId]?.map(value) ?? value;
 }

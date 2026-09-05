@@ -29,7 +29,7 @@ function walkConsumer(
     if (fromDef && isTransformerId(fromDef)) {
       const inner = walkConsumer(link.fromBlock, nodeOf, links, depth + 1);
       if (inner) {
-        parts.push(new MapNode(fromDef, link.fromBlock, inner, from?.zeta));
+        parts.push(new MapNode(fromDef, link.fromBlock, inner, from?.zeta, from?.wd));
       }
     }
   }

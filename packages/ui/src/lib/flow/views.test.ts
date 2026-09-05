@@ -108,7 +108,7 @@ describe("buildNodeState", () => {
     expect(catalog.block("timer")?.parameters.map((param) => param.name)).toEqual(["period"]);
   });
 
-  it("shows the config control on overshoot with a ζ parameter", () => {
+  it("shows the config control on overshoot with ζ and ωd parameters", () => {
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);
     const catalog = diagram.catalog();
@@ -127,7 +127,7 @@ describe("buildNodeState", () => {
       kindOf: () => blockKindFromName("Process")!,
     });
     expect(state?.showInputs).toBe(true);
-    expect(catalog.block("overshoot")?.parameters.map((param) => param.name)).toEqual(["ζ"]);
+    expect(catalog.block("overshoot")?.parameters.map((param) => param.name)).toEqual(["ζ", "ωd"]);
   });
 
   it("marks GPIO In as an interactive switch and GPIO Out as a disabled readout", () => {

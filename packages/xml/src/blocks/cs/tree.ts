@@ -59,6 +59,7 @@ export class MapNode extends ConsumerNode {
     readonly id: number,
     readonly inner: ConsumerNode,
     readonly zeta?: number,
+    readonly wd?: number,
   ) {
     super();
   }
@@ -70,7 +71,7 @@ export class MapNode extends ConsumerNode {
   compile(buffers: Map<number, SampleBuf>, next: { n: number }): F64Func {
     const inner = this.inner.compile(buffers, next);
     if (this.defId === "overshoot") {
-      return new OvershootTransformer(this.zeta).wrap(inner);
+      return new OvershootTransformer(this.zeta, this.wd).wrap(inner);
     }
     return (value) => inner(mapOnce(this.defId, value));
   }

@@ -16,6 +16,8 @@ export interface NodeSpec {
   pin?: number;
   /** Overshoot damping ratio (`ζ`). */
   zeta?: number;
+  /** Overshoot damped natural frequency (`ωd`). */
+  wd?: number;
   /** Scope time-window width in seconds (`n`). */
   windowS?: number;
   /** Scope quantizer period in milliseconds (`m`). */

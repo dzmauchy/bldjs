@@ -67,9 +67,9 @@ describe("MoonBit generator", () => {
       ],
     ))!;
     const zeta = 0.5;
-    const wd = Math.sqrt(1 - zeta * zeta);
+    const wd = 1;
     const peakTime = Math.PI / wd;
-    const overshoot = Math.exp((-Math.PI * zeta) / wd);
+    const overshoot = Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta));
     const memory = createSharedMemory();
     let now = 0;
     const gen = await instantiateGenerator(compiled.wasm, memory, () => now);

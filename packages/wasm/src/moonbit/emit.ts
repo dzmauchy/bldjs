@@ -91,6 +91,7 @@ export function emitSolutionFiles(
     const arrayOut = def?.outputs.find((port) => isArrayType(port.ty));
     const pin = block.pin ?? (block.defId === "gpio_out" ? 1 : 0);
     const zeta = block.zeta;
+    const wd = block.wd;
     if (arrayOut) {
       const outgoing = view.outgoing(block.id, arrayOut.name);
       const length = Math.max(outgoing.length, 1);
@@ -102,9 +103,9 @@ export function emitSolutionFiles(
         }
         return rings.get(`${block.id}:${portSlotIndex(link.fromOut)}`) ?? slot;
       });
-      blockParts.push(add({ name, length, rings: slotRings, pin, zeta }));
+      blockParts.push(add({ name, length, rings: slotRings, pin, zeta, wd }));
     } else {
-      blockParts.push(add({ name, pin, zeta }));
+      blockParts.push(add({ name, pin, zeta, wd }));
     }
   }
 
@@ -213,6 +214,7 @@ export function emitSolutionFiles(
             sin: defIds.has("sin") || defIds.has("overshoot"),
             cos: defIds.has("cos") || defIds.has("overshoot"),
             exp: defIds.has("overshoot"),
+            sqrt: defIds.has("overshoot"),
             random: defIds.has("random"),
             now: defIds.has("timer"),
             gpio: defIds.has("gpio_in") || defIds.has("gpio_out"),
@@ -226,6 +228,7 @@ export function emitSolutionFiles(
             sin: defIds.has("sin") || defIds.has("overshoot"),
             cos: defIds.has("cos") || defIds.has("overshoot"),
             exp: defIds.has("overshoot"),
+            sqrt: defIds.has("overshoot"),
             random: defIds.has("random"),
             now: defIds.has("timer"),
             gpio: defIds.has("gpio_in") || defIds.has("gpio_out"),

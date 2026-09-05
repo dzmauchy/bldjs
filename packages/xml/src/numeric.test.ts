@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { clampDouble, clampInt, clampPositiveInt } from "./numeric";
 import { intervalMs } from "./flow";
-import { DEFAULT_PERIOD_MS, DEFAULT_PIN, DEFAULT_WINDOW_S, DEFAULT_ZETA, MAX_ZETA, MIN_ZETA, meterMsFrom, periodMsFrom, pinFrom, sampleCap, windowSecondsFrom, zetaFrom } from "./blocks/cs/ids";
+import { DEFAULT_PERIOD_MS, DEFAULT_PIN, DEFAULT_WINDOW_S, DEFAULT_WD, DEFAULT_ZETA, MAX_WD, MAX_ZETA, MIN_WD, MIN_ZETA, meterMsFrom, periodMsFrom, pinFrom, sampleCap, wdFrom, windowSecondsFrom, zetaFrom } from "./blocks/cs/ids";
 
 describe("clampPositiveInt", () => {
   it("truncates and floors at 1", () => {
@@ -44,5 +44,9 @@ describe("clampDouble", () => {
     expect(zetaFrom(undefined)).toBe(DEFAULT_ZETA);
     expect(zetaFrom("0.7")).toBe(0.7);
     expect(zetaFrom("0")).toBe(MIN_ZETA);
+    expect(wdFrom(undefined)).toBe(DEFAULT_WD);
+    expect(wdFrom("2")).toBe(2);
+    expect(wdFrom("0")).toBe(MIN_WD);
+    expect(wdFrom("99")).toBe(MAX_WD);
   });
 });

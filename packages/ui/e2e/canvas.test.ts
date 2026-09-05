@@ -284,14 +284,17 @@ test.describe("canvas", () => {
     await page.locator('[data-testid="inputs-close"]').click();
   });
 
-  test("opens overshoot inputs and defaults ζ to 0.5", async () => {
+  test("opens overshoot inputs and defaults ζ to 0.5 and ωd to 1", async () => {
     await newCanvas(page);
     await placeBlock(page, "overshoot");
     await nodeHost(page, "overshoot").locator('[data-testid^="inputs-"]').click();
     await expect(page.locator('[data-testid="inputs-modal"]')).toBeInViewport();
     await expect(page.locator('[data-testid="input-value-ζ"]')).toHaveText("0.5");
+    await expect(page.locator('[data-testid="input-value-ωd"]')).toHaveText("1");
     await page.locator('[data-testid="input-range-ζ"]').fill("0.7");
     await expect(page.locator('[data-testid="input-value-ζ"]')).toHaveText("0.7");
+    await page.locator('[data-testid="input-range-ωd"]').fill("2");
+    await expect(page.locator('[data-testid="input-value-ωd"]')).toHaveText("2");
     await page.locator('[data-testid="inputs-close"]').click();
     await expect(page.locator('[data-testid="inputs-modal"]')).toHaveCount(0);
   });

@@ -37,7 +37,9 @@ describe("block MoonBit assembly", () => {
     expect(BLOCK_SCRIPTS.scope!()).toContain("fn scope(_ctx : Int) -> C1");
     expect(BLOCK_SCRIPTS.gpio_out!()).toContain("fn gpio_out(_ctx : Int) -> C1");
     expect(BLOCK_SCRIPTS.gpio_in!({ pin: 3 })).toContain("host_pin_read(3)");
-    expect(BLOCK_SCRIPTS.overshoot!({ zeta: 0.7 })).toContain("-0.7 * t");
+    expect(BLOCK_SCRIPTS.overshoot!({ zeta: 0.7, wd: 2 })).toContain("let zeta = 0.7");
+    expect(BLOCK_SCRIPTS.overshoot!({ zeta: 0.7, wd: 2 })).toContain("let wd = 2.0");
+    expect(BLOCK_SCRIPTS.overshoot!({ zeta: 0.7, wd: 2 })).toContain("math_sqrt(");
     expect(BLOCK_SCRIPTS.scope!({ length: 2, rings: [0, 1] })).toContain("fn scope(_ctx : Int) -> (C1, C1)");
   });
 

@@ -1,4 +1,4 @@
-import { zetaFrom } from "@bld/xml/blocks/cs/ids";
+import { wdFrom, zetaFrom } from "@bld/xml/blocks/cs/ids";
 import { MoonBlock } from "./block";
 import { CTX_PARAM, type MoonBlockEmit } from "./types";
 
@@ -47,11 +47,11 @@ export class CosMoonBlock extends MoonTransformer {
 
 /**
  * Second-order underdamped unit-step. Time is the input relative to the first sample.
- * `ζ` is baked from the catalog parameter.
+ * `ζ` and `ωd` are baked from catalog parameters; sin/cos/exp/sqrt run at sample time.
  */
-export function emitOvershootWrap(name: string, zeta?: number): string {
+export function emitOvershootWrap(name: string, zeta?: number, wd?: number): string {
   const z = zetaFrom(zeta);
-  const wd = Math.sqrt(1 - z * z);
+  const damped = wdFrom(wd);
   const ident = moonIdent(name);
   return `priv struct OvershootClock_${ident} {
   mut t0 : Double
@@ -67,7 +67,12 @@ fn ${name}(${CTX_PARAM}, input : C1) -> C1 {
       clock_${ident}.on = 1
     }
     let t = v - clock_${ident}.t0
-    let y = 1.0 - math_exp(${moonDouble(-z)} * t) * (math_cos(${moonDouble(wd)} * t) + ${moonDouble(z / wd)} * math_sin(${moonDouble(wd)} * t))
+    let zeta = ${moonDouble(z)}
+    let wd = ${moonDouble(damped)}
+    let sigma = zeta * wd / math_sqrt(1.0 - zeta * zeta)
+    let decay = math_exp(0.0 - sigma * t)
+    let omega = wd * t
+    let y = 1.0 - decay * (math_cos(omega) + sigma / wd * math_sin(omega))
     input(if t < 0.0 { 0.0 } else { y })
   }
 }
@@ -78,7 +83,7 @@ export class OvershootMoonBlock extends MoonBlock {
   readonly defId = "overshoot";
 
   emit(opts: MoonBlockEmit = {}): string {
-    return emitOvershootWrap(opts.name ?? this.defId, opts.zeta);
+    return emitOvershootWrap(opts.name ?? this.defId, opts.zeta, opts.wd);
   }
 }
 

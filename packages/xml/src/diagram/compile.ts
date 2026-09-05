@@ -9,12 +9,14 @@ import {
   PIN_PARAM,
   WINDOW_PARAM,
   ZETA_PARAM,
+  WD_PARAM,
   isEventDrivenGenerator,
   meterMsFrom,
   periodMsFrom,
   pinFrom,
   windowSecondsFrom,
   zetaFrom,
+  wdFrom,
 } from "../blocks/cs/ids";
 import { documentToCanvas, parseDiagramXml } from "./xml";
 import type { DiagramDocument } from "./types";
@@ -35,6 +37,7 @@ export interface DiagramSolution {
     periodMs?: number;
     pin?: number;
     zeta?: number;
+    wd?: number;
     windowS?: number;
     meterMs?: number;
   }>;
@@ -58,6 +61,7 @@ export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolut
     const period = extra?.parameters.find((param) => param.name === PERIOD_PARAM)?.value;
     const pin = extra?.parameters.find((param) => param.name === PIN_PARAM)?.value;
     const zeta = extra?.parameters.find((param) => param.name === ZETA_PARAM)?.value;
+    const wd = extra?.parameters.find((param) => param.name === WD_PARAM)?.value;
     const window = extra?.parameters.find((param) => param.name === WINDOW_PARAM)?.value;
     const meter = extra?.parameters.find((param) => param.name === METER_PARAM)?.value;
     return {
@@ -66,6 +70,7 @@ export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolut
       periodMs: isEventDrivenGenerator(block.defId) ? 0 : periodMsFrom(period),
       pin: pin == null ? undefined : pinFrom(pin),
       zeta: block.defId === "overshoot" ? zetaFrom(zeta) : undefined,
+      wd: block.defId === "overshoot" ? wdFrom(wd) : undefined,
       windowS: block.defId === "scope" ? windowSecondsFrom(window) : undefined,
       meterMs: block.defId === "scope" ? meterMsFrom(meter) : undefined,
     };

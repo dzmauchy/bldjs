@@ -112,7 +112,7 @@ describe("modal overlay chrome", () => {
     expect(modal.renderRoot.querySelector("[data-testid=input-value-period]")?.textContent).toBe("10 ms");
   });
 
-  it("opens overshoot ζ configuration as a range overlay", async () => {
+  it("opens overshoot ζ and ωd configuration as range overlays", async () => {
     const modal = document.createElement("bld-inputs-modal") as BldInputsModal;
     const app = new AppState();
     const id = app.nextId;
@@ -125,6 +125,8 @@ describe("modal overlay chrome", () => {
     await modal.updateComplete;
     expect(modal.renderRoot.querySelector("[data-testid=input-value-ζ]")?.textContent).toBe("0.5");
     expect(modal.renderRoot.querySelector("[data-testid=input-range-ζ]")).not.toBeNull();
+    expect(modal.renderRoot.querySelector("[data-testid=input-value-ωd]")?.textContent).toBe("1");
+    expect(modal.renderRoot.querySelector("[data-testid=input-range-ωd]")).not.toBeNull();
   });
 });
 

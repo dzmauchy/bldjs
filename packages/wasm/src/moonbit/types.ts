@@ -18,6 +18,8 @@ export interface MoonBlockEmit {
   pin?: number;
   /** Overshoot damping ratio `ζ` baked into the map. */
   zeta?: number;
+  /** Overshoot damped natural frequency `ωd` baked into the map. */
+  wd?: number;
 }
 
 export type BlockScript = (opts?: MoonBlockEmit) => string;

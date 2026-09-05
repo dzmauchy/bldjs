@@ -1,7 +1,7 @@
 import { type BlockDef, type BlockParameterDef, blockAttribute } from "@bld/xml/blocks/ast";
 import { associateBuiltinModels, xmlSourcesForFiles } from "@bld/xml/blocks/builtin";
 import { Catalog } from "@bld/xml/blocks/catalog";
-import { PERIOD_PARAM, PIN_PARAM, WINDOW_PARAM, METER_PARAM, ZETA_PARAM, isEventDrivenGenerator, periodMsFrom, pinFrom, windowSecondsFrom, meterMsFrom, zetaFrom } from "@bld/xml/blocks/cs/ids";
+import { PERIOD_PARAM, PIN_PARAM, WINDOW_PARAM, METER_PARAM, ZETA_PARAM, WD_PARAM, isEventDrivenGenerator, periodMsFrom, pinFrom, windowSecondsFrom, meterMsFrom, zetaFrom, wdFrom } from "@bld/xml/blocks/cs/ids";
 import { Diagram, type Link, type XmlSource, linksEqual } from "@bld/xml/blocks/diagram";
 import { compactLinkSlots } from "@bld/xml/blocks/ports";
 import type { ResolvedBlock } from "@bld/xml/blocks/resolve";
@@ -134,6 +134,7 @@ export class AppState extends ObservableState {
     periodMs?: number;
     pin?: number;
     zeta?: number;
+    wd?: number;
     windowS?: number;
     meterMs?: number;
   }> {
@@ -142,6 +143,7 @@ export class AppState extends ObservableState {
       periodMs: this.blockPeriodMs(block.id),
       pin: this.blockPin(block.id),
       zeta: this.blockZeta(block.id),
+      wd: this.blockWd(block.id),
       windowS: this.blockWindowS(block.id),
       meterMs: this.blockMeterMs(block.id),
     }));
@@ -384,6 +386,15 @@ export class AppState extends ObservableState {
     const extra = this.#extras.get(id);
     const value = extra?.parameters.find((param) => param.name === ZETA_PARAM)?.value;
     return zetaFrom(value);
+  }
+
+  blockWd(id: number): number | undefined {
+    if (this.block(id)?.defId !== "overshoot") {
+      return undefined;
+    }
+    const extra = this.#extras.get(id);
+    const value = extra?.parameters.find((param) => param.name === WD_PARAM)?.value;
+    return wdFrom(value);
   }
 
   blockWindowS(id: number): number | undefined {
