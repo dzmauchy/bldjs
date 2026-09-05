@@ -5,6 +5,7 @@ import { BldModal } from "./modal";
 
 export class BldInputsModal extends BldModal {
   static override styles = [
+    super.styles,
     css`
     .input-row {
       display: flex;

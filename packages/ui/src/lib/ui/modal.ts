@@ -14,6 +14,7 @@ export interface ModalChrome {
 
 /** Bootstrap dialog shell shared by about / inputs / save-open. */
 export abstract class BldModal extends AppHost {
+  /** Subclasses that add styles must include `super.styles` so the overlay chrome stays adopted. */
   static override styles = [
     bootstrapStyles,
     css`

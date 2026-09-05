@@ -70,7 +70,7 @@ test.describe("diagram files", () => {
     await openAppMenu(page);
     await page.locator('[data-testid="menu-save-diagram"]').click();
     const modal = page.locator('[data-testid="diagram-io-modal"]');
-    await expect(modal).toBeVisible();
+    await expect(modal).toBeInViewport();
     await modal.locator('[data-testid="diagram-save-name"]').fill("Mini pipeline");
     await modal.locator('[data-testid="diagram-save-confirm"]').click();
     await expect(modal).toHaveCount(0);
@@ -80,7 +80,7 @@ test.describe("diagram files", () => {
 
     await openAppMenu(page);
     await page.locator('[data-testid="menu-open-diagram"]').click();
-    await expect(page.locator('[data-testid="diagram-io-modal"]')).toBeVisible();
+    await expect(page.locator('[data-testid="diagram-io-modal"]')).toBeInViewport();
     await page.locator('[data-testid="saved-diagram-load"]').first().click();
     await expect(page.locator('[data-testid="status-blocks"]')).toHaveText("2 blocks");
     await waitForLinks(page, "1 link");

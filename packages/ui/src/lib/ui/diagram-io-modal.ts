@@ -7,6 +7,7 @@ export class BldDiagramIoModal extends BldModal {
   #saveName = "";
 
   static override styles = [
+    super.styles,
     css`
     .saved-list {
       max-height: 16rem;
