@@ -72,6 +72,7 @@ describe("buildNodeState", () => {
       isScopeLive: () => false,
       gpioOn: () => false,
       gpioPin: () => 0,
+      inputsEnabled: true,
       inputIsGrounded: () => false,
       blockDef: (defId) => catalog.block(defId),
       kindOf: () => blockKindFromName("Output")!,
@@ -97,11 +98,67 @@ describe("buildNodeState", () => {
       isScopeLive: () => false,
       gpioOn: () => false,
       gpioPin: () => 0,
+      inputsEnabled: true,
       inputIsGrounded: () => false,
       blockDef: (defId) => catalog.block(defId),
       kindOf: () => blockKindFromName("Start")!,
     });
     expect(state?.showInputs).toBe(true);
     expect(catalog.block("timer")?.parameters.map((param) => param.name)).toEqual(["period"]);
+  });
+
+  it("marks GPIO In as an interactive switch and GPIO Out as a disabled readout", () => {
+    const diagram = new Diagram("ws", "Workspace");
+    associateBuiltinModels(diagram);
+    const catalog = diagram.catalog();
+    const ctx = {
+      catalog,
+      links: [] as Link[],
+      selected: -1,
+      linkingFrom: null,
+      isScopeLive: () => false,
+      gpioOn: () => false,
+      gpioPin: () => 0,
+      inputsEnabled: true,
+      inputIsGrounded: () => false,
+      blockDef: (defId: string) => catalog.block(defId),
+      kindOf: () => blockKindFromName("Start")!,
+    };
+    const input = buildNodeState({ id: 3, defId: "gpio_in", x: 0, y: 0 }, new Map(), ctx);
+    const output = buildNodeState({ id: 4, defId: "gpio_out", x: 0, y: 80 }, new Map(), {
+      ...ctx,
+      kindOf: () => blockKindFromName("Output")!,
+    });
+    expect(input?.showGpio).toBe(true);
+    expect(input?.gpioInteractive).toBe(true);
+    expect(input?.showInputs).toBe(true);
+    expect(output?.showGpio).toBe(true);
+    expect(output?.gpioInteractive).toBe(false);
+    expect(output?.showInputs).toBe(true);
+  });
+
+  it("disables configuration when the run is busy", () => {
+    const diagram = new Diagram("ws", "Workspace");
+    associateBuiltinModels(diagram);
+    const catalog = diagram.catalog();
+    const state = buildNodeState(
+      { id: 2, defId: "timer", x: 0, y: 0 },
+      new Map(),
+      {
+        catalog,
+        links: [],
+        selected: -1,
+        linkingFrom: null,
+        isScopeLive: () => false,
+        gpioOn: () => false,
+        gpioPin: () => 0,
+        inputsEnabled: false,
+        inputIsGrounded: () => false,
+        blockDef: (defId) => catalog.block(defId),
+        kindOf: () => blockKindFromName("Start")!,
+      },
+    );
+    expect(state?.showInputs).toBe(true);
+    expect(state?.inputsEnabled).toBe(false);
   });
 });

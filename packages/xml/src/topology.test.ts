@@ -44,4 +44,17 @@ describe("topology", () => {
     expect(plans[0]?.channels).toEqual([{ scopeId: 1, label: "sin" }]);
     expect(plans[0]?.delayMs).toBe(10);
   });
+
+  it("plans GPIO In with no quantization delay", () => {
+    const plans = plannedGenerators(
+      [
+        { id: 1, defId: "gpio_out", pin: 1 },
+        { id: 2, defId: "gpio_in", pin: 0 },
+      ],
+      [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }],
+    );
+    expect(plans).toHaveLength(1);
+    expect(plans[0]?.defId).toBe("gpio_in");
+    expect(plans[0]?.delayMs).toBe(0);
+  });
 });

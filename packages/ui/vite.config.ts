@@ -103,6 +103,8 @@ export default defineConfig({
   build: {
     outDir: "../../dist",
     emptyOutDir: true,
+    // moonc-web is a single ~5 MB compiler chunk; do not warn on that known size.
+    chunkSizeWarningLimit: 6000,
   },
   worker: {
     format: "es",

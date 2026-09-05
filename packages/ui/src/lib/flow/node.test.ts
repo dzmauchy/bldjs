@@ -18,7 +18,9 @@ function sampleState(overrides: Partial<BldNodeState> = {}): BldNodeState {
     showGpio: false,
     gpioOn: false,
     gpioPin: 0,
+    gpioInteractive: false,
     showInputs: false,
+    inputsEnabled: true,
     inputs: [
       { name: "elems", typeLabel: "f64", vararg: true, grounded: true, compatible: true },
     ],
@@ -108,9 +110,10 @@ describe("BldNode", () => {
     );
     expect(node.hasAttribute("data-selected")).toBe(true);
     expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("Scope");
-    const selectedCss = Array.isArray(BldNode.styles)
-      ? BldNode.styles.map((sheet) => sheet.cssText).join("\n")
-      : BldNode.styles.cssText;
+    const selectedCss = (Array.isArray(BldNode.styles) ? BldNode.styles : [BldNode.styles])
+      .flat(Infinity)
+      .map((sheet) => (sheet as { cssText: string }).cssText)
+      .join("\n");
     expect(selectedCss).toContain("node-selected-fade");
     expect(selectedCss).toContain("#14191e");
     expect(selectedCss).not.toMatch(/:host\(\[data-selected\]\)[^{]*\{[^}]*border-color/);
@@ -267,12 +270,36 @@ describe("BldNode", () => {
     const button = node.shadowRoot!.querySelector('[data-testid="inputs-7"]') as HTMLButtonElement;
     expect(button).not.toBeNull();
     expect(button.getAttribute("title")).toBe("Configure inputs");
+    expect(button.disabled).toBe(false);
     let opened = false;
     node.addEventListener("inputsclick", () => {
       opened = true;
     });
     button.click();
     expect(opened).toBe(true);
+  });
+
+  it("does not emit inputsclick when configuration is disabled", async () => {
+    const node = await mountNode(
+      sampleState({
+        defId: "timer",
+        name: "Timer",
+        showInputs: true,
+        inputsEnabled: false,
+        inputs: [{ name: "in", typeLabel: "(Double) -> Unit", vararg: false, grounded: true }],
+        outputs: [],
+        paramsLine: "",
+      }),
+    );
+    const button = node.shadowRoot!.querySelector('[data-testid="inputs-7"]') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("title")).toBe("Stop the run to configure inputs");
+    let opened = false;
+    node.addEventListener("inputsclick", () => {
+      opened = true;
+    });
+    button.click();
+    expect(opened).toBe(false);
   });
 
   it("hides the config button when the block has no inputs", async () => {
@@ -289,12 +316,13 @@ describe("BldNode", () => {
     expect(node.shadowRoot!.querySelector(".flow-node-config")).toBeNull();
   });
 
-  it("shows a GPIO toggle that emits gpioclick", async () => {
+  it("shows a GPIO switch that emits gpioclick", async () => {
     const node = await mountNode(
       sampleState({
         defId: "gpio_in",
         name: "GPIO In",
         showGpio: true,
+        gpioInteractive: true,
         gpioOn: false,
         gpioPin: 0,
         inputs: [{ name: "in", typeLabel: "(Double) -> Unit", vararg: false, grounded: true }],
@@ -302,15 +330,29 @@ describe("BldNode", () => {
         paramsLine: "",
       }),
     );
-    const button = node.shadowRoot!.querySelector('[data-testid="gpio-7"]') as HTMLButtonElement;
-    expect(button).not.toBeNull();
-    expect(button.textContent?.replace(/\s+/g, " ").trim()).toBe("P0 LOW");
-    expect(button.getAttribute("aria-pressed")).toBe("false");
+    const toggle = node.shadowRoot!.querySelector('[data-testid="gpio-7"]') as HTMLInputElement;
+    expect(toggle).not.toBeNull();
+    expect(toggle.type).toBe("checkbox");
+    expect(toggle.getAttribute("role")).toBe("switch");
+    expect(toggle.disabled).toBe(false);
+    expect(toggle.checked).toBe(false);
+    expect(toggle.getAttribute("aria-label")).toBe("GPIO pin 0 LOW");
+    expect(node.shadowRoot!.querySelector(".form-check-label")).toBeNull();
+    const gpioCss = (Array.isArray(BldNode.styles) ? BldNode.styles : [BldNode.styles])
+      .flat(Infinity)
+      .map((sheet) => (sheet as { cssText: string }).cssText)
+      .join("\n");
+    expect(gpioCss).toContain(".flow-node-gpio.form-switch .form-check-input");
+    expect(gpioCss).toMatch(/\.flow-node-gpio\s*\{[^}]*padding:\s*0/);
+    expect(gpioCss).toMatch(/\.flow-node-gpio\.form-switch \.form-check-input\s*\{[^}]*float:\s*none/);
+    expect(gpioCss).toMatch(/\.flow-node-gpio\.form-switch \.form-check-input\s*\{[^}]*margin:\s*0/);
+    expect(gpioCss).toMatch(/\.flow-node-gpio\.form-switch \.form-check-input\s*\{[^}]*border-color:\s*#86b7fe/);
+    expect(gpioCss).toMatch(/\.flow-node-gpio\.form-switch \.form-check-input\s*\{[^}]*box-shadow:\s*0 0 0 0\.25rem/);
     let toggled = false;
     node.addEventListener("gpioclick", () => {
       toggled = true;
     });
-    button.click();
+    toggle.click();
     expect(toggled).toBe(true);
     node.view = {
       ...node.view!,
@@ -318,8 +360,38 @@ describe("BldNode", () => {
     };
     await node.updateComplete;
     expect(node.hasAttribute("data-gpio-on")).toBe(true);
-    expect(node.shadowRoot!.querySelector('[data-testid="gpio-7"]')?.textContent?.replace(/\s+/g, " ").trim()).toBe(
-      "P0 HIGH",
+    expect((node.shadowRoot!.querySelector('[data-testid="gpio-7"]') as HTMLInputElement).checked).toBe(true);
+    expect((node.shadowRoot!.querySelector('[data-testid="gpio-7"]') as HTMLInputElement).getAttribute("aria-label")).toBe(
+      "GPIO pin 0 HIGH",
     );
+  });
+
+  it("shows a disabled GPIO switch for outputs", async () => {
+    const node = await mountNode(
+      sampleState({
+        defId: "gpio_out",
+        name: "GPIO Out",
+        showGpio: true,
+        gpioInteractive: false,
+        gpioOn: true,
+        gpioPin: 1,
+        inputs: [],
+        outputs: [{ name: "out", typeLabel: "(Double) -> Unit", vararg: false }],
+        paramsLine: "",
+      }),
+    );
+    const toggle = node.shadowRoot!.querySelector('[data-testid="gpio-7"]') as HTMLInputElement;
+    expect(toggle.disabled).toBe(true);
+    expect(toggle.checked).toBe(true);
+    expect(toggle.getAttribute("aria-label")).toBe("GPIO pin 1 HIGH");
+    expect(node.shadowRoot!.querySelector(".form-check.form-switch")).not.toBeNull();
+    expect(node.shadowRoot!.querySelector(".form-check-label")).toBeNull();
+    let toggled = false;
+    node.addEventListener("gpioclick", () => {
+      toggled = true;
+    });
+    toggle.click();
+    expect(toggled).toBe(false);
+    expect(toggle.checked).toBe(true);
   });
 });

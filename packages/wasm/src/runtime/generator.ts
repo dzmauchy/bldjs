@@ -4,6 +4,7 @@ import { intervalMs } from "@bld/xml/flow";
 import { bootGeneratorInstance, type InstantiatedGenerator } from "./boot";
 import { type HostOptions } from "./host";
 import { createMemory, initGpio, readFlowCounts, readGpio, readSamples, requestStop, writeGpio } from "./memory";
+import { interceptConsumerFrequency } from "./runner";
 
 export type { InstantiatedGenerator } from "./boot";
 
@@ -23,6 +24,8 @@ export interface StartGeneratorOptions {
   connectors?: readonly SolutionViewConnector[];
   now?: () => number;
   gpio?: ReadonlyMap<number, number>;
+  /** GPIO In: do not start a quantizer; callers fire `tick()` on each edge. */
+  eventDriven?: boolean;
 }
 
 function hostOptions(nowOrOptions?: (() => number) | HostOptions): HostOptions {
@@ -66,6 +69,12 @@ export async function startLocalGenerator(options: StartGeneratorOptions): Promi
     now: options.now,
     connectorCount: connectors.length,
   });
+  if (options.eventDriven) {
+    return bindHandle(memory, connectors, () => gen.stopTimers(), () => {
+      gen.tick();
+      interceptConsumerFrequency(memory, connectors.length);
+    });
+  }
   gen.start(options.delayMs);
   return bindHandle(memory, connectors, () => gen.stopTimers(), () => gen.fire());
 }
@@ -84,17 +93,26 @@ export async function startWorkerGenerator(options: StartGeneratorOptions): Prom
       memory,
       delayMs: intervalMs(options.delayMs),
       connectorCount: connectors.length,
+      eventDriven: options.eventDriven === true,
     },
     [copy.buffer],
   );
-  return bindHandle(memory, connectors, () => {
-    requestStop(memory);
-    worker.postMessage({ type: "stop" });
-    worker.terminate();
-  });
+  return bindHandle(
+    memory,
+    connectors,
+    () => {
+      requestStop(memory);
+      worker.postMessage({ type: "stop" });
+      worker.terminate();
+    },
+    () => worker.postMessage({ type: "tick" }),
+  );
 }
 
 export async function startGenerator(options: StartGeneratorOptions): Promise<GeneratorHandle> {
+  if (options.eventDriven) {
+    return startLocalGenerator(options);
+  }
   if (import.meta.env.MODE !== "test" && canUseIsolatedWorker()) {
     return startWorkerGenerator(options);
   }

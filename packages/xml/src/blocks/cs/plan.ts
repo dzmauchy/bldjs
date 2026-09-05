@@ -1,6 +1,6 @@
 import type { Link } from "../diagram";
 import { incomingTo } from "../ports";
-import { isGeneratorId, isSinkId, isTransformerId, periodMsFrom } from "./ids";
+import { isEventDrivenGenerator, isGeneratorId, isSinkId, isTransformerId, periodMsFrom } from "./ids";
 import { nowSecs, sampleOnce } from "./generators";
 import { intervalMs } from "../../flow";
 import { SampleBuf } from "./samples";
@@ -64,7 +64,7 @@ export function planGenerator(generatorId: number, nodes: NodeSpec[], links: Lin
     scopeId: scopeIds[0],
     scopeIds,
     channels,
-    delayMs: periodMsFrom(node.periodMs),
+    delayMs: isEventDrivenGenerator(node.defId) ? 0 : periodMsFrom(node.periodMs),
     tree,
   };
 }
@@ -93,6 +93,11 @@ export function compileTimer(
 }
 
 export function spawnTimer(compiled: CompiledTimer, running: { value: boolean }): () => void {
+  if (compiled.delayMs <= 0) {
+    return () => {
+      running.value = false;
+    };
+  }
   const delay = intervalMs(compiled.delayMs);
   const fire = (): void => {
     if (!running.value) {

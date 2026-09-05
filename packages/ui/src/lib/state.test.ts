@@ -353,6 +353,61 @@ describe("AppState run", () => {
     expect(app.toDiagramXml()).toContain('name="period"');
     expect(app.toDiagramXml()).toContain('value="25"');
   });
+
+  it("closes and ignores input configuration while a run is busy", async () => {
+    const app = new AppState();
+    const { generatorId } = wireCsPipeline(app);
+    app.openInputs(generatorId);
+    expect(app.inputsOpen).toBe(generatorId);
+    const pending = app.run.start();
+    expect(app.run.busy()).toBe(true);
+    expect(app.inputsOpen).toBe(-1);
+    app.openInputs(generatorId);
+    expect(app.inputsOpen).toBe(-1);
+    await pending;
+    expect(app.run.running).toBe(true);
+    app.openInputs(generatorId);
+    expect(app.inputsOpen).toBe(-1);
+    app.run.stop();
+    app.openInputs(generatorId);
+    expect(app.inputsOpen).toBe(generatorId);
+    app.closeInputs();
+  });
+
+  it("toggles only GPIO In simulated pin levels", () => {
+    const app = new AppState();
+    const inId = app.nextId;
+    app.addBlock("gpio_in", 0, 0);
+    const outId = app.nextId;
+    app.addBlock("gpio_out", 120, 0);
+    expect(app.gpioOn(inId)).toBe(false);
+    app.toggleGpio(inId);
+    expect(app.gpioOn(inId)).toBe(true);
+    app.toggleGpio(outId);
+    expect(app.gpioOn(outId)).toBe(false);
+  });
+
+  it("pushes GPIO In only when the switch is toggled while running", async () => {
+    const app = new AppState();
+    const outId = app.nextId;
+    app.addBlock("gpio_out", 0, 0);
+    const inId = app.nextId;
+    app.addBlock("gpio_in", 120, 0);
+    app.toggleLink(outId, "out", inId, "in");
+    expect(app.blockPeriodMs(inId)).toBe(0);
+    await app.run.start();
+    expect(app.run.running).toBe(true);
+    expect(app.gpioOn(outId)).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(app.gpioOn(outId)).toBe(false);
+    app.toggleGpio(inId);
+    expect(app.gpioOn(inId)).toBe(true);
+    expect(app.gpioOn(outId)).toBe(true);
+    app.toggleGpio(inId);
+    expect(app.gpioOn(inId)).toBe(false);
+    expect(app.gpioOn(outId)).toBe(false);
+    app.run.stop();
+  });
 });
 
 describe("AppState diagram XML", () => {
