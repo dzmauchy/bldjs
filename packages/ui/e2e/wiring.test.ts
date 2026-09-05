@@ -8,18 +8,20 @@ import {
   diagramCss,
   diagramRoot,
   dragNodeBy,
+  expectScopeOverlayHidden,
   newCanvas,
   nodeHost,
   openWorkspace,
   placeBlock,
+  portTypeText,
   pressDelete,
+  runDiagram,
   scopeChartHasInk,
   statusLinks,
   waitDeep,
-  runDiagram,
   waitForAvoidRouter,
   waitForLinks,
-  portTypeText,
+  waitForScopeOverlay,
 } from "./actions";
 
 function collinearOverlap(left: { x: number; y: number }[], right: { x: number; y: number }[]): number {
@@ -316,20 +318,19 @@ test.describe("wiring", () => {
     await expect(stop).toHaveAttribute("title", "Stop");
     await expect(stop).toHaveAttribute("aria-label", "Stop");
     await expect(chart).toBeEnabled();
+    await expectScopeOverlayHidden(page);
     await chart.click();
-    await waitDeep(page, '[data-testid="scope-modal"]');
-    await expect(page.locator('[data-testid="scope-modal"]')).toHaveCSS("opacity", "1");
-    await expect(page.locator('[data-testid="scope-modal"] .modal-dialog')).toHaveCSS("transform", "none");
+    await waitForScopeOverlay(page);
     await expect(page.locator('[data-testid="scope-modal"] .modal-title')).toHaveCount(0);
     await expect(page.locator('[data-testid="scope-caption"]')).toHaveText("blk_5");
     await expect(page.locator('[data-testid="scope-caption"]')).not.toContainText("timer(");
     await expect(page.locator('[data-testid="scope-close"]')).toBeVisible();
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-series-count", "1", {
-      timeout: 1_000,
+      timeout: 250,
     });
     await expect(page.locator('[data-testid="scope-chart"] canvas')).toBeVisible();
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-painted", "true", {
-      timeout: 1_000,
+      timeout: 250,
     });
     await expect
       .poll(async () => Number(await page.locator('[data-testid="scope-chart"]').getAttribute("data-sample-count")), {
@@ -344,7 +345,7 @@ test.describe("wiring", () => {
       .toBeGreaterThan(100);
     await expect.poll(async () => scopeChartHasInk(page), { timeout: 2_000 }).toBe(true);
     await page.locator('[data-testid="scope-close"]').click();
-    await expect(page.locator('[data-testid="scope-modal"]')).toHaveCount(0);
+    await expectScopeOverlayHidden(page);
     await expect.poll(async () => page.locator("bld-connector:not([data-preview])[data-flow]").count()).toBe(2);
     const duration = await page.locator("bld-connector:not([data-preview])[data-flow]").first().evaluate((el) => {
       return getComputedStyle(el).getPropertyValue("--flow-period").trim();
@@ -395,20 +396,19 @@ test.describe("wiring", () => {
     const chart = nodeHost(page, "scope").locator('[data-testid^="chart-"]');
     await runDiagram(page);
     await expect(chart).toBeEnabled();
+    await expectScopeOverlayHidden(page);
     await chart.click();
-    await waitDeep(page, '[data-testid="scope-modal"]');
-    await expect(page.locator('[data-testid="scope-modal"]')).toHaveCSS("opacity", "1");
-    await expect(page.locator('[data-testid="scope-modal"] .modal-dialog')).toHaveCSS("transform", "none");
+    await waitForScopeOverlay(page);
     await expect(page.locator('[data-testid="scope-modal"] .modal-title')).toHaveCount(0);
     await expect(page.locator('[data-testid="scope-caption"]')).toHaveText("blk_1");
     await expect(page.locator('[data-testid="scope-caption"]')).not.toContainText("timer(");
     await expect(page.locator('[data-testid="scope-close"]')).toBeVisible();
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-series-count", "2", {
-      timeout: 1_000,
+      timeout: 250,
     });
     await expect(page.locator('[data-testid="scope-chart"] canvas')).toBeVisible();
     await expect(page.locator('[data-testid="scope-chart"]')).toHaveAttribute("data-painted", "true", {
-      timeout: 1_000,
+      timeout: 250,
     });
     await expect
       .poll(async () => Number(await page.locator('[data-testid="scope-chart"]').getAttribute("data-sample-count")), {

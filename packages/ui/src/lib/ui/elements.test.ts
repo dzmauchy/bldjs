@@ -120,6 +120,10 @@ describe("Lit update scheduling", () => {
     chart.app = app;
     document.body.append(chart);
     await chart.updateComplete;
+    expect(chart.hasAttribute("open")).toBe(false);
+    expect(chart.renderRoot.querySelector("[data-testid=scope-modal]")).not.toBeNull();
+    expect(chart.renderRoot.querySelector("[data-testid=scope-chart] canvas")).not.toBeNull();
+    expect(chart.renderRoot.querySelector("[data-testid=scope-modal]")?.getAttribute("aria-hidden")).toBe("true");
 
     app.scopeOpen = id;
     await chart.updateComplete;
@@ -146,6 +150,9 @@ describe("Lit update scheduling", () => {
     (close as HTMLButtonElement).click();
     await chart.updateComplete;
     expect(app.scopeOpen).toBe(-1);
+    expect(chart.hasAttribute("open")).toBe(false);
+    expect(chart.renderRoot.querySelector("[data-testid=scope-modal]")).not.toBeNull();
+    expect(chart.renderRoot.querySelector("[data-testid=scope-chart] canvas")).not.toBeNull();
 
     app.scopeOpen = -1;
     await chart.updateComplete;
@@ -153,6 +160,26 @@ describe("Lit update scheduling", () => {
     expect(chart.hasAttribute("open")).toBe(false);
 
     expect(litChangeInUpdateWarnings(warn)).toEqual([]);
+  });
+
+  it("paints on the first open from a pre-mounted canvas", async () => {
+    const { fillRect } = stubScopeCanvas();
+    const chart = document.createElement("bld-scope-modal") as BldScopeModal;
+    const app = new AppState();
+    const id = app.nextId;
+    app.addBlock("scope", 0, 0);
+    vi.spyOn(app.run, "snapshotScope").mockReturnValue([{ label: "sin", samples: [0, 1, 0, -1] }]);
+    chart.app = app;
+    document.body.append(chart);
+    await chart.updateComplete;
+    expect(fillRect).not.toHaveBeenCalled();
+    expect(chart.renderRoot.querySelector("[data-testid=scope-chart] canvas")).not.toBeNull();
+
+    app.scopeOpen = id;
+    await chart.updateComplete;
+    expect(chart.hasAttribute("open")).toBe(true);
+    expect(chart.renderRoot.querySelector("[data-testid=scope-chart]")?.getAttribute("data-painted")).toBe("true");
+    expect(fillRect).toHaveBeenCalled();
   });
 
   it("labels the scope footer with the instance name when one exists", async () => {

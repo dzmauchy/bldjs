@@ -33,12 +33,23 @@ export async function openAppMenu(page: Page): Promise<void> {
 
 export async function newCanvas(page: Page): Promise<void> {
   await page.keyboard.press("Escape");
-    await expect(
-    page.locator('[data-testid="scope-modal"], [data-testid="about-modal"], [data-testid="inputs-modal"]'),
-  ).toHaveCount(0);
+  await expect(page.locator('[data-testid="about-modal"], [data-testid="inputs-modal"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="scope-modal"]')).toBeHidden();
   await openAppMenu(page);
   await page.locator('[data-testid="menu-new-canvas"]').click();
   await expect(page.locator('[data-testid="status-blocks"]')).toHaveText("0 blocks");
+}
+
+export async function expectScopeOverlayHidden(page: Page): Promise<void> {
+  await expect(page.locator('[data-testid="scope-modal"]')).toBeAttached();
+  await expect(page.locator('[data-testid="scope-modal"]')).toBeHidden();
+}
+
+export async function waitForScopeOverlay(page: Page): Promise<void> {
+  const modal = page.locator('[data-testid="scope-modal"]');
+  await expect(modal).toBeVisible();
+  await expect(modal).toHaveCSS("opacity", "1");
+  await expect(page.locator('[data-testid="scope-modal"] .modal-dialog')).toHaveCSS("transform", "none");
 }
 
 export async function statusBlocks(page: Page): Promise<string> {
