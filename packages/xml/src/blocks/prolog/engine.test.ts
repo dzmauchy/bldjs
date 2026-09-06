@@ -133,4 +133,53 @@ describe("Trealla type engine", () => {
     expect(inferred.outputs[0]?.ty.equals(named("double"))).toBe(true);
     expect(inferred.outputs[0]?.connectable).toBe(true);
   });
+
+  it("swaps catalogs on one engine without a second consult", async () => {
+    const engine = await getTypeEngine();
+    const first = new Catalog();
+    first.addXml(
+      "id.xml",
+      `
+        <blocks id="t" name="T">
+          <block id="id" name="Id" ns="test">
+            <var>T</var>
+            <in name="in" type="T"/>
+            <out name="out" type="T"/>
+          </block>
+        </blocks>
+      `,
+    );
+    const second = new Catalog();
+    second.addXml(
+      "merge.xml",
+      `
+        <blocks id="t" name="T">
+          <block id="merge" name="Merge" ns="test">
+            <var>T</var>
+            <in name="a" type="T"/>
+            <in name="b" type="T"/>
+            <out name="out" type="T"/>
+          </block>
+        </blocks>
+      `,
+    );
+    const idOnce = await engine.infer(
+      first.block("id")!,
+      new Map([["in", { kind: "single", ty: named("double") }]]),
+      first,
+    );
+    expect(idOnce.outputs[0]?.ty.equals(named("double"))).toBe(true);
+
+    const merged = await engine.infer(
+      second.block("merge")!,
+      new Map([
+        ["a", { kind: "single", ty: named("double") }],
+        ["b", { kind: "single", ty: named("int") }],
+      ]),
+      second,
+    );
+    expect(merged.vars.get("T")?.equals(intersectionOf([named("double"), named("int")]))).toBe(true);
+    expect(merged.compatible.get("a")).toBe(true);
+    expect(merged.compatible.get("b")).toBe(true);
+  });
 });

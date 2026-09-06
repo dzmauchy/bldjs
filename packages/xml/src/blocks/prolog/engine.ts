@@ -1,7 +1,7 @@
 import { unbounded, type BlockDef, type TypeExpr, type VarDef } from "../ast";
 import type { Catalog } from "../catalog";
 import { quoteAtom, typeToProlog, prologTermToType } from "./terms";
-import { catalogPl, groundedTerm } from "./catalog-pl";
+import { ancestorFacts, blockFact, groundedTerm } from "./catalog-pl";
 import type { Grounding } from "../resolve";
 import typesPl from "./types.pl?raw";
 import blocksPl from "./blocks.pl?raw";
@@ -48,8 +48,6 @@ export function resetTypeEngine(): void {
 
 export class TypeEngine {
   private queue: Promise<unknown> = Promise.resolve();
-  private catalogSrc = "";
-  private catalogGen = 0;
 
   private constructor(private readonly pl: TreallaProlog) {}
 
@@ -86,9 +84,17 @@ export class TypeEngine {
 
   async infer(block: BlockDef, grounded: Map<string, Grounding>, catalog: Catalog): Promise<PrologInference> {
     try {
-      await this.ensureCatalog(catalog);
       const vars = new Set(block.vars.map((item) => item.name));
-      const goal = `infer_block(${quoteAtom(block.id)}, ${groundedTerm(grounded, vars)}, Result).`;
+      const ancestors = ancestorFacts(catalog);
+      const ancestorGoal = ancestors.length > 0 ? `assert_ancestors([${ancestors.join(", ")}]),` : "";
+      const fact = blockFact(block).replace(/\.\s*$/, "");
+      const goal = `
+        retractall(block(_, _, _, _)),
+        assertz(${fact}),
+        clear_ancestors,
+        ${ancestorGoal}
+        infer_block(${quoteAtom(block.id)}, ${groundedTerm(grounded, vars)}, Result).
+      `;
       const result = await this.run(goal);
       if (!result || result.status !== "success" || !result.answer?.Result) {
         return failedInference(block);
@@ -100,25 +106,8 @@ export class TypeEngine {
     }
   }
 
-  private async ensureCatalog(catalog: Catalog): Promise<void> {
-    const src = catalogPl(catalog);
-    if (src === this.catalogSrc) {
-      return;
-    }
-    const path = `/catalog-${++this.catalogGen}.pl`;
-    await this.enqueue(async () => {
-      this.pl.fs.open(path, { write: true, create: true }).writeString(src);
-      await this.pl.consult(path);
-    });
-    this.catalogSrc = src;
-  }
-
   private run(goal: string) {
-    return this.enqueue(() => runGoal(this.pl, goal));
-  }
-
-  private enqueue<T>(job: () => Promise<T>): Promise<T> {
-    const next = this.queue.then(job, job);
+    const next = this.queue.then(() => runGoal(this.pl, goal), () => runGoal(this.pl, goal));
     this.queue = next.then(
       () => undefined,
       () => undefined,

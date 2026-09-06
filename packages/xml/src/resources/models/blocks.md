@@ -63,7 +63,7 @@ A `<block>` represents an executable node definition in the catalog. The block `
 Inference loads two Prolog files into Trealla (WASM), in order:
 
 1. `packages/xml/src/blocks/prolog/types.pl` — `library(atts)`, `attr_unify_hook/2` via `verify_attributes/3`, `infer_spec/5`, `extends/1`, `comparable/1`, `super/1`, `?/1`.
-2. `packages/xml/src/blocks/prolog/blocks.pl` — `infer_block(Id, Grounded, Result)` using `block(Id, Vars, Ins, Outs)` facts generated from the catalog.
+2. `packages/xml/src/blocks/prolog/blocks.pl` — `infer_block(Id, Grounded, Result)` using `block(Id, Vars, Ins, Outs)` facts generated from the catalog by id.
 
 A block declares only type variables, inputs, and outputs (plus optional settings). After unification, an output that still has free type variables is not connectable.
 
