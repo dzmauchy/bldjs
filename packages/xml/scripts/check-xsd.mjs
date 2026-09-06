@@ -1,12 +1,33 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const modelsDir = join(dirname(fileURLToPath(import.meta.url)), "../src/resources/models");
+const packageDir = join(dirname(fileURLToPath(import.meta.url)), "..");
+const modelsDir = join(packageDir, "src/resources/models");
+const fixturesXml = join(packageDir, "src/blocks/fixtures.xml");
 
 function xmlFiles(names) {
   return names.map((name) => join(modelsDir, name));
+}
+
+function assertSchemaHint(file, schemaName) {
+  const xml = readFileSync(file, "utf8");
+  const match = xml.match(/xsi:noNamespaceSchemaLocation="([^"]+)"/);
+  if (!match) {
+    console.error(`${file} is missing xsi:noNamespaceSchemaLocation`);
+    process.exit(1);
+  }
+  const location = match[1];
+  const resolved = resolve(dirname(file), location);
+  if (!existsSync(resolved)) {
+    console.error(`${file} schema location \`${location}\` does not resolve`);
+    process.exit(1);
+  }
+  if (basename(resolved) !== schemaName) {
+    console.error(`${file} schema location \`${location}\` does not point at ${schemaName}`);
+    process.exit(1);
+  }
 }
 
 function validate(schemaName, files) {
@@ -43,8 +64,19 @@ if (catalogXml.length === 0) {
   console.error(`No catalog XML models found in ${modelsDir}`);
   process.exit(1);
 }
+if (!existsSync(fixturesXml)) {
+  console.error(`Fixture catalog not found: ${fixturesXml}`);
+  process.exit(1);
+}
 
-validate("blocks.xsd", xmlFiles(catalogXml));
+const catalogFiles = [...xmlFiles(catalogXml), fixturesXml];
+for (const file of catalogFiles) {
+  assertSchemaHint(file, "blocks.xsd");
+}
+validate("blocks.xsd", catalogFiles);
 if (diagramXml.length > 0) {
+  for (const file of xmlFiles(diagramXml)) {
+    assertSchemaHint(file, "diagram.xsd");
+  }
   validate("diagram.xsd", xmlFiles(diagramXml));
 }
