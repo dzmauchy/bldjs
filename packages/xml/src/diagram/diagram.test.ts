@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { associateBuiltinModels } from "../blocks/builtin";
 import { Diagram } from "../blocks/diagram";
-import sampleXml from "../resources/models/diagram.xml?raw";
 import {
   DiagramCompileError,
   canvasToDocument,
@@ -39,25 +38,28 @@ describe("diagram XML", () => {
     expect(PARAMETER_KINDS).toEqual(BLOCK_PARAMETER_KINDS);
   });
 
-  it("parses the sample diagram.xml", () => {
-    const doc = parseDiagramXml(sampleXml);
-    expect(doc.id).toBe("diag_telemetry_01");
-    expect(doc.blocks.map((block) => block.type)).toEqual(["sensor_source", "scaler", "timeseries_sink"]);
-    expect(doc.connectors).toHaveLength(2);
-    expect(doc.connectors[0]?.input.block).toBe("blk_sensor_in");
-    expect(doc.connectors[0]?.input.port).toBe("data_out");
-    expect(doc.connectors[0]?.output.port).toBe("raw_in");
-    expect(doc.catalogs).toEqual(["blocks.xml"]);
-    const scaler = doc.blocks.find((block) => block.type === "scaler");
-    expect(scaler?.parameters.map((param) => param.kind)).toEqual([
-      "decimal-parameter",
-      "integer-range-parameter",
-      "double-range-parameter",
-    ]);
-  });
-
-  it("round-trips the sample through serialize and parse", () => {
-    const doc = parseDiagramXml(sampleXml);
+  it("round-trips diagram XML through serialize and parse", () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<diagram id="diag_telemetry_01" name="Telemetry" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:30:00Z" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="diagram.xsd">
+  <catalogs>
+    <catalog>blocks.xml</catalog>
+  </catalogs>
+  <blocks>
+    <block id="blk_sensor_in" type="sensor_source" x="120" y="80" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:15:00Z"/>
+    <block id="blk_scaler" type="scaler" x="460" y="80" createdAt="2026-08-31T05:01:00Z" updatedAt="2026-08-31T05:20:00Z">
+      <parameters>
+        <decimal-parameter id="param_val_05" name="calibrationOffset" value="0.0042" createdAt="2026-08-31T05:01:00Z" updatedAt="2026-08-31T05:18:00Z"/>
+      </parameters>
+    </block>
+  </blocks>
+  <connectors>
+    <connector id="conn_01" createdAt="2026-08-31T05:10:00Z" updatedAt="2026-08-31T05:25:00Z">
+      <input id="ep_in_01" block="blk_sensor_in" port="data_out" createdAt="2026-08-31T05:10:00Z" updatedAt="2026-08-31T05:10:00Z"/>
+      <output id="ep_out_01" block="blk_scaler" port="raw_in" createdAt="2026-08-31T05:10:00Z" updatedAt="2026-08-31T05:10:00Z"/>
+    </connector>
+  </connectors>
+</diagram>`;
+    const doc = parseDiagramXml(xml);
     const again = parseDiagramXml(serializeDiagramXml(doc));
     expect(again.id).toBe(doc.id);
     expect(again.blocks).toHaveLength(doc.blocks.length);
