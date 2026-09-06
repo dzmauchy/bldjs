@@ -39,14 +39,22 @@
     <param name="T"/>
     <factory id="Array::from"/>
     <in name="elems" type="T" vararg="true"/>
-    <out name="result" type="Array[T]"/>
+    <out name="result">
+      <type name="Array">
+        <var name="T"/>
+      </type>
+    </out>
   </block>
 
   <block id="b_array_get" name="array.get" ns="types" icon="list">
     <attribute name="kind">Process</attribute>
     <param name="T"/>
     <factory id="Array::get"/>
-    <in name="array" type="Array[T]"/>
+    <in name="array">
+      <type name="Array">
+        <var name="T"/>
+      </type>
+    </in>
     <in name="index" type="Int"/>
     <out name="elem" type="T"/>
   </block>

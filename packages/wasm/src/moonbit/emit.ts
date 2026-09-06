@@ -125,7 +125,22 @@ export function emitSolutionFiles(
         }
         return rings.get(`${block.id}:${portSlotIndex(link.fromOut)}`) ?? slot;
       });
-      blockParts.push(add({ name, length, rings: slotRings, pin, zeta, omega, value, def: factorDef, timeInput }));
+      let wiredMask: number | undefined = undefined;
+      if (block.defId === "product") {
+        let mask = 0;
+        for (let slot = 0; slot < length; slot++) {
+          const isWired =
+            outgoing.some((l) => portSlotIndex(l.fromOut) === slot) ||
+            outgoing[slot] !== undefined;
+          if (isWired) {
+            mask |= 1 << slot;
+          }
+        }
+        wiredMask = mask;
+      }
+      blockParts.push(
+        add({ name, length, rings: slotRings, pin, zeta, omega, value, def: factorDef, timeInput, wiredMask }),
+      );
     } else {
       blockParts.push(add({ name, pin, zeta, omega, value, def: factorDef, timeInput }));
     }

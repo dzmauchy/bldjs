@@ -13,38 +13,30 @@
   <type name="char"/>
   <type name="void"/>
 
-
   <!-- Built-in Generic Container -->
   <type name="Array">
     <var name="T"/>
   </type>
 
   <!-- Function / Consumer Types -->
-  <type name="c0">
-    <alias type="() -> void"/>
-  </type>
+  <type name="c0"/>
   <type name="c1">
     <var name="T"/>
-    <alias type="(T) -> void"/>
   </type>
   <type name="c2">
     <var name="T1"/>
     <var name="T2"/>
-    <alias type="(T1, T2) -> void"/>
   </type>
   <type name="f0">
     <var name="R"/>
-    <alias type="() -> R"/>
   </type>
   <type name="f1">
     <var name="T"/>
     <var name="R"/>
-    <alias type="(T) -> R"/>
   </type>
   <type name="f2">
     <var name="T1"/>
     <var name="T2"/>
     <var name="R"/>
-    <alias type="(T1, T2) -> R"/>
   </type>
 </types>

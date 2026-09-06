@@ -1,0 +1,26 @@
+{
+  "name": "@bld/types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "description": "BLD type system and block type inference",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ast": "./src/ast.ts",
+    "./format": "./src/format.ts",
+    "./catalog": "./src/catalog.ts",
+    "./compat": "./src/compat.ts",
+    "./resolve": "./src/resolve.ts",
+    "./ports": "./src/ports.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  }
+}

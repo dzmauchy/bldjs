@@ -46,13 +46,11 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Variance for Wildcard Types -->
+  <!-- Variance for Wildcard Types: only + and - allowed -->
   <xs:simpleType name="VarianceType">
     <xs:restriction base="xs:string">
       <xs:enumeration value="+"/>
       <xs:enumeration value="-"/>
-      <xs:enumeration value="="/>
-      <xs:enumeration value="?"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -69,7 +67,7 @@
     <xs:attribute name="name" type="xs:string" use="required"/>
   </xs:complexType>
 
-  <!-- Type Reference (`f64`, `(f64) -> void`, `Animal<X>`) -->
+  <!-- Type Reference (`f64`, `Animal`) -->
   <xs:complexType name="TypeRef">
     <xs:sequence>
       <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
@@ -82,7 +80,7 @@
   <xs:complexType name="TypeVarDef">
     <xs:sequence>
       <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-      <xs:element name="extends" type="TypeRef" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="extends" type="PortTypeRef" minOccurs="0" maxOccurs="unbounded"/>
     </xs:sequence>
     <xs:attribute name="name" type="xs:string" use="required"/>
     <xs:attribute name="extends" type="xs:string"/>
@@ -117,13 +115,15 @@
     <xs:sequence>
       <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
       <xs:choice minOccurs="0">
-        <xs:element name="extends" type="PortTypeRef"/>
-        <xs:element name="super" type="PortTypeRef"/>
+        <xs:element name="type" type="PortTypeRef"/>
+        <xs:element name="var" type="TypeVarRef"/>
+        <xs:element name="raw-type" type="RawTypeRef"/>
+        <xs:element name="wildcard" type="WildcardTypeDef"/>
+        <xs:element name="intersection" type="IntersectionTypeDef"/>
       </xs:choice>
     </xs:sequence>
     <xs:attribute name="variance" type="VarianceType"/>
-    <xs:attribute name="extends" type="xs:string"/>
-    <xs:attribute name="super" type="xs:string"/>
+    <xs:attribute name="type" type="xs:string"/>
   </xs:complexType>
 
   <!-- Structured Intersection Type Definition -->
@@ -138,6 +138,19 @@
     </xs:sequence>
   </xs:complexType>
 
+  <!-- Structured Union Type Definition -->
+  <xs:complexType name="UnionTypeDef">
+    <xs:sequence>
+      <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:choice minOccurs="1" maxOccurs="unbounded">
+        <xs:element name="type" type="PortTypeRef"/>
+        <xs:element name="var" type="TypeVarRef"/>
+        <xs:element name="raw-type" type="RawTypeRef"/>
+        <xs:element name="intersection" type="IntersectionTypeDef"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+
   <!-- Parameterized or Structured Port Type Reference -->
   <xs:complexType name="PortTypeRef">
     <xs:sequence>
@@ -148,6 +161,7 @@
         <xs:element name="raw-type" type="RawTypeRef"/>
         <xs:element name="wildcard" type="WildcardTypeDef"/>
         <xs:element name="intersection" type="IntersectionTypeDef"/>
+        <xs:element name="union" type="UnionTypeDef"/>
       </xs:choice>
     </xs:sequence>
     <xs:attribute name="name" type="xs:string"/>
@@ -175,10 +189,9 @@
         <xs:element name="param" type="TypeVarDef"/>
       </xs:choice>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
-        <xs:element name="extends" type="TypeRef"/>
-        <xs:element name="ancestor" type="TypeRef"/>
+        <xs:element name="extends" type="PortTypeRef"/>
+        <xs:element name="ancestor" type="PortTypeRef"/>
       </xs:choice>
-      <xs:element name="alias" type="TypeRef" minOccurs="0"/>
     </xs:sequence>
     <xs:attribute name="name" type="xs:string" use="required"/>
     <xs:attribute name="ns" type="xs:string"/>

@@ -40,7 +40,6 @@ import {
   isSettingKind,
   isVarianceType,
 } from "./ast";
-import { parseType } from "./type-parser";
 import {
   CONTROL_SYSTEMS_XML,
   FIXTURES_XML,
@@ -98,10 +97,6 @@ function t(name: string): TypeExpr {
 
 function g(name: string, args: TypeExpr[]): TypeExpr {
   return generic(name, args);
-}
-
-function ty(src: string): TypeExpr {
-  return parseType(src);
 }
 
 function catalog(): Catalog {
@@ -167,7 +162,12 @@ describe("blocks", () => {
           <param name="T"/>
           <param name="R"/>
           <factory id="apply"/>
-          <in name="fn" type="(T) -> R"/>
+          <in name="fn">
+            <type name="f1">
+              <var name="T"/>
+              <var name="R"/>
+            </type>
+          </in>
           <in name="arg" type="T"/>
           <out name="result" type="R"/>
         </block>
@@ -186,9 +186,21 @@ describe("blocks", () => {
     const xml = `
       <blocks id="w" name="Holes">
         <block id="b" name="W" ns="test">
-          <in name="ints" type="Array[Int]"/>
-          <in name="consumer" type="(Double) -> void"/>
-          <in name="unboundedInput" type="Array[_]"/>
+          <in name="ints">
+            <type name="Array">
+              <type name="Int"/>
+            </type>
+          </in>
+          <in name="consumer">
+            <type name="c1">
+              <type name="Double"/>
+            </type>
+          </in>
+          <in name="unboundedInput">
+            <type name="Array">
+              <type name="_"/>
+            </type>
+          </in>
         </block>
       </blocks>
     `;
@@ -204,8 +216,22 @@ describe("blocks", () => {
       <blocks id="u" name="U">
         <block id="b_path" name="path" ns="example.Builder">
           <in name="segment" type="String"/>
-          <in name="complexPayload" type="((T) -> Unit) &amp; (() -> T)"/>
-          <out name="result" type="Int | Int64"/>
+          <in name="complexPayload">
+            <intersection>
+              <type name="c1">
+                <var name="T"/>
+              </type>
+              <type name="f0">
+                <var name="T"/>
+              </type>
+            </intersection>
+          </in>
+          <out name="result">
+            <union>
+              <type name="Int"/>
+              <type name="Int64"/>
+            </union>
+          </out>
           <out name="this" type="Self"/>
         </block>
       </blocks>
@@ -222,9 +248,17 @@ describe("blocks", () => {
       <blocks id="e" name="E">
         <block id="b_rec_new" name="rec.new" ns="example">
           <param name="T">
-            <extends type="Rec[T]"/>
+            <extends>
+              <type name="Rec">
+                <var name="T"/>
+              </type>
+            </extends>
           </param>
-          <in name="cls" type="(T) -> Unit"/>
+          <in name="cls">
+            <type name="c1">
+              <var name="T"/>
+            </type>
+          </in>
           <out name="value" type="T"/>
         </block>
       </blocks>
@@ -309,13 +343,27 @@ describe("blocks", () => {
     expect(isCompatible(cat, [], formal, consumerType(consumerType(t("Double"))))).toBe(true);
   });
 
-  it("parses Array[T] MoonBit notation", () => {
+  it("parses Array[T] notation", () => {
     const xml = `
       <blocks id="a" name="A">
         <block id="b" name="B" ns="test">
-          <in name="sugar" type="Array[Double]"/>
-          <in name="nested" type="Array[Array[Int]]"/>
-          <out name="alias" type="Array[String]"/>
+          <in name="sugar">
+            <type name="Array">
+              <type name="Double"/>
+            </type>
+          </in>
+          <in name="nested">
+            <type name="Array">
+              <type name="Array">
+                <type name="Int"/>
+              </type>
+            </type>
+          </in>
+          <out name="alias">
+            <type name="Array">
+              <type name="String"/>
+            </type>
+          </out>
         </block>
       </blocks>
     `;
@@ -366,7 +414,13 @@ describe("blocks", () => {
             <param name="T1"/>
             <param name="T2"/>
             <param name="R"/>
-            <in name="fn" type="(T1, T2) -> R"/>
+            <in name="fn">
+              <type name="f2">
+                <var name="T1"/>
+                <var name="T2"/>
+                <var name="R"/>
+              </type>
+            </in>
             <in name="a" type="T1"/>
             <in name="b" type="T2"/>
             <out name="result" type="R"/>
@@ -423,20 +477,40 @@ describe("blocks", () => {
         <blocks id="example" name="Example">
           <type name="Rec" ns="example">
             <param name="E">
-              <extends type="Rec[E]"/>
+              <extends>
+                <type name="Rec">
+                  <var name="E"/>
+                </type>
+              </extends>
             </param>
           </type>
           <type name="Color" ns="example">
-            <ancestor type="Rec[Color]"/>
+            <ancestor>
+              <type name="Rec">
+                <type name="Color"/>
+              </type>
+            </ancestor>
           </type>
           <block id="b_color_fn" name="Color.fn" ns="example">
-            <out name="value" type="(Color) -> Unit"/>
+            <out name="value">
+              <type name="c1">
+                <type name="Color"/>
+              </type>
+            </out>
           </block>
           <block id="b_rec_new" name="rec.new" ns="example">
             <param name="T">
-              <extends type="Rec[T]"/>
+              <extends>
+                <type name="Rec">
+                  <var name="T"/>
+                </type>
+              </extends>
             </param>
-            <in name="cls" type="(T) -> Unit"/>
+            <in name="cls">
+              <type name="c1">
+                <var name="T"/>
+              </type>
+            </in>
             <out name="value" type="T"/>
           </block>
         </blocks>
@@ -459,7 +533,11 @@ describe("blocks", () => {
         <blocks id="b" name="B">
           <block id="need_c1" name="Need" ns="test">
             <param name="N">
-              <extends type="(Double) -> Unit"/>
+              <extends>
+                <type name="c1">
+                  <type name="Double"/>
+                </type>
+              </extends>
             </param>
             <in name="in" type="N"/>
             <out name="out" type="N"/>
@@ -534,7 +612,7 @@ describe("blocks", () => {
 
   it("hole display", () => {
     expect(displayType(unbounded(), true)).toBe("_");
-    expect(ty("_").kind).toBe("hole");
+    expect(unbounded().kind).toBe("hole");
   });
 
   it("substitutes params, replaces Self, and flattens unions", () => {
@@ -1260,7 +1338,7 @@ describe("constants, settings, relations, and type intersection inference", () =
       }
       expect(isRelationKind("unknown")).toBe(false);
 
-      expect(VARIANCE_TYPES).toEqual(["+", "-", "=", "?"]);
+      expect(VARIANCE_TYPES).toEqual(["+", "-"]);
       for (const v of VARIANCE_TYPES) {
         expect(isVarianceType(v)).toBe(true);
       }
@@ -1686,7 +1764,11 @@ describe("constants, settings, relations, and type intersection inference", () =
             <block id="b_inter_varargs" name="InterVarargs" ns="test">
               <param name="T" relation="intersection"/>
               <in name="elems" type="T" vararg="true"/>
-              <out name="result" type="Array[T]"/>
+              <out name="result">
+                <type name="Array">
+                  <var name="T"/>
+                </type>
+              </out>
             </block>
           </blocks>
         `,
@@ -1892,11 +1974,6 @@ describe("constants, settings, relations, and type intersection inference", () =
       expect(c1Def).toBeDefined();
       expect(c1Def!.vars.length).toBe(1);
       expect(c1Def!.vars[0]!.name).toBe("T");
-      expect(c1Def!.alias).toBeDefined();
-
-      const c1Expanded = cat.expandAlias(generic("c1", [t("f64")]));
-      expect(c1Expanded).toBeDefined();
-      expectType(c1Expanded!, funcType([t("f64")], t("void")));
 
       // c1 is a consumer type and push wire type
       expect(isConsumerType(named("c1"))).toBe(true);
@@ -1905,45 +1982,61 @@ describe("constants, settings, relations, and type intersection inference", () =
       expect(isPushType(arrayOf(generic("c1", [t("f64")])))).toBe(true);
     });
 
-    it("parseType parses angle brackets and wildcard types", () => {
-      const t1 = ty("c1<f64>");
-      expect(t1.kind).toBe("type");
-      expect((t1 as any).name).toBe("c1");
-      expect((t1 as any).args.length).toBe(1);
-      expectType((t1 as any).args[0], t("f64"));
+    it("parses XML type elements with generics, wildcards, and intersections", () => {
+      const doc = parseBlocks(
+        "test.xml",
+        `
+        <blocks id="test" name="Test">
+          <block id="b1" name="B1" ns="test">
+            <in name="p1"><type name="c1"><type name="f64"/></type></in>
+            <in name="p2"><type name="Animal"><wildcard variance="+" type="Genotype"/></type></in>
+            <in name="p3"><type name="Animal"><wildcard variance="-" type="Cat"/></type></in>
+            <in name="p4"><type name="Animal"><wildcard/></type></in>
+            <in name="p5"><type name="Box"><type name="Box"><var name="T"/></type></type></in>
+            <in name="p6"><type name="Box"><intersection><type name="Reader"/><type name="Writer"/></intersection></type></in>
+          </block>
+        </blocks>
+        `,
+      );
+      const b1 = doc.blocks[0]!;
+      const p1 = b1.inputs[0]!.ty;
+      expect(p1.kind).toBe("type");
+      expect((p1 as any).name).toBe("c1");
+      expect((p1 as any).args.length).toBe(1);
+      expectType((p1 as any).args[0], t("f64"));
 
-      const tWildExtends = ty("Animal<? extends Genotype>");
-      expect(tWildExtends.kind).toBe("type");
-      const arg1 = (tWildExtends as any).args[0];
-      expect(arg1.kind).toBe("wildcard");
-      expect(arg1.boundKind).toBe("extends");
-      expectType(arg1.bound, t("Genotype"));
-      expect(arg1.display(true)).toBe("? extends Genotype");
-
-      const tWildSuper = ty("Animal<? super Cat>");
-      expect(tWildSuper.kind).toBe("type");
-      const arg2 = (tWildSuper as any).args[0];
+      const p2 = b1.inputs[1]!.ty;
+      expect(p2.kind).toBe("type");
+      const arg2 = (p2 as any).args[0];
       expect(arg2.kind).toBe("wildcard");
-      expect(arg2.boundKind).toBe("super");
-      expectType(arg2.bound, t("Cat"));
-      expect(arg2.display(true)).toBe("? super Cat");
+      expect(arg2.boundKind).toBe("extends");
+      expectType(arg2.bound, t("Genotype"));
+      expect(arg2.display(true)).toBe("? extends Genotype");
 
-      const tWildUnbounded = ty("Animal<?>");
-      expect(tWildUnbounded.kind).toBe("type");
-      const arg3 = (tWildUnbounded as any).args[0];
+      const p3 = b1.inputs[2]!.ty;
+      expect(p3.kind).toBe("type");
+      const arg3 = (p3 as any).args[0];
       expect(arg3.kind).toBe("wildcard");
-      expect(arg3.boundKind).toBeNull();
-      expect(arg3.bound).toBeNull();
-      expect(arg3.display(true)).toBe("?");
+      expect(arg3.boundKind).toBe("super");
+      expectType(arg3.bound, t("Cat"));
+      expect(arg3.display(true)).toBe("? super Cat");
 
-      const tNested = ty("Box<Box<T>>");
-      expect(tNested.kind).toBe("type");
-      expect((tNested as any).args[0].kind).toBe("type");
-      expect((tNested as any).args[0].name).toBe("Box");
+      const p4 = b1.inputs[3]!.ty;
+      expect(p4.kind).toBe("type");
+      const arg4 = (p4 as any).args[0];
+      expect(arg4.kind).toBe("wildcard");
+      expect(arg4.boundKind).toBeNull();
+      expect(arg4.bound).toBeNull();
+      expect(arg4.display(true)).toBe("?");
 
-      const tInter = ty("Box<Reader & Writer>");
-      expect(tInter.kind).toBe("type");
-      expect((tInter as any).args[0].kind).toBe("intersection");
+      const p5 = b1.inputs[4]!.ty;
+      expect(p5.kind).toBe("type");
+      expect((p5 as any).args[0].kind).toBe("type");
+      expect((p5 as any).args[0].name).toBe("Box");
+
+      const p6 = b1.inputs[5]!.ty;
+      expect(p6.kind).toBe("type");
+      expect((p6 as any).args[0].kind).toBe("intersection");
     });
 
     it("types can have type parameters and constraints without variance: Animal<X extends Genotype>, Cat<X extends Genotype> extends Animal<X>", () => {
@@ -1960,8 +2053,13 @@ describe("constants, settings, relations, and type intersection inference", () =
               <var name="X" extends="Genotype"/>
             </type>
 
-            <type name="Cat" extends="Animal&lt;X&gt;">
+            <type name="Cat">
               <var name="X" extends="Genotype"/>
+              <extends>
+                <type name="Animal">
+                  <var name="X"/>
+                </type>
+              </extends>
             </type>
           </types>
         `,
@@ -2006,8 +2104,13 @@ describe("constants, settings, relations, and type intersection inference", () =
               <var name="X" extends="Genotype"/>
             </type>
 
-            <type name="Cat" extends="Animal&lt;X&gt;">
+            <type name="Cat">
               <var name="X" extends="Genotype"/>
+              <extends>
+                <type name="Animal">
+                  <var name="X"/>
+                </type>
+              </extends>
             </type>
           </types>
         `,
@@ -2109,29 +2212,67 @@ describe("constants, settings, relations, and type intersection inference", () =
               <in name="p_raw" type="f64"/>
 
               <!-- 3. Intersection type -->
-              <in name="p_inter" type="Reader &amp; Writer"/>
+              <in name="p_inter">
+                <intersection>
+                  <type name="Reader"/>
+                  <type name="Writer"/>
+                </intersection>
+              </in>
 
               <!-- 4. Parameterized type with: -->
               <!-- 4a. parameterized type of this definition -->
-              <in name="p_param_nested" type="Box&lt;Box&lt;V&gt;&gt;"/>
+              <in name="p_param_nested">
+                <type name="Box">
+                  <type name="Box">
+                    <var name="V"/>
+                  </type>
+                </type>
+              </in>
 
               <!-- 4b. block type variable -->
-              <in name="p_param_var" type="Box&lt;V&gt;"/>
+              <in name="p_param_var">
+                <type name="Box">
+                  <var name="V"/>
+                </type>
+              </in>
 
               <!-- 4c. raw type -->
-              <in name="p_param_raw" type="Box&lt;f64&gt;"/>
+              <in name="p_param_raw">
+                <type name="Box">
+                  <raw-type name="f64"/>
+                </type>
+              </in>
 
               <!-- 4d. wildcard type with upper bound -->
-              <in name="p_param_wild_upper" type="Animal&lt;? extends Genotype&gt;"/>
+              <in name="p_param_wild_upper">
+                <type name="Animal">
+                  <wildcard variance="+" type="Genotype"/>
+                </type>
+              </in>
 
               <!-- 4e. wildcard type with lower bound -->
-              <in name="p_param_wild_lower" type="Animal&lt;? super Cat&gt;"/>
+              <in name="p_param_wild_lower">
+                <type name="Animal">
+                  <wildcard variance="-" type="Cat"/>
+                </type>
+              </in>
 
               <!-- 4f. wildcard type unbounded -->
-              <in name="p_param_wild_unbounded" type="Animal&lt;?&gt;"/>
+              <in name="p_param_wild_unbounded">
+                <type name="Animal">
+                  <wildcard/>
+                </type>
+              </in>
 
               <!-- 4g. intersection type -->
-              <in name="p_param_inter" type="Box&lt;Reader &amp; Writer&gt;"/>
+              <in name="p_param_inter">
+                <type name="Box">
+                  <intersection>
+                    <type name="Reader"/>
+                    <type name="Writer"/>
+                  </intersection>
+                </type>
+              </in>
             </block>
           </blocks>
         `,
@@ -2278,8 +2419,16 @@ describe("constants, settings, relations, and type intersection inference", () =
           <blocks id="fn_blocks" name="FnBlocks" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
             <block id="b_c1_consumer" name="C1Consumer" ns="test">
               <var name="T"/>
-              <in name="fn" type="c1&lt;T&gt;"/>
-              <out name="echo" type="c1&lt;T&gt;"/>
+              <in name="fn">
+                <type name="c1">
+                  <var name="T"/>
+                </type>
+              </in>
+              <out name="echo">
+                <type name="c1">
+                  <var name="T"/>
+                </type>
+              </out>
             </block>
           </blocks>
         `,
@@ -2315,7 +2464,13 @@ describe("constants, settings, relations, and type intersection inference", () =
 
             <block id="b_wild_block" name="WildBlock" ns="test">
               <var name="T" extends="Genotype"/>
-              <in name="animal" type="Animal&lt;? extends T&gt;"/>
+              <in name="animal">
+                <type name="Animal">
+                  <wildcard variance="+">
+                    <var name="T"/>
+                  </wildcard>
+                </type>
+              </in>
               <out name="out" type="T"/>
             </block>
           </blocks>

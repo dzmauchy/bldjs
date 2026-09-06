@@ -26,6 +26,8 @@ export interface MoonBlockEmit {
   omega?: number;
   /** When true, overshoot treats input as elapsed time (from timer). When false, input is a signal and overshoot steps on transitions. Defaults to true. */
   timeInput?: boolean;
+  /** Bitmask of wired slots for combiners (e.g. product) to wait for initial samples before emitting. */
+  wiredMask?: number;
 }
 
 export type BlockScript = (opts?: MoonBlockEmit) => string;

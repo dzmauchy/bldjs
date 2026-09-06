@@ -52,16 +52,15 @@
 
   <!-- Port Definition (in/out) supporting string type or structured type elements -->
   <xs:complexType name="PortDef">
-    <xs:sequence>
-      <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-      <xs:choice minOccurs="0">
-        <xs:element name="var" type="TypeVarRef"/>
-        <xs:element name="raw-type" type="RawTypeRef"/>
-        <xs:element name="type" type="PortTypeRef"/>
-        <xs:element name="wildcard" type="WildcardTypeDef"/>
-        <xs:element name="intersection" type="IntersectionTypeDef"/>
-      </xs:choice>
-    </xs:sequence>
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="attribute" type="AttributeDef"/>
+      <xs:element name="var" type="TypeVarRef"/>
+      <xs:element name="raw-type" type="RawTypeRef"/>
+      <xs:element name="type" type="PortTypeRef"/>
+      <xs:element name="wildcard" type="WildcardTypeDef"/>
+      <xs:element name="intersection" type="IntersectionTypeDef"/>
+      <xs:element name="union" type="UnionTypeDef"/>
+    </xs:choice>
     <xs:attribute name="name" type="xs:string" use="required"/>
     <xs:attribute name="type" type="TypeString"/>
     <xs:attribute name="direction" type="PortDirection"/>

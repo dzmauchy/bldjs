@@ -1,8 +1,9 @@
-import { isArrayType, isPushType, typeToString, type BlockDef, type TypeExpr } from "@bld/xml/blocks/ast";
+import { isArrayType, isPushType, type BlockDef, type TypeExpr } from "@bld/types/ast";
+import { formatType } from "@bld/types/format";
 import type { Catalog } from "@bld/xml/blocks/catalog";
 import type { Link } from "@bld/xml/blocks/diagram";
-import { inputSlotsFor, outputSlotsFor, type PortSlot } from "@bld/xml/blocks/ports";
-import { isResolvedCompatible, resolvedInput, resolvedOutput, type ResolvedBlock } from "@bld/xml/blocks/resolve";
+import { inputSlotsFor, outputSlotsFor, type PortSlot } from "@bld/types/ports";
+import { isResolvedCompatible, resolvedInput, resolvedOutput, type ResolvedBlock } from "@bld/types/resolve";
 import type { BlockInstance } from "$lib/diagram-model";
 import type { BlockKindInfo } from "$lib/model";
 import { shouldShowPortType } from "./link-types";
@@ -73,7 +74,7 @@ export function paramLine(resolved: Map<number, ResolvedBlock>, blockId: number)
     .entries()
     .toArray()
     .toSorted(([a], [b]) => a.localeCompare(b))
-    .map(([name, ty]) => `${name} = ${typeToString(ty)}`)
+    .map(([name, ty]) => `${name} = ${formatType(ty)}`)
     .join(" · ");
 }
 
@@ -150,7 +151,7 @@ function portView(
 ): PortView {
   return {
     name: slot.name,
-    typeLabel: typeToString(ty),
+    typeLabel: formatType(ty),
     vararg: catalogPort.vararg && slot.index === 0,
     vectorized: catalogPort.vararg || isArrayType(catalogPort.ty),
     ...extra,

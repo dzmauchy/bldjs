@@ -15,6 +15,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@bld/types": "0.1.0",
     "@bld/wasm": "0.1.0",
     "@bld/xml": "0.1.0",
     "@joint/router-avoid": "^4.3.3",

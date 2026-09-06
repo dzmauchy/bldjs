@@ -10,6 +10,7 @@ import {
   type TypeDef,
   type TypeExpr,
   type TypeRelationDef,
+  type VarianceType,
   intersectionOf,
   isBlockParameterKind,
   isPortDirection,
@@ -17,28 +18,14 @@ import {
   isVarianceType,
   named,
   NamedType,
+  SelfType,
+  unbounded,
+  unionOf,
   WildcardType,
-} from "./ast";
+} from "@bld/types/ast";
 import { ParseError, XmlElem } from "../dom";
-import { parseType, parseMoonbitType } from "./type-parser";
 
 export { ParseError };
-export { parseType, parseMoonbitType } from "./type-parser";
-
-function parseTypeAttr(node: XmlElem, fallback: TypeExpr | undefined): TypeExpr {
-  const raw = node.opt("type");
-  if (raw === undefined) {
-    if (fallback) {
-      return fallback;
-    }
-    return parseType("");
-  }
-  try {
-    return parseType(raw);
-  } catch (error) {
-    node.fail(error instanceof Error ? error.message : `invalid type \`${raw}\``);
-  }
-}
 
 function rejectNestedTypes(node: XmlElem, parent: string): void {
   for (const child of node.kids()) {
@@ -47,10 +34,6 @@ function rejectNestedTypes(node: XmlElem, parent: string): void {
     }
     child.fail(`unsupported ${parent} child <${child.tag}>`);
   }
-}
-
-export function parseTexpr(node: XmlElem): TypeExpr {
-  return parseTypeAttr(node, undefined);
 }
 
 function parseNamespace(node: XmlElem): Namespace {
@@ -63,7 +46,7 @@ function parseNamespace(node: XmlElem): Namespace {
   };
 }
 
-function parseXmlTypeNode(node: XmlElem): TypeExpr {
+export function parseXmlTypeNode(node: XmlElem): TypeExpr {
   switch (node.tag) {
     case "var":
     case "type-var":
@@ -71,37 +54,33 @@ function parseXmlTypeNode(node: XmlElem): TypeExpr {
     case "raw-type":
       return new NamedType(node.req("name"), node.opt("ns") ?? null, []);
     case "wildcard": {
-      const variance = node.opt("variance");
-      const extendsAttr = node.opt("extends");
-      const superAttr = node.opt("super");
-      let bound: TypeExpr | null = null;
-      let boundKind: "extends" | "super" | null = null;
-
-      const extendsElem = node.kids().find((k) => k.tag === "extends");
-      const superElem = node.kids().find((k) => k.tag === "super");
-
-      if (extendsAttr) {
-        bound = parseType(extendsAttr);
-        boundKind = "extends";
-      } else if (extendsElem) {
-        bound = extendsElem.opt("type")
-          ? parseType(extendsElem.req("type"))
-          : parsePortTypeExpr(extendsElem);
-        boundKind = "extends";
-      } else if (superAttr) {
-        bound = parseType(superAttr);
-        boundKind = "super";
-      } else if (superElem) {
-        bound = superElem.opt("type")
-          ? parseType(superElem.req("type"))
-          : parsePortTypeExpr(superElem);
-        boundKind = "super";
-      } else if (variance === "+") {
-        boundKind = "extends";
-      } else if (variance === "-") {
-        boundKind = "super";
+      const varianceRaw = node.opt("variance");
+      let variance: VarianceType | null = null;
+      if (varianceRaw) {
+        if (varianceRaw === "+" || varianceRaw === "-") {
+          variance = varianceRaw;
+        } else {
+          node.fail(`wildcard variance must be '+' or '-', got '${varianceRaw}'`);
+        }
       }
-      return new WildcardType(bound, boundKind);
+      const typeKids = node.kids().filter((k) => k.tag !== "attribute");
+      let bound: TypeExpr | null = null;
+      if (typeKids.length > 0) {
+        bound = parseXmlTypeNode(typeKids[0]!);
+      } else if (node.opt("type")) {
+        bound = named(node.req("type"));
+      } else if (node.opt("extends")) {
+        bound = named(node.req("extends"));
+        variance = "+";
+      } else if (node.opt("super")) {
+        bound = named(node.req("super"));
+        variance = "-";
+      }
+      return new WildcardType(bound, variance);
+    }
+    case "union": {
+      const members = node.kids().filter((k) => k.tag !== "attribute").map(parseXmlTypeNode);
+      return unionOf(members);
     }
     case "intersection": {
       const members = node.kids().filter((k) => k.tag !== "attribute").map(parseXmlTypeNode);
@@ -113,8 +92,13 @@ function parseXmlTypeNode(node: XmlElem): TypeExpr {
       const kids = node.kids().filter((k) => k.tag !== "attribute");
       if (kids.length === 0) {
         if (node.opt("type")) {
-          return parseType(node.req("type"));
+          const t = node.req("type");
+          if (t === "_") return unbounded();
+          if (t === "Self") return new SelfType();
+          return named(t);
         }
+        if (name === "_") return unbounded();
+        if (name === "Self") return new SelfType();
         return new NamedType(name, ns, []);
       }
       const args = kids.map(parseXmlTypeNode);
@@ -125,7 +109,7 @@ function parseXmlTypeNode(node: XmlElem): TypeExpr {
   }
 }
 
-function parsePortTypeExpr(node: XmlElem): TypeExpr {
+export function parsePortTypeExpr(node: XmlElem): TypeExpr {
   const typeKids = node.kids().filter((k) => k.tag !== "attribute");
   if (typeKids.length > 0) {
     if (typeKids.length === 1) {
@@ -133,7 +117,19 @@ function parsePortTypeExpr(node: XmlElem): TypeExpr {
     }
     return intersectionOf(typeKids.map(parseXmlTypeNode));
   }
-  return parseTypeAttr(node, undefined);
+  const typeAttr = node.opt("type");
+  if (typeAttr !== undefined) {
+    if (typeAttr === "_") return unbounded();
+    if (typeAttr === "Self") return new SelfType();
+    return named(typeAttr);
+  }
+  const nameAttr = node.opt("name");
+  if (nameAttr !== undefined) {
+    if (nameAttr === "_") return unbounded();
+    if (nameAttr === "Self") return new SelfType();
+    return named(nameAttr);
+  }
+  return unbounded();
 }
 
 function parseParam(node: XmlElem): ParamDef {
@@ -142,7 +138,7 @@ function parseParam(node: XmlElem): ParamDef {
   const superBounds: TypeExpr[] = [];
   const extendsAttr = node.opt("extends");
   if (extendsAttr) {
-    extendsBounds.push(parseType(extendsAttr));
+    extendsBounds.push(named(extendsAttr));
   }
   for (const child of node.kids()) {
     switch (child.tag) {
@@ -151,9 +147,7 @@ function parseParam(node: XmlElem): ParamDef {
         break;
       case "extends":
         if (child.opt("type")) {
-          extendsBounds.push(parseTypeAttr(child, undefined));
-        } else if (child.text()) {
-          extendsBounds.push(parseType(child.text()));
+          extendsBounds.push(named(child.req("type")));
         } else {
           const typeKids = child.kids().filter((k) => k.tag !== "attribute");
           if (typeKids.length > 0) {
@@ -163,9 +157,12 @@ function parseParam(node: XmlElem): ParamDef {
         break;
       case "super":
         if (child.opt("type")) {
-          superBounds.push(parseTypeAttr(child, undefined));
-        } else if (child.text()) {
-          superBounds.push(parseType(child.text()));
+          superBounds.push(named(child.req("type")));
+        } else {
+          const typeKids = child.kids().filter((k) => k.tag !== "attribute");
+          if (typeKids.length > 0) {
+            superBounds.push(parseXmlTypeNode(typeKids[0]!));
+          }
         }
         break;
       default:
@@ -212,7 +209,7 @@ function parseFactory(node: XmlElem): Factory {
   const typeAttr = node.opt("type");
   return {
     id: node.req("id"),
-    args: typeAttr !== undefined ? [parseTypeAttr(node, undefined)] : [],
+    args: typeAttr !== undefined ? [named(typeAttr)] : [],
     attributes: node.attributes(),
   };
 }
@@ -220,12 +217,8 @@ function parseFactory(node: XmlElem): Factory {
 function parseTypeDef(node: XmlElem, file: string): TypeDef {
   const params: ParamDef[] = [];
   const ancestors: TypeExpr[] = [];
-  let alias: TypeExpr | null = null;
   const attributes: Attribute[] = [];
   const extendsAttr = node.opt("extends");
-  if (extendsAttr) {
-    ancestors.push(parseType(extendsAttr));
-  }
   for (const child of node.kids()) {
     switch (child.tag) {
       case "attribute":
@@ -239,15 +232,12 @@ function parseTypeDef(node: XmlElem, file: string): TypeDef {
       case "ancestor":
         ancestors.push(parsePortTypeExpr(child));
         break;
-      case "alias":
-        if (alias !== null) {
-          child.fail("type may have only one alias");
-        }
-        alias = parsePortTypeExpr(child);
-        break;
       default:
         child.fail(`unsupported <type> child <${child.tag}>`);
     }
+  }
+  if (ancestors.length === 0 && extendsAttr) {
+    ancestors.push(named(extendsAttr));
   }
   return {
     name: node.req("name"),
@@ -255,8 +245,7 @@ function parseTypeDef(node: XmlElem, file: string): TypeDef {
     vars: params,
     params,
     ancestors,
-    extends: extendsAttr ? parseType(extendsAttr) : (ancestors[0] ?? null),
-    alias,
+    extends: ancestors[0] ?? (extendsAttr ? named(extendsAttr) : null),
     attributes,
     source: file,
   };
@@ -270,7 +259,7 @@ function parseParameterDef(node: XmlElem): BlockParameterDef {
   return {
     kind: node.tag,
     name: node.req("name"),
-    type: typeAttr !== undefined ? parseTypeAttr(node, undefined) : null,
+    type: typeAttr !== undefined ? named(typeAttr) : null,
     description: node.opt("description") ?? null,
     default: node.opt("default") ?? null,
     min: node.num("min", false),
@@ -326,7 +315,7 @@ function parseRelation(node: XmlElem): TypeRelationDef {
     input: node.opt("input") ?? undefined,
     output: node.opt("output") ?? undefined,
     param: node.opt("param") ?? undefined,
-    type: typeAttr !== undefined ? parseTypeAttr(node, undefined) : undefined,
+    type: typeAttr !== undefined ? named(typeAttr) : undefined,
     expression: node.opt("expression") ?? undefined,
     inputs: inputs.length > 0 ? inputs : undefined,
     outputs: outputs.length > 0 ? outputs : undefined,
@@ -395,6 +384,9 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
   };
 }
 
+export function parseDoc(xml: string): BlocksDoc {
+  return parseBlocks("<inline>", xml);
+}
 
 export function parseBlocks(file: string, xml: string): BlocksDoc {
   const document = new DOMParser().parseFromString(xml, "application/xml");
@@ -406,36 +398,41 @@ export function parseBlocks(file: string, xml: string): BlocksDoc {
   if (root.tag !== "blocks" && root.tag !== "types") {
     root.fail(`expected <blocks> or <types>, found <${root.tag}>`);
   }
-  const doc: BlocksDoc = {
-    id: root.req("id"),
-    name: root.req("name"),
-    icon: root.opt("icon") ?? null,
-    attributes: [],
-    namespaces: [],
-    types: [],
-    blocks: [],
-    source: file,
-  };
+  const attributes: Attribute[] = [];
+  const namespaces: Namespace[] = [];
+  const types: TypeDef[] = [];
+  const blocks: BlockDef[] = [];
+
   for (const child of root.kids()) {
     switch (child.tag) {
       case "attribute":
-        doc.attributes.push({ name: child.req("name"), value: child.text() });
+        attributes.push({ name: child.req("name"), value: child.text() });
         break;
       case "namespace":
-        doc.namespaces.push(parseNamespace(child));
+        namespaces.push(parseNamespace(child));
         break;
       case "type":
-        doc.types.push(parseTypeDef(child, file));
+        types.push(parseTypeDef(child, file));
         break;
       case "block":
         if (root.tag === "types") {
           child.fail("<types> document cannot contain <block>");
         }
-        doc.blocks.push(parseBlock(child, file));
+        blocks.push(parseBlock(child, file));
         break;
       default:
         child.fail(`unsupported <${root.tag}> child <${child.tag}>`);
     }
   }
-  return doc;
+
+  return {
+    id: root.req("id"),
+    name: root.req("name"),
+    icon: root.opt("icon") ?? null,
+    attributes,
+    namespaces,
+    types,
+    blocks,
+    source: file,
+  };
 }

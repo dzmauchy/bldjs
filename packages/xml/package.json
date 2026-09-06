@@ -12,7 +12,6 @@
     "./blocks/ports": "./src/blocks/ports.ts",
     "./blocks/resolve": "./src/blocks/resolve.ts",
     "./blocks/parse": "./src/blocks/parse.ts",
-    "./blocks/type-parser": "./src/blocks/type-parser.ts",
     "./blocks/types": "./src/blocks/types.ts",
     "./blocks/diagram": "./src/blocks/diagram.ts",
     "./blocks/builtin": "./src/blocks/builtin.ts",
@@ -38,5 +37,8 @@
   "scripts": {
     "check": "tsc --noEmit && node scripts/check-xsd.mjs",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@bld/types": "0.1.0"
   }
 }

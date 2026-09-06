@@ -112,8 +112,8 @@ describe("DiagramRunner", () => {
       { id: 1, defId: "scope", windowS: 10, meterMs: 10 },
       { id: 2, defId: "overshoot", zeta: 0.5, omega: 20 },
       { id: 3, defId: "product", count: 2, def: 1 },
-      { id: 4, defId: "gpio_in", pin: 0 },
-      { id: 5, defId: "constant", value: 1, periodMs: 10 },
+      { id: 4, defId: "constant", value: 1, periodMs: 10 },
+      { id: 5, defId: "gpio_in", pin: 0 },
     ];
     const links: Link[] = [
       { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
@@ -131,8 +131,9 @@ describe("DiagramRunner", () => {
     // Wait for initial baseline samples (GPIO is initially 0, so product is 0)
     await new Promise((resolve) => setTimeout(resolve, 40));
     const initialSamples = session.snapshotScope(1)[0]?.samples ?? [];
-    expect(initialSamples.length).toBeGreaterThan(0);
-    expect(initialSamples.some((val) => val === 0)).toBe(true);
+    const nonNan = initialSamples.filter((v) => !Number.isNaN(v));
+    expect(nonNan.length).toBeGreaterThan(0);
+    expect(nonNan.every((val) => Math.abs(val) < 1e-5)).toBe(true);
 
     // Switch GPIO In to 1 (button clicked in UI)
     session.setGpio(0, 1);
