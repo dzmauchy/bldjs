@@ -524,6 +524,32 @@ describe("blocks", () => {
     expectType(resolvedOutput((await diagram.resolveNode(arrayId))!, "result"), arrayOf(t("double")));
   });
 
+  it("does not ground a downstream input from an unconnectable output", async () => {
+    const diagram = new Diagram("d4", "Holes");
+    associateFixtureModels(diagram);
+    const identId = diagram.addNode("b_identity");
+    const arrayId = diagram.addNode("b_array_of");
+    diagram.addLink(identId, "out", arrayId, "elems");
+    const ident = await diagram.resolveNode(identId);
+    expect(ident?.outputs.find((port) => port.name === "out")?.connectable).toBe(false);
+    const array = await diagram.resolveNode(arrayId);
+    expect(array?.compatible.get("elems")).toBe(false);
+    expect(array?.outputs.find((port) => port.name === "result")?.connectable).toBe(false);
+  });
+
+  it("does not ground a downstream input from an unconnectable output", async () => {
+    const diagram = new Diagram("d4", "Holes");
+    associateFixtureModels(diagram);
+    const identId = diagram.addNode("b_identity");
+    const arrayId = diagram.addNode("b_array_of");
+    diagram.addLink(identId, "out", arrayId, "elems");
+    const ident = await diagram.resolveNode(identId);
+    expect(ident?.outputs.find((port) => port.name === "out")?.connectable).toBe(false);
+    const array = await diagram.resolveNode(arrayId);
+    expect(array?.compatible.get("elems")).toBe(false);
+    expect(array?.outputs.find((port) => port.name === "result")?.connectable).toBe(false);
+  });
+
   it("dissociate xml rebuilds catalog", () => {
     const diagram = new Diagram("d3", "Drop");
     associateFixtureModels(diagram);

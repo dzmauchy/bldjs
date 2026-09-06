@@ -154,6 +154,7 @@ compatible(Formal, Actual) :-
     unify_type(F, A).
 
 %% meet(+A, +B, -M)  greatest lower bound (intersection)
+%% Nested intersections are not distributed here; JS `intersectionOf` flattens.
 meet(top, T, T) :- !.
 meet(T, top, T) :- !.
 meet(T, T, T) :- !.
@@ -164,13 +165,6 @@ meet(constraint(C), T, R) :-
 meet(T, constraint(C), R) :-
     !,
     meet(constraint(C), T, R).
-meet(inter(A, B), T, R) :-
-    !,
-    meet(A, T, R1),
-    meet(B, R1, R).
-meet(T, inter(A, B), R) :-
-    !,
-    meet(inter(A, B), T, R).
 meet(array(T), array(U), array(V)) :-
     !,
     meet(T, U, V).
@@ -184,16 +178,10 @@ meet(A, B, B) :-
 meet(A, B, inter(A, B)).
 
 %% join(+A, +B, -J)  least upper bound (union)
+%% Nested unions are not distributed here; JS `unionOf` flattens.
 join(top, T, T) :- !.
 join(T, top, T) :- !.
 join(T, T, T) :- !.
-join(union(A, B), T, R) :-
-    !,
-    join(A, T, R1),
-    join(B, R1, R).
-join(T, union(A, B), R) :-
-    !,
-    join(union(A, B), T, R).
 join(A, B, B) :-
     ancestor(A, B), !.
 join(A, B, A) :-

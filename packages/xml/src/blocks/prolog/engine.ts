@@ -19,10 +19,10 @@ export interface PrologInference {
 
 type TreallaProlog = {
   consult(filename: string): Promise<void>;
-  queryOnce(
+  query(
     goal: string,
     options?: { autoyield?: number },
-  ): Promise<{
+  ): AsyncGenerator<{
     status: string;
     answer?: Record<string, unknown>;
     error?: unknown;
@@ -40,7 +40,13 @@ export function getTypeEngine(): Promise<TypeEngine> {
   return (enginePromise ??= TypeEngine.create());
 }
 
+export function resetTypeEngine(): void {
+  enginePromise = undefined;
+}
+
 export class TypeEngine {
+  private queue: Promise<unknown> = Promise.resolve();
+
   private constructor(private readonly pl: TreallaProlog) {}
 
   static async create(): Promise<TypeEngine> {
@@ -49,8 +55,8 @@ export class TypeEngine {
     const pl = new Prolog({ quiet: true }) as unknown as TreallaProlog;
     pl.fs.open("/type.pl", { write: true, create: true }).writeString(typesPl);
     await pl.consult("/type.pl");
-    const loaded = await pl.queryOnce("use_module(type).", { autoyield: 0 });
-    if (loaded.status !== "success") {
+    const loaded = await runGoal(pl, "use_module(type).");
+    if (!loaded || loaded.status !== "success") {
       throw new Error("failed to load type.pl into Trealla");
     }
     return new TypeEngine(pl);
@@ -63,18 +69,50 @@ export class TypeEngine {
       ${setupVars(vars)},
       ( compatible(${typeToProlog(formal, names)}, ${typeToProlog(actual, names)}) -> Ok = true ; Ok = false ).
     `;
-    const result = await this.pl.queryOnce(goal, { autoyield: 0 });
-    return result.status === "success" && isTrue(result.answer?.Ok);
+    const result = await this.run(goal);
+    return !!result && result.status === "success" && isTrue(result.answer?.Ok);
   }
 
   async infer(block: BlockDef, grounded: Map<string, Grounding>, catalog: Catalog): Promise<PrologInference> {
     const goal = buildInferGoal(block, grounded, catalog);
-    const result = await this.pl.queryOnce(goal, { autoyield: 0 });
-    if (result.status !== "success" || !result.answer?.Result) {
+    try {
+      const result = await this.run(goal);
+      if (!result || result.status !== "success" || !result.answer?.Result) {
+        return failedInference(block);
+      }
+      return parseResult(block, result.answer.Result);
+    } catch {
+      enginePromise = undefined;
       return failedInference(block);
     }
-    return parseResult(block, result.answer.Result);
   }
+
+  private run(goal: string) {
+    const next = this.queue.then(() => runGoal(this.pl, goal), () => runGoal(this.pl, goal));
+    this.queue = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+}
+
+async function runGoal(
+  pl: TreallaProlog,
+  goal: string,
+): Promise<{
+  status: string;
+  answer?: Record<string, unknown>;
+  error?: unknown;
+} | undefined> {
+  const q = pl.query(goal, { autoyield: 0 });
+  let first: { status: string; answer?: Record<string, unknown>; error?: unknown } | undefined;
+  for await (const answer of q) {
+    if (!first) {
+      first = answer;
+    }
+  }
+  return first;
 }
 
 function varNames(vars: readonly VarDef[]): Set<string> {

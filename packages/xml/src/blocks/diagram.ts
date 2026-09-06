@@ -167,17 +167,19 @@ export async function infer(
     visiting.add(id);
 
     const grounded = new Map<string, Grounding>();
+    const blocked = new Set<string>();
     for (const link of links.filter((item) => item.toBlock === id)) {
       await rec(link.fromBlock);
       const source = memo.get(link.fromBlock);
+      const catalogIn = catalogPortName(link.toIn);
       if (!source || !isResolvedConnectable(source, link.fromOut)) {
+        blocked.add(catalogIn);
         continue;
       }
       const output = resolvedOutput(source, link.fromOut);
       if (!output) {
         continue;
       }
-      const catalogIn = catalogPortName(link.toIn);
       const vararg = block.inputs.find((port) => port.name === catalogIn)?.vararg ?? false;
       const existing = grounded.get(catalogIn);
       if (existing) {
@@ -189,7 +191,11 @@ export async function infer(
       }
     }
 
-    memo.set(id, await resolver.resolve(block, grounded));
+    const resolved = await resolver.resolve(block, grounded);
+    for (const name of blocked) {
+      resolved.compatible.set(name, false);
+    }
+    memo.set(id, resolved);
     visiting.delete(id);
   };
 
