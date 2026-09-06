@@ -54,7 +54,7 @@ describe("buildConnectorViews", () => {
 });
 
 describe("buildNodeState", () => {
-  it("labels every expanded scope channel as (double) -> unit", () => {
+  it("labels every expanded scope channel as (double) -> unit", async () => {
     const diagram = new Diagram("ws", "Workspace");
     associateBuiltinModels(diagram);
     const catalog = diagram.catalog();
@@ -63,7 +63,7 @@ describe("buildNodeState", () => {
       { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
       { fromBlock: 1, fromOut: "out[1]", toBlock: 3, toIn: "in" },
     ];
-    const resolved = infer(catalog, [[1, "scope"] as const], links);
+    const resolved = await infer(catalog, [[1, "scope"] as const], links);
     const state = buildNodeState(block, resolved, {
       catalog,
       links,

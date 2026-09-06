@@ -1,6 +1,9 @@
 import type { Catalog } from "@bld/xml/blocks/catalog";
+import { isEventDrivenGenerator } from "@bld/xml/blocks/cs/ids";
 import type { Link } from "@bld/xml/blocks/diagram";
 import { loadDiagramSolution } from "@bld/xml/diagram/compile";
+import { intervalMs } from "@bld/xml/flow";
+import { connectorKey, solutionViewFrom } from "@bld/xml/solution/view";
 import { plannedGenerators, topologyKey } from "@bld/xml/topology";
 import { DiagramRunCancelled, DiagramRunner, EMPTY_RUN_MESSAGE } from "@bld/wasm/runtime/diagram-runner";
 import { preloadAssembler } from "@bld/wasm/solution/wasm";
@@ -62,7 +65,15 @@ export class RunSession extends HostedState<RunHost> {
   }
 
   isScopeLive(id: number): boolean {
-    return this.busy() && (this.#runner.current?.isScopeLive(id) ?? false);
+    if (!this.busy()) {
+      return false;
+    }
+    if (this.#runner.current) {
+      return this.#runner.current.isScopeLive(id);
+    }
+    return this.planned().some(
+      (plan) => plan.scopeIds.includes(id) || plan.channels.some((channel) => channel.scopeId === id),
+    );
   }
 
   snapshotScope(id: number) {
@@ -70,11 +81,38 @@ export class RunSession extends HostedState<RunHost> {
   }
 
   connectorHz(link: { fromBlock: number; fromOut: string; toBlock: number; toIn: string }): number {
-    return this.#runner.current?.connectorHz(link) ?? 0;
+    if (this.#runner.current) {
+      return this.#runner.current.connectorHz(link);
+    }
+    return this.starting ? this.#plannedConnectorHz(link) : 0;
   }
 
   connectorHzForKey(key: string): number {
-    return this.#runner.current?.connectorHzForKey(key) ?? 0;
+    if (this.#runner.current) {
+      return this.#runner.current.connectorHzForKey(key);
+    }
+    if (!this.starting) {
+      return 0;
+    }
+    const link = this.host.links.find((item) => connectorKey(item) === key);
+    return link ? this.#plannedConnectorHz(link) : 0;
+  }
+
+  #plannedConnectorHz(link: { fromBlock: number; fromOut: string; toBlock: number; toIn: string }): number {
+    const nodes = this.host.runNodes();
+    const links = this.host.links;
+    const view = solutionViewFrom(nodes, links);
+    const key = connectorKey(link);
+    for (const plan of plannedGenerators(nodes, links)) {
+      if (isEventDrivenGenerator(plan.defId)) {
+        continue;
+      }
+      const connectors = view.subgraphFromGenerator(plan.generatorId).connectors;
+      if (connectors.some((item) => connectorKey(item) === key)) {
+        return 1000 / intervalMs(plan.delayMs);
+      }
+    }
+    return 0;
   }
 
   sampleFlowRates(now = performance.now()): void {

@@ -110,7 +110,7 @@ describe("BldNode", () => {
     );
     expect(node.hasAttribute("data-selected")).toBe(true);
     expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("Scope");
-    const selectedCss = (array.isArray(BldNode.styles) ? BldNode.styles : [BldNode.styles])
+    const selectedCss = (Array.isArray(BldNode.styles) ? BldNode.styles : [BldNode.styles])
       .flat(Infinity)
       .map((sheet) => (sheet as { cssText: string }).cssText)
       .join("\n");
@@ -338,7 +338,7 @@ describe("BldNode", () => {
     expect(toggle.checked).toBe(false);
     expect(toggle.getAttribute("aria-label")).toBe("GPIO pin 0 LOW");
     expect(node.shadowRoot!.querySelector(".form-check-label")).toBeNull();
-    const gpioCss = (array.isArray(BldNode.styles) ? BldNode.styles : [BldNode.styles])
+    const gpioCss = (Array.isArray(BldNode.styles) ? BldNode.styles : [BldNode.styles])
       .flat(Infinity)
       .map((sheet) => (sheet as { cssText: string }).cssText)
       .join("\n");
