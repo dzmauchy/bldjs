@@ -97,6 +97,12 @@ export function prologTermToType(term: unknown): TypeExpr {
     return unbounded();
   }
   if (typeof term === "string") {
+    if (term === "top" || term === "_") {
+      return unbounded();
+    }
+    if (term === "self") {
+      return new SelfType();
+    }
     return named(term);
   }
   if (Array.isArray(term)) {

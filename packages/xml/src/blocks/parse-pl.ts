@@ -173,7 +173,7 @@ function parseTypeFact(args: PlTerm[], file: string): TypeDef {
 
 function parseVarFact(args: PlTerm[]): VarDef {
   const constraintTerm = args[2];
-  const constraint = constraintTerm !== undefined && constraintTerm !== "none" ? writeTerm(constraintTerm) : null;
+  const constraint = constraintTerm !== undefined && constraintTerm !== "none" ? writeConstraint(constraintTerm) : null;
   return { name: atom(args[1]), constraint, attributes: [] };
 }
 
@@ -191,7 +191,7 @@ function parseBlockFact(args: PlTerm[], file: string): BlockDef {
       if (item.functor === "ns") {
         ns = atom(item.args[0]);
       } else if (item.functor === "var") {
-        const constraint = item.args[1] !== undefined && item.args[1] !== "none" ? writeTerm(item.args[1]) : null;
+        const constraint = item.args[1] !== undefined && item.args[1] !== "none" ? writeConstraint(item.args[1]) : null;
         vars.push({ name: atom(item.args[0]), constraint, attributes: [] });
       } else if (item.functor === "description" || item.functor === "kind") {
         attributes.push({ name: item.functor, value: atom(item.args[0]) });
@@ -230,7 +230,7 @@ function parsePortFact(args: PlTerm[], direction: "in" | "out"): PortDef {
       attributes.push({ name: item, value: "true" });
     } else if (typeof item === "object" && item !== null && !Array.isArray(item)) {
       if (item.functor === "constraint") {
-        constraint = writeTerm(item.args[0]);
+        constraint = writeConstraint(item.args[0]);
       } else if (item.functor === "icon") {
         icon = atom(item.args[0]);
       } else {
@@ -331,7 +331,7 @@ export function termToType(term: PlTerm | undefined): TypeExpr {
     return named(String(term));
   }
   if (typeof term === "string") {
-    return named(term);
+    return prologTermToType(term);
   }
   if (Array.isArray(term)) {
     return new TupleType(term.map(termToType));
@@ -370,6 +370,25 @@ function asList(term: PlTerm | undefined): PlTerm[] {
     return [];
   }
   return Array.isArray(term) ? term : [term];
+}
+
+export function writeConstraint(term: PlTerm): string {
+  if (typeof term === "number") {
+    return String(term);
+  }
+  if (typeof term === "string") {
+    return term;
+  }
+  if (Array.isArray(term)) {
+    return `[${term.map(writeConstraint).join(", ")}]`;
+  }
+  if (term.functor === "v" && term.args.length >= 1) {
+    return writeConstraint(term.args[0]);
+  }
+  if (term.args.length === 0) {
+    return term.functor;
+  }
+  return `${term.functor}(${term.args.map(writeConstraint).join(", ")})`;
 }
 
 export function writeTerm(term: PlTerm): string {
@@ -419,7 +438,11 @@ function skipTerm(src: string, start: number): number {
     } else if (ch === ")" || ch === "]") {
       depth -= 1;
     } else if (ch === "." && depth === 0) {
-      return i;
+      const prev = src[i - 1];
+      const next = src[i + 1];
+      if (prev !== "." && next !== "." && (next === undefined || /\s/.test(next))) {
+        return i;
+      }
     }
     i += 1;
   }
@@ -482,6 +505,14 @@ function parseList(src: string, index: number): { value: PlTerm[]; i: number } {
     if (src[i] === ",") {
       i += 1;
       continue;
+    }
+    if (src[i] === "|") {
+      const tail = parseTerm(src, i + 1);
+      i = skipWs(src, tail.i);
+      if (src[i] === "]") {
+        return { value: items, i: i + 1 };
+      }
+      throw ParseError.new("invalid Prolog list");
     }
     if (src[i] === "]") {
       return { value: items, i: i + 1 };

@@ -181,9 +181,9 @@ describe("blocks", () => {
     `;
     const doc = parsePlCatalog("e.pl", pl);
     expect(doc.blocks[0].vars[0].name).toBe("T");
-    expect(doc.blocks[0].vars[0].constraint).toBe("extends(rec(v('T')))");
+    expect(doc.blocks[0].vars[0].constraint).toBe("extends(rec(T))");
     expect(doc.blocks[0].vars[1].name).toBe("F");
-    expect(doc.blocks[0].vars[1].constraint).toBe("extends(h(v('F')))");
+    expect(doc.blocks[0].vars[1].constraint).toBe("extends(h(F))");
   });
 
   it("parses port type constraints", () => {
@@ -195,9 +195,9 @@ describe("blocks", () => {
     `;
     const doc = parsePlCatalog("c.pl", pl);
     expectType(doc.blocks[0].inputs[0].ty, t("T"));
-    expect(doc.blocks[0].inputs[0].constraint).toBe("extends(h(v('T')))");
+    expect(doc.blocks[0].inputs[0].constraint).toBe("extends(h(T))");
     expect(doc.blocks[0].outputs[0].ty.kind).toBe("hole");
-    expect(doc.blocks[0].outputs[0].constraint).toBe("comparable(?(super(v('T'))))");
+    expect(doc.blocks[0].outputs[0].constraint).toBe("comparable(?(super(T)))");
   });
 
   it("builtin models merge", () => {
@@ -1339,7 +1339,7 @@ describe("constants, settings, relations, and type intersection inference", () =
       const doc = parsePlCatalog("poly.pl", pl);
       const typeVar = doc.blocks[0].vars[0];
       expect(typeVar.name).toBe("T");
-      expect(typeVar.constraint).toBe("extends(rec(v('T')))");
+      expect(typeVar.constraint).toBe("extends(rec(T))");
     });
   });
 
