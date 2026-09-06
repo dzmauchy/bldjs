@@ -364,7 +364,7 @@
                             <xs:sequence>
                                 <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
                                 <xs:element name="var" type="TypeVarDef" minOccurs="0" maxOccurs="unbounded"/>
-                                <xs:element name="type" type="TypeProgramDef" minOccurs="0"/>
+                                <xs:element name="type" type="TypeProgramDef"/>
                                 <xs:element name="parameters" type="ParametersDef" minOccurs="0"/>
                                 <xs:element name="settings" type="SettingsDef" minOccurs="0"/>
 
