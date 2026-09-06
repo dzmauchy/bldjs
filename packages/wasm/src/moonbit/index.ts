@@ -87,3 +87,23 @@ export type { BlockScriptId } from "./scripts";
 export { compileMoonbit, preloadMoonc, DEV_TARGET, PROD_TARGET, DEV_EXPORTS, PROD_EXPORTS } from "./compile";
 export type { MoonbitTarget, CompileMoonbitOptions } from "./compile";
 export { emitEmbeddedMath } from "./math";
+export { parseMoonbitType } from "./moonbit-type";
+export {
+  AbstractBlock,
+  type BlockConnection,
+  type BlockOptions,
+  type BlockPort,
+  ConstantBlock,
+  CosBlock,
+  GpioInBlock,
+  GpioOutBlock,
+  OvershootBlock,
+  ProductBlock,
+  RandomBlock,
+  ScopeBlock,
+  SinBlock,
+  TimerBlock,
+  connectBlocks,
+  createBlock,
+  overshootStep,
+} from "./runtime-blocks";

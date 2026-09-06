@@ -129,7 +129,7 @@ export class NamedType extends TypeNode {
   }
 }
 
-/** MoonBit function type `(T1, T2) -> R`. */
+/** Function type `(T1, T2) -> R`. */
 export class FuncType extends TypeNode {
   readonly kind = "func" as const;
 
@@ -166,7 +166,7 @@ export class FuncType extends TypeNode {
   }
 }
 
-/** MoonBit tuple `(T1, T2)`. */
+/** Tuple type `(T1, T2)`. */
 export class TupleType extends TypeNode {
   readonly kind = "tuple" as const;
 
@@ -195,7 +195,7 @@ export class TupleType extends TypeNode {
   }
 }
 
-/** MoonBit type hole `_`. */
+/** Type hole `_`. */
 export class HoleType extends TypeNode {
   readonly kind = "hole" as const;
 
@@ -488,17 +488,6 @@ export const PRIMITIVE_TYPES = [
   "f64",
   "char",
   "void",
-  "Double",
-  "Float",
-  "Int",
-  "Int64",
-  "UInt",
-  "UInt64",
-  "String",
-  "Bool",
-  "Byte",
-  "Char",
-  "Unit",
 ] as const;
 
 export type PrimitiveType = (typeof PRIMITIVE_TYPES)[number];

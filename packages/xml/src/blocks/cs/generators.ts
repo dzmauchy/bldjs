@@ -2,19 +2,18 @@ import { DEFAULT_PERIOD_MS, DEFAULT_VALUE, periodMsFrom, valueFrom } from "./ids
 import type { DoubleConsumer } from "./types";
 
 /**
- * Pure push. MoonBit ports:
+ * Pure push ports:
  *
- *   timer(c) / random(c) / constant(c)  : (Double) -> Unit → Unit
- *   sin(c) / cos(c) / overshoot(c)  : (Double) -> Unit → (Double) -> Unit
- *   product(c)            : (Double) -> Unit → Array[(Double) -> Unit]
- *   scope()               : Array[(Double) -> Unit]   (vector of plot sinks)
+ *   timer(c) / random(c) / constant(c)  : (f32) -> void → void
+ *   sin(c) / cos(c) / overshoot(c)  : (f32) -> void → (f32) -> void
+ *   product(c)            : (f32) -> void → Array[(f32) -> void]
+ *   scope()               : Array[(f32) -> void]   (vector of plot sinks)
  *
  * Composition: timer(sin(plot[0]))
  *
  * Quantized generators (`timer`, `random`, `constant`) use an internal period (ms)
  * from the catalog `period` range input (default 10). GPIO In samples the pin once
- * on start, then again on each edge, and has no period. MoonBit blocks repeat the
- * XML signature plus unused runtime `_ctx : Int`.
+ * on start, then again on each edge, and has no period.
  */
 
 function parkNanos(periodNs: number): void {

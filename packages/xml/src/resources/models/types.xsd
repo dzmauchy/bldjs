@@ -13,17 +13,6 @@
       <xs:enumeration value="f64"/>
       <xs:enumeration value="char"/>
       <xs:enumeration value="void"/>
-      <xs:enumeration value="Double"/>
-      <xs:enumeration value="Float"/>
-      <xs:enumeration value="Int"/>
-      <xs:enumeration value="Int64"/>
-      <xs:enumeration value="UInt"/>
-      <xs:enumeration value="UInt64"/>
-      <xs:enumeration value="String"/>
-      <xs:enumeration value="Bool"/>
-      <xs:enumeration value="Byte"/>
-      <xs:enumeration value="Char"/>
-      <xs:enumeration value="Unit"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -67,7 +56,7 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Type Reference String (Primitive, Special, Container, or MoonBit Type String) -->
+  <!-- Type Reference String (Primitive, Special, Container, or Type String) -->
   <xs:simpleType name="TypeString">
     <xs:union memberTypes="PrimitiveType BuiltinContainerType SpecialType xs:string"/>
   </xs:simpleType>
@@ -80,7 +69,7 @@
     <xs:attribute name="name" type="xs:string" use="required"/>
   </xs:complexType>
 
-  <!-- Type Reference (`Double`, `(f64) -> void`, `Animal<X>`) -->
+  <!-- Type Reference (`f64`, `(f64) -> void`, `Animal<X>`) -->
   <xs:complexType name="TypeRef">
     <xs:sequence>
       <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>

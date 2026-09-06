@@ -13,8 +13,8 @@ import {
   TimerBlock,
   connectBlocks,
   createBlock,
-} from "./blocks";
-import { overshootStep } from "./transformers";
+  overshootStep,
+} from "./runtime-blocks";
 
 describe("TS Blocks reflecting XML Blocks", () => {
   it("creates all 10 catalog blocks with matching XML defIds and ports", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrayOf, consumerType, displayType, named, funcType } from "@bld/xml/blocks/ast";
+import { arrayOf, consumerType, displayType, generic, named, funcType } from "@bld/xml/blocks/ast";
 import { associateBuiltinModels, associateFixtureModels } from "@bld/xml/blocks/builtin";
 import { Diagram } from "@bld/xml/blocks/diagram";
 import { blockSignature, signatureWat, wasmHeapTypeName, wasmValType } from "./signatures";
@@ -28,6 +28,12 @@ describe("XML ↔ WASM signatures", () => {
     expect(wasmValType(arrayOf(named("Int")))).toBe("(ref $array_Int)");
     expect(wasmValType(arrayOf(consumerType(named("f32"))))).toBe("(ref $array_fn_f32_void)");
     expect(wasmHeapTypeName(arrayOf(consumerType(named("f32"))))).toBe("array_fn_f32_void");
+    expect(wasmValType(named("c0"))).toBe("(ref $fn_void)");
+    expect(wasmValType(generic("c1", [named("f32")]))).toBe("(ref $fn_f32_void)");
+    expect(wasmValType(generic("c2", [named("f32"), named("f32")]))).toBe("(ref $fn_f32_f32_void)");
+    expect(wasmValType(generic("f0", [named("Double")]))).toBe("(ref $fn_Double)");
+    expect(wasmValType(generic("f1", [named("Int"), named("String")]))).toBe("(ref $fn_Int_String)");
+    expect(wasmValType(arrayOf(generic("c1", [named("f32")])))).toBe("(ref $array_fn_f32_void)");
   });
 
   it("control-system blocks match XML ports as WASM params and results", () => {

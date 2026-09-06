@@ -1,4 +1,4 @@
-import { type BlockDef, type PortDef, type TypeExpr, displayType, isArrayType } from "@bld/xml/blocks/ast";
+import { type BlockDef, type PortDef, type TypeExpr, consumerType, displayType, funcType, isArrayType } from "@bld/xml/blocks/ast";
 
 /** WASM value type emitted for a MoonBit XML type expression. */
 export type WasmVal = string;
@@ -40,22 +40,48 @@ export function funcTypeId(expr: TypeExpr): string {
   return typeToken(expr);
 }
 
+function expandAlias(expr: TypeExpr): TypeExpr {
+  if (expr.kind === "type") {
+    const name = expr.name.split(".").at(-1) ?? expr.name;
+    if (name === "c0" && expr.args.length === 0) {
+      return consumerType();
+    }
+    if (name === "c1" && expr.args.length === 1) {
+      return consumerType(expr.args[0]);
+    }
+    if (name === "c2" && expr.args.length === 2) {
+      return consumerType(expr.args[0], expr.args[1]);
+    }
+    if (name === "f0" && expr.args.length === 1) {
+      return funcType([], expr.args[0]);
+    }
+    if (name === "f1" && expr.args.length === 2) {
+      return funcType([expr.args[0]], expr.args[1]);
+    }
+    if (name === "f2" && expr.args.length === 3) {
+      return funcType([expr.args[0], expr.args[1]], expr.args[2]);
+    }
+  }
+  return expr;
+}
+
 /**
  * Heap type name for a MoonBit XML type (`fn_Double_Unit`, `array_fn_Double_Unit`).
  */
 export function wasmHeapTypeName(expr: TypeExpr): string {
-  if (expr.kind === "func") {
-    const params = expr.params.map(typeToken).filter((token) => token.length > 0);
-    const ret = typeToken(expr.ret);
+  const expanded = expandAlias(expr);
+  if (expanded.kind === "func") {
+    const params = expanded.params.map(typeToken).filter((token) => token.length > 0);
+    const ret = typeToken(expanded.ret);
     return ["fn", ...params, ret].filter((token) => token.length > 0).join("_");
   }
-  if (expr.kind === "tuple") {
-    return `tuple_${expr.elems.map(wasmHeapTypeName).join("_")}`;
+  if (expanded.kind === "tuple") {
+    return `tuple_${expanded.elems.map(wasmHeapTypeName).join("_")}`;
   }
-  if (expr.kind === "type" && isArrayType(expr) && expr.args.length === 1) {
-    return `array_${wasmHeapTypeName(expr.args[0])}`;
+  if (expanded.kind === "type" && isArrayType(expanded) && expanded.args.length === 1) {
+    return `array_${wasmHeapTypeName(expanded.args[0])}`;
   }
-  return typeToken(expr);
+  return typeToken(expanded);
 }
 
 /**
@@ -68,21 +94,22 @@ export function wasmHeapTypeName(expr: TypeExpr): string {
  *   Array[T]                     → (ref $array_T)
  */
 export function wasmValType(expr: TypeExpr): WasmVal {
-  if (expr.kind === "func" || expr.kind === "tuple") {
-    return `(ref $${wasmHeapTypeName(expr)})`;
+  const expanded = expandAlias(expr);
+  if (expanded.kind === "func" || expanded.kind === "tuple") {
+    return `(ref $${wasmHeapTypeName(expanded)})`;
   }
-  if (expr.kind !== "type") {
+  if (expanded.kind !== "type") {
     return "externref";
   }
-  const name = rawName(expr);
-  if (expr.args.length === 0 && name in WASM_PRIMITIVES) {
+  const name = rawName(expanded);
+  if (expanded.args.length === 0 && name in WASM_PRIMITIVES) {
     return WASM_PRIMITIVES[name]!;
   }
-  if (name === "String" && expr.args.length === 0) {
+  if (name === "String" && expanded.args.length === 0) {
     return "externref";
   }
-  if (isArrayType(expr) && expr.args.length === 1) {
-    return `(ref $${wasmHeapTypeName(expr)})`;
+  if (isArrayType(expanded) && expanded.args.length === 1) {
+    return `(ref $${wasmHeapTypeName(expanded)})`;
   }
   return "externref";
 }

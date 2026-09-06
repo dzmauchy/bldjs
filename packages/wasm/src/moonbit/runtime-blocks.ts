@@ -14,10 +14,23 @@ import {
   pinFrom,
   valueFrom,
   zetaFrom,
-} from "./ids";
-import { overshootStep } from "./transformers";
-import { nowSecs } from "./generators";
-import { portSlotIndex } from "../ports";
+} from "@bld/xml/blocks/cs/ids";
+import { portSlotIndex } from "@bld/xml/blocks/ports";
+
+export function overshootStep(time: number, zeta: number = DEFAULT_ZETA, omega: number = DEFAULT_OMEGA): number {
+  if (!(time > 0)) {
+    return 0;
+  }
+  const z = zetaFrom(zeta);
+  const w = omegaFrom(omega);
+  const wd = w * Math.sqrt(1 - z * z);
+  const sigma = z * w;
+  return 1 - Math.exp(-sigma * time) * (Math.cos(wd * time) + (sigma / wd) * Math.sin(wd * time));
+}
+
+function nowSecs(): number {
+  return typeof performance !== "undefined" ? performance.now() / 1000 : Date.now() / 1000;
+}
 
 export interface BlockPort {
   readonly name: string;

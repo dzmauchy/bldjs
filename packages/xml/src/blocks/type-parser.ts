@@ -25,21 +25,29 @@ interface Atom {
 }
 
 /**
- * Parse a MoonBit type expression.
+ * Parse a type expression.
  *
- *   Double
- *   Array[T]
- *   (Double) -> Unit
- *   (Int, String) -> Bool
- *   () -> Double
- *   (Int, String)
- *   Int | Int64
+ *   f64
+ *   Array<T> / Array[T]
+ *   (f32) -> void
+ *   c1<f64>
+ *   (i32, String) -> bool
+ *   () -> f64
+ *   (i32, String)
+ *   i32 | i64
+ *   Animal<X extends Genotype>
+ *   ? extends Bound
+ *   ? super Bound
+ *   +Bound / -Bound
  *   _
  *   Self
  */
-export function parseMoonbitType(src: string): TypeExpr {
+export function parseType(src: string): TypeExpr {
   return new TypeParser(src).parse();
 }
+
+/** @deprecated Use {@link parseType}. */
+export const parseMoonbitType = parseType;
 
 class TypeParser {
   private i = 0;
@@ -219,7 +227,7 @@ class TypeParser {
   }
 
   private fail(message: string): never {
-    throw ParseError.new(`${message} in MoonBit type \`${this.src}\``);
+    throw ParseError.new(`${message} in type \`${this.src}\``);
   }
 }
 

@@ -20,23 +20,23 @@ import {
   WildcardType,
 } from "./ast";
 import { ParseError, XmlElem } from "../dom";
-import { parseMoonbitType } from "./moonbit-type";
+import { parseType, parseMoonbitType } from "./type-parser";
 
 export { ParseError };
-export { parseMoonbitType } from "./moonbit-type";
+export { parseType, parseMoonbitType } from "./type-parser";
 
-function parseMoonbitAttr(node: XmlElem, fallback: TypeExpr | undefined): TypeExpr {
+function parseTypeAttr(node: XmlElem, fallback: TypeExpr | undefined): TypeExpr {
   const raw = node.opt("type");
   if (raw === undefined) {
     if (fallback) {
       return fallback;
     }
-    return parseMoonbitType("");
+    return parseType("");
   }
   try {
-    return parseMoonbitType(raw);
+    return parseType(raw);
   } catch (error) {
-    node.fail(error instanceof Error ? error.message : `invalid MoonBit type \`${raw}\``);
+    node.fail(error instanceof Error ? error.message : `invalid type \`${raw}\``);
   }
 }
 
@@ -45,12 +45,12 @@ function rejectNestedTypes(node: XmlElem, parent: string): void {
     if (child.tag === "attribute") {
       continue;
     }
-    child.fail(`unsupported ${parent} child <${child.tag}>; use a MoonBit type string`);
+    child.fail(`unsupported ${parent} child <${child.tag}>`);
   }
 }
 
 export function parseTexpr(node: XmlElem): TypeExpr {
-  return parseMoonbitAttr(node, undefined);
+  return parseTypeAttr(node, undefined);
 }
 
 function parseNamespace(node: XmlElem): Namespace {
@@ -81,19 +81,19 @@ function parseXmlTypeNode(node: XmlElem): TypeExpr {
       const superElem = node.kids().find((k) => k.tag === "super");
 
       if (extendsAttr) {
-        bound = parseMoonbitType(extendsAttr);
+        bound = parseType(extendsAttr);
         boundKind = "extends";
       } else if (extendsElem) {
         bound = extendsElem.opt("type")
-          ? parseMoonbitType(extendsElem.req("type"))
+          ? parseType(extendsElem.req("type"))
           : parsePortTypeExpr(extendsElem);
         boundKind = "extends";
       } else if (superAttr) {
-        bound = parseMoonbitType(superAttr);
+        bound = parseType(superAttr);
         boundKind = "super";
       } else if (superElem) {
         bound = superElem.opt("type")
-          ? parseMoonbitType(superElem.req("type"))
+          ? parseType(superElem.req("type"))
           : parsePortTypeExpr(superElem);
         boundKind = "super";
       } else if (variance === "+") {
@@ -113,7 +113,7 @@ function parseXmlTypeNode(node: XmlElem): TypeExpr {
       const kids = node.kids().filter((k) => k.tag !== "attribute");
       if (kids.length === 0) {
         if (node.opt("type")) {
-          return parseMoonbitType(node.req("type"));
+          return parseType(node.req("type"));
         }
         return new NamedType(name, ns, []);
       }
@@ -133,7 +133,7 @@ function parsePortTypeExpr(node: XmlElem): TypeExpr {
     }
     return intersectionOf(typeKids.map(parseXmlTypeNode));
   }
-  return parseMoonbitAttr(node, undefined);
+  return parseTypeAttr(node, undefined);
 }
 
 function parseParam(node: XmlElem): ParamDef {
@@ -142,7 +142,7 @@ function parseParam(node: XmlElem): ParamDef {
   const superBounds: TypeExpr[] = [];
   const extendsAttr = node.opt("extends");
   if (extendsAttr) {
-    extendsBounds.push(parseMoonbitType(extendsAttr));
+    extendsBounds.push(parseType(extendsAttr));
   }
   for (const child of node.kids()) {
     switch (child.tag) {
@@ -151,9 +151,9 @@ function parseParam(node: XmlElem): ParamDef {
         break;
       case "extends":
         if (child.opt("type")) {
-          extendsBounds.push(parseMoonbitAttr(child, undefined));
+          extendsBounds.push(parseTypeAttr(child, undefined));
         } else if (child.text()) {
-          extendsBounds.push(parseMoonbitType(child.text()));
+          extendsBounds.push(parseType(child.text()));
         } else {
           const typeKids = child.kids().filter((k) => k.tag !== "attribute");
           if (typeKids.length > 0) {
@@ -163,9 +163,9 @@ function parseParam(node: XmlElem): ParamDef {
         break;
       case "super":
         if (child.opt("type")) {
-          superBounds.push(parseMoonbitAttr(child, undefined));
+          superBounds.push(parseTypeAttr(child, undefined));
         } else if (child.text()) {
-          superBounds.push(parseMoonbitType(child.text()));
+          superBounds.push(parseType(child.text()));
         }
         break;
       default:
@@ -212,7 +212,7 @@ function parseFactory(node: XmlElem): Factory {
   const typeAttr = node.opt("type");
   return {
     id: node.req("id"),
-    args: typeAttr !== undefined ? [parseMoonbitAttr(node, undefined)] : [],
+    args: typeAttr !== undefined ? [parseTypeAttr(node, undefined)] : [],
     attributes: node.attributes(),
   };
 }
@@ -224,7 +224,7 @@ function parseTypeDef(node: XmlElem, file: string): TypeDef {
   const attributes: Attribute[] = [];
   const extendsAttr = node.opt("extends");
   if (extendsAttr) {
-    ancestors.push(parseMoonbitType(extendsAttr));
+    ancestors.push(parseType(extendsAttr));
   }
   for (const child of node.kids()) {
     switch (child.tag) {
@@ -255,7 +255,7 @@ function parseTypeDef(node: XmlElem, file: string): TypeDef {
     vars: params,
     params,
     ancestors,
-    extends: extendsAttr ? parseMoonbitType(extendsAttr) : (ancestors[0] ?? null),
+    extends: extendsAttr ? parseType(extendsAttr) : (ancestors[0] ?? null),
     alias,
     attributes,
     source: file,
@@ -270,7 +270,7 @@ function parseParameterDef(node: XmlElem): BlockParameterDef {
   return {
     kind: node.tag,
     name: node.req("name"),
-    type: typeAttr !== undefined ? parseMoonbitAttr(node, undefined) : null,
+    type: typeAttr !== undefined ? parseTypeAttr(node, undefined) : null,
     description: node.opt("description") ?? null,
     default: node.opt("default") ?? null,
     min: node.num("min", false),
@@ -326,7 +326,7 @@ function parseRelation(node: XmlElem): TypeRelationDef {
     input: node.opt("input") ?? undefined,
     output: node.opt("output") ?? undefined,
     param: node.opt("param") ?? undefined,
-    type: typeAttr !== undefined ? parseMoonbitAttr(node, undefined) : undefined,
+    type: typeAttr !== undefined ? parseTypeAttr(node, undefined) : undefined,
     expression: node.opt("expression") ?? undefined,
     inputs: inputs.length > 0 ? inputs : undefined,
     outputs: outputs.length > 0 ? outputs : undefined,

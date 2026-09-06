@@ -40,7 +40,7 @@ import {
   isSettingKind,
   isVarianceType,
 } from "./ast";
-import { parseMoonbitType } from "./moonbit-type";
+import { parseType } from "./type-parser";
 import {
   CONTROL_SYSTEMS_XML,
   FIXTURES_XML,
@@ -101,7 +101,7 @@ function g(name: string, args: TypeExpr[]): TypeExpr {
 }
 
 function ty(src: string): TypeExpr {
-  return parseMoonbitType(src);
+  return parseType(src);
 }
 
 function catalog(): Catalog {
@@ -1201,17 +1201,6 @@ describe("constants, settings, relations, and type intersection inference", () =
         "f64",
         "char",
         "void",
-        "Double",
-        "Float",
-        "Int",
-        "Int64",
-        "UInt",
-        "UInt64",
-        "String",
-        "Bool",
-        "Byte",
-        "Char",
-        "Unit",
       ]);
       for (const prim of PRIMITIVE_TYPES) {
         expect(isPrimitiveType(prim)).toBe(true);
@@ -1220,7 +1209,7 @@ describe("constants, settings, relations, and type intersection inference", () =
       }
       expect(isPrimitiveType("Unknown")).toBe(false);
       expect(isPrimitiveType("Array")).toBe(false);
-      expect(isPrimitive("com.dauch.cs.Double")).toBe(true);
+      expect(isPrimitive("com.dauch.cs.f64")).toBe(true);
       expect(isPrimitive("com.dauch.cs.Unknown")).toBe(false);
     });
 
@@ -1916,7 +1905,7 @@ describe("constants, settings, relations, and type intersection inference", () =
       expect(isPushType(arrayOf(generic("c1", [t("f64")])))).toBe(true);
     });
 
-    it("parseMoonbitType parses angle brackets and wildcard types", () => {
+    it("parseType parses angle brackets and wildcard types", () => {
       const t1 = ty("c1<f64>");
       expect(t1.kind).toBe("type");
       expect((t1 as any).name).toBe("c1");

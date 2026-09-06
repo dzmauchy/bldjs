@@ -1,6 +1,6 @@
-/** MoonBit consumer `(T) -> Unit`. */
+/** Push consumer `(T) -> void`. */
 export type Func<T> = (value: T) => void;
-/** Catalog `(Double) -> Unit`. */
+/** Consumer `(number) -> void`. */
 export type DoubleConsumer = Func<number>;
 export type F64Func = DoubleConsumer;
 /** @deprecated Push model uses {@link DoubleConsumer} on every port. */

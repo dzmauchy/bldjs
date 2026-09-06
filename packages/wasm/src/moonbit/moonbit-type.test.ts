@@ -8,7 +8,7 @@ import {
   typesEqual,
   unbounded,
   unionOf,
-} from "./ast";
+} from "@bld/xml/blocks/ast";
 import { parseMoonbitType } from "./moonbit-type";
 
 function ty(src: string) {

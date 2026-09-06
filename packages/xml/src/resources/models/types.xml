@@ -2,7 +2,7 @@
 <types id="types" name="Types" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="types.xsd">
   <namespace id="types" name="Types"/>
 
-  <!-- MoonBit Primitives -->
+  <!-- Primitive Types -->
   <type name="bool"/>
   <type name="u64"/>
   <type name="u32"/>
@@ -13,18 +13,6 @@
   <type name="char"/>
   <type name="void"/>
 
-  <!-- Standard Aliases / Types -->
-  <type name="Double"/>
-  <type name="Float"/>
-  <type name="Int"/>
-  <type name="Int64"/>
-  <type name="UInt"/>
-  <type name="UInt64"/>
-  <type name="String"/>
-  <type name="Bool"/>
-  <type name="Byte"/>
-  <type name="Char"/>
-  <type name="Unit"/>
 
   <!-- Built-in Generic Container -->
   <type name="Array">
