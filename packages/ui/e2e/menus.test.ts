@@ -146,7 +146,7 @@ test.describe("menus", () => {
     await expect(page.locator('[data-testid="status-blocks"]')).toHaveText("0 blocks");
   });
 
-  test("lists catalogs by blocks.name and toggles the current solution", async () => {
+  test("lists catalogs by catalog(Id, Name) and toggles the current solution", async () => {
     await openAppMenu(page);
     const types = page.locator('[data-testid="menu-catalog-types.pl"]');
     const control = page.locator('[data-testid="menu-catalog-blocks.pl"]');
