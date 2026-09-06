@@ -110,7 +110,7 @@ export class NamedType extends TypeNode {
   }
 
   isArray(): boolean {
-    return rawTypeName(this.name) === "Array";
+    return rawTypeName(this.name) === "array";
   }
 
   isPush(): boolean {
@@ -232,7 +232,7 @@ export class SelfType extends TypeNode {
   }
 
   display(_compact: boolean): string {
-    return "Self";
+    return "self";
   }
 
   equals(other: TypeExpr): boolean {
@@ -298,7 +298,7 @@ export function unbounded(): TypeExpr {
 }
 
 export function unitType(): TypeExpr {
-  return named("Unit");
+  return named("unit");
 }
 
 export function funcType(params: TypeExpr[], ret: TypeExpr = unitType()): TypeExpr {
@@ -311,7 +311,7 @@ export function consumerType(...params: TypeExpr[]): TypeExpr {
 }
 
 export function isUnitType(expr: TypeExpr): boolean {
-  return expr.kind === "type" && rawTypeName(expr.name) === "Unit" && expr.args.length === 0;
+  return expr.kind === "type" && rawTypeName(expr.name) === "unit" && expr.args.length === 0;
 }
 
 export function isArrayType(expr: TypeExpr): boolean {
@@ -319,7 +319,7 @@ export function isArrayType(expr: TypeExpr): boolean {
 }
 
 export function arrayOf(elem: TypeExpr): TypeExpr {
-  return new NamedType("Array", null, [elem]);
+  return new NamedType("array", null, [elem]);
 }
 
 export function displayType(expr: TypeExpr, compact: boolean): string {
@@ -409,25 +409,25 @@ export function typesEqual(left: TypeExpr, right: TypeExpr): boolean {
 }
 
 export const PRIMITIVE_TYPES = [
-  "Double",
-  "Float",
-  "Int",
-  "Int64",
-  "UInt",
-  "UInt64",
-  "String",
-  "Bool",
-  "Byte",
-  "Char",
-  "Unit",
+  "double",
+  "float",
+  "int",
+  "int64",
+  "uint",
+  "uint64",
+  "string",
+  "bool",
+  "byte",
+  "char",
+  "unit",
 ] as const;
 
 export type PrimitiveType = (typeof PRIMITIVE_TYPES)[number];
 
-export const BUILTIN_CONTAINER_TYPES = ["Array"] as const;
+export const BUILTIN_CONTAINER_TYPES = ["array"] as const;
 export type BuiltinContainerType = (typeof BUILTIN_CONTAINER_TYPES)[number];
 
-export const SPECIAL_TYPES = ["Self", "_"] as const;
+export const SPECIAL_TYPES = ["self", "_"] as const;
 export type SpecialType = (typeof SPECIAL_TYPES)[number];
 
 export const TYPE_KINDS = [
@@ -489,14 +489,16 @@ export function isVarianceType(val: string): val is VarianceType {
   return (VARIANCE_TYPES as readonly string[]).includes(val);
 }
 
-export interface ParamDef {
+/** Type variable from `<var>T</var>` or `<var>F:extends(h(F))</var>`. */
+export interface VarDef {
   name: string;
-  extends: TypeExpr[];
-  super?: TypeExpr[];
-  variance?: VarianceType;
-  relation?: RelationKind;
+  /** Prolog constraint term, e.g. `extends(h(F))`. */
+  constraint: string | null;
   attributes: Attribute[];
 }
+
+/** @deprecated Use {@link VarDef}. */
+export type ParamDef = VarDef;
 
 export interface PortDef {
   name: string;
@@ -506,12 +508,6 @@ export interface PortDef {
   direction?: PortDirection;
   relation?: RelationKind;
   relatesTo?: string;
-  attributes: Attribute[];
-}
-
-export interface Factory {
-  id: string;
-  args: TypeExpr[];
   attributes: Attribute[];
 }
 
@@ -587,7 +583,7 @@ export interface Namespace {
 export interface TypeDef {
   name: string;
   ns: string | null;
-  params: ParamDef[];
+  vars: VarDef[];
   ancestors: TypeExpr[];
   alias: TypeExpr | null;
   attributes: Attribute[];
@@ -599,10 +595,11 @@ export interface BlockDef {
   name: string;
   ns: string;
   icon: string | null;
-  params: ParamDef[];
+  vars: VarDef[];
+  /** Trealla Prolog goal used to infer types and check input compatibility. */
+  typeProg: string;
   parameters: BlockParameterDef[];
   settings?: BlockParameterDef[];
-  factory: Factory | null;
   inputs: PortDef[];
   outputs: PortDef[];
   relations?: TypeRelationDef[];

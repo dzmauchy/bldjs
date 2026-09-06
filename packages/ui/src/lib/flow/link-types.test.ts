@@ -11,7 +11,7 @@ describe("shouldShowPortType", () => {
     associateBuiltinModels(diagram);
     return diagram.catalog();
   })();
-  const consumer = consumerType(named("Double"));
+  const consumer = consumerType(named("double"));
   const linking = { blockId: 1, port: "out" };
 
   it("hides every port when not linking", () => {
@@ -27,10 +27,10 @@ describe("shouldShowPortType", () => {
   });
 
   it("hides incompatible inputs", () => {
-    expect(shouldShowPortType(linking, 2, "in", "in", consumer, named("Double"), catalog, [])).toBe(false);
+    expect(shouldShowPortType(linking, 2, "in", "in", consumer, named("double"), catalog, [])).toBe(false);
   });
 
-  it("shows (Double) -> Unit inputs when the source is a consumer vector", () => {
+  it("shows (double) -> unit inputs when the source is a consumer vector", () => {
     const vector = arrayOf(consumer);
     expect(shouldShowPortType({ blockId: 1, port: "out" }, 2, "in", "in", vector, consumer, catalog, [])).toBe(true);
   });
@@ -54,7 +54,7 @@ describe("uniqueCompatibleInput", () => {
     associateBuiltinModels(diagram);
     return diagram.catalog();
   })();
-  const consumer = consumerType(named("Double"));
+  const consumer = consumerType(named("double"));
   const linking = { blockId: 1, port: "out" };
 
   it("returns the only compatible input", () => {
@@ -81,7 +81,7 @@ describe("uniqueCompatibleInput", () => {
       uniqueCompatibleInput(
         linking,
         consumer,
-        { blockId: 2, params: [], inputs: [{ name: "in", ty: named("Double") }] },
+        { blockId: 2, params: [], inputs: [{ name: "in", ty: named("double") }] },
         catalog,
       ),
     ).toBeUndefined();
@@ -91,13 +91,13 @@ describe("uniqueCompatibleInput", () => {
     expect(
       uniqueCompatibleInput(
         linking,
-        named("Double"),
+        named("double"),
         {
           blockId: 2,
           params: [],
           inputs: [
-            { name: "left", ty: named("Double") },
-            { name: "right", ty: named("Double") },
+            { name: "left", ty: named("double") },
+            { name: "right", ty: named("double") },
           ],
         },
         catalog,
@@ -115,10 +115,10 @@ describe("uniqueCompatibleInput", () => {
     expect(
       uniqueCompatibleInput(
         linking,
-        named("Int"),
+        named("int"),
         {
           blockId: 2,
-          params: get.params,
+          params: get.vars,
           inputs: get.inputs.map((port) => ({ name: port.name, ty: port.ty })),
         },
         fixtures,

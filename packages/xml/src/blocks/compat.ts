@@ -4,6 +4,17 @@ import { isPrimitive } from "./types";
 
 const MAX_DEPTH = 64;
 
+/** True when `ty` has no holes and no free (uppercase) type variables. */
+export function isGroundType(ty: TypeExpr): boolean {
+  if (ty.kind === "hole" || ty.kind === "self") {
+    return false;
+  }
+  if (ty.kind === "type" && ty.ns === null && ty.args.length === 0 && /^[A-Z_]/.test(ty.name)) {
+    return false;
+  }
+  return ty.children().every(isGroundType);
+}
+
 /** `actual` can be passed where `formal` is required. */
 export function isCompatible(
   catalog: Catalog,
@@ -21,6 +32,9 @@ export function isCompatibleWith(
   actual: TypeExpr,
   onMatch: (name: string, ty: TypeExpr) => void,
 ): boolean {
+  if (!isGroundType(actual)) {
+    return false;
+  }
   return visit(catalog, params, formal, actual, [], true, 0, onMatch);
 }
 
@@ -52,7 +66,7 @@ function visit(
 
   switch (to.kind) {
     case "hole":
-      return true;
+      return false;
     case "union":
       return to.members.every((member) =>
         visit(catalog, params, from, member, visited, covariant, depth + 1, onMatch),
@@ -128,26 +142,19 @@ function visitFunc(
 }
 
 function visitVar(
-  catalog: Catalog,
-  params: ParamDef[],
+  _catalog: Catalog,
+  _params: ParamDef[],
   param: ParamDef,
   to: TypeExpr,
   visited: string[],
-  depth: number,
+  _depth: number,
   onMatch: (name: string, ty: TypeExpr) => void,
 ): boolean {
   if (visited.includes(param.name)) {
     return true;
   }
-  const next = [...visited, param.name];
-  const boundsOk = param.extends.every((bound) =>
-    visit(catalog, params, bound, to, next, true, depth + 1, onMatch),
-  );
-  if (boundsOk) {
-    onMatch(param.name, to);
-    return true;
-  }
-  return false;
+  onMatch(param.name, to);
+  return true;
 }
 
 function visitNamed(

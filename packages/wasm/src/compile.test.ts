@@ -243,7 +243,7 @@ describe("compileGenerator", () => {
         { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
       ],
     });
-    const solution = loadDiagramSolution(xml, catalog());
+    const solution = await loadDiagramSolution(xml, catalog());
     const compiled = await compileGenerator(3, solution.nodes, solution.links);
     expect(compiled?.wasm[0]).toBe(0);
     expect(String.fromCharCode(compiled!.wasm[1]!, compiled!.wasm[2]!, compiled!.wasm[3]!)).toBe("asm");

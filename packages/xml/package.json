@@ -16,6 +16,8 @@
     "./blocks/types": "./src/blocks/types.ts",
     "./blocks/diagram": "./src/blocks/diagram.ts",
     "./blocks/builtin": "./src/blocks/builtin.ts",
+    "./blocks/prolog/engine": "./src/blocks/prolog/engine.ts",
+    "./blocks/prolog/terms": "./src/blocks/prolog/terms.ts",
     "./blocks/cs": "./src/blocks/cs/index.ts",
     "./blocks/cs/ids": "./src/blocks/cs/ids.ts",
     "./blocks/cs/types": "./src/blocks/cs/types.ts",
@@ -38,5 +40,8 @@
   "scripts": {
     "check": "tsc --noEmit && node scripts/check-xsd.mjs",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "trealla": "^0.30.1"
   }
 }

@@ -10,7 +10,6 @@ import {
   isPushType,
   SelfType,
   typeToString,
-  generic,
   named,
   typesEqual,
   unbounded,
@@ -91,10 +90,6 @@ function t(name: string): TypeExpr {
   return named(name);
 }
 
-function g(name: string, args: TypeExpr[]): TypeExpr {
-  return generic(name, args);
-}
-
 function ty(src: string): TypeExpr {
   return parseMoonbitType(src);
 }
@@ -107,7 +102,7 @@ function catalog(): Catalog {
   return next;
 }
 
-function resolveBlock(cat: Catalog, id: string, grounded: Map<string, Grounding>) {
+async function resolveBlock(cat: Catalog, id: string, grounded: Map<string, Grounding>) {
   const block = cat.block(id);
   if (!block) {
     throw new Error(`missing block ${id}`);
@@ -159,9 +154,9 @@ describe("blocks", () => {
       <blocks id="workspace_01" name="Signal Processing" icon="workspace.png">
         <namespace id="types" name="Types" icon="box.png"/>
         <block id="b_apply" name="Apply" ns="types" icon="func.png">
-          <param name="T"/>
-          <param name="R"/>
-          <factory id="apply"/>
+          <var>T</var>
+          <var>R</var>
+          <type>true.</type>
           <in name="fn" type="(T) -> R"/>
           <in name="arg" type="T"/>
           <out name="result" type="R"/>
@@ -171,7 +166,9 @@ describe("blocks", () => {
     const doc = parseBlocks("apply.xml", xml);
     expect(doc.id).toBe("workspace_01");
     const block = doc.blocks[0];
-    expect(block.params.length).toBe(2);
+    expect(block.vars.length).toBe(2);
+    expect(block.vars.map((item) => item.name)).toEqual(["T", "R"]);
+    expect(block.typeProg).toBe("true.");
     expectType(block.inputs[0].ty, funcType([t("T")], t("R")));
     expectType(block.inputs[1].ty, t("T"));
     expectType(block.outputs[0].ty, t("R"));
@@ -181,51 +178,66 @@ describe("blocks", () => {
     const xml = `
       <blocks id="w" name="Holes">
         <block id="b" name="W" ns="test">
-          <in name="ints" type="Array[Int]"/>
-          <in name="consumer" type="(Double) -> Unit"/>
-          <in name="unboundedInput" type="Array[_]"/>
+          <in name="ints" type="array[int]"/>
+          <in name="consumer" type="(double) -> unit"/>
+          <in name="unboundedInput" type="array[_]"/>
         </block>
       </blocks>
     `;
     const doc = parseBlocks("wild.xml", xml);
     const block = doc.blocks[0];
-    expectType(block.inputs[0].ty, arrayOf(t("Int")));
-    expectType(block.inputs[1].ty, consumerType(t("Double")));
+    expectType(block.inputs[0].ty, arrayOf(t("int")));
+    expectType(block.inputs[1].ty, consumerType(t("double")));
     expectType(block.inputs[2].ty, arrayOf(unbounded()));
   });
 
-  it("parses union intersection and Self", () => {
+  it("parses union intersection and self", () => {
     const xml = `
       <blocks id="u" name="U">
         <block id="b_path" name="path" ns="example.Builder">
-          <in name="segment" type="String"/>
-          <in name="complexPayload" type="((T) -> Unit) &amp; (() -> T)"/>
-          <out name="result" type="Int | Int64"/>
-          <out name="this" type="Self"/>
+          <in name="segment" type="string"/>
+          <in name="complexPayload" type="((T) -> unit) &amp; (() -> T)"/>
+          <out name="result" type="int | int64"/>
+          <out name="this" type="self"/>
         </block>
       </blocks>
     `;
     const doc = parseBlocks("u.xml", xml);
     const block = doc.blocks[0];
-    expectType(block.outputs[0].ty, unionOf([t("Int"), t("Int64")]));
+    expectType(block.outputs[0].ty, unionOf([t("int"), t("int64")]));
     expect(block.outputs[1].ty.kind).toBe("self");
     expect(block.inputs[1].ty.kind).toBe("intersection");
   });
 
-  it("parses f-bounded Rec param", () => {
+  it("parses f-bounded var constraints", () => {
     const xml = `
       <blocks id="e" name="E">
         <block id="b_rec_new" name="rec.new" ns="example">
-          <param name="T">
-            <extends type="Rec[T]"/>
-          </param>
-          <in name="cls" type="(T) -> Unit"/>
+          <var>T:extends(rec(T))</var>
+          <type>true.</type>
+          <in name="cls" type="(T) -> unit"/>
           <out name="value" type="T"/>
         </block>
       </blocks>
     `;
     const doc = parseBlocks("e.xml", xml);
-    expectType(doc.blocks[0].params[0].extends[0], g("Rec", [t("T")]));
+    expect(doc.blocks[0].vars[0].name).toBe("T");
+    expect(doc.blocks[0].vars[0].constraint).toBe("extends(rec(T))");
+  });
+
+  it("rejects factory and param tags", () => {
+    expect(() =>
+      parseBlocks(
+        "f.xml",
+        `<blocks id="t" name="T"><block id="b" name="B" ns="n"><factory id="apply"/></block></blocks>`,
+      ),
+    ).toThrow(/factory/);
+    expect(() =>
+      parseBlocks(
+        "p.xml",
+        `<blocks id="t" name="T"><block id="b" name="B" ns="n"><param name="T"/></block></blocks>`,
+      ),
+    ).toThrow(/param/);
   });
 
   it("builtin models merge", () => {
@@ -257,12 +269,12 @@ describe("blocks", () => {
       "sin",
       "timer",
     ]);
-    expect(cat.findType("Double")).toBeDefined();
-    expect(cat.findType("Array")).toBeDefined();
-    expect(cat.findType("String")).toBeDefined();
-    expect(cat.findType("Bool")).toBeDefined();
-    expect(cat.findType("Unit")).toBeDefined();
-    expect(cat.findType("Int")).toBeDefined();
+    expect(cat.findType("double")).toBeDefined();
+    expect(cat.findType("array")).toBeDefined();
+    expect(cat.findType("string")).toBeDefined();
+    expect(cat.findType("bool")).toBeDefined();
+    expect(cat.findType("unit")).toBeDefined();
+    expect(cat.findType("int")).toBeDefined();
     expect(cat.findType("c1")).toBeUndefined();
     expect(cat.findType("f64")).toBeUndefined();
     expect(cat.sources().length).toBe(2);
@@ -278,87 +290,89 @@ describe("blocks", () => {
     expect(() => xmlSourcesForFiles(["models/types.xml"])).toThrow("unknown catalog");
   });
 
-  it("Array[Double] is compatible with Array[_]", () => {
+  it("array[double] is compatible with array[_]", () => {
     const cat = catalog();
     const formal = arrayOf(unbounded());
-    const actual = arrayOf(t("Double"));
+    const actual = arrayOf(t("double"));
     expect(isCompatible(cat, [], formal, actual)).toBe(true);
-    const invariant = arrayOf(t("Int"));
+    const invariant = arrayOf(t("int"));
     expect(isCompatible(cat, [], invariant, actual)).toBe(false);
+    expect(isCompatible(cat, [], t("double"), unbounded())).toBe(false);
+    expect(isCompatible(cat, [], unbounded(), t("double"))).toBe(true);
   });
 
   it("consumers and functions are distinct MoonBit types", () => {
     const cat = catalog();
-    expect(isCompatible(cat, [], consumerType(t("Double")), consumerType(t("Double")))).toBe(true);
-    expect(isCompatible(cat, [], consumerType(t("Double")), funcType([t("Double")], t("Double")))).toBe(false);
-    expect(isCompatible(cat, [], funcType([], t("Double")), consumerType(t("Double")))).toBe(false);
+    expect(isCompatible(cat, [], consumerType(t("double")), consumerType(t("double")))).toBe(true);
+    expect(isCompatible(cat, [], consumerType(t("double")), funcType([t("double")], t("double")))).toBe(false);
+    expect(isCompatible(cat, [], funcType([], t("double")), consumerType(t("double")))).toBe(false);
   });
 
   it("function types are contravariant in arguments", () => {
     const cat = catalog();
-    const formal = consumerType(consumerType(t("Double")));
-    expect(isCompatible(cat, [], formal, consumerType(funcType([], t("Double"))))).toBe(false);
-    expect(isCompatible(cat, [], formal, consumerType(t("Int")))).toBe(false);
-    expect(isCompatible(cat, [], formal, consumerType(consumerType(t("Double"))))).toBe(true);
+    const formal = consumerType(consumerType(t("double")));
+    expect(isCompatible(cat, [], formal, consumerType(funcType([], t("double"))))).toBe(false);
+    expect(isCompatible(cat, [], formal, consumerType(t("int")))).toBe(false);
+    expect(isCompatible(cat, [], formal, consumerType(consumerType(t("double"))))).toBe(true);
   });
 
-  it("parses Array[T] MoonBit notation", () => {
+  it("parses array[T] MoonBit notation", () => {
     const xml = `
       <blocks id="a" name="A">
         <block id="b" name="B" ns="test">
-          <in name="sugar" type="Array[Double]"/>
-          <in name="nested" type="Array[Array[Int]]"/>
-          <out name="alias" type="Array[String]"/>
+          <in name="sugar" type="array[double]"/>
+          <in name="nested" type="array[array[int]]"/>
+          <out name="alias" type="array[string]"/>
         </block>
       </blocks>
     `;
     const doc = parseBlocks("arr.xml", xml);
-    expectType(doc.blocks[0].inputs[0].ty, arrayOf(t("Double")));
-    expectType(doc.blocks[0].inputs[1].ty, arrayOf(arrayOf(t("Int"))));
-    expectType(doc.blocks[0].outputs[0].ty, arrayOf(t("String")));
+    expectType(doc.blocks[0].inputs[0].ty, arrayOf(t("double")));
+    expectType(doc.blocks[0].inputs[1].ty, arrayOf(arrayOf(t("int"))));
+    expectType(doc.blocks[0].outputs[0].ty, arrayOf(t("string")));
   });
 
-  it("catalog primitives do not widen and Bool is not Int", () => {
+  it("catalog primitives do not widen and bool is not int", () => {
     const cat = catalog();
-    expect(isCompatible(cat, [], t("Int64"), t("Int"))).toBe(false);
-    expect(isCompatible(cat, [], t("Int"), t("Int64"))).toBe(false);
-    expect(isCompatible(cat, [], t("Double"), t("Float"))).toBe(false);
-    expect(isCompatible(cat, [], t("Double"), t("Double"))).toBe(true);
-    expect(isCompatible(cat, [], t("Bool"), t("Int"))).toBe(false);
-    expect(isCompatible(cat, [], t("Int"), t("Bool"))).toBe(false);
-    expect(isCompatible(cat, [], t("String"), t("Int"))).toBe(false);
+    expect(isCompatible(cat, [], t("int64"), t("int"))).toBe(false);
+    expect(isCompatible(cat, [], t("int"), t("int64"))).toBe(false);
+    expect(isCompatible(cat, [], t("double"), t("float"))).toBe(false);
+    expect(isCompatible(cat, [], t("double"), t("double"))).toBe(true);
+    expect(isCompatible(cat, [], t("bool"), t("int"))).toBe(false);
+    expect(isCompatible(cat, [], t("int"), t("bool"))).toBe(false);
+    expect(isCompatible(cat, [], t("string"), t("int"))).toBe(false);
   });
 
-  it("infer array of from Double grounding", () => {
-    const resolved = resolveBlock(
+  it("infer array of from double grounding", async () => {
+    const resolved = await resolveBlock(
       catalog(),
       "b_array_of",
-      new Map([["elems", { kind: "single", ty: t("Double") }]]),
+      new Map([["elems", { kind: "single", ty: t("double") }]]),
     );
-    expectType(resolved.params.get("T"), t("Double"));
-    expectType(resolvedOutput(resolved, "result"), arrayOf(t("Double")));
+    expectType(resolved.params.get("T"), t("double"));
+    expectType(resolvedOutput(resolved, "result"), arrayOf(t("double")));
     expect(resolved.compatible.get("elems")).toBe(true);
   });
 
-  it("infer array of vararg union", () => {
-    const resolved = resolveBlock(
+  it("infer array of vararg union", async () => {
+    const resolved = await resolveBlock(
       catalog(),
       "b_array_of",
-      new Map([["elems", { kind: "varargs", items: [t("Double"), t("Int")] }]]),
+      new Map([["elems", { kind: "varargs", items: [t("double"), t("int")] }]]),
     );
-    expectType(resolvedOutput(resolved, "result"), arrayOf(unionOf([t("Double"), t("Int")])));
+    expectType(resolvedOutput(resolved, "result"), arrayOf(unionOf([t("double"), t("int")])));
   });
 
-  it("infer (T1, T2) -> R from two inputs", () => {
+  it("infer (T1, T2) -> R from two inputs", async () => {
     const cat = catalog();
     cat.addXml(
       "f2.xml",
       `
         <blocks id="fn" name="Fn">
           <block id="b_apply_f2" name="apply2" ns="test">
-            <param name="T1"/>
-            <param name="T2"/>
-            <param name="R"/>
+            <var>T1</var>
+            <var>T2</var>
+            <var>R</var>
             <in name="fn" type="(T1, T2) -> R"/>
             <in name="a" type="T1"/>
             <in name="b" type="T2"/>
@@ -367,122 +381,118 @@ describe("blocks", () => {
         </blocks>
       `,
     );
-    const resolved = resolveBlock(
+    const resolved = await resolveBlock(
       cat,
       "b_apply_f2",
       new Map([
-        ["fn", { kind: "single", ty: funcType([t("Int"), t("String")], t("Bool")) }],
-        ["a", { kind: "single", ty: t("Int") }],
-        ["b", { kind: "single", ty: t("String") }],
+        ["fn", { kind: "single", ty: funcType([t("int"), t("string")], t("bool")) }],
+        ["a", { kind: "single", ty: t("int") }],
+        ["b", { kind: "single", ty: t("string") }],
       ]),
     );
-    expectType(resolved.params.get("T1"), t("Int"));
-    expectType(resolved.params.get("T2"), t("String"));
-    expectType(resolved.params.get("R"), t("Bool"));
-    expectType(resolvedOutput(resolved, "result"), t("Bool"));
+    expectType(resolved.params.get("T1"), t("int"));
+    expectType(resolved.params.get("T2"), t("string"));
+    expectType(resolved.params.get("R"), t("bool"));
+    expectType(resolvedOutput(resolved, "result"), t("bool"));
   });
 
-  it("unbound param grounds to a hole", () => {
-    const resolved = resolveBlock(catalog(), "b_process", new Map());
+  it("unbound param grounds to a hole", async () => {
+    const resolved = await resolveBlock(catalog(), "b_process", new Map());
     expectType(resolvedOutput(resolved, "out"), unbounded());
+    expect(resolved.outputs.find((port) => port.name === "out")?.connectable).toBe(false);
   });
 
-  it("process identity from array", () => {
-    const resolved = resolveBlock(
+  it("process identity from array", async () => {
+    const resolved = await resolveBlock(
       catalog(),
       "b_process",
-      new Map([["in", { kind: "single", ty: arrayOf(t("Double")) }]]),
+      new Map([["in", { kind: "single", ty: arrayOf(t("double")) }]]),
     );
-    expectType(resolvedOutput(resolved, "out"), arrayOf(t("Double")));
+    expectType(resolvedOutput(resolved, "out"), arrayOf(t("double")));
   });
 
-  it("array get infers element type", () => {
-    const resolved = resolveBlock(
+  it("array get infers element type", async () => {
+    const resolved = await resolveBlock(
       catalog(),
       "b_array_get",
       new Map([
-        ["array", { kind: "single", ty: arrayOf(t("Double")) }],
-        ["index", { kind: "single", ty: t("Int") }],
+        ["array", { kind: "single", ty: arrayOf(t("double")) }],
+        ["index", { kind: "single", ty: t("int") }],
       ]),
     );
-    expectType(resolvedOutput(resolved, "elem"), t("Double"));
+    expectType(resolvedOutput(resolved, "elem"), t("double"));
   });
 
-  it("f-bounded Rec resolves through a multi-file catalog", () => {
+  it("f-bounded Rec resolves through a multi-file catalog", async () => {
     const cat = catalog();
     cat.addXml(
       "color.xml",
       `
         <blocks id="example" name="Example">
-          <type name="Rec" ns="example">
-            <param name="E">
-              <extends type="Rec[E]"/>
-            </param>
+          <type name="rec" ns="example">
+            <var>E:extends(rec(E))</var>
           </type>
-          <type name="Color" ns="example">
-            <ancestor type="Rec[Color]"/>
+          <type name="color" ns="example">
+            <ancestor type="rec[color]"/>
           </type>
           <block id="b_color_fn" name="Color.fn" ns="example">
-            <out name="value" type="(Color) -> Unit"/>
+            <type>true.</type>
+            <out name="value" type="(color) -> unit"/>
           </block>
           <block id="b_rec_new" name="rec.new" ns="example">
-            <param name="T">
-              <extends type="Rec[T]"/>
-            </param>
-            <in name="cls" type="(T) -> Unit"/>
+            <var>T:extends(rec(T))</var>
+            <type>true.</type>
+            <in name="cls" type="(T) -> unit"/>
             <out name="value" type="T"/>
           </block>
         </blocks>
       `,
     );
-    const resolved = resolveBlock(
+    const resolved = await resolveBlock(
       cat,
       "b_rec_new",
-      new Map([["cls", { kind: "single", ty: consumerType(t("Color")) }]]),
+      new Map([["cls", { kind: "single", ty: consumerType(t("color")) }]]),
     );
-    expectType(resolvedOutput(resolved, "value"), t("Color"));
+    expectType(resolvedOutput(resolved, "value"), t("color"));
     expect(resolved.compatible.get("cls")).toBe(true);
   });
 
-  it("incompatible grounding is reported", () => {
+  it("incompatible grounding is reported", async () => {
     const cat = catalog();
     cat.addXml(
       "need.xml",
       `
         <blocks id="b" name="B">
           <block id="need_c1" name="Need" ns="test">
-            <param name="N">
-              <extends type="(Double) -> Unit"/>
-            </param>
+            <var>N:extends(fn([double], unit))</var>
             <in name="in" type="N"/>
             <out name="out" type="N"/>
           </block>
         </blocks>
       `,
     );
-    const resolved = resolveBlock(cat, "need_c1", new Map([["in", { kind: "single", ty: t("Int") }]]));
+    const resolved = await resolveBlock(cat, "need_c1", new Map([["in", { kind: "single", ty: t("int") }]]));
     expect(resolved.compatible.get("in")).toBe(false);
   });
 
-  it("builder Self type is namespace", () => {
+  it("builder self type is namespace", async () => {
     const cat = new Catalog();
     cat.addXml(
       "mod.xml",
       `
         <blocks id="mod" name="Module">
           <block id="b_path" name="path" ns="example.Builder">
-            <factory id="Builder#path"/>
-            <in name="segment" type="String"/>
-            <out name="this" type="Self"/>
+            <in name="segment" type="string"/>
+            <out name="this" type="self"/>
           </block>
         </blocks>
       `,
     );
-    const resolved = resolveBlock(cat, "b_path", new Map([["segment", { kind: "single", ty: t("String") }]]));
+    const resolved = await resolveBlock(cat, "b_path", new Map([["segment", { kind: "single", ty: t("string") }]]));
     expectType(resolvedOutput(resolved, "this"), t("example.Builder"));
   });
 
-  it("diagram associates multiple xml files and grounds inputs", () => {
+  it("diagram associates multiple xml files and grounds inputs", async () => {
     const diagram = new Diagram("d1", "Demo");
     associateFixtureModels(diagram);
     expect(diagram.sources().length).toBe(3);
@@ -498,12 +508,12 @@ describe("blocks", () => {
     diagram.addLink(intId, "value", getId, "index");
     diagram.addLink(arrayId, "result", processId, "in");
 
-    expectType(resolvedOutput(diagram.resolveNode(arrayId)!, "result"), arrayOf(t("Double")));
-    expectType(resolvedOutput(diagram.resolveNode(getId)!, "elem"), t("Double"));
-    expectType(resolvedOutput(diagram.resolveNode(processId)!, "out"), arrayOf(t("Double")));
+    expectType(resolvedOutput((await diagram.resolveNode(arrayId))!, "result"), arrayOf(t("double")));
+    expectType(resolvedOutput((await diagram.resolveNode(getId))!, "elem"), t("double"));
+    expectType(resolvedOutput((await diagram.resolveNode(processId))!, "out"), arrayOf(t("double")));
   });
 
-  it("diagram chain grounds through identity", () => {
+  it("diagram chain grounds through identity", async () => {
     const diagram = new Diagram("d2", "Chain");
     associateFixtureModels(diagram);
     const doubleId = diagram.addNode("b_Double");
@@ -511,7 +521,7 @@ describe("blocks", () => {
     const arrayId = diagram.addNode("b_array_of");
     diagram.addLink(doubleId, "value", identId, "in");
     diagram.addLink(identId, "out", arrayId, "elems");
-    expectType(resolvedOutput(diagram.resolveNode(arrayId)!, "result"), arrayOf(t("Double")));
+    expectType(resolvedOutput((await diagram.resolveNode(arrayId))!, "result"), arrayOf(t("double")));
   });
 
   it("dissociate xml rebuilds catalog", () => {
@@ -530,33 +540,33 @@ describe("blocks", () => {
     expect(ty("_").kind).toBe("hole");
   });
 
-  it("substitutes params, replaces Self, and flattens unions", () => {
-    const substituted = consumerType(t("T")).subst(new Map([["T", t("Double")]]));
-    expect(displayType(substituted, true)).toBe("(Double) -> Unit");
-    expect(displayType(new SelfType().replaceSelf(t("Int")), true)).toBe("Int");
-    expect(typesEqual(unionOf([t("Int"), t("Int")]), t("Int"))).toBe(true);
-    expect(consumerType(t("Double")).isConsumer()).toBe(true);
-    expect(arrayOf(consumerType(t("Double"))).isPush()).toBe(true);
+  it("substitutes params, replaces self, and flattens unions", () => {
+    const substituted = consumerType(t("T")).subst(new Map([["T", t("double")]]));
+    expect(displayType(substituted, true)).toBe("(double) -> unit");
+    expect(displayType(new SelfType().replaceSelf(t("int")), true)).toBe("int");
+    expect(typesEqual(unionOf([t("int"), t("int")]), t("int"))).toBe(true);
+    expect(consumerType(t("double")).isConsumer()).toBe(true);
+    expect(arrayOf(consumerType(t("double"))).isPush()).toBe(true);
   });
 
   it("displays common MoonBit types", () => {
-    expect(displayType(consumerType(t("Double")), true)).toBe("(Double) -> Unit");
-    expect(displayType(consumerType(consumerType(t("Double"))), true)).toBe("((Double) -> Unit) -> Unit");
-    expect(displayType(consumerType(consumerType(consumerType(t("Double")))), true)).toBe(
-      "(((Double) -> Unit) -> Unit) -> Unit",
+    expect(displayType(consumerType(t("double")), true)).toBe("(double) -> unit");
+    expect(displayType(consumerType(consumerType(t("double"))), true)).toBe("((double) -> unit) -> unit");
+    expect(displayType(consumerType(consumerType(consumerType(t("double")))), true)).toBe(
+      "(((double) -> unit) -> unit) -> unit",
     );
-    expect(typeToString(consumerType(consumerType(consumerType(t("Double")))))).toBe(
-      "(((Double) -> Unit) -> Unit) -> Unit",
+    expect(typeToString(consumerType(consumerType(consumerType(t("double")))))).toBe(
+      "(((double) -> unit) -> unit) -> unit",
     );
-    expect(displayType(funcType([t("Int")], t("String")), true)).toBe("(Int) -> String");
-    expect(displayType(funcType([t("Int"), t("Int64")], t("Bool")), true)).toBe("(Int, Int64) -> Bool");
-    expect(displayType(funcType([], t("Double")), true)).toBe("() -> Double");
-    expect(displayType(consumerType(t("String"), t("Bool")), true)).toBe("(String, Bool) -> Unit");
-    expect(displayType(t("Double"), true)).toBe("Double");
-    expect(displayType(arrayOf(t("Double")), true)).toBe("Array[Double]");
-    expect(displayType(arrayOf(arrayOf(t("Int"))), true)).toBe("Array[Array[Int]]");
-    expect(displayType(unionOf([t("Int"), t("Int64")]), true)).toBe("Int | Int64");
-    expect(displayType(arrayOf(unionOf([t("Int"), t("Int64")])), true)).toBe("Array[(Int | Int64)]");
+    expect(displayType(funcType([t("int")], t("string")), true)).toBe("(int) -> string");
+    expect(displayType(funcType([t("int"), t("int64")], t("bool")), true)).toBe("(int, int64) -> bool");
+    expect(displayType(funcType([], t("double")), true)).toBe("() -> double");
+    expect(displayType(consumerType(t("string"), t("bool")), true)).toBe("(string, bool) -> unit");
+    expect(displayType(t("double"), true)).toBe("double");
+    expect(displayType(arrayOf(t("double")), true)).toBe("array[double]");
+    expect(displayType(arrayOf(arrayOf(t("int"))), true)).toBe("array[array[int]]");
+    expect(displayType(unionOf([t("int"), t("int64")]), true)).toBe("int | int64");
+    expect(displayType(arrayOf(unionOf([t("int"), t("int64")])), true)).toBe("array[(int | int64)]");
   });
 
   it("control systems model and types", () => {
@@ -564,7 +574,7 @@ describe("blocks", () => {
     const timerBlock = cat.block("timer")!;
     expect(timerBlock.inputs.length).toBe(1);
     expect(timerBlock.outputs.length).toBe(0);
-    expect(displayType(timerBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(timerBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(double) -> unit");
     expect(timerBlock.inputs.find((port) => port.name === "in")!.attributes.find((a) => a.name === "wasm")).toBeUndefined();
     expect(timerBlock.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
     expect(timerBlock.attributes.find((a) => a.name === "generator")?.value).toBe("true");
@@ -591,22 +601,22 @@ describe("blocks", () => {
     ).toEqual(COMBINER_IDS);
     const scope = cat.block("scope")!;
     expect(scope.inputs.length).toBe(0);
-    expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(Double) -> Unit]");
+    expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("array[(double) -> unit]");
     expect(scope.outputs.find((port) => port.name === "out")!.attributes.find((a) => a.name === "dynamic")?.value).toBe(
       "true",
     );
-    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("cos")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("cos")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("overshoot")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("overshoot")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("random")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("constant")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(double) -> unit");
+    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(double) -> unit");
+    expect(displayType(cat.block("cos")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(double) -> unit");
+    expect(displayType(cat.block("cos")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(double) -> unit");
+    expect(displayType(cat.block("overshoot")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(double) -> unit");
+    expect(displayType(cat.block("overshoot")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(double) -> unit");
+    expect(displayType(cat.block("random")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(double) -> unit");
+    expect(displayType(cat.block("constant")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(double) -> unit");
     expect(cat.block("constant")!.outputs).toEqual([]);
     const productBlock = cat.block("product")!;
-    expect(displayType(productBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(productBlock.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(Double) -> Unit]");
+    expect(displayType(productBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(double) -> unit");
+    expect(displayType(productBlock.outputs.find((port) => port.name === "out")!.ty, true)).toBe("array[(double) -> unit]");
     expect(productBlock.outputs.find((port) => port.name === "out")!.attributes.find((a) => a.name === "dynamic")?.value).toBe(
       "true",
     );
@@ -686,27 +696,27 @@ describe("blocks", () => {
     expect(m?.max).toBe(1000);
     const gpioIn = cat.block("gpio_in")!;
     expect(gpioIn.attributes.find((item) => item.name === "generator")?.value).toBe("true");
-    expect(displayType(gpioIn.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(gpioIn.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(double) -> unit");
     expect(gpioIn.parameters.find((param) => param.name === "pin")?.default).toBe("0");
     expect(gpioIn.parameters.find((param) => param.name === "period")).toBeUndefined();
     const gpioOut = cat.block("gpio_out")!;
     expect(gpioOut.inputs.length).toBe(0);
-    expect(displayType(gpioOut.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(gpioOut.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(double) -> unit");
     expect(gpioOut.parameters.find((param) => param.name === "pin")?.default).toBe("1");
-    expect(cat.findType("Double")).toBeDefined();
-    expect(cat.findType("Array")).toBeDefined();
-    expect(cat.findType("Unit")).toBeDefined();
-    expect(cat.findType("Int")).toBeDefined();
+    expect(cat.findType("double")).toBeDefined();
+    expect(cat.findType("array")).toBeDefined();
+    expect(cat.findType("unit")).toBeDefined();
+    expect(cat.findType("int")).toBeDefined();
   });
 
-  it("nested consumers are not Double sample ports", () => {
+  it("nested consumers are not double sample ports", () => {
     const cat = catalog();
-    const nested = consumerType(consumerType(consumerType(t("Double"))));
-    const mid = consumerType(consumerType(t("Double")));
-    const leaf = consumerType(t("Double"));
-    expect(isCompatible(cat, [], nested, t("Double"))).toBe(false);
-    expect(isCompatible(cat, [], mid, t("Double"))).toBe(false);
-    expect(isCompatible(cat, [], leaf, t("Double"))).toBe(false);
+    const nested = consumerType(consumerType(consumerType(t("double"))));
+    const mid = consumerType(consumerType(t("double")));
+    const leaf = consumerType(t("double"));
+    expect(isCompatible(cat, [], nested, t("double"))).toBe(false);
+    expect(isCompatible(cat, [], mid, t("double"))).toBe(false);
+    expect(isCompatible(cat, [], leaf, t("double"))).toBe(false);
     expect(isCompatible(cat, [], mid, nested)).toBe(false);
     expect(isCompatible(cat, [], leaf, mid)).toBe(false);
     expect(isCompatible(cat, [], nested, nested)).toBe(true);
@@ -714,20 +724,20 @@ describe("blocks", () => {
     expect(isCompatible(cat, [], leaf, leaf)).toBe(true);
   });
 
-  it("(Double) -> Unit is a consumer type that can be forked into one input", () => {
-    expect(isConsumerType(consumerType(t("Double")))).toBe(true);
-    expect(isConsumerType(t("Double"))).toBe(false);
-    expect(isConsumerType(funcType([t("Double")], t("Double")))).toBe(false);
+  it("(double) -> unit is a consumer type that can be forked into one input", () => {
+    expect(isConsumerType(consumerType(t("double")))).toBe(true);
+    expect(isConsumerType(t("double"))).toBe(false);
+    expect(isConsumerType(funcType([t("double")], t("double")))).toBe(false);
   });
 
   it("detects push-model wires from consumers and consumer vectors", () => {
-    expect(isPushType(consumerType(t("Double")))).toBe(true);
-    expect(isPushType(arrayOf(consumerType(t("Double"))))).toBe(true);
-    expect(isPushType(arrayOf(arrayOf(consumerType(t("Double")))))).toBe(true);
-    expect(isPushType(t("Double"))).toBe(false);
-    expect(isPushType(funcType([], t("Double")))).toBe(false);
-    expect(isPushType(funcType([t("Double")], t("Double")))).toBe(false);
-    expect(isPushType(arrayOf(t("Double")))).toBe(false);
+    expect(isPushType(consumerType(t("double")))).toBe(true);
+    expect(isPushType(arrayOf(consumerType(t("double"))))).toBe(true);
+    expect(isPushType(arrayOf(arrayOf(consumerType(t("double")))))).toBe(true);
+    expect(isPushType(t("double"))).toBe(false);
+    expect(isPushType(funcType([], t("double")))).toBe(false);
+    expect(isPushType(funcType([t("double")], t("double")))).toBe(false);
+    expect(isPushType(arrayOf(t("double")))).toBe(false);
     expect(isPushType(undefined)).toBe(false);
   });
 
@@ -1009,7 +1019,7 @@ describe("blocks", () => {
     expect(plan.scopeIds).toEqual([1]);
   });
 
-  it("control systems diagram grounds nested func chain", () => {
+  it("control systems diagram grounds nested func chain", async () => {
     const diagram = new Diagram("cs", "Control Systems");
     associateBuiltinModels(diagram);
     const sinId = diagram.addNode("sin");
@@ -1018,23 +1028,23 @@ describe("blocks", () => {
     diagram.addLink(scopeId, "out", sinId, "in");
     diagram.addLink(sinId, "out", timerId, "in");
 
-    const sinResolved = diagram.resolveNode(sinId)!;
+    const sinResolved = (await diagram.resolveNode(sinId))!;
     expect(sinResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(double) -> unit");
+    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(double) -> unit");
 
-    const scopeResolved = diagram.resolveNode(scopeId)!;
-    expect(displayType(scopeResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(Double) -> Unit]");
-    expect(diagram.resolveNode(timerId)!.compatible.get("in") ?? true).toBe(true);
+    const scopeResolved = (await diagram.resolveNode(scopeId))!;
+    expect(displayType(scopeResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("array[(double) -> unit]");
+    expect((await diagram.resolveNode(timerId))!.compatible.get("in") ?? true).toBe(true);
   });
 
-  it("a consumer vector may ground a (Double) -> Unit input", () => {
+  it("a consumer vector may ground a (double) -> unit input", () => {
     const cat = catalog();
-    expect(isCompatible(cat, [], consumerType(t("Double")), arrayOf(consumerType(t("Double"))))).toBe(true);
-    expect(isCompatible(cat, [], consumerType(t("Double")), arrayOf(t("Double")))).toBe(false);
+    expect(isCompatible(cat, [], consumerType(t("double")), arrayOf(consumerType(t("double"))))).toBe(true);
+    expect(isCompatible(cat, [], consumerType(t("double")), arrayOf(t("double")))).toBe(false);
   });
 
-  it("two scopes may ground the same (Double) -> Unit input", () => {
+  it("two scopes may ground the same (double) -> unit input", async () => {
     const diagram = new Diagram("cs", "Fork");
     associateBuiltinModels(diagram);
     const scopeA = diagram.addNode("scope");
@@ -1043,10 +1053,10 @@ describe("blocks", () => {
     diagram.addLink(scopeA, "out", sinId, "in");
     diagram.addLink(scopeB, "out", sinId, "in");
     expect(diagram.links()).toHaveLength(2);
-    expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
+    expect((await diagram.resolveNode(sinId))!.compatible.get("in") ?? true).toBe(true);
   });
 
-  it("extra slotted ports ground as the catalog consumer ports", () => {
+  it("extra slotted ports ground as the catalog consumer ports", async () => {
     const diagram = new Diagram("cs", "Slots");
     associateBuiltinModels(diagram);
     const scopeId = diagram.addNode("scope");
@@ -1054,36 +1064,36 @@ describe("blocks", () => {
     const cosId = diagram.addNode("cos");
     diagram.addLink(scopeId, "out", sinId, "in");
     diagram.addLink(scopeId, "out[1]", cosId, "in");
-    const scope = diagram.resolveNode(scopeId)!;
-    expect(displayType(resolvedOutput(scope, "out")!, true)).toBe("(Double) -> Unit");
-    expect(displayType(resolvedOutput(scope, "out[1]")!, true)).toBe("(Double) -> Unit");
+    const scope = (await diagram.resolveNode(scopeId))!;
+    expect(displayType(resolvedOutput(scope, "out")!, true)).toBe("(double) -> unit");
+    expect(displayType(resolvedOutput(scope, "out[1]")!, true)).toBe("(double) -> unit");
     expect(isPushType(resolvedOutput(scope, "out"))).toBe(true);
     expect(isPushType(resolvedOutput(scope, "out[1]"))).toBe(true);
-    expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
-    expect(diagram.resolveNode(cosId)!.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(resolvedInput(diagram.resolveNode(sinId)!, "in")!, true)).toBe("(Double) -> Unit");
-    expect(displayType(resolvedOutput(diagram.resolveNode(sinId)!, "out")!, true)).toBe("(Double) -> Unit");
-    expect(displayType(resolvedInput(diagram.resolveNode(cosId)!, "in")!, true)).toBe("(Double) -> Unit");
-    expect(displayType(resolvedOutput(diagram.resolveNode(cosId)!, "out")!, true)).toBe("(Double) -> Unit");
+    expect((await diagram.resolveNode(sinId))!.compatible.get("in") ?? true).toBe(true);
+    expect((await diagram.resolveNode(cosId))!.compatible.get("in") ?? true).toBe(true);
+    expect(displayType(resolvedInput((await diagram.resolveNode(sinId))!, "in")!, true)).toBe("(double) -> unit");
+    expect(displayType(resolvedOutput((await diagram.resolveNode(sinId))!, "out")!, true)).toBe("(double) -> unit");
+    expect(displayType(resolvedInput((await diagram.resolveNode(cosId))!, "in")!, true)).toBe("(double) -> unit");
+    expect(displayType(resolvedOutput((await diagram.resolveNode(cosId))!, "out")!, true)).toBe("(double) -> unit");
   });
 
-  it("scope vector wires to sin because Array[(Double) -> Unit] grounds (Double) -> Unit", () => {
+  it("scope vector wires to sin because array[(double) -> unit] grounds (double) -> unit", async () => {
     const diagram = new Diagram("cs", "Same");
     associateBuiltinModels(diagram);
     const scopeId = diagram.addNode("scope");
     const sinId = diagram.addNode("sin");
     diagram.addLink(scopeId, "out", sinId, "in");
-    expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
+    expect((await diagram.resolveNode(sinId))!.compatible.get("in") ?? true).toBe(true);
   });
 
-  it("array is incompatible with a (Double) -> Unit port", () => {
+  it("array is incompatible with a (double) -> unit port", async () => {
     const diagram = new Diagram("cs", "Skip");
     associateFixtureModels(diagram);
     const tableId = diagram.addNode("b_array_of");
     const sinId = diagram.addNode("sin");
     diagram.addLink(tableId, "result", sinId, "in");
 
-    const sinResolved = diagram.resolveNode(sinId)!;
+    const sinResolved = (await diagram.resolveNode(sinId))!;
     expect(sinResolved.compatible.get("in")).toBe(false);
   });
 
@@ -1185,17 +1195,17 @@ describe("constants, settings, relations, and type intersection inference", () =
   describe("constants and type guards", () => {
     it("defines and validates all primitive types", () => {
       expect(PRIMITIVE_TYPES).toEqual([
-        "Double",
-        "Float",
-        "Int",
-        "Int64",
-        "UInt",
-        "UInt64",
-        "String",
-        "Bool",
-        "Byte",
-        "Char",
-        "Unit",
+        "double",
+        "float",
+        "int",
+        "int64",
+        "uint",
+        "uint64",
+        "string",
+        "bool",
+        "byte",
+        "char",
+        "unit",
       ]);
       for (const prim of PRIMITIVE_TYPES) {
         expect(isPrimitiveType(prim)).toBe(true);
@@ -1203,20 +1213,20 @@ describe("constants, settings, relations, and type intersection inference", () =
         expect(PRIMITIVES.has(prim)).toBe(true);
       }
       expect(isPrimitiveType("Unknown")).toBe(false);
-      expect(isPrimitiveType("Array")).toBe(false);
-      expect(isPrimitive("com.dauch.cs.Double")).toBe(true);
+      expect(isPrimitiveType("array")).toBe(false);
+      expect(isPrimitive("com.dauch.cs.double")).toBe(true);
       expect(isPrimitive("com.dauch.cs.Unknown")).toBe(false);
     });
 
     it("defines and validates container, special, and type kinds", () => {
-      expect(BUILTIN_CONTAINER_TYPES).toEqual(["Array"]);
-      expect(isBuiltinContainerType("Array")).toBe(true);
-      expect(isBuiltinContainerType("Int")).toBe(false);
+      expect(BUILTIN_CONTAINER_TYPES).toEqual(["array"]);
+      expect(isBuiltinContainerType("array")).toBe(true);
+      expect(isBuiltinContainerType("int")).toBe(false);
 
-      expect(SPECIAL_TYPES).toEqual(["Self", "_"]);
-      expect(isSpecialType("Self")).toBe(true);
+      expect(SPECIAL_TYPES).toEqual(["self", "_"]);
+      expect(isSpecialType("self")).toBe(true);
       expect(isSpecialType("_")).toBe(true);
-      expect(isSpecialType("Double")).toBe(false);
+      expect(isSpecialType("double")).toBe(false);
 
       expect(TYPE_KINDS).toEqual([
         "type",
@@ -1291,9 +1301,9 @@ describe("constants, settings, relations, and type intersection inference", () =
         <blocks id="cfg" name="Config">
           <block id="b_cfg" name="ConfigBlock" ns="test">
             <settings>
-              <setting name="bufferSize" type="Int" default="1024" min="64" max="65536" step="64"/>
-              <setting name="threshold" type="Double" default="0.75" min="0" max="1" step="0.05"/>
-              <setting name="mode" type="String" default="fast" pattern="[a-z]+"/>
+              <setting name="bufferSize" type="int" default="1024" min="64" max="65536" step="64"/>
+              <setting name="threshold" type="double" default="0.75" min="0" max="1" step="0.05"/>
+              <setting name="mode" type="string" default="fast" pattern="[a-z]+"/>
             </settings>
           </block>
         </blocks>
@@ -1306,7 +1316,7 @@ describe("constants, settings, relations, and type intersection inference", () =
       const buf = block.parameters[0];
       expect(buf.name).toBe("bufferSize");
       expect(buf.kind).toBe("setting");
-      expectType(buf.type as TypeExpr, t("Int"));
+      expectType(buf.type as TypeExpr, t("int"));
       expect(buf.default).toBe("1024");
       expect(buf.min).toBe(64);
       expect(buf.max).toBe(65536);
@@ -1314,12 +1324,12 @@ describe("constants, settings, relations, and type intersection inference", () =
 
       const thresh = block.parameters[1];
       expect(thresh.name).toBe("threshold");
-      expectType(thresh.type as TypeExpr, t("Double"));
+      expectType(thresh.type as TypeExpr, t("double"));
       expect(thresh.default).toBe("0.75");
 
       const mode = block.parameters[2];
       expect(mode.name).toBe("mode");
-      expectType(mode.type as TypeExpr, t("String"));
+      expectType(mode.type as TypeExpr, t("string"));
       expect(mode.pattern).toBe("[a-z]+");
     });
 
@@ -1328,9 +1338,9 @@ describe("constants, settings, relations, and type intersection inference", () =
         <blocks id="p" name="Params">
           <block id="b_proc" name="Proc" ns="test">
             <parameters>
-              <integer-parameter name="retries" type="Int" default="3"/>
-              <double-range-parameter name="ratio" type="Double" min="0.1" max="5.0" step="0.1" default="1.0"/>
-              <parameter name="customFlag" type="Bool" default="true"/>
+              <integer-parameter name="retries" type="int" default="3"/>
+              <double-range-parameter name="ratio" type="double" min="0.1" max="5.0" step="0.1" default="1.0"/>
+              <parameter name="customFlag" type="bool" default="true"/>
             </parameters>
           </block>
         </blocks>
@@ -1339,11 +1349,11 @@ describe("constants, settings, relations, and type intersection inference", () =
       const block = doc.blocks[0];
       expect(block.parameters).toHaveLength(3);
       expect(block.parameters[0].name).toBe("retries");
-      expectType(block.parameters[0].type as TypeExpr, t("Int"));
+      expectType(block.parameters[0].type as TypeExpr, t("int"));
       expect(block.parameters[1].name).toBe("ratio");
-      expectType(block.parameters[1].type as TypeExpr, t("Double"));
+      expectType(block.parameters[1].type as TypeExpr, t("double"));
       expect(block.parameters[2].name).toBe("customFlag");
-      expectType(block.parameters[2].type as TypeExpr, t("Bool"));
+      expectType(block.parameters[2].type as TypeExpr, t("bool"));
     });
   });
 
@@ -1352,9 +1362,9 @@ describe("constants, settings, relations, and type intersection inference", () =
       const xml = `
         <blocks id="ports_test" name="Ports">
           <block id="b_rel_port" name="RelPort" ns="test">
-            <input name="in1" type="Double" icon="pin"/>
-            <input name="in2" type="Int"/>
-            <output name="out1" type="Double" icon="out_pin" relation="intersection" relatesTo="in1,in2"/>
+            <input name="in1" type="double" icon="pin"/>
+            <input name="in2" type="int"/>
+            <output name="out1" type="double" icon="out_pin" relation="intersection" relatesTo="in1,in2"/>
           </block>
         </blocks>
       `;
@@ -1376,34 +1386,28 @@ describe("constants, settings, relations, and type intersection inference", () =
       expect(block.outputs[0].relatesTo).toBe("in1,in2");
     });
 
-    it("parses type parameter variance, super, and relation attributes", () => {
+    it("parses type variables with Prolog constraints", () => {
       const xml = `
         <blocks id="type_params" name="TypeParams">
           <block id="b_poly" name="Poly" ns="test">
-            <param name="T" variance="+" relation="intersection">
-              <extends type="Rec[T]"/>
-              <super type="Int"/>
-            </param>
+            <var>T:extends(rec(T))</var>
+            <type>true.</type>
           </block>
         </blocks>
       `;
       const doc = parseBlocks("poly.xml", xml);
-      const param = doc.blocks[0].params[0];
-      expect(param.name).toBe("T");
-      expect(param.variance).toBe("+");
-      expect(param.relation).toBe("intersection");
-      expect(param.extends).toHaveLength(1);
-      expect(param.super).toHaveLength(1);
-      expectType(param.super![0], t("Int"));
+      const typeVar = doc.blocks[0].vars[0];
+      expect(typeVar.name).toBe("T");
+      expect(typeVar.constraint).toBe("extends(rec(T))");
     });
 
     it("parses <relation> and <type-relation> elements in blocks", () => {
       const xml = `
         <blocks id="rel_doc" name="RelDoc">
           <block id="b_intersect_block" name="IntersectBlock" ns="test">
-            <in name="inA" type="Double"/>
-            <in name="inB" type="Int"/>
-            <out name="res" type="Unit"/>
+            <in name="inA" type="double"/>
+            <in name="inB" type="int"/>
+            <out name="res" type="unit"/>
             <relation kind="intersection" from="inA,inB" to="res"/>
             <type-relation kind="union" input="inA,inB" output="res2"/>
           </block>
@@ -1428,40 +1432,40 @@ describe("constants, settings, relations, and type intersection inference", () =
 
   describe("direct type intersection inference", () => {
     it("infers intersection of distinct types in canonical order", () => {
-      const ab = inferIntersection([t("Double"), t("Int")]);
+      const ab = inferIntersection([t("double"), t("int")]);
       expect(ab.kind).toBe("intersection");
-      expect(typeToString(ab)).toBe("Double & Int");
+      expect(typeToString(ab)).toBe("double & int");
 
       // Canonical order regardless of input argument order
-      const ba = inferIntersection([t("Int"), t("Double")]);
+      const ba = inferIntersection([t("int"), t("double")]);
       expect(typesEqual(ab, ba)).toBe(true);
     });
 
     it("infers intersection of three or more types", () => {
-      const abc = inferIntersection([t("String"), t("Int"), t("Double")]);
+      const abc = inferIntersection([t("string"), t("int"), t("double")]);
       expect(abc.kind).toBe("intersection");
-      expect(typeToString(abc)).toBe("Double & Int & String");
+      expect(typeToString(abc)).toBe("double & int & string");
     });
 
     it("deduplicates identical types in intersection (idempotence)", () => {
-      const single = inferIntersection([t("Int"), t("Int"), t("Int")]);
+      const single = inferIntersection([t("int"), t("int"), t("int")]);
       expect(single.kind).toBe("type");
-      expectType(single, t("Int"));
+      expectType(single, t("int"));
     });
 
     it("flattens nested intersections (associativity)", () => {
-      const nested1 = intersectionOf([t("Int"), t("Double")]);
-      const nested2 = intersectionOf([t("String"), t("Bool")]);
+      const nested1 = intersectionOf([t("int"), t("double")]);
+      const nested2 = intersectionOf([t("string"), t("bool")]);
       const combined = inferIntersection([nested1, nested2]);
-      expect(typeToString(combined)).toBe("Bool & Double & Int & String");
+      expect(typeToString(combined)).toBe("bool & double & int & string");
     });
 
     it("eliminates holes in intersections when concrete types are present", () => {
-      const withHole = inferIntersection([t("Int"), unbounded()]);
-      expectType(withHole, t("Int"));
+      const withHole = inferIntersection([t("int"), unbounded()]);
+      expectType(withHole, t("int"));
 
-      const multipleWithHole = inferIntersection([t("Double"), unbounded(), t("String")]);
-      expect(typeToString(multipleWithHole)).toBe("Double & String");
+      const multipleWithHole = inferIntersection([t("double"), unbounded(), t("string")]);
+      expect(typeToString(multipleWithHole)).toBe("double & string");
     });
 
     it("preserves hole when all operands are holes", () => {
@@ -1475,11 +1479,11 @@ describe("constants, settings, relations, and type intersection inference", () =
     });
 
     it("infers intersection of function/consumer types", () => {
-      const c1 = consumerType(t("Double"));
-      const c2 = consumerType(t("Int"));
+      const c1 = consumerType(t("double"));
+      const c2 = consumerType(t("int"));
       const inter = inferIntersection([c1, c2]);
       expect(inter.kind).toBe("intersection");
-      expect(typeToString(inter)).toBe("(Double) -> Unit & (Int) -> Unit");
+      expect(typeToString(inter)).toBe("(double) -> unit & (int) -> unit");
     });
 
 
@@ -1532,10 +1536,10 @@ describe("constants, settings, relations, and type intersection inference", () =
     it("preserves intersection when types have no subtype relationship", () => {
       const cat = setupSubtypeCatalog();
       const shape = t("shapes.Shape");
-      const str = t("String");
+      const str = t("string");
       const simplified = simplifyIntersection([shape, str], cat);
       expect(simplified.kind).toBe("intersection");
-      expect(typeToString(simplified)).toBe("shapes.Shape & String");
+      expect(typeToString(simplified)).toBe("shapes.Shape & string");
     });
 
     it("simplifies union of Sub | Super to Super", () => {
@@ -1548,14 +1552,14 @@ describe("constants, settings, relations, and type intersection inference", () =
   });
 
   describe("block type parameter inference as intersection across inputs", () => {
-    it("infers generic parameter T as intersection when grounded by two inputs", () => {
+    it("infers generic parameter T as intersection when grounded by two inputs", async () => {
       const cat = new Catalog();
       cat.addXml(
         "merge.xml",
         `
           <blocks id="b_test" name="Test">
             <block id="b_merge" name="Merge" ns="test">
-              <param name="T"/>
+              <var>T</var>
               <in name="in1" type="T"/>
               <in name="in2" type="T"/>
               <out name="out" type="T"/>
@@ -1563,28 +1567,28 @@ describe("constants, settings, relations, and type intersection inference", () =
           </blocks>
         `,
       );
-      const resolved = resolveBlock(
+      const resolved = await resolveBlock(
         cat,
         "b_merge",
         new Map([
-          ["in1", { kind: "single", ty: t("Double") }],
-          ["in2", { kind: "single", ty: t("Int") }],
+          ["in1", { kind: "single", ty: t("double") }],
+          ["in2", { kind: "single", ty: t("int") }],
         ]),
       );
-      expectType(resolved.params.get("T"), intersectionOf([t("Double"), t("Int")]));
-      expectType(resolvedOutput(resolved, "out"), intersectionOf([t("Double"), t("Int")]));
+      expectType(resolved.params.get("T"), intersectionOf([t("double"), t("int")]));
+      expectType(resolvedOutput(resolved, "out"), intersectionOf([t("double"), t("int")]));
       expect(resolved.compatible.get("in1")).toBe(true);
       expect(resolved.compatible.get("in2")).toBe(true);
     });
 
-    it("infers generic parameter T as intersection across three inputs", () => {
+    it("infers generic parameter T as intersection across three inputs", async () => {
       const cat = new Catalog();
       cat.addXml(
         "merge3.xml",
         `
           <blocks id="b_test" name="Test">
             <block id="b_merge3" name="Merge3" ns="test">
-              <param name="T"/>
+              <var>T</var>
               <in name="in1" type="T"/>
               <in name="in2" type="T"/>
               <in name="in3" type="T"/>
@@ -1593,20 +1597,20 @@ describe("constants, settings, relations, and type intersection inference", () =
           </blocks>
         `,
       );
-      const resolved = resolveBlock(
+      const resolved = await resolveBlock(
         cat,
         "b_merge3",
         new Map([
-          ["in1", { kind: "single", ty: t("Double") }],
-          ["in2", { kind: "single", ty: t("Int") }],
-          ["in3", { kind: "single", ty: t("String") }],
+          ["in1", { kind: "single", ty: t("double") }],
+          ["in2", { kind: "single", ty: t("int") }],
+          ["in3", { kind: "single", ty: t("string") }],
         ]),
       );
-      expectType(resolved.params.get("T"), intersectionOf([t("Double"), t("Int"), t("String")]));
-      expectType(resolvedOutput(resolved, "out"), intersectionOf([t("Double"), t("Int"), t("String")]));
+      expectType(resolved.params.get("T"), intersectionOf([t("double"), t("int"), t("string")]));
+      expectType(resolvedOutput(resolved, "out"), intersectionOf([t("double"), t("int"), t("string")]));
     });
 
-    it("simplifies intersection when inputs have a subtyping relation", () => {
+    it("simplifies intersection when inputs have a subtyping relation", async () => {
       const cat = new Catalog();
       cat.addXml(
         "subtypes.xml",
@@ -1617,7 +1621,7 @@ describe("constants, settings, relations, and type intersection inference", () =
               <ancestor type="sub.Base"/>
             </type>
             <block id="b_sub_merge" name="SubMerge" ns="sub">
-              <param name="T"/>
+              <var>T</var>
               <in name="in1" type="T"/>
               <in name="in2" type="T"/>
               <out name="out" type="T"/>
@@ -1625,7 +1629,7 @@ describe("constants, settings, relations, and type intersection inference", () =
           </blocks>
         `,
       );
-      const resolved = resolveBlock(
+      const resolved = await resolveBlock(
         cat,
         "b_sub_merge",
         new Map([
@@ -1638,14 +1642,15 @@ describe("constants, settings, relations, and type intersection inference", () =
       expectType(resolvedOutput(resolved, "out"), t("sub.Derived"));
     });
 
-    it("respects explicit strategy in ResolveOptions", () => {
+    it("meets shared type variables across two inputs", async () => {
       const cat = new Catalog();
       cat.addXml(
         "opt.xml",
         `
           <blocks id="opt" name="Opt">
             <block id="b_opt" name="Opt" ns="test">
-              <param name="T"/>
+              <var>T</var>
+              <type>true.</type>
               <in name="in1" type="T"/>
               <in name="in2" type="T"/>
               <out name="out" type="T"/>
@@ -1653,197 +1658,192 @@ describe("constants, settings, relations, and type intersection inference", () =
           </blocks>
         `,
       );
-      const block = cat.block("b_opt")!;
-      const resolver = new TypeResolver(cat);
-      const grounding = new Map<string, Grounding>([
-        ["in1", { kind: "single", ty: t("Double") }],
-        ["in2", { kind: "single", ty: t("Int") }],
-      ]);
-
-      const resolvedIntersection = resolver.resolve(block, grounding, {
-        commonTypeStrategy: "intersection",
-      });
-      expectType(resolvedIntersection.params.get("T"), intersectionOf([t("Double"), t("Int")]));
-
-      const resolvedUnion = resolver.resolve(block, grounding, {
-        commonTypeStrategy: "union",
-      });
-      expectType(resolvedUnion.params.get("T"), unionOf([t("Double"), t("Int")]));
+      const resolved = await resolveBlock(
+        cat,
+        "b_opt",
+        new Map([
+          ["in1", { kind: "single", ty: t("double") }],
+          ["in2", { kind: "single", ty: t("int") }],
+        ]),
+      );
+      expectType(resolved.params.get("T"), intersectionOf([t("double"), t("int")]));
     });
 
-    it("respects param relation='intersection' on vararg input", () => {
+    it("joins vararg groundings by default", async () => {
       const cat = new Catalog();
       cat.addXml(
         "param_rel.xml",
         `
           <blocks id="pr" name="PR">
             <block id="b_inter_varargs" name="InterVarargs" ns="test">
-              <param name="T" relation="intersection"/>
+              <var>T</var>
+              <type>true.</type>
               <in name="elems" type="T" vararg="true"/>
-              <out name="result" type="Array[T]"/>
+              <out name="result" type="array[T]"/>
             </block>
           </blocks>
         `,
       );
-      const resolved = resolveBlock(
+      const resolved = await resolveBlock(
         cat,
         "b_inter_varargs",
-        new Map([["elems", { kind: "varargs", items: [t("Double"), t("Int")] }]]),
+        new Map([["elems", { kind: "varargs", items: [t("double"), t("int")] }]]),
       );
       expectType(
         resolvedOutput(resolved, "result"),
-        arrayOf(intersectionOf([t("Double"), t("Int")])),
+        arrayOf(unionOf([t("double"), t("int")])),
       );
     });
   });
 
   describe("explicit relations between input and output types", () => {
-    it("infers output type as intersection via <relation kind='intersection'>", () => {
+    it("infers output type as intersection via <relation kind='intersection'>", async () => {
       const cat = new Catalog();
       cat.addXml(
         "rel_block.xml",
         `
           <blocks id="rb" name="RB">
             <block id="b_rel_inter" name="RelInter" ns="test">
-              <in name="a" type="Double"/>
-              <in name="b" type="Int"/>
+              <type>meet(In_a, In_b, Out_out).</type>
+              <in name="a" type="double"/>
+              <in name="b" type="int"/>
               <out name="out" type="_"/>
-              <relation kind="intersection" from="a,b" to="out"/>
             </block>
           </blocks>
         `,
       );
-      const resolved = resolveBlock(
+      const resolved = await resolveBlock(
         cat,
         "b_rel_inter",
         new Map([
-          ["a", { kind: "single", ty: t("Double") }],
-          ["b", { kind: "single", ty: t("Int") }],
+          ["a", { kind: "single", ty: t("double") }],
+          ["b", { kind: "single", ty: t("int") }],
         ]),
       );
-      expectType(resolvedOutput(resolved, "out"), intersectionOf([t("Double"), t("Int")]));
+      expectType(resolvedOutput(resolved, "out"), intersectionOf([t("double"), t("int")]));
     });
 
-    it("infers output type as union via <relation kind='union'>", () => {
+    it("infers output type as union via <relation kind='union'>", async () => {
       const cat = new Catalog();
       cat.addXml(
         "rel_union.xml",
         `
           <blocks id="ru" name="RU">
             <block id="b_rel_union" name="RelUnion" ns="test">
-              <in name="x" type="Float"/>
-              <in name="y" type="Double"/>
+              <type>join(In_x, In_y, Out_out).</type>
+              <in name="x" type="float"/>
+              <in name="y" type="double"/>
               <out name="out" type="_"/>
-              <relation kind="union" from="x,y" to="out"/>
             </block>
           </blocks>
         `,
       );
-      const resolved = resolveBlock(
+      const resolved = await resolveBlock(
         cat,
         "b_rel_union",
         new Map([
-          ["x", { kind: "single", ty: t("Float") }],
-          ["y", { kind: "single", ty: t("Double") }],
+          ["x", { kind: "single", ty: t("float") }],
+          ["y", { kind: "single", ty: t("double") }],
         ]),
       );
-      expectType(resolvedOutput(resolved, "out"), unionOf([t("Double"), t("Float")]));
+      expectType(resolvedOutput(resolved, "out"), unionOf([t("double"), t("float")]));
     });
 
-    it("infers output type via port relatesTo and relation attributes", () => {
+    it("infers output type via port relatesTo and relation attributes", async () => {
       const cat = new Catalog();
       cat.addXml(
         "port_rel.xml",
         `
           <blocks id="pr2" name="PR2">
             <block id="b_port_rel" name="PortRel" ns="test">
-              <in name="inA" type="String"/>
-              <in name="inB" type="Int"/>
-              <out name="res" type="_" relation="intersection" relatesTo="inA,inB"/>
+              <type>meet(In_inA, In_inB, Out_res).</type>
+              <in name="inA" type="string"/>
+              <in name="inB" type="int"/>
+              <out name="res" type="_"/>
             </block>
           </blocks>
         `,
       );
-      const resolved = resolveBlock(
+      const resolved = await resolveBlock(
         cat,
         "b_port_rel",
         new Map([
-          ["inA", { kind: "single", ty: t("String") }],
-          ["inB", { kind: "single", ty: t("Int") }],
+          ["inA", { kind: "single", ty: t("string") }],
+          ["inB", { kind: "single", ty: t("int") }],
         ]),
       );
-      expectType(resolvedOutput(resolved, "res"), intersectionOf([t("Int"), t("String")]));
+      expectType(resolvedOutput(resolved, "res"), intersectionOf([t("int"), t("string")]));
     });
 
-    it("infers output type via identity relation", () => {
+    it("infers output type via identity relation", async () => {
       const cat = new Catalog();
       cat.addXml(
         "id_rel.xml",
         `
           <blocks id="idr" name="IDR">
             <block id="b_ident_rel" name="IdentRel" ns="test">
-              <in name="source" type="Array[Int]"/>
+              <type>Out_dest = In_source.</type>
+              <in name="source" type="array[int]"/>
               <out name="dest" type="_"/>
-              <relation kind="identity" from="source" to="dest"/>
             </block>
           </blocks>
         `,
       );
-      const resolved = resolveBlock(
+      const resolved = await resolveBlock(
         cat,
         "b_ident_rel",
-        new Map([["source", { kind: "single", ty: arrayOf(t("Int")) }]]),
+        new Map([["source", { kind: "single", ty: arrayOf(t("int")) }]]),
       );
-      expectType(resolvedOutput(resolved, "dest"), arrayOf(t("Int")));
+      expectType(resolvedOutput(resolved, "dest"), arrayOf(t("int")));
     });
   });
 
   describe("compatibility and propagation of inferred intersection types", () => {
     it("inferred intersection type is compatible with inputs expecting member types", () => {
       const cat = catalog();
-      const inter = intersectionOf([t("Double"), t("Int")]);
+      const inter = intersectionOf([t("double"), t("int")]);
 
       // A & B satisfies formal A
-      expect(isCompatible(cat, [], t("Double"), inter)).toBe(true);
+      expect(isCompatible(cat, [], t("double"), inter)).toBe(true);
       // A & B satisfies formal B
-      expect(isCompatible(cat, [], t("Int"), inter)).toBe(true);
+      expect(isCompatible(cat, [], t("int"), inter)).toBe(true);
       // A & B satisfies formal A & B
       expect(isCompatible(cat, [], inter, inter)).toBe(true);
       // A does not satisfy formal A & B
-      expect(isCompatible(cat, [], inter, t("Double"))).toBe(false);
-      expect(isCompatible(cat, [], inter, t("Int"))).toBe(false);
+      expect(isCompatible(cat, [], inter, t("double"))).toBe(false);
+      expect(isCompatible(cat, [], inter, t("int"))).toBe(false);
       // Independent type C is incompatible
-      expect(isCompatible(cat, [], t("String"), inter)).toBe(false);
+      expect(isCompatible(cat, [], t("string"), inter)).toBe(false);
     });
 
-    it("wires inferred intersection into downstream blocks in a diagram", () => {
+    it("wires inferred intersection into downstream blocks in a diagram", async () => {
       const sysXml = `
         <blocks id="sys" name="Sys">
-          <type name="Double"/>
-          <type name="Int"/>
-          <type name="String"/>
+          <type name="double"/>
+          <type name="int"/>
+          <type name="string"/>
 
           <block id="source_double" name="SourceDouble" ns="sys">
-            <out name="val" type="Double"/>
+            <out name="val" type="double"/>
           </block>
 
           <block id="source_int" name="SourceInt" ns="sys">
-            <out name="val" type="Int"/>
+            <out name="val" type="int"/>
           </block>
 
           <block id="combiner" name="Combiner" ns="sys">
-            <param name="T"/>
+            <var>T</var>
             <in name="in1" type="T"/>
             <in name="in2" type="T"/>
             <out name="out" type="T"/>
           </block>
 
           <block id="sink_double" name="SinkDouble" ns="sys">
-            <in name="in" type="Double"/>
+            <in name="in" type="double"/>
           </block>
 
           <block id="sink_int" name="SinkInt" ns="sys">
-            <in name="in" type="Int"/>
+            <in name="in" type="int"/>
           </block>
         </blocks>
       `;
@@ -1865,14 +1865,14 @@ describe("constants, settings, relations, and type intersection inference", () =
       diagram.addLink(cId, "out", sinkDId, "in");
       diagram.addLink(cId, "out", sinkIId, "in");
 
-      const resolvedCombiner = diagram.resolveNode(cId)!;
-      const expectedInter = intersectionOf([t("Double"), t("Int")]);
+      const resolvedCombiner = (await diagram.resolveNode(cId))!;
+      const expectedInter = intersectionOf([t("double"), t("int")]);
       expectType(resolvedOutput(resolvedCombiner, "out"), expectedInter);
 
-      const resolvedSinkD = diagram.resolveNode(sinkDId)!;
+      const resolvedSinkD = (await diagram.resolveNode(sinkDId))!;
       expect(resolvedSinkD.compatible.get("in")).toBe(true);
 
-      const resolvedSinkI = diagram.resolveNode(sinkIId)!;
+      const resolvedSinkI = (await diagram.resolveNode(sinkIId))!;
       expect(resolvedSinkI.compatible.get("in")).toBe(true);
     });
   });

@@ -3,27 +3,27 @@
   <namespace id="types" name="Types"/>
 
   <!--
-    MoonBit catalog types. WASM is a compilation target, mapped in code:
+    Catalog types are camelCase. MoonBit emit maps them:
 
-      Double → wasm f64
-      Float  → wasm f32
-      Int    → wasm i32
-      Int64  → wasm i64
-      String → wasm js-string (wasm 3.0)
-      Bool   → wasm i32
-      Unit
-      Array[T]
+      double → Double → wasm f64
+      float  → Float  → wasm f32
+      int    → Int    → wasm i32
+      int64  → Int64  → wasm i64
+      string → String → wasm js-string (wasm 3.0)
+      bool   → Bool   → wasm i32
+      unit   → Unit
+      array[T]
       (T) -> R
   -->
 
-  <type name="Double"/>
-  <type name="Float"/>
-  <type name="Int"/>
-  <type name="Int64"/>
-  <type name="String"/>
-  <type name="Bool"/>
-  <type name="Unit"/>
-  <type name="Array">
-    <param name="T"/>
+  <type name="double"/>
+  <type name="float"/>
+  <type name="int"/>
+  <type name="int64"/>
+  <type name="string"/>
+  <type name="bool"/>
+  <type name="unit"/>
+  <type name="array">
+    <var>T</var>
   </type>
 </blocks>

@@ -17,7 +17,7 @@ import {
   slottedPortName,
 } from "./ports";
 
-const consumer = consumerType(named("Double"));
+const consumer = consumerType(named("double"));
 const vector = arrayOf(consumer);
 
 function port(name: string, ty = consumer, vararg = false): PortDef {
@@ -38,14 +38,14 @@ describe("port slot names", () => {
 
   it("treats consumer and vararg inputs as many-accepting", () => {
     expect(acceptsManyInputs(port("in"))).toBe(true);
-    expect(acceptsManyInputs(port("elems", named("Double"), true))).toBe(true);
-    expect(acceptsManyInputs(port("x", named("Double")))).toBe(false);
+    expect(acceptsManyInputs(port("elems", named("double"), true))).toBe(true);
+    expect(acceptsManyInputs(port("x", named("double")))).toBe(false);
   });
 
   it("unwraps every consumer-vector output pin to the channel type", () => {
     expect(slottedOutputType(vector, "out")).toEqual(consumer);
     expect(slottedOutputType(vector, "out[1]")).toEqual(consumer);
-    expect(slottedOutputType(arrayOf(named("Double")), "result[1]")).toEqual(arrayOf(named("Double")));
+    expect(slottedOutputType(arrayOf(named("double")), "result[1]")).toEqual(arrayOf(named("double")));
   });
 });
 

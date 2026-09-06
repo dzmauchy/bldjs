@@ -6,6 +6,7 @@ import {
   type Grounding,
   type ResolvedBlock,
   TypeResolver,
+  isResolvedConnectable,
   pushGrounding,
   resolvedOutput,
 } from "./resolve";
@@ -115,11 +116,11 @@ export class Diagram {
     return this.catalogInner.block(defId);
   }
 
-  resolveNode(id: number): ResolvedBlock | undefined {
-    return this.resolveAll().get(id);
+  async resolveNode(id: number): Promise<ResolvedBlock | undefined> {
+    return (await this.resolveAll()).get(id);
   }
 
-  resolveAll(): Map<number, ResolvedBlock> {
+  async resolveAll(): Promise<Map<number, ResolvedBlock>> {
     return infer(
       this.catalogInner,
       this.nodeList.map((node) => [node.id, node.defId] as const),
@@ -137,17 +138,17 @@ function cloneCatalog(catalog: Catalog, sources: XmlSource[]): Catalog {
   return next;
 }
 
-export function infer(
+export async function infer(
   catalog: Catalog,
   nodes: ReadonlyArray<readonly [number, string]>,
   links: Link[],
-): Map<number, ResolvedBlock> {
+): Promise<Map<number, ResolvedBlock>> {
   const resolver = new TypeResolver(catalog);
   const memo = new Map<number, ResolvedBlock>();
   const visiting = new Set<number>();
   const defIds = new Map<number, string>(nodes);
 
-  const rec = (id: number): void => {
+  const rec = async (id: number): Promise<void> => {
     if (memo.has(id)) {
       return;
     }
@@ -160,17 +161,19 @@ export function infer(
       return;
     }
     if (visiting.has(id)) {
-      memo.set(id, resolver.resolve(block, new Map()));
+      memo.set(id, await resolver.resolve(block, new Map()));
       return;
     }
     visiting.add(id);
 
     const grounded = new Map<string, Grounding>();
     for (const link of links.filter((item) => item.toBlock === id)) {
-      rec(link.fromBlock);
-      const output = memo.has(link.fromBlock)
-        ? resolvedOutput(memo.get(link.fromBlock)!, link.fromOut)
-        : undefined;
+      await rec(link.fromBlock);
+      const source = memo.get(link.fromBlock);
+      if (!source || !isResolvedConnectable(source, link.fromOut)) {
+        continue;
+      }
+      const output = resolvedOutput(source, link.fromOut);
       if (!output) {
         continue;
       }
@@ -186,12 +189,12 @@ export function infer(
       }
     }
 
-    memo.set(id, resolver.resolve(block, grounded));
+    memo.set(id, await resolver.resolve(block, grounded));
     visiting.delete(id);
   };
 
   for (const [id] of nodes) {
-    rec(id);
+    await rec(id);
   }
   return memo;
 }

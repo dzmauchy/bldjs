@@ -1,6 +1,7 @@
 import { type BlockDef, type ParamDef, type TypeExpr } from "@bld/xml/blocks/ast";
 import type { Catalog } from "@bld/xml/blocks/catalog";
 import { isCompatible } from "@bld/xml/blocks/compat";
+import { catalogPortName, slottedOutputType } from "@bld/xml/blocks/ports";
 import { resolvedInput, resolvedOutput, type ResolvedBlock } from "@bld/xml/blocks/resolve";
 import type { PortSide } from "./types";
 
@@ -78,14 +79,20 @@ export function uniqueCompatibleDropPort(ctx: LinkDropContext, toBlock: number):
   }
   const resolved = ctx.resolveAll();
   const sourceResolved = resolved.get(linking.blockId);
-  const sourceType = sourceResolved ? resolvedOutput(sourceResolved, linking.port) : undefined;
+  let sourceType = sourceResolved ? resolvedOutput(sourceResolved, linking.port) : undefined;
+  if (sourceType === undefined) {
+    const sourceBlock = ctx.block(linking.blockId);
+    const sourceDef = sourceBlock ? ctx.blockDef(sourceBlock.defId) : undefined;
+    const catalogOut = sourceDef?.outputs.find((port) => port.name === catalogPortName(linking.port));
+    sourceType = catalogOut ? slottedOutputType(catalogOut.ty, linking.port) : undefined;
+  }
   const targetResolved = resolved.get(toBlock);
   return uniqueCompatibleInput(
     linking,
     sourceType,
     {
       blockId: toBlock,
-      params: def.params,
+      params: def.vars,
       inputs: def.inputs.map((port) => ({
         name: port.name,
         ty: targetResolved ? (resolvedInput(targetResolved, port.name) ?? port.ty) : port.ty,

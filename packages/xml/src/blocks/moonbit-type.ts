@@ -25,15 +25,15 @@ interface Atom {
 /**
  * Parse a MoonBit type expression.
  *
- *   Double
- *   Array[T]
- *   (Double) -> Unit
- *   (Int, String) -> Bool
- *   () -> Double
- *   (Int, String)
- *   Int | Int64
+ *   double
+ *   array[T]
+ *   (double) -> unit
+ *   (int, string) -> bool
+ *   () -> double
+ *   (int, string)
+ *   int | int64
  *   _
- *   Self
+ *   self
  */
 export function parseMoonbitType(src: string): TypeExpr {
   return new TypeParser(src).parse();
@@ -96,7 +96,7 @@ class TypeParser {
     }
     if (this.eat("(")) {
       if (this.eat(")")) {
-        return { expr: named("Unit"), kind: "empty" };
+        return { expr: named("unit"), kind: "empty" };
       }
       const first = this.parseUnion();
       if (this.eat(")")) {
@@ -121,7 +121,7 @@ class TypeParser {
       return { expr: new TupleType(elems), kind: "tuple" };
     }
     const name = this.parseName();
-    if (name === "Self") {
+    if (name === "Self" || name === "self") {
       return { expr: new SelfType(), kind: "plain" };
     }
     if (this.eat("[")) {
@@ -205,5 +205,5 @@ function paramsFromArrowLeft(left: Atom): TypeExpr[] {
 }
 
 function unwrapAtom(atom: Atom): TypeExpr {
-  return atom.kind === "empty" ? named("Unit") : atom.expr;
+  return atom.kind === "empty" ? named("unit") : atom.expr;
 }

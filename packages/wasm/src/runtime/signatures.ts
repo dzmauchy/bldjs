@@ -4,6 +4,15 @@ import { type BlockDef, type PortDef, type TypeExpr, displayType, isArrayType } 
 export type WasmVal = string;
 
 const WASM_PRIMITIVES: Record<string, string> = {
+  int: "i32",
+  uint: "i32",
+  bool: "i32",
+  byte: "i32",
+  char: "i32",
+  int64: "i64",
+  uint64: "i64",
+  float: "f32",
+  double: "f64",
   Int: "i32",
   UInt: "i32",
   Bool: "i32",
@@ -31,7 +40,7 @@ export function funcTypeId(expr: TypeExpr): string {
 }
 
 /**
- * Heap type name for a MoonBit XML type (`fn_Double_Unit`, `array_fn_Double_Unit`).
+ * Heap type name for a catalog XML type (`fn_double_unit`, `array_fn_double_unit`).
  */
 export function wasmHeapTypeName(expr: TypeExpr): string {
   if (expr.kind === "func") {
@@ -68,7 +77,7 @@ export function wasmValType(expr: TypeExpr): WasmVal {
   if (expr.args.length === 0 && name in WASM_PRIMITIVES) {
     return WASM_PRIMITIVES[name]!;
   }
-  if (name === "String" && expr.args.length === 0) {
+  if ((name === "string" || name === "String") && expr.args.length === 0) {
     return "externref";
   }
   if (isArrayType(expr) && expr.args.length === 1) {

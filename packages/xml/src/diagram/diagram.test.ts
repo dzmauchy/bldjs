@@ -177,17 +177,17 @@ describe("diagram XML", () => {
 });
 
 describe("diagram compile pipeline", () => {
-  it("builds XML first, then infers types", () => {
+  it("builds XML first, then infers types", async () => {
     const xml = serializeCanvas(csCanvas());
-    const solution = loadDiagramSolution(xml, catalog());
+    const solution = await loadDiagramSolution(xml, catalog());
     expect(solution.doc.blocks.map((block) => block.type)).toEqual(["scope", "sin"]);
     const sin = solution.inferred.get(2);
     expect(sin?.defId).toBe("sin");
-    expect(displayType(sin!.inputs[0]!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(sin!.outputs[0]!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(sin!.inputs[0]!.ty, true)).toBe("(double) -> unit");
+    expect(displayType(sin!.outputs[0]!.ty, true)).toBe("(double) -> unit");
   });
 
-  it("rejects unknown catalog types before wasm", () => {
+  it("rejects unknown catalog types before wasm", async () => {
     const xml = serializeCanvas({
       id: "diag_bad",
       name: "Bad",
@@ -196,7 +196,7 @@ describe("diagram compile pipeline", () => {
       blocks: [{ id: 1, defId: "sensor_source", x: 0, y: 0 }],
       links: [],
     });
-    expect(() => loadDiagramSolution(xml, catalog())).toThrow(DiagramCompileError);
-    expect(() => loadDiagramSolution(xml, catalog())).toThrow("unknown block type `sensor_source`");
+    await expect(loadDiagramSolution(xml, catalog())).rejects.toThrow(DiagramCompileError);
+    await expect(loadDiagramSolution(xml, catalog())).rejects.toThrow("unknown block type `sensor_source`");
   });
 });

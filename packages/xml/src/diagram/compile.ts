@@ -57,7 +57,7 @@ export interface DiagramSolution {
 /**
  * Parse diagram XML, then infer types. WASM assembly happens after this step.
  */
-export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolution {
+export async function loadDiagramSolution(xml: string, catalog: Catalog): Promise<DiagramSolution> {
   const doc = parseDiagramXml(xml);
   const canvas = documentToCanvas(doc);
   for (const block of canvas.blocks) {
@@ -90,7 +90,7 @@ export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolut
       meterMs: block.defId === "scope" ? meterMsFrom(meter) : undefined,
     };
   });
-  const inferred = infer(
+  const inferred = await infer(
     catalog,
     nodes.map((node) => [node.id, node.defId] as const),
     canvas.links,

@@ -5,31 +5,31 @@
     <!-- MoonBit Primitive and Built-in Input/Output Types -->
     <xs:simpleType name="PrimitiveType">
         <xs:restriction base="xs:string">
-            <xs:enumeration value="Double"/>
-            <xs:enumeration value="Float"/>
-            <xs:enumeration value="Int"/>
-            <xs:enumeration value="Int64"/>
-            <xs:enumeration value="UInt"/>
-            <xs:enumeration value="UInt64"/>
-            <xs:enumeration value="String"/>
-            <xs:enumeration value="Bool"/>
-            <xs:enumeration value="Byte"/>
-            <xs:enumeration value="Char"/>
-            <xs:enumeration value="Unit"/>
+            <xs:enumeration value="double"/>
+            <xs:enumeration value="float"/>
+            <xs:enumeration value="int"/>
+            <xs:enumeration value="int64"/>
+            <xs:enumeration value="uint"/>
+            <xs:enumeration value="uint64"/>
+            <xs:enumeration value="string"/>
+            <xs:enumeration value="bool"/>
+            <xs:enumeration value="byte"/>
+            <xs:enumeration value="char"/>
+            <xs:enumeration value="unit"/>
         </xs:restriction>
     </xs:simpleType>
 
     <!-- Built-in Generic Container Types -->
     <xs:simpleType name="BuiltinContainerType">
         <xs:restriction base="xs:string">
-            <xs:enumeration value="Array"/>
+            <xs:enumeration value="array"/>
         </xs:restriction>
     </xs:simpleType>
 
     <!-- Special Type Identifiers -->
     <xs:simpleType name="SpecialType">
         <xs:restriction base="xs:string">
-            <xs:enumeration value="Self"/>
+            <xs:enumeration value="self"/>
             <xs:enumeration value="_"/>
         </xs:restriction>
     </xs:simpleType>
@@ -117,7 +117,7 @@
         <xs:attribute name="name" type="xs:string" use="required"/>
     </xs:complexType>
 
-    <!-- MoonBit type string (`Double`, `(Double) -> Unit`, `Array[T]`) -->
+    <!-- Type string (`double`, `(double) -> unit`, `array[T]`) -->
     <xs:complexType name="TypeRef">
         <xs:sequence>
             <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
@@ -125,16 +125,18 @@
         <xs:attribute name="type" type="TypeString"/>
     </xs:complexType>
 
-    <!-- Generic Type Parameter Definition (e.g., <param name="T"/>) -->
-    <xs:complexType name="TypeParamDef">
+    <!-- Type variable (`<var>T</var>` or `<var>F:extends(h(F))</var>`) -->
+    <xs:complexType name="TypeVarDef" mixed="true">
         <xs:sequence>
             <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-            <xs:element name="extends" type="TypeRef" minOccurs="0" maxOccurs="unbounded"/>
-            <xs:element name="super" type="TypeRef" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
-        <xs:attribute name="name" type="xs:string" use="required"/>
-        <xs:attribute name="variance" type="VarianceType"/>
-        <xs:attribute name="relation" type="RelationKind"/>
+    </xs:complexType>
+
+    <!-- Trealla Prolog program for inference and input compatibility -->
+    <xs:complexType name="TypeProgramDef" mixed="true">
+        <xs:sequence>
+            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
     </xs:complexType>
 
     <!-- Port Definition (in/out) -->
@@ -348,7 +350,7 @@
                         <xs:complexType>
                             <xs:sequence>
                                 <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-                                <xs:element name="param" type="TypeParamDef" minOccurs="0" maxOccurs="unbounded"/>
+                                <xs:element name="var" type="TypeVarDef" minOccurs="0" maxOccurs="unbounded"/>
                                 <xs:element name="ancestor" type="TypeRef" minOccurs="0" maxOccurs="unbounded"/>
                                 <xs:element name="alias" type="TypeRef" minOccurs="0"/>
                             </xs:sequence>
@@ -361,18 +363,8 @@
                         <xs:complexType>
                             <xs:sequence>
                                 <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-                                <xs:element name="param" type="TypeParamDef" minOccurs="0" maxOccurs="unbounded"/>
-
-                                <xs:element name="factory" minOccurs="0">
-                                    <xs:complexType>
-                                        <xs:sequence>
-                                            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-                                        </xs:sequence>
-                                        <xs:attribute name="id" type="xs:string" use="required"/>
-                                        <xs:attribute name="type" type="TypeString"/>
-                                    </xs:complexType>
-                                </xs:element>
-
+                                <xs:element name="var" type="TypeVarDef" minOccurs="0" maxOccurs="unbounded"/>
+                                <xs:element name="type" type="TypeProgramDef" minOccurs="0"/>
                                 <xs:element name="parameters" type="ParametersDef" minOccurs="0"/>
                                 <xs:element name="settings" type="SettingsDef" minOccurs="0"/>
 

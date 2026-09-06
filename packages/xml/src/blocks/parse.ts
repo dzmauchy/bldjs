@@ -3,17 +3,15 @@ import {
   type BlockDef,
   type BlockParameterDef,
   type BlocksDoc,
-  type Factory,
   type Namespace,
-  type ParamDef,
   type PortDef,
   type TypeDef,
   type TypeExpr,
   type TypeRelationDef,
+  type VarDef,
   isBlockParameterKind,
   isPortDirection,
   isRelationKind,
-  isVarianceType,
 } from "./ast";
 import { ParseError, XmlElem } from "../dom";
 import { parseMoonbitType } from "./moonbit-type";
@@ -32,7 +30,7 @@ function parseMoonbitAttr(node: XmlElem, fallback: TypeExpr | undefined): TypeEx
   try {
     return parseMoonbitType(raw);
   } catch (error) {
-    node.fail(error instanceof Error ? error.message : `invalid MoonBit type \`${raw}\``);
+    node.fail(error instanceof Error ? error.message : `invalid type \`${raw}\``);
   }
 }
 
@@ -41,7 +39,7 @@ function rejectNestedTypes(node: XmlElem, parent: string): void {
     if (child.tag === "attribute") {
       continue;
     }
-    child.fail(`unsupported ${parent} child <${child.tag}>; use a MoonBit type string`);
+    child.fail(`unsupported ${parent} child <${child.tag}>; use a type string`);
   }
 }
 
@@ -59,38 +57,25 @@ function parseNamespace(node: XmlElem): Namespace {
   };
 }
 
-function parseParam(node: XmlElem): ParamDef {
-  const attributes: Attribute[] = [];
-  const extendsBounds: TypeExpr[] = [];
-  const superBounds: TypeExpr[] = [];
-  for (const child of node.kids()) {
-    switch (child.tag) {
-      case "attribute":
-        attributes.push({ name: child.req("name"), value: child.text() });
-        break;
-      case "extends":
-        extendsBounds.push(parseMoonbitAttr(child, undefined));
-        rejectNestedTypes(child, "<extends>");
-        break;
-      case "super":
-        superBounds.push(parseMoonbitAttr(child, undefined));
-        rejectNestedTypes(child, "<super>");
-        break;
-      default:
-        child.fail(`unsupported <param> child <${child.tag}>`);
-    }
+/** `<var>T</var>` or `<var>F:extends(h(F))</var>`. */
+export function parseVar(node: XmlElem): VarDef {
+  const text = node.text();
+  if (text.length === 0) {
+    node.fail("empty <var>; expected `T` or `F:extends(h(F))`");
   }
-  const varianceRaw = node.opt("variance");
-  const variance = varianceRaw && isVarianceType(varianceRaw) ? varianceRaw : undefined;
-  const relationRaw = node.opt("relation");
-  const relation = relationRaw && isRelationKind(relationRaw) ? relationRaw : undefined;
+  const colon = text.indexOf(":");
+  const name = (colon < 0 ? text : text.slice(0, colon)).trim();
+  const constraint = colon < 0 ? null : text.slice(colon + 1).trim();
+  if (!/^[A-Z_][A-Za-z0-9_]*$/.test(name)) {
+    node.fail(`type variable \`${name}\` must be a Prolog variable (uppercase)`);
+  }
+  if (constraint !== null && constraint.length === 0) {
+    node.fail(`empty constraint on <var>${name}</var>`);
+  }
   return {
-    name: node.req("name"),
-    extends: extendsBounds,
-    super: superBounds.length > 0 ? superBounds : undefined,
-    variance,
-    relation,
-    attributes,
+    name,
+    constraint,
+    attributes: node.attributes(),
   };
 }
 
@@ -116,19 +101,8 @@ function parsePort(node: XmlElem, defaultDirection?: "in" | "out"): PortDef {
   };
 }
 
-
-function parseFactory(node: XmlElem): Factory {
-  rejectNestedTypes(node, "<factory>");
-  const typeAttr = node.opt("type");
-  return {
-    id: node.req("id"),
-    args: typeAttr !== undefined ? [parseMoonbitAttr(node, undefined)] : [],
-    attributes: node.attributes(),
-  };
-}
-
 function parseTypeDef(node: XmlElem, file: string): TypeDef {
-  const params: ParamDef[] = [];
+  const vars: VarDef[] = [];
   const ancestors: TypeExpr[] = [];
   let alias: TypeExpr | null = null;
   const attributes: Attribute[] = [];
@@ -137,8 +111,11 @@ function parseTypeDef(node: XmlElem, file: string): TypeDef {
       case "attribute":
         attributes.push({ name: child.req("name"), value: child.text() });
         break;
+      case "var":
+        vars.push(parseVar(child));
+        break;
       case "param":
-        params.push(parseParam(child));
+        child.fail("<param> was replaced by <var>T</var>");
         break;
       case "ancestor":
         ancestors.push(parseMoonbitAttr(child, undefined));
@@ -158,7 +135,7 @@ function parseTypeDef(node: XmlElem, file: string): TypeDef {
   return {
     name: node.req("name"),
     ns: node.opt("ns") ?? null,
-    params,
+    vars,
     ancestors,
     alias,
     attributes,
@@ -240,9 +217,9 @@ function parseRelation(node: XmlElem): TypeRelationDef {
 
 function parseBlock(node: XmlElem, file: string): BlockDef {
   const attributes: Attribute[] = [];
-  const params: ParamDef[] = [];
+  const vars: VarDef[] = [];
   const parameters: BlockParameterDef[] = [];
-  let factory: Factory | null = null;
+  let typeProg: string | null = null;
   const inputs: PortDef[] = [];
   const outputs: PortDef[] = [];
   const relations: TypeRelationDef[] = [];
@@ -251,18 +228,24 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
       case "attribute":
         attributes.push({ name: child.req("name"), value: child.text() });
         break;
+      case "var":
+        vars.push(parseVar(child));
+        break;
       case "param":
-        params.push(parseParam(child));
+        child.fail("<param> was replaced by <var>T</var>");
+        break;
+      case "type":
+        if (typeProg !== null) {
+          child.fail("block already has a <type> program");
+        }
+        typeProg = child.text();
         break;
       case "parameters":
       case "settings":
         parameters.push(...parseParameters(child));
         break;
       case "factory":
-        if (factory !== null) {
-          child.fail("block already has a factory");
-        }
-        factory = parseFactory(child);
+        child.fail("<factory> was removed; the block id links the asm generator");
         break;
       case "in":
       case "input":
@@ -285,10 +268,10 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
     name: node.req("name"),
     ns: node.req("ns"),
     icon: node.opt("icon") ?? null,
-    params,
+    vars,
+    typeProg: typeProg ?? "true.",
     parameters,
     settings: parameters,
-    factory,
     inputs,
     outputs,
     relations: relations.length > 0 ? relations : undefined,
@@ -296,7 +279,6 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
     source: file,
   };
 }
-
 
 export function parseBlocks(file: string, xml: string): BlocksDoc {
   const root = XmlElem.parse(file, xml, "blocks");

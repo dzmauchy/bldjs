@@ -2,7 +2,7 @@ import {
   type BlockDef,
   type BlocksDoc,
   type Namespace,
-  type ParamDef,
+  type VarDef,
   type TypeDef,
   type TypeExpr,
   named,
@@ -169,7 +169,7 @@ export class Catalog {
     if (!typeDef?.alias) {
       return undefined;
     }
-    return substParams(typeDef.alias, typeDef.params, ty.args);
+    return substParams(typeDef.alias, typeDef.vars, ty.args);
   }
 
   asSupertype(actual: TypeExpr, targetName: string, targetNs?: string | null): TypeExpr | undefined {
@@ -197,7 +197,7 @@ export class Catalog {
     let result: TypeExpr | undefined;
     if (typeDef) {
       for (const ancestor of typeDef.ancestors) {
-        const projected = substParams(ancestor, typeDef.params, actual.args);
+        const projected = substParams(ancestor, typeDef.vars, actual.args);
         result = this.asSupertypeRec(projected, targetName, targetNs, stack);
         if (result) {
           break;
@@ -220,13 +220,13 @@ export class Catalog {
   }
 }
 
-export function substParams(expr: TypeExpr, params: ParamDef[], args: TypeExpr[]): TypeExpr {
-  if (params.length === 0) {
+export function substParams(expr: TypeExpr, vars: VarDef[], args: TypeExpr[]): TypeExpr {
+  if (vars.length === 0) {
     return expr;
   }
   const bindings = new Map<string, TypeExpr>();
-  params.forEach((param, index) => {
-    bindings.set(param.name, args[index] ?? named(param.name));
+  vars.forEach((typeVar, index) => {
+    bindings.set(typeVar.name, args[index] ?? named(typeVar.name));
   });
   return expr.subst(bindings);
 }

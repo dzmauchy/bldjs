@@ -128,7 +128,7 @@ export function buildNodeState(
       return portView(slot, catalogPort, ty, {
         grounded: ctx.inputIsGrounded(block.id, slot.name),
         compatible: resolvedBlock ? isResolvedCompatible(resolvedBlock, slot.catalogName) : true,
-        showType: shouldShowPortType(linking, block.id, "in", slot.name, sourceOut, ty, ctx.catalog, def.params),
+        showType: shouldShowPortType(linking, block.id, "in", slot.name, sourceOut, ty, ctx.catalog, def.vars),
       });
     }),
     outputs: outputSlotsFor(def.outputs, block.id, ctx.links, ctx.outputCount?.(block.id) ?? 1).map((slot) => {
@@ -136,7 +136,7 @@ export function buildNodeState(
       const ty = resolvedBlock ? (resolvedOutput(resolvedBlock, slot.name) ?? catalogPort.ty) : catalogPort.ty;
       return portView(slot, catalogPort, ty, {
         linking: linking?.blockId === block.id && linking.port === slot.name,
-        showType: shouldShowPortType(linking, block.id, "out", slot.name, sourceOut, ty, ctx.catalog, def.params),
+        showType: shouldShowPortType(linking, block.id, "out", slot.name, sourceOut, ty, ctx.catalog, def.vars),
       });
     }),
   };

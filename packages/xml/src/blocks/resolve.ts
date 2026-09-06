@@ -1,17 +1,15 @@
 import {
   type BlockDef,
-  type PortDef,
   type TypeExpr,
-  type TypeRelationDef,
   generic,
   intersectionOf,
   named,
   unionOf,
 } from "./ast";
 import type { Catalog } from "./catalog";
-import { isCompatible, isCompatibleWith } from "./compat";
+import { isCompatible, isGroundType } from "./compat";
 import { catalogPortName, slottedOutputType } from "./ports";
-import { ground } from "./types";
+import { getTypeEngine } from "./prolog/engine";
 
 export type Grounding = { kind: "single"; ty: TypeExpr } | { kind: "varargs"; items: TypeExpr[] };
 
@@ -27,6 +25,8 @@ export interface ResolvedPort {
   ty: TypeExpr;
   vararg: boolean;
   icon: string | null;
+  /** False when the port still has free type variables (outputs only). */
+  connectable: boolean;
 }
 
 export interface ResolvedBlock {
@@ -38,8 +38,15 @@ export interface ResolvedBlock {
 }
 
 export function resolvedOutput(block: ResolvedBlock, name: string): TypeExpr | undefined {
-  const ty = block.outputs.find((port) => port.name === catalogPortName(name))?.ty;
-  return ty ? slottedOutputType(ty, name) : undefined;
+  const port = block.outputs.find((item) => item.name === catalogPortName(name));
+  if (!port) {
+    return undefined;
+  }
+  return slottedOutputType(port.ty, name);
+}
+
+export function resolvedOutputPort(block: ResolvedBlock, name: string): ResolvedPort | undefined {
+  return block.outputs.find((item) => item.name === catalogPortName(name));
 }
 
 export function resolvedInput(block: ResolvedBlock, name: string): TypeExpr | undefined {
@@ -48,6 +55,10 @@ export function resolvedInput(block: ResolvedBlock, name: string): TypeExpr | un
 
 export function isResolvedCompatible(block: ResolvedBlock, input: string): boolean {
   return block.compatible.get(catalogPortName(input)) ?? true;
+}
+
+export function isResolvedConnectable(block: ResolvedBlock, output: string): boolean {
+  return block.outputs.find((port) => port.name === catalogPortName(output))?.connectable ?? false;
 }
 
 export interface ResolveOptions {
@@ -131,182 +142,45 @@ export class TypeResolver {
     return inferCommonType(types, { strategy, catalog: this.catalog });
   }
 
-  resolve(
-    block: BlockDef,
-    grounded: Map<string, Grounding>,
-    options?: ResolveOptions,
-  ): ResolvedBlock {
+  async resolve(block: BlockDef, grounded: Map<string, Grounding>): Promise<ResolvedBlock> {
+    const engine = await getTypeEngine();
+    const inferred = await engine.infer(block, grounded, this.catalog);
     const selfTy = selfType(block);
-    const matched = new Map<string, TypeExpr[]>();
-    const matchedPorts = new Map<string, Set<string>>();
-    const compatible = new Map<string, boolean>();
-
-    for (const port of block.inputs) {
-      const grounding = grounded.get(port.name);
-      if (!grounding) {
-        continue;
-      }
-      const formal = port.ty.replaceSelf(selfTy);
-      const onMatch = (name: string, ty: TypeExpr) => {
-        const existing = matched.get(name);
-        if (existing) {
-          existing.push(ty);
-        } else {
-          matched.set(name, [ty]);
-        }
-        let portSet = matchedPorts.get(name);
-        if (!portSet) {
-          portSet = new Set();
-          matchedPorts.set(name, portSet);
-        }
-        portSet.add(port.name);
-      };
-      let ok: boolean;
-      if (grounding.kind === "single") {
-        ok = isCompatibleWith(this.catalog, block.params, formal, grounding.ty, onMatch);
-      } else {
-        ok = grounding.items.every((actual) =>
-          isCompatibleWith(this.catalog, block.params, formal, actual, onMatch),
-        );
-      }
-      compatible.set(port.name, ok);
-    }
-
-    const bindings = new Map<string, TypeExpr>();
-    const params = new Map<string, TypeExpr>();
-    for (const param of block.params) {
-      const found = matched.get(param.name);
-      const portSet = matchedPorts.get(param.name);
-      let inferred: TypeExpr | undefined;
-
-      if (!found || found.length === 0) {
-        inferred = undefined;
-      } else if (found.length === 1) {
-        inferred = found[0];
-      } else {
-        const blockParamRelation = block.relations?.find(
-          (r) => r.param === param.name || r.name === param.name,
-        )?.kind;
-        const requestedStrategy =
-          options?.commonTypeStrategy ??
-          options?.strategy ??
-          param.relation ??
-          blockParamRelation;
-
-        if (requestedStrategy === "union") {
-          inferred = simplifyUnion(found, this.catalog);
-        } else if (requestedStrategy === "intersection") {
-          inferred = simplifyIntersection(found, this.catalog);
-        } else if (portSet && portSet.size > 1) {
-          // Multiple distinct inputs ground the same type parameter: infer as type intersection!
-          inferred = simplifyIntersection(found, this.catalog);
-        } else {
-          inferred = simplifyUnion(found, this.catalog);
-        }
-      }
-
-      if (inferred) {
-        bindings.set(param.name, inferred);
-        params.set(param.name, inferred);
-      } else {
-        params.set(param.name, ground(named(param.name), block.params, this.catalog));
-      }
-    }
-
-    const getGroundedInputType = (name: string): TypeExpr | undefined => {
-      const g = grounded.get(name);
-      if (!g) {
-        return undefined;
-      }
-      return g.kind === "single" ? g.ty : unionOf(g.items);
-    };
-
-    const resolvePort = (port: PortDef): ResolvedPort => {
-      const replaced = port.ty.replaceSelf(selfTy);
-      let substituted = replaced.subst(bindings);
-
-      // 1. Direct port relatesTo/relation attribute
-      if (port.relatesTo) {
-        const inNames = port.relatesTo.split(",").map((s) => s.trim());
-        const inputTys = inNames
-          .map(getGroundedInputType)
-          .filter((ty): ty is TypeExpr => ty !== undefined);
-        if (inputTys.length > 0) {
-          const kind = port.relation ?? "intersection";
-          if (kind === "intersection") {
-            substituted = simplifyIntersection(inputTys, this.catalog);
-          } else if (kind === "union") {
-            substituted = simplifyUnion(inputTys, this.catalog);
-          } else if (kind === "identity" && inputTys[0]) {
-            substituted = inputTys[0];
-          }
-        }
-      }
-
-      // 2. Block-level relations between input types and output types
-      if (block.relations) {
-        for (const rel of block.relations) {
-          const outNames = (
-            rel.to ??
-            rel.output ??
-            (rel.outputs ? rel.outputs.join(",") : "")
-          )
-            .split(",")
-            .map((s) => s.trim())
-            .filter((s) => s.length > 0);
-
-          if (outNames.includes(port.name)) {
-            const inNames = (
-              rel.from ??
-              rel.input ??
-              (rel.inputs ? rel.inputs.join(",") : "")
-            )
-              .split(",")
-              .map((s) => s.trim())
-              .filter((s) => s.length > 0);
-
-            const inputTys = (
-              inNames.length > 0
-                ? inNames.map(getGroundedInputType)
-                : block.inputs.map((inp) => getGroundedInputType(inp.name))
-            ).filter((ty): ty is TypeExpr => ty !== undefined);
-
-            if (inputTys.length > 0) {
-              if (rel.kind === "intersection") {
-                substituted = simplifyIntersection(inputTys, this.catalog);
-              } else if (rel.kind === "union") {
-                substituted = simplifyUnion(inputTys, this.catalog);
-              } else if (rel.kind === "identity" && inputTys[0]) {
-                substituted = inputTys[0];
-              }
-            }
-          }
-        }
-      }
-
-      return {
-        name: port.name,
-        ty: ground(substituted, block.params, this.catalog),
-        vararg: port.vararg,
-        icon: port.icon,
-      };
-    };
-
+    const byIn = new Map(inferred.inputs.map((port) => [port.name, port]));
+    const byOut = new Map(inferred.outputs.map((port) => [port.name, port]));
     return {
       defId: block.id,
-      params,
-      inputs: block.inputs.map(resolvePort),
-      outputs: block.outputs.map(resolvePort),
-      compatible,
+      params: inferred.vars,
+      inputs: block.inputs.map((port) => {
+        const found = byIn.get(port.name);
+        return {
+          name: port.name,
+          ty: (found?.ty ?? port.ty).replaceSelf(selfTy),
+          vararg: port.vararg,
+          icon: port.icon,
+          connectable: true,
+        };
+      }),
+      outputs: block.outputs.map((port) => {
+        const found = byOut.get(port.name);
+        const ty = (found?.ty ?? port.ty).replaceSelf(selfTy);
+        return {
+          name: port.name,
+          ty,
+          vararg: port.vararg,
+          icon: port.icon,
+          connectable: found?.connectable ?? isGroundType(ty),
+        };
+      }),
+      compatible: inferred.compatible,
     };
   }
 }
 
 export function selfType(block: BlockDef): TypeExpr {
-  const args = block.params.map((param) => named(param.name));
+  const args = block.vars.map((typeVar) => named(typeVar.name));
   if (args.length === 0) {
     return named(block.ns);
   }
   return generic(block.ns, args);
 }
-

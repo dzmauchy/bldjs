@@ -126,7 +126,7 @@ export class RunSession extends HostedState<RunHost> {
     }
     this.starting = true;
     try {
-      const solution = loadDiagramSolution(this.host.toDiagramXml(), this.host.catalog);
+      const solution = await loadDiagramSolution(this.host.toDiagramXml(), this.host.catalog);
       await this.#runner.start(solution.nodes, solution.links, {
         onArmed: () => this.host.notify(),
         gpio: this.host.gpioSnapshot?.(),

@@ -69,6 +69,8 @@ export class AppState extends ObservableState {
   #updatedAt = this.#createdAt;
   #extras = new Map<number, BlockExtras>();
   #gpioLevels = new Map<number, boolean>();
+  #inferred = new Map<number, ResolvedBlock>();
+  #inferGen = 0;
 
   constructor(repo: DiagramRepository = defaultDiagramRepository()) {
     super();
@@ -102,6 +104,7 @@ export class AppState extends ObservableState {
       notify: () => this.notify(),
       prodWasm: () => this.run.prodWasm(),
     });
+    this.#scheduleInfer();
   }
 
   get createdAt(): string {
@@ -210,6 +213,7 @@ export class AppState extends ObservableState {
     this.#ensureBlockExtras(block.id, defId);
     this.touch();
     this.selectBlock(block.id);
+    this.#scheduleInfer();
     this.run.invalidate();
     this.run.maybePreload();
   }
@@ -276,7 +280,27 @@ export class AppState extends ObservableState {
   }
 
   resolveAll(): Map<number, ResolvedBlock> {
-    return loadDiagramSolution(this.io.toXml(), this.catalog).inferred;
+    return this.#inferred;
+  }
+
+  #scheduleInfer(): void {
+    const gen = ++this.#inferGen;
+    void this.#runInfer(gen);
+  }
+
+  async #runInfer(gen: number): Promise<void> {
+    try {
+      const solution = await loadDiagramSolution(this.io.toXml(), this.catalog);
+      if (gen !== this.#inferGen) {
+        return;
+      }
+      this.#inferred = solution.inferred;
+      this.notify();
+    } catch {
+      if (gen !== this.#inferGen) {
+        return;
+      }
+    }
   }
 
   applyIdentity(id: string, name: string): void {
@@ -299,6 +323,7 @@ export class AppState extends ObservableState {
     this.#updatedAt = canvas.updatedAt;
     this.#clearInteraction();
     this.resetView();
+    this.#scheduleInfer();
     this.notify();
   }
 
@@ -505,6 +530,7 @@ export class AppState extends ObservableState {
     this.selectedLink = remapSelectedLink(remaining, compacted, this.selectedLink, removed);
     this.links = compacted;
     this.touch();
+    this.#scheduleInfer();
   }
 
   inputIsGrounded(blockId: number, port: string): boolean {
@@ -663,6 +689,7 @@ export class AppState extends ObservableState {
     this.#extras = new Map([...this.#extras].filter(([id]) => live.has(id)));
     this.links = this.links.filter((link) => live.has(link.fromBlock) && live.has(link.toBlock));
     this.#retainLiveBlocks(live);
+    this.#scheduleInfer();
     this.run.invalidate();
   }
 
