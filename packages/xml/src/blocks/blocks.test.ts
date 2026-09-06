@@ -149,6 +149,11 @@ describe("blocks", () => {
     }
   });
 
+  it("fixture catalog schema location resolves to blocks.xsd", () => {
+    expect(FIXTURES_XML).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
+    expect(FIXTURES_XML).toContain('xsi:noNamespaceSchemaLocation="../resources/models/blocks.xsd"');
+  });
+
   it("parses blocks.md apply example", () => {
     const xml = `
       <blocks id="workspace_01" name="Signal Processing" icon="workspace.png">
