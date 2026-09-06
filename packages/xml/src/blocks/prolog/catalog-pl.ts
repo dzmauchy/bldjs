@@ -3,7 +3,7 @@ import type { Catalog } from "../catalog";
 import type { Grounding } from "../resolve";
 import { constraintToSpec, quoteAtom, typeToProlog, typeToSpec } from "./terms";
 
-/** Prolog file consulted after `types.pl` + `blocks.pl`. Facts are keyed by block id. */
+/** Prolog source for `block/4` facts keyed by catalog id. */
 export function catalogPl(catalog: Catalog): string {
   const asserts = catalog.blocks().map((block) => `:- assertz(${stripDot(blockFact(block))}).`);
   const ancestors = ancestorFacts(catalog);
