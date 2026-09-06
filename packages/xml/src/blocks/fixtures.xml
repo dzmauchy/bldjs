@@ -5,37 +5,31 @@
 
   <block id="b_Int" name="Int" ns="types" icon="i32">
     <attribute name="kind">Data</attribute>
-    <type>true.</type>
     <out name="value" type="int"/>
   </block>
 
   <block id="b_Int64" name="Int64" ns="types" icon="i64">
     <attribute name="kind">Data</attribute>
-    <type>true.</type>
     <out name="value" type="int64"/>
   </block>
 
   <block id="b_Float" name="Float" ns="types" icon="f32">
     <attribute name="kind">Data</attribute>
-    <type>true.</type>
     <out name="value" type="float"/>
   </block>
 
   <block id="b_Double" name="Double" ns="types" icon="f64">
     <attribute name="kind">Data</attribute>
-    <type>true.</type>
     <out name="value" type="double"/>
   </block>
 
   <block id="b_String" name="String" ns="types" icon="string">
     <attribute name="kind">Data</attribute>
-    <type>true.</type>
     <out name="value" type="string"/>
   </block>
 
   <block id="b_Bool" name="Bool" ns="types" icon="bool">
     <attribute name="kind">Data</attribute>
-    <type>true.</type>
     <out name="value" type="bool"/>
   </block>
 
@@ -43,7 +37,6 @@
     <attribute name="kind">Process</attribute>
     <attribute name="description">Vararg elements become array[T]</attribute>
     <var>T</var>
-    <type>true.</type>
     <in name="elems" type="T" vararg="true"/>
     <out name="result" type="array[T]"/>
   </block>
@@ -51,7 +44,6 @@
   <block id="b_array_get" name="array.get" ns="types" icon="list">
     <attribute name="kind">Process</attribute>
     <var>T</var>
-    <type>true.</type>
     <in name="array" type="array[T]"/>
     <in name="index" type="int"/>
     <out name="elem" type="T"/>
@@ -61,7 +53,6 @@
     <attribute name="kind">Start</attribute>
     <attribute name="description">Entry point for a flow</attribute>
     <var>T</var>
-    <type>true.</type>
     <out name="out" type="T"/>
   </block>
 
@@ -69,7 +60,6 @@
     <attribute name="kind">Process</attribute>
     <attribute name="description">Do some work</attribute>
     <var>T</var>
-    <type>true.</type>
     <in name="in" type="T"/>
     <out name="out" type="T"/>
   </block>
@@ -78,7 +68,6 @@
     <attribute name="kind">Decision</attribute>
     <attribute name="description">Branch on a condition</attribute>
     <var>T</var>
-    <type>true.</type>
     <in name="in" type="T"/>
     <out name="true" type="T"/>
     <out name="false" type="T"/>
@@ -88,7 +77,6 @@
     <attribute name="kind">Data</attribute>
     <attribute name="description">Read or write data</attribute>
     <var>T</var>
-    <type>true.</type>
     <in name="in" type="T"/>
     <out name="out" type="T"/>
   </block>
@@ -97,7 +85,6 @@
     <attribute name="kind">Output</attribute>
     <attribute name="description">Emit a result</attribute>
     <var>T</var>
-    <type>true.</type>
     <in name="in" type="T"/>
   </block>
 
@@ -105,7 +92,6 @@
     <attribute name="kind">Process</attribute>
     <attribute name="description">Pass a value through, unifying T</attribute>
     <var>T</var>
-    <type>true.</type>
     <in name="in" type="T"/>
     <out name="out" type="T"/>
   </block>

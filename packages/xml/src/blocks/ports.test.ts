@@ -21,7 +21,7 @@ const consumer = consumerType(named("double"));
 const vector = arrayOf(consumer);
 
 function port(name: string, ty = consumer, vararg = false): PortDef {
-  return { name, ty, vararg, icon: null, attributes: [] };
+  return { name, ty, constraint: null, vararg, icon: null, attributes: [] };
 }
 
 describe("port slot names", () => {

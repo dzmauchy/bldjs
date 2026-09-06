@@ -71,7 +71,7 @@ import {
   timer,
 } from "./cs";
 import { type Link, Diagram } from "./diagram";
-import { parseBlocks } from "./parse";
+import { parseBlocks, parseTypeSpec } from "./parse";
 import {
   type Grounding,
   TypeResolver,
@@ -156,7 +156,6 @@ describe("blocks", () => {
         <block id="b_apply" name="Apply" ns="types" icon="func.png">
           <var>T</var>
           <var>R</var>
-          <type>true.</type>
           <in name="fn" type="(T) -> R"/>
           <in name="arg" type="T"/>
           <out name="result" type="R"/>
@@ -168,7 +167,6 @@ describe("blocks", () => {
     const block = doc.blocks[0];
     expect(block.vars.length).toBe(2);
     expect(block.vars.map((item) => item.name)).toEqual(["T", "R"]);
-    expect(block.typeProg).toBe("true.");
     expectType(block.inputs[0].ty, funcType([t("T")], t("R")));
     expectType(block.inputs[1].ty, t("T"));
     expectType(block.outputs[0].ty, t("R"));
@@ -215,7 +213,6 @@ describe("blocks", () => {
         <block id="b_rec_new" name="rec.new" ns="example">
           <var>T:extends(rec(T))</var>
           <var>F:extends(h(F))</var>
-          <type>true.</type>
           <in name="cls" type="(T) -> unit"/>
           <out name="value" type="T"/>
         </block>
@@ -226,6 +223,24 @@ describe("blocks", () => {
     expect(doc.blocks[0].vars[0].constraint).toBe("extends(rec(T))");
     expect(doc.blocks[0].vars[1].name).toBe("F");
     expect(doc.blocks[0].vars[1].constraint).toBe("extends(h(F))");
+  });
+
+  it("parses port type constraints", () => {
+    const xml = `
+      <blocks id="c" name="C">
+        <block id="b_cmp" name="Cmp" ns="example">
+          <var>T</var>
+          <in name="in" type="T:extends(h(T))"/>
+          <out name="out" type="comparable(?(super(T)))"/>
+        </block>
+      </blocks>
+    `;
+    const doc = parseBlocks("c.xml", xml);
+    expectType(doc.blocks[0].inputs[0].ty, t("T"));
+    expect(doc.blocks[0].inputs[0].constraint).toBe("extends(h(T))");
+    expect(doc.blocks[0].outputs[0].ty.kind).toBe("hole");
+    expect(doc.blocks[0].outputs[0].constraint).toBe("comparable(?(super(T)))");
+    expect(parseTypeSpec("T:extends(rec(T))").constraint).toBe("extends(rec(T))");
   });
 
   it("rejects factory and param tags", () => {
@@ -241,6 +256,12 @@ describe("blocks", () => {
         `<blocks id="t" name="T"><block id="b" name="B" ns="n"><param name="T"/></block></blocks>`,
       ),
     ).toThrow(/param/);
+    expect(() =>
+      parseBlocks(
+        "ty.xml",
+        `<blocks id="t" name="T"><block id="b" name="B" ns="n"><type>true.</type></block></blocks>`,
+      ),
+    ).toThrow(/type/);
   });
 
   it("builtin models merge", () => {
@@ -439,12 +460,10 @@ describe("blocks", () => {
             <ancestor type="rec[color]"/>
           </type>
           <block id="b_color_fn" name="Color.fn" ns="example">
-            <type>true.</type>
             <out name="value" type="(color) -> unit"/>
           </block>
           <block id="b_rec_new" name="rec.new" ns="example">
             <var>T:extends(rec(T))</var>
-            <type>true.</type>
             <in name="cls" type="(T) -> unit"/>
             <out name="value" type="T"/>
           </block>
@@ -1407,7 +1426,6 @@ describe("constants, settings, relations, and type intersection inference", () =
         <blocks id="type_params" name="TypeParams">
           <block id="b_poly" name="Poly" ns="test">
             <var>T:extends(rec(T))</var>
-            <type>true.</type>
           </block>
         </blocks>
       `;
@@ -1666,7 +1684,6 @@ describe("constants, settings, relations, and type intersection inference", () =
           <blocks id="opt" name="Opt">
             <block id="b_opt" name="Opt" ns="test">
               <var>T</var>
-              <type>true.</type>
               <in name="in1" type="T"/>
               <in name="in2" type="T"/>
               <out name="out" type="T"/>
@@ -1693,7 +1710,6 @@ describe("constants, settings, relations, and type intersection inference", () =
           <blocks id="pr" name="PR">
             <block id="b_inter_varargs" name="InterVarargs" ns="test">
               <var>T</var>
-              <type>true.</type>
               <in name="elems" type="T" vararg="true"/>
               <out name="result" type="array[T]"/>
             </block>
@@ -1713,17 +1729,17 @@ describe("constants, settings, relations, and type intersection inference", () =
   });
 
   describe("explicit relations between input and output types", () => {
-    it("infers output type as intersection via <relation kind='intersection'>", async () => {
+    it("infers output type as intersection of shared type-variable inputs", async () => {
       const cat = new Catalog();
       cat.addXml(
         "rel_block.xml",
         `
           <blocks id="rb" name="RB">
             <block id="b_rel_inter" name="RelInter" ns="test">
-              <type>meet(In_a, In_b, Out_out).</type>
-              <in name="a" type="double"/>
-              <in name="b" type="int"/>
-              <out name="out" type="_"/>
+              <var>T</var>
+              <in name="a" type="T"/>
+              <in name="b" type="T"/>
+              <out name="out" type="T"/>
             </block>
           </blocks>
         `,
@@ -1739,17 +1755,16 @@ describe("constants, settings, relations, and type intersection inference", () =
       expectType(resolvedOutput(resolved, "out"), intersectionOf([t("double"), t("int")]));
     });
 
-    it("infers output type as union via <relation kind='union'>", async () => {
+    it("infers output type as union of vararg groundings", async () => {
       const cat = new Catalog();
       cat.addXml(
         "rel_union.xml",
         `
           <blocks id="ru" name="RU">
             <block id="b_rel_union" name="RelUnion" ns="test">
-              <type>join(In_x, In_y, Out_out).</type>
-              <in name="x" type="float"/>
-              <in name="y" type="double"/>
-              <out name="out" type="_"/>
+              <var>T</var>
+              <in name="elems" type="T" vararg="true"/>
+              <out name="out" type="T"/>
             </block>
           </blocks>
         `,
@@ -1757,25 +1772,22 @@ describe("constants, settings, relations, and type intersection inference", () =
       const resolved = await resolveBlock(
         cat,
         "b_rel_union",
-        new Map([
-          ["x", { kind: "single", ty: t("float") }],
-          ["y", { kind: "single", ty: t("double") }],
-        ]),
+        new Map([["elems", { kind: "varargs", items: [t("float"), t("double")] }]]),
       );
       expectType(resolvedOutput(resolved, "out"), unionOf([t("double"), t("float")]));
     });
 
-    it("infers output type via port relatesTo and relation attributes", async () => {
+    it("infers output type via shared type variables", async () => {
       const cat = new Catalog();
       cat.addXml(
         "port_rel.xml",
         `
           <blocks id="pr2" name="PR2">
             <block id="b_port_rel" name="PortRel" ns="test">
-              <type>meet(In_inA, In_inB, Out_res).</type>
-              <in name="inA" type="string"/>
-              <in name="inB" type="int"/>
-              <out name="res" type="_"/>
+              <var>T</var>
+              <in name="inA" type="T"/>
+              <in name="inB" type="T"/>
+              <out name="res" type="T"/>
             </block>
           </blocks>
         `,
@@ -1791,16 +1803,16 @@ describe("constants, settings, relations, and type intersection inference", () =
       expectType(resolvedOutput(resolved, "res"), intersectionOf([t("int"), t("string")]));
     });
 
-    it("infers output type via identity relation", async () => {
+    it("infers output type via identity of a shared type variable", async () => {
       const cat = new Catalog();
       cat.addXml(
         "id_rel.xml",
         `
           <blocks id="idr" name="IDR">
             <block id="b_ident_rel" name="IdentRel" ns="test">
-              <type>Out_dest = In_source.</type>
-              <in name="source" type="array[int]"/>
-              <out name="dest" type="_"/>
+              <var>T</var>
+              <in name="source" type="T"/>
+              <out name="dest" type="T"/>
             </block>
           </blocks>
         `,

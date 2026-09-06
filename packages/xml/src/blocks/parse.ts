@@ -28,9 +28,44 @@ function parseMoonbitAttr(node: XmlElem, fallback: TypeExpr | undefined): TypeEx
     return parseMoonbitType("");
   }
   try {
-    return parseMoonbitType(raw);
+    return parseTypeSpec(raw).ty;
   } catch (error) {
     node.fail(error instanceof Error ? error.message : `invalid type \`${raw}\``);
+  }
+}
+
+/** Split `T:extends(h(F))` or `array[T]:comparable(?(super(T)))` at a top-level colon. */
+export function splitTypeConstraint(raw: string): { typeRaw: string; constraint: string | null } {
+  const text = raw.trim();
+  let depth = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i]!;
+    if (ch === "(" || ch === "[") {
+      depth += 1;
+    } else if (ch === ")" || ch === "]") {
+      depth -= 1;
+    } else if (ch === ":" && depth === 0) {
+      const typeRaw = text.slice(0, i).trim();
+      const constraint = text.slice(i + 1).trim();
+      return { typeRaw: typeRaw.length > 0 ? typeRaw : "_", constraint: constraint.length > 0 ? constraint : null };
+    }
+  }
+  return { typeRaw: text, constraint: null };
+}
+
+/** Port / var type string: MoonBit type, optional `:constraint`, or a bare Prolog constraint. */
+export function parseTypeSpec(raw: string): { ty: TypeExpr; constraint: string | null } {
+  if (raw.trim().length === 0) {
+    return { ty: parseMoonbitType(""), constraint: null };
+  }
+  const { typeRaw, constraint } = splitTypeConstraint(raw);
+  try {
+    return { ty: parseMoonbitType(typeRaw), constraint };
+  } catch (error) {
+    if (constraint === null) {
+      return { ty: parseMoonbitType("_"), constraint: typeRaw };
+    }
+    throw error;
   }
 }
 
@@ -89,9 +124,17 @@ function parsePort(node: XmlElem, defaultDirection?: "in" | "out"): PortDef {
       : defaultDirection ?? (node.tag === "in" || node.tag === "input" ? "in" : "out");
   const relationRaw = node.opt("relation");
   const relation = relationRaw && isRelationKind(relationRaw) ? relationRaw : undefined;
+  const typeRaw = node.opt("type") ?? "";
+  let spec: { ty: TypeExpr; constraint: string | null };
+  try {
+    spec = parseTypeSpec(typeRaw);
+  } catch (error) {
+    node.fail(error instanceof Error ? error.message : `invalid type \`${typeRaw}\``);
+  }
   return {
     name: node.req("name"),
-    ty: parseMoonbitAttr(node, undefined),
+    ty: spec.ty,
+    constraint: spec.constraint,
     vararg: vararg === "true" || vararg === "1",
     icon: node.opt("icon") ?? null,
     direction,
@@ -219,7 +262,6 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
   const attributes: Attribute[] = [];
   const vars: VarDef[] = [];
   const parameters: BlockParameterDef[] = [];
-  let typeProg: string | null = null;
   const inputs: PortDef[] = [];
   const outputs: PortDef[] = [];
   const relations: TypeRelationDef[] = [];
@@ -235,10 +277,7 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
         child.fail("<param> was replaced by <var>T</var>");
         break;
       case "type":
-        if (typeProg !== null) {
-          child.fail("block already has a <type> program");
-        }
-        typeProg = child.text();
+        child.fail("block <type> was removed; inference is blocks.pl by id");
         break;
       case "parameters":
       case "settings":
@@ -269,7 +308,6 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
     ns: node.req("ns"),
     icon: node.opt("icon") ?? null,
     vars,
-    typeProg: typeProg ?? "true.",
     parameters,
     settings: parameters,
     inputs,

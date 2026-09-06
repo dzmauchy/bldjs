@@ -23,25 +23,46 @@ export function quoteAtom(name: string): string {
 }
 
 export function typeToProlog(ty: TypeExpr, vars: ReadonlySet<string>): string {
+  return writeType(ty, vars, false);
+}
+
+/** Catalog spec term: type variables are `v('T')` so `block/4` facts stay ground. */
+export function typeToSpec(ty: TypeExpr, vars: ReadonlySet<string>): string {
+  return writeType(ty, vars, true);
+}
+
+export function constraintToSpec(constraint: string | null | undefined, vars: ReadonlySet<string>): string {
+  if (!constraint || constraint === "none") {
+    return "none";
+  }
+  let out = constraint;
+  const names = [...vars].sort((left, right) => right.length - left.length);
+  for (const name of names) {
+    out = out.replace(new RegExp(`(?<![A-Za-z0-9_])${name}(?![A-Za-z0-9_])`, "g"), `v(${quoteAtom(name)})`);
+  }
+  return out;
+}
+
+function writeType(ty: TypeExpr, vars: ReadonlySet<string>, spec: boolean): string {
   switch (ty.kind) {
     case "hole":
-      return "_";
+      return spec ? "top" : "_";
     case "self":
       return "self";
     case "func":
-      return `fn([${ty.params.map((param) => typeToProlog(param, vars)).join(", ")}], ${typeToProlog(ty.ret, vars)})`;
+      return `fn([${ty.params.map((param) => writeType(param, vars, spec)).join(", ")}], ${writeType(ty.ret, vars, spec)})`;
     case "tuple":
-      return `tuple([${ty.elems.map((elem) => typeToProlog(elem, vars)).join(", ")}])`;
+      return `tuple([${ty.elems.map((elem) => writeType(elem, vars, spec)).join(", ")}])`;
     case "union":
-      return ty.members.map((member) => typeToProlog(member, vars)).reduce((left, right) => `union(${left}, ${right})`);
+      return ty.members.map((member) => writeType(member, vars, spec)).reduce((left, right) => `union(${left}, ${right})`);
     case "intersection":
       return ty.members
-        .map((member) => typeToProlog(member, vars))
+        .map((member) => writeType(member, vars, spec))
         .reduce((left, right) => `inter(${left}, ${right})`);
     case "type":
       if (ty.ns === null && ty.args.length === 0) {
         if (vars.has(ty.name) || isPrologVar(ty.name)) {
-          return ty.name;
+          return spec ? `v(${quoteAtom(ty.name)})` : ty.name;
         }
         return quoteAtom(ty.name);
       }
@@ -50,9 +71,9 @@ export function typeToProlog(ty: TypeExpr, vars: ReadonlySet<string>): string {
         return head;
       }
       if (rawName(ty.name) === "array" && ty.args.length === 1) {
-        return `array(${typeToProlog(ty.args[0], vars)})`;
+        return `array(${writeType(ty.args[0], vars, spec)})`;
       }
-      return `${head}(${ty.args.map((arg) => typeToProlog(arg, vars)).join(", ")})`;
+      return `${head}(${ty.args.map((arg) => writeType(arg, vars, spec)).join(", ")})`;
   }
 }
 

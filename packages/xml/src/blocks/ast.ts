@@ -503,6 +503,8 @@ export type ParamDef = VarDef;
 export interface PortDef {
   name: string;
   ty: TypeExpr;
+  /** Prolog constraint on this port (`extends(...)`, `comparable(?(super(T)))`). */
+  constraint: string | null;
   vararg: boolean;
   icon: string | null;
   direction?: PortDirection;
@@ -596,8 +598,6 @@ export interface BlockDef {
   ns: string;
   icon: string | null;
   vars: VarDef[];
-  /** Trealla Prolog goal used to infer types and check input compatibility. */
-  typeProg: string;
   parameters: BlockParameterDef[];
   settings?: BlockParameterDef[];
   inputs: PortDef[];

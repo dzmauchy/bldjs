@@ -1,8 +1,8 @@
-%% Type compatibility and inference for catalog blocks.
+%% Type compatibility and inference library for catalog blocks.
 %%
-%% Loaded into Trealla (WASM) once; every block type program uses this
-%% module. Type variables are attributed variables. Unification runs
-%% attr_unify_hook/2 (SWI-style) via Trealla's verify_attributes/3.
+%% Consult this file first, then `blocks.pl`. Trealla already ships
+%% `library(atts)`; type variables are attributed variables. Unification
+%% runs attr_unify_hook/2 (SWI-style) via Trealla's verify_attributes/3.
 %%
 %% Type terms (raw names are camelCase atoms):
 %%   double, float, int, int64, uint, uint64, string, bool, byte, char, unit, self
@@ -12,11 +12,15 @@
 %%   union(A, B)
 %%   inter(A, B)
 %%   top                % unconstrained type variable
+%%   v(Name)            % named type variable in a block spec
 %%
-%% Block <type> programs run after declared port types and grounded
-%% inputs have been unified. Type variables from <var> are in scope.
-%% Extra predicates: compatible/2, unify_type/2, constrain/2, meet/3, join/3.
-%% Port values are variables In_<name> and Out_<name>.
+%% Constraints (on <var> or on a port type):
+%%   extends(Bound)
+%%   comparable(Term)
+%%   ?(Constraint)      % optional: skip when the type is still free
+%%   super(T)           % declared ancestor of T, or T itself
+%%
+%% `infer_spec/5` is the engine behind blocks.pl `infer_block/3`.
 
 :- module(type, [
     attr_unify_hook/2,
@@ -31,6 +35,7 @@
     read_type/2,
     connectable/1,
     ground_ty/1,
+    infer_spec/5,
     assert_ancestors/1,
     clear_ancestors/0
 ]).
@@ -188,12 +193,42 @@ join(A, B, A) :-
     ancestor(B, A), !.
 join(A, B, union(A, B)).
 
+satisfy_constraint(?(C), Actual) :-
+    !,
+    ( read_type(Actual, T), ground_ty(T) ->
+        satisfy_constraint(C, Actual)
+    ; true
+    ).
 satisfy_constraint(extends(Bound), Actual) :-
     copy_term(Bound, Bound1),
     ( ancestor(Actual, Bound1) ->
         true
     ; Bound1 = Actual
     ; unify_type(Actual, Bound1)
+    ).
+satisfy_constraint(comparable(Term), Actual) :-
+    comparable_bound(Term, Bound),
+    ( unify_type(Actual, Bound) ->
+        true
+    ; join(Actual, Bound, _)
+    ).
+satisfy_constraint(super(T), Actual) :-
+    super_type(T, Super),
+    unify_type(Actual, Super).
+
+comparable_bound(?(X), Bound) :-
+    !,
+    comparable_bound(X, Bound).
+comparable_bound(super(T), Bound) :-
+    !,
+    super_type(T, Bound).
+comparable_bound(Bound, Bound).
+
+super_type(T, Super) :-
+    read_type(T, TT),
+    ( ancestor(TT, Parent) ->
+        Super = Parent
+    ; Super = TT
     ).
 
 %% read_type(+Term, -Type)
@@ -263,3 +298,103 @@ assert_ancestors([Child-Parent|Rest]) :-
 
 clear_ancestors :-
     retractall(ancestor(_, _)).
+
+%% infer_spec(+VarSpecs, +Ins, +Outs, +Grounded, -Result)
+%% VarSpecs = [var(Name, Constraint), ...]
+%% Ins      = [in(Name, Type, Constraint, vararg|once), ...]
+%% Outs     = [out(Name, Type, Constraint), ...]
+%% Grounded = [g(Name, single, Type), g(Name, join, [Type, ...]), ...]
+%% Type terms use v(Name) for the block's type variables.
+infer_spec(VarSpecs, Ins, Outs, Grounded, result(Compats, InReads, OutReads, VarReads)) :-
+    setup_env(VarSpecs, Env),
+    maplist(check_in(Env, Grounded), Ins, Compats),
+    maplist(bind_out(Env), Outs),
+    maplist(read_in_port(Env), Ins, InReads),
+    maplist(read_out_port(Env), Outs, OutReads),
+    maplist(read_var_bind, Env, VarReads).
+
+setup_env(VarSpecs, Env) :-
+    maplist(make_var, VarSpecs, Env),
+    maplist(apply_var_constraint(Env), VarSpecs).
+
+make_var(var(Name, _), Name-Var) :-
+    setup_var(Var, none).
+
+apply_var_constraint(_Env, var(_Name, none)) :- !.
+apply_var_constraint(Env, var(Name, Constraint)) :-
+    memberchk(Name-Var, Env),
+    instantiate(Constraint, Env, C1),
+    put_attr(Var, type, constraint(C1)).
+
+check_in(Env, Grounded, in(Name, Type, Constraint, Vararg), compat(Name, Ok)) :-
+    instantiate(Type, Env, Formal),
+    apply_port_constraint(Formal, Constraint, Env),
+    ( memberchk(g(Name, Kind, Payload), Grounded) ->
+        ground_ok(Vararg, Formal, Env, Kind, Payload, Ok)
+    ; Ok = true
+    ).
+
+ground_ok(vararg, Formal, Env, join, Payload, Ok) :-
+    !,
+    ( maplist(join_one(Formal, Env), Payload) -> Ok = true ; Ok = false ).
+ground_ok(_Vararg, Formal, Env, join, Payload, Ok) :-
+    !,
+    ( maplist(once_one(Formal, Env), Payload) -> Ok = true ; Ok = false ).
+ground_ok(vararg, Formal, Env, single, Payload, Ok) :-
+    !,
+    ground_ok(vararg, Formal, Env, join, [Payload], Ok).
+ground_ok(_Vararg, Formal, Env, single, Payload, Ok) :-
+    instantiate(Payload, Env, Actual),
+    ( constrain(Formal, Actual) -> Ok = true ; Ok = false ).
+
+join_one(Formal, Env, Item) :-
+    instantiate(Item, Env, Actual),
+    constrain_join(Formal, Actual).
+
+once_one(Formal, Env, Item) :-
+    instantiate(Item, Env, Actual),
+    constrain(Formal, Actual).
+
+bind_out(Env, out(_Name, Type, Constraint)) :-
+    instantiate(Type, Env, Formal),
+    apply_port_constraint(Formal, Constraint, Env).
+
+apply_port_constraint(_Formal, none, _Env) :- !.
+apply_port_constraint(Formal, Constraint, Env) :-
+    instantiate(Constraint, Env, C1),
+    ( var(Formal) ->
+        constrain(Formal, constraint(C1))
+    ; satisfy_constraint(C1, Formal)
+    ).
+
+read_in_port(Env, in(Name, Type, _, _), in(Name, Ty)) :-
+    instantiate(Type, Env, Formal),
+    read_type(Formal, Ty).
+
+read_out_port(Env, out(Name, Type, _), out(Name, Ty, Conn)) :-
+    instantiate(Type, Env, Formal),
+    read_type(Formal, Ty),
+    ( connectable(Formal) -> Conn = true ; Conn = false ).
+
+read_var_bind(Name-Var, var(Name, Ty)) :-
+    read_type(Var, Ty).
+
+instantiate(v(Name), Env, Var) :-
+    atom(Name),
+    memberchk(Name-Var, Env), !.
+instantiate([], _Env, []) :- !.
+instantiate([H|T], Env, [H1|T1]) :-
+    !,
+    instantiate(H, Env, H1),
+    instantiate(T, Env, T1).
+instantiate(Term, Env, Out) :-
+    nonvar(Term),
+    \+ atomic(Term),
+    Term =.. [F|Args],
+    F \= v,
+    maplist(instantiate_one(Env), Args, Args1),
+    Out =.. [F|Args1], !.
+instantiate(Term, _Env, Term).
+
+instantiate_one(Env, A, B) :-
+    instantiate(A, Env, B).

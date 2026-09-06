@@ -117,7 +117,7 @@
         <xs:attribute name="name" type="xs:string" use="required"/>
     </xs:complexType>
 
-    <!-- Type string (`double`, `(double) -> unit`, `array[T]`) -->
+    <!-- Type string (`double`, `(double) -> unit`, `array[T]`, `T:extends(...)`) -->
     <xs:complexType name="TypeRef">
         <xs:sequence>
             <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
@@ -132,14 +132,7 @@
         </xs:sequence>
     </xs:complexType>
 
-    <!-- Trealla Prolog program for inference and input compatibility -->
-    <xs:complexType name="TypeProgramDef" mixed="true">
-        <xs:sequence>
-            <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-        </xs:sequence>
-    </xs:complexType>
-
-    <!-- Port Definition (in/out) -->
+    <!-- Type string (`double`, `(double) -> unit`, `T:extends(h(T))`, `comparable(?(super(T)))`) -->
     <xs:complexType name="PortDef">
         <xs:complexContent>
             <xs:extension base="TypeRef">
@@ -364,7 +357,6 @@
                             <xs:sequence>
                                 <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
                                 <xs:element name="var" type="TypeVarDef" minOccurs="0" maxOccurs="unbounded"/>
-                                <xs:element name="type" type="TypeProgramDef"/>
                                 <xs:element name="parameters" type="ParametersDef" minOccurs="0"/>
                                 <xs:element name="settings" type="SettingsDef" minOccurs="0"/>
 

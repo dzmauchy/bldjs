@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { arrayOf, consumerType, named, unbounded, unionOf, intersectionOf } from "../ast";
 import { Catalog } from "../catalog";
 import { getTypeEngine } from "./engine";
-import { typeToProlog, prologTermToType } from "./terms";
+import { typeToProlog, typeToSpec, constraintToSpec, prologTermToType } from "./terms";
+import { catalogPl } from "./catalog-pl";
 
 describe("Trealla type engine", () => {
   it("meets successive constraints on a type variable", async () => {
@@ -14,7 +15,6 @@ describe("Trealla type engine", () => {
         <blocks id="t" name="T">
           <block id="id" name="Id" ns="test">
             <var>T</var>
-            <type>true.</type>
             <in name="in" type="T"/>
             <out name="out" type="T"/>
           </block>
@@ -49,7 +49,6 @@ describe("Trealla type engine", () => {
         <blocks id="t" name="T">
           <block id="arr" name="Arr" ns="test">
             <var>T</var>
-            <type>true.</type>
             <in name="elems" type="T" vararg="true"/>
             <out name="result" type="array[T]"/>
           </block>
@@ -84,6 +83,54 @@ describe("Trealla type engine", () => {
     const vars = new Set(["T"]);
     const ty = consumerType(named("T"));
     expect(typeToProlog(ty, vars)).toBe("fn([T], unit)");
+    expect(typeToSpec(ty, vars)).toBe("fn([v('T')], unit)");
+    expect(constraintToSpec("comparable(?(super(T)))", vars)).toBe("comparable(?(super(v('T'))))");
     expect(prologTermToType({ functor: "top", args: [] }).equals(unbounded())).toBe(true);
+  });
+
+  it("writes block/4 facts keyed by id", () => {
+    const cat = new Catalog();
+    cat.addXml(
+      "id.xml",
+      `
+        <blocks id="t" name="T">
+          <block id="id" name="Id" ns="test">
+            <var>T</var>
+            <in name="in" type="T"/>
+            <out name="out" type="T"/>
+          </block>
+        </blocks>
+      `,
+    );
+    const src = catalogPl(cat);
+    expect(src).toContain(":- assertz(block(id,");
+    expect(src).toContain("var('T', none)");
+    expect(src).toContain("in(in, v('T'), none, once)");
+    expect(src).toContain("out(out, v('T'), none)");
+  });
+
+  it("accepts comparable(?(super(T))) on a grounded output", async () => {
+    const engine = await getTypeEngine();
+    const cat = new Catalog();
+    cat.addXml(
+      "cmp.xml",
+      `
+        <blocks id="t" name="T">
+          <block id="cmp" name="Cmp" ns="test">
+            <var>T</var>
+            <in name="in" type="T"/>
+            <out name="out" type="T:comparable(?(super(T)))"/>
+          </block>
+        </blocks>
+      `,
+    );
+    const inferred = await engine.infer(
+      cat.block("cmp")!,
+      new Map([["in", { kind: "single", ty: named("double") }]]),
+      cat,
+    );
+    expect(inferred.compatible.get("in")).toBe(true);
+    expect(inferred.outputs[0]?.ty.equals(named("double"))).toBe(true);
+    expect(inferred.outputs[0]?.connectable).toBe(true);
   });
 });

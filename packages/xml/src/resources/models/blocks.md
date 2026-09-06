@@ -39,63 +39,63 @@ Examples:
 * `_` (type hole)
 * `self`
 
-Type variables use `<var>` instead of `<param>`:
+Type variables use `<var>` instead of `<param>`. Constraints also attach to port `type` strings:
 
 ```xml
 <var>T</var>
 <var>F:extends(h(F))</var>
+<in name="in" type="T:extends(h(T))"/>
+<out name="out" type="comparable(?(super(T)))"/>
 ```
 
-The text is a Prolog variable. An optional `:constraint` is a Prolog term (for example F-bounded `extends(h(F))`).
+The text before `:` is a Prolog variable or MoonBit type. An optional `:constraint` is a Prolog term (`extends(h(F))`, `comparable(?(super(T)))`). A bare constraint with no MoonBit type is allowed.
 
 ---
 
 ## 3. Modeling Blocks & Ports
-A `<block>` represents an executable node definition in the catalog. The block `id` links the node to its asm / MoonBit generator. There is no `<factory>` element.
+A `<block>` represents an executable node definition in the catalog. The block `id` links the node to its asm / MoonBit generator. There is no `<factory>` element and no per-block `<type>` program.
 
-### Essential Block Attributes
 * `id`: Unique identifier within the catalog (also the generator id).
 * `name`: Human-readable block name.
 * `ns`: Namespace ID.
 * `icon`: (Optional) Visual identifier icon.
 
-### Type program (`<type>`)
-Every block has a Trealla Prolog program that infers types and checks input compatibility. Blocks share the common library in `packages/xml/src/blocks/prolog/types.pl` (`module(type)`). Type variables are attributed variables; unification runs `attr_unify_hook/2` via Trealla's `verify_attributes/3`.
+Inference loads two Prolog files into Trealla (WASM), in order:
 
-Port temps in the goal are `In_<name>` and `Out_<name>`. Declared `<var>` names are in scope. The default program `true.` is enough when ports share type variables.
+1. `packages/xml/src/blocks/prolog/types.pl` — `library(atts)`, `attr_unify_hook/2` via `verify_attributes/3`, `infer_spec/5`, `extends/1`, `comparable/1`, `super/1`, `?/1`.
+2. `packages/xml/src/blocks/prolog/blocks.pl` — `infer_block(Id, Grounded, Result)` using `block(Id, Vars, Ins, Outs)` facts generated from the catalog.
 
-After unification, an output that still has free type variables is not connectable.
+A block declares only type variables, inputs, and outputs (plus optional settings). After unification, an output that still has free type variables is not connectable.
 
 ```xml
 <block id="b_apply" name="Apply" ns="types">
   <var>T</var>
   <var>R</var>
-  <type>true.</type>
   <in name="fn" type="(T) -> R"/>
   <in name="arg" type="T"/>
   <out name="result" type="R"/>
 </block>
 ```
 
-Extra predicates: `compatible/2`, `unify_type/2`, `constrain/2`, `constrain_join/2`, `meet/3`, `join/3`, `read_type/2`, `connectable/1`.
+Shared type variables across inputs meet (`A & B`). Vararg groundings join (`A | B`).
 
 ### Ports (`<in>`, `<out>`, `<input>`, and `<output>`)
 * `name`: Port name (required).
-* `type`: Type string (e.g. `double`, `(double) -> unit`, `array[T]`).
+* `type`: Type string (e.g. `double`, `(double) -> unit`, `array[T]`, `T:extends(h(T))`, `comparable(?(super(T)))`).
 * `direction`: Optional explicit port direction (`in` | `out`).
 * `vararg`: Boolean flag for variable arguments (default `false`).
 * `relation`: Optional relation kind (`intersection` | `union` | `identity` | `map` | `subtype` | `supertype` | `custom`).
 * `relatesTo`: Comma-separated list of related port names (e.g. `relatesTo="in1,in2"`).
 
 ### Relations Between Input Types and Output Types (`<relation>` / `<type-relation>`)
-XML relations remain catalog metadata. Inference and compatibility are the Prolog `<type>` program. Common types across multiple inputs constraining a generic `T` are inferred as **type intersections** (`A & B`). Vararg groundings join (`A | B`) unless the type program says otherwise.
+XML relations remain catalog metadata. Inference uses `blocks.pl` rules keyed by block id together with declared vars, port types, and constraints. Common types across multiple inputs constraining a generic `T` are inferred as **type intersections** (`A & B`). Vararg groundings join (`A | B`).
 
 ```xml
 <block id="combiner" name="Combiner" ns="com.dsp.transform">
-  <type>meet(In_in1, In_in2, Out_out).</type>
-  <in name="in1" type="double"/>
-  <in name="in2" type="int"/>
-  <out name="out" type="_"/>
+  <var>T</var>
+  <in name="in1" type="T"/>
+  <in name="in2" type="T"/>
+  <out name="out" type="T"/>
 </block>
 ```
 
@@ -122,8 +122,6 @@ Blocks declare static/configurable constant inputs and settings under `<settings
 
 ```xml
 <block id="scaler" name="Signal Scaler" ns="com.dsp.transform" icon="scaler.svg">
-  <type>true.</type>
-
   <settings>
     <!-- Explicit typed settings -->
     <setting name="bufferSize" type="int" default="1024" min="64" max="65536" step="64"/>

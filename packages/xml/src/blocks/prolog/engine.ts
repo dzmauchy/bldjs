@@ -1,8 +1,10 @@
 import { unbounded, type BlockDef, type TypeExpr, type VarDef } from "../ast";
 import type { Catalog } from "../catalog";
-import { portVar, quoteAtom, typeToProlog, prologTermToType } from "./terms";
+import { quoteAtom, typeToProlog, prologTermToType } from "./terms";
+import { catalogPl, groundedTerm } from "./catalog-pl";
 import type { Grounding } from "../resolve";
 import typesPl from "./types.pl?raw";
+import blocksPl from "./blocks.pl?raw";
 
 export interface InferredPort {
   name: string;
@@ -46,6 +48,8 @@ export function resetTypeEngine(): void {
 
 export class TypeEngine {
   private queue: Promise<unknown> = Promise.resolve();
+  private catalogSrc = "";
+  private catalogGen = 0;
 
   private constructor(private readonly pl: TreallaProlog) {}
 
@@ -55,18 +59,25 @@ export class TypeEngine {
     const pl = new Prolog({ quiet: true }) as unknown as TreallaProlog;
     pl.fs.open("/type.pl", { write: true, create: true }).writeString(typesPl);
     await pl.consult("/type.pl");
-    const loaded = await runGoal(pl, "use_module(type).");
-    if (!loaded || loaded.status !== "success") {
+    const loadedLib = await runGoal(pl, "use_module(type).");
+    if (!loadedLib || loadedLib.status !== "success") {
       throw new Error("failed to load type.pl into Trealla");
     }
+    pl.fs.open("/blocks.pl", { write: true, create: true }).writeString(blocksPl);
+    await pl.consult("/blocks.pl");
     return new TypeEngine(pl);
   }
 
   async compatible(formal: TypeExpr, actual: TypeExpr, vars: readonly VarDef[] = []): Promise<boolean> {
-    const names = varNames(vars);
+    const names = new Set(vars.map((item) => item.name));
+    const setup =
+      vars.length === 0
+        ? "true"
+        : vars
+            .map((item) => `setup_var(${item.name}, ${item.constraint ?? "none"})`)
+            .join(", ");
     const goal = `
-      use_module(type),
-      ${setupVars(vars)},
+      ${setup},
       ( compatible(${typeToProlog(formal, names)}, ${typeToProlog(actual, names)}) -> Ok = true ; Ok = false ).
     `;
     const result = await this.run(goal);
@@ -74,8 +85,10 @@ export class TypeEngine {
   }
 
   async infer(block: BlockDef, grounded: Map<string, Grounding>, catalog: Catalog): Promise<PrologInference> {
-    const goal = buildInferGoal(block, grounded, catalog);
     try {
+      await this.ensureCatalog(catalog);
+      const vars = new Set(block.vars.map((item) => item.name));
+      const goal = `infer_block(${quoteAtom(block.id)}, ${groundedTerm(grounded, vars)}, Result).`;
       const result = await this.run(goal);
       if (!result || result.status !== "success" || !result.answer?.Result) {
         return failedInference(block);
@@ -87,8 +100,25 @@ export class TypeEngine {
     }
   }
 
+  private async ensureCatalog(catalog: Catalog): Promise<void> {
+    const src = catalogPl(catalog);
+    if (src === this.catalogSrc) {
+      return;
+    }
+    const path = `/catalog-${++this.catalogGen}.pl`;
+    await this.enqueue(async () => {
+      this.pl.fs.open(path, { write: true, create: true }).writeString(src);
+      await this.pl.consult(path);
+    });
+    this.catalogSrc = src;
+  }
+
   private run(goal: string) {
-    const next = this.queue.then(() => runGoal(this.pl, goal), () => runGoal(this.pl, goal));
+    return this.enqueue(() => runGoal(this.pl, goal));
+  }
+
+  private enqueue<T>(job: () => Promise<T>): Promise<T> {
+    const next = this.queue.then(job, job);
     this.queue = next.then(
       () => undefined,
       () => undefined,
@@ -113,125 +143,6 @@ async function runGoal(
     }
   }
   return first;
-}
-
-function varNames(vars: readonly VarDef[]): Set<string> {
-  return new Set(vars.map((item) => item.name));
-}
-
-function setupVars(vars: readonly VarDef[]): string {
-  if (vars.length === 0) {
-    return "true";
-  }
-  return vars
-    .map((item) => {
-      const constraint = item.constraint ?? "none";
-      return `setup_var(${item.name}, ${constraint})`;
-    })
-    .join(",\n      ");
-}
-
-function buildInferGoal(block: BlockDef, grounded: Map<string, Grounding>, catalog: Catalog): string {
-  const vars = varNames(block.vars);
-  const ancestors = ancestorFacts(catalog);
-  const parts: string[] = ["use_module(type)", "clear_ancestors"];
-  if (ancestors.length > 0) {
-    parts.push(`assert_ancestors([${ancestors.join(", ")}])`);
-  }
-  parts.push(setupVars(block.vars));
-
-  for (const port of block.inputs) {
-    const plVar = portVar("in", port.name);
-    parts.push(`${plVar} = ${typeToProlog(port.ty, vars)}`);
-    const grounding = grounded.get(port.name);
-    const okVar = `Compat_${sanitize(port.name)}`;
-    if (!grounding) {
-      parts.push(`${okVar} = true`);
-    } else if (grounding.kind === "single") {
-      parts.push(
-        `( constrain(${plVar}, ${typeToProlog(grounding.ty, vars)}) -> ${okVar} = true ; ${okVar} = false )`,
-      );
-    } else {
-      const items = grounding.items.map((item) => typeToProlog(item, vars));
-      if (items.length === 0) {
-        parts.push(`${okVar} = true`);
-      } else {
-        const joins = items.map((item) => `constrain_join(${plVar}, ${item})`).join(", ");
-        parts.push(`( (${joins}) -> ${okVar} = true ; ${okVar} = false )`);
-      }
-    }
-  }
-
-  for (const port of block.outputs) {
-    const plVar = portVar("out", port.name);
-    parts.push(`${plVar} = ${typeToProlog(port.ty, vars)}`);
-  }
-
-  parts.push(blockTypeGoal(block.typeProg));
-
-  const outReads: string[] = [];
-  for (const port of block.outputs) {
-    const plVar = portVar("out", port.name);
-    const tyVar = `TyOut_${sanitize(port.name)}`;
-    const connVar = `Conn_${sanitize(port.name)}`;
-    parts.push(`read_type(${plVar}, ${tyVar})`);
-    parts.push(`( connectable(${plVar}) -> ${connVar} = true ; ${connVar} = false )`);
-    outReads.push(`out(${quoteAtom(port.name)}, ${tyVar}, ${connVar})`);
-  }
-
-  const inReads: string[] = [];
-  for (const port of block.inputs) {
-    const plVar = portVar("in", port.name);
-    const tyVar = `TyIn_${sanitize(port.name)}`;
-    parts.push(`read_type(${plVar}, ${tyVar})`);
-    inReads.push(`in(${quoteAtom(port.name)}, ${tyVar})`);
-  }
-
-  const varReads: string[] = [];
-  for (const item of block.vars) {
-    const tyVar = `TyVar_${item.name}`;
-    parts.push(`read_type(${item.name}, ${tyVar})`);
-    varReads.push(`var(${quoteAtom(item.name)}, ${tyVar})`);
-  }
-
-  const compatList = block.inputs
-    .map((port) => `compat(${quoteAtom(port.name)}, Compat_${sanitize(port.name)})`)
-    .join(", ");
-
-  parts.push(
-    `Result = result([${compatList}], [${inReads.join(", ")}], [${outReads.join(", ")}], [${varReads.join(", ")}])`,
-  );
-
-  return `${parts.join(",\n      ")}.`;
-}
-
-function blockTypeGoal(prog: string): string {
-  const trimmed = prog.trim();
-  if (trimmed.length === 0) {
-    return "true";
-  }
-  return trimmed.replace(/\.\s*$/, "");
-}
-
-function ancestorFacts(catalog: Catalog): string[] {
-  const facts: string[] = [];
-  for (const typeDef of catalog.typeDefs()) {
-    const names = [quoteAtom(typeDef.name)];
-    if (typeDef.ns) {
-      names.push(quoteAtom(`${typeDef.ns}.${typeDef.name}`));
-    }
-    for (const ancestor of typeDef.ancestors) {
-      const parent = typeToProlog(ancestor, new Set());
-      for (const child of names) {
-        facts.push(`${child}-${parent}`);
-      }
-    }
-  }
-  return facts;
-}
-
-function sanitize(name: string): string {
-  return name.replace(/[^A-Za-z0-9_]/g, "_");
 }
 
 function isTrue(value: unknown): boolean {
