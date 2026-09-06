@@ -29,7 +29,7 @@
     <!-- Catalog file name only (no directories or URIs). -->
     <xs:simpleType name="CatalogFileName">
         <xs:restriction base="xs:token">
-            <xs:pattern value="[A-Za-z0-9._-]+\.xml"/>
+            <xs:pattern value="[A-Za-z0-9._-]+\.pl"/>
         </xs:restriction>
     </xs:simpleType>
 

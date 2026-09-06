@@ -527,8 +527,8 @@ describe("AppState diagram XML", () => {
     wireCsPipeline(app);
     const xml = app.toDiagramXml();
     expect(xml).toContain("<diagram");
-    expect(xml).toContain("<catalog>types.xml</catalog>");
-    expect(xml).toContain("<catalog>control-systems.xml</catalog>");
+    expect(xml).toContain("<catalog>types.pl</catalog>");
+    expect(xml).toContain("<catalog>blocks.pl</catalog>");
     expect(xml).toContain('type="timer"');
     expect(xml).toContain('type="sin"');
     expect(xml).toContain("<connector");
@@ -551,8 +551,8 @@ describe("AppState diagram XML", () => {
       app.io.loadXml(`<?xml version="1.0" encoding="UTF-8"?>
 <diagram id="diag_named" name="Named" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
   <catalogs>
-    <catalog>types.xml</catalog>
-    <catalog>control-systems.xml</catalog>
+    <catalog>types.pl</catalog>
+    <catalog>blocks.pl</catalog>
   </catalogs>
   <blocks>
     <block id="blk_probe" type="scope" name="Probe" x="0" y="0" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>
@@ -586,13 +586,13 @@ describe("AppState diagram XML", () => {
       ["Types", true],
       ["Control Systems", true],
     ]);
-    app.toggleCatalog("control-systems.xml");
+    app.toggleCatalog("blocks.pl");
     expect(app.blockDef("timer")).toBeUndefined();
     expect(app.blocks).toHaveLength(0);
-    expect(app.catalogChoices().find((item) => item.file === "control-systems.xml")?.selected).toBe(false);
-    expect(app.toDiagramXml()).toContain("<catalog>types.xml</catalog>");
-    expect(app.toDiagramXml()).not.toContain("control-systems.xml");
-    app.toggleCatalog("control-systems.xml");
+    expect(app.catalogChoices().find((item) => item.file === "blocks.pl")?.selected).toBe(false);
+    expect(app.toDiagramXml()).toContain("<catalog>types.pl</catalog>");
+    expect(app.toDiagramXml()).not.toContain("blocks.pl");
+    app.toggleCatalog("blocks.pl");
     expect(app.blockDef("timer")).toBeDefined();
   });
 
@@ -601,11 +601,11 @@ describe("AppState diagram XML", () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <diagram id="diag_types" name="Types only" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
   <catalogs>
-    <catalog>types.xml</catalog>
+    <catalog>types.pl</catalog>
   </catalogs>
 </diagram>`;
     expect(app.io.loadXml(xml)).toBe(true);
-    expect(app.sources.map((source) => source.name)).toEqual(["types.xml"]);
+    expect(app.sources.map((source) => source.name)).toEqual(["types.pl"]);
     expect(app.blockDef("timer")).toBeUndefined();
     expect(app.catalog.catalogs().map((item) => item.name)).toEqual(["Types"]);
   });
@@ -627,12 +627,12 @@ describe("AppState diagram XML", () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <diagram id="diag_missing" name="Missing" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
   <catalogs>
-    <catalog>missing.xml</catalog>
+    <catalog>missing.pl</catalog>
   </catalogs>
 </diagram>`;
     expect(app.io.loadXml(xml)).toBe(false);
     expect(app.io.error).toMatch(/unknown catalog/);
-    expect(app.sources.map((source) => source.name)).toEqual(["types.xml", "control-systems.xml"]);
+    expect(app.sources.map((source) => source.name)).toEqual(["types.pl", "blocks.pl"]);
   });
 
   it("saves and loads diagrams from the library by hand", async () => {

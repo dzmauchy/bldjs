@@ -1,7 +1,7 @@
 import { unbounded, type BlockDef, type TypeExpr, type VarDef } from "../ast";
 import type { Catalog } from "../catalog";
 import { quoteAtom, typeToProlog, prologTermToType } from "./terms";
-import { ancestorFacts, blockFact, groundedTerm } from "./catalog-pl";
+import { defineBlockGoal, groundedTerm, parentGoals } from "./catalog-pl";
 import type { Grounding } from "../resolve";
 import typesPl from "./types.pl?raw";
 import blocksPl from "./blocks.pl?raw";
@@ -85,15 +85,13 @@ export class TypeEngine {
   async infer(block: BlockDef, grounded: Map<string, Grounding>, catalog: Catalog): Promise<PrologInference> {
     try {
       const vars = new Set(block.vars.map((item) => item.name));
-      const ancestors = ancestorFacts(catalog);
-      const ancestorGoal = ancestors.length > 0 ? `assert_ancestors([${ancestors.join(", ")}]),` : "";
-      const fact = blockFact(block).replace(/\.\s*$/, "");
+      const parents = parentGoals(catalog);
+      const parentGoal = parents.length > 0 ? `${parents.join(", ")},` : "";
+      const id = quoteAtom(block.id);
       const goal = `
-        retractall(block(_, _, _, _)),
-        assertz(${fact}),
-        clear_ancestors,
-        ${ancestorGoal}
-        infer_block(${quoteAtom(block.id)}, ${groundedTerm(grounded, vars)}, Result).
+        ( once(block(${id}, _, _, _)) -> true ; (${defineBlockGoal(block)}) ),
+        ${parentGoal}
+        infer_block(${id}, ${groundedTerm(grounded, vars)}, Result).
       `;
       const result = await this.run(goal);
       if (!result || result.status !== "success" || !result.answer?.Result) {

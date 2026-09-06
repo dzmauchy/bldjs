@@ -1,28 +1,21 @@
-%% Type compatibility and inference library for catalog blocks.
+%% Type catalog and inference library.
 %%
 %% Consult this file first, then `blocks.pl`. Trealla already ships
-%% `library(atts)`; type variables are attributed variables. Unification
-%% runs attr_unify_hook/2 (SWI-style) via Trealla's verify_attributes/3.
+%% `library(atts)`; type variables are attributed variables.
 %%
-%% Type terms (raw names are camelCase atoms):
-%%   double, float, int, int64, uint, uint64, string, bool, byte, char, unit, self
-%%   array(T)
-%%   fn(Args, Ret)      % (T1, T2) -> R
-%%   tuple(Elems)
-%%   union(A, B)
-%%   inter(A, B)
-%%   top                % unconstrained type variable
-%%   v(Name)            % named type variable in a block spec
+%% Catalog facts:
+%%   catalog(Id, Name).
+%%   type(Name, Description).
+%%   var(Type, Name, Constraint).
+%%   parent(Child, Parent).
 %%
-%% Constraints (on <var> or on a port type):
-%%   extends(Bound)
-%%   comparable(Term)
-%%   ?(Constraint)      % optional: skip when the type is still free
-%%   super(T)           % declared ancestor of T, or T itself
-%%
-%% `infer_spec/5` is the engine behind blocks.pl `infer_block/3`.
+%% Type terms: double, array(T), fn(Args, Ret), v(Name), top, ...
 
 :- module(type, [
+    catalog/2,
+    type/2,
+    var/3,
+    parent/2,
     attr_unify_hook/2,
     verify_attributes/3,
     setup_var/2,
@@ -36,15 +29,34 @@
     connectable/1,
     ground_ty/1,
     infer_spec/5,
-    assert_ancestors/1,
-    clear_ancestors/0
+    ancestor/2,
+    assert_parent/2
 ]).
 
 :- use_module(library(atts)).
 :- use_module(library(lists)).
 
 :- attribute type/1.
-:- dynamic ancestor/2.
+:- dynamic parent/2.
+
+catalog(types, 'Types').
+
+type(double, '64-bit IEEE float').
+type(float, '32-bit IEEE float').
+type(int, '32-bit signed integer').
+type(int64, '64-bit signed integer').
+type(uint, '32-bit unsigned integer').
+type(uint64, '64-bit unsigned integer').
+type(string, 'UTF-8 string').
+type(bool, 'boolean').
+type(byte, 'unsigned 8-bit integer').
+type(char, 'Unicode code point').
+type(unit, 'unit').
+type(array, 'homogeneous array').
+var(array, 'T', none).
+
+ancestor(A, B) :-
+    parent(A, B).
 
 %% Trealla library(atts) is SICStus-shaped. Bridge to SWI's
 %% attr_unify_hook(+AttValue, +Other) as requested by the catalog.
@@ -140,7 +152,7 @@ unify_type(T, inter(A, B)) :-
 unify_type(fn(As, unit), array(fn(As, unit))) :-
     !.
 unify_type(A, B) :-
-    ancestor(A, B), !.
+    parent(A, B), !.
 unify_type(A, B) :-
     A = B.
 
@@ -177,9 +189,9 @@ meet(fn(As, R), fn(Bs, S), fn(As, P)) :-
     As == Bs, !,
     meet(R, S, P).
 meet(A, B, A) :-
-    ancestor(A, B), !.
+    parent(A, B), !.
 meet(A, B, B) :-
-    ancestor(B, A), !.
+    parent(B, A), !.
 meet(A, B, inter(A, B)).
 
 %% join(+A, +B, -J)  least upper bound (union)
@@ -188,9 +200,9 @@ join(top, T, T) :- !.
 join(T, top, T) :- !.
 join(T, T, T) :- !.
 join(A, B, B) :-
-    ancestor(A, B), !.
+    parent(A, B), !.
 join(A, B, A) :-
-    ancestor(B, A), !.
+    parent(B, A), !.
 join(A, B, union(A, B)).
 
 satisfy_constraint(?(C), Actual) :-
@@ -201,7 +213,7 @@ satisfy_constraint(?(C), Actual) :-
     ).
 satisfy_constraint(extends(Bound), Actual) :-
     copy_term(Bound, Bound1),
-    ( ancestor(Actual, Bound1) ->
+    ( parent(Actual, Bound1) ->
         true
     ; Bound1 = Actual
     ; unify_type(Actual, Bound1)
@@ -226,7 +238,7 @@ comparable_bound(Bound, Bound).
 
 super_type(T, Super) :-
     read_type(T, TT),
-    ( ancestor(TT, Parent) ->
+    ( parent(TT, Parent) ->
         Super = Parent
     ; Super = TT
     ).
@@ -291,13 +303,11 @@ ground_ty(union(A, B)) :-
     ground_ty(B).
 ground_ty(_).
 
-assert_ancestors([]).
-assert_ancestors([Child-Parent|Rest]) :-
-    assertz(ancestor(Child, Parent)),
-    assert_ancestors(Rest).
-
-clear_ancestors :-
-    retractall(ancestor(_, _)).
+assert_parent(Child, Parent) :-
+    ( parent(Child, Parent) ->
+        true
+    ; assertz(parent(Child, Parent))
+    ).
 
 %% infer_spec(+VarSpecs, +Ins, +Outs, +Grounded, -Result)
 %% VarSpecs = [var(Name, Constraint), ...]

@@ -18,12 +18,12 @@ All primary diagram entities (`<diagram>`, `<block>`, `<connector>`, `<input>`, 
 ---
 
 ## 2. Catalog Selection
-The diagram names the block catalogs it uses under `<catalogs>`. Each `<catalog>` is a file name only (no directories or URIs). The catalog display name comes from that file's `<blocks name="...">` attribute, not from the diagram. A diagram with no `<catalogs>` has no catalogs.
+The diagram names the Prolog catalogs it uses under `<catalogs>`. Each `<catalog>` is a `.pl` file name only (no directories or URIs). The catalog display name comes from `catalog(Id, Name)` in that file. A diagram with no `<catalogs>` has no catalogs.
 
 ```xml
 <catalogs>
-    <catalog>types.xml</catalog>
-    <catalog>control-systems.xml</catalog>
+    <catalog>types.pl</catalog>
+    <catalog>blocks.pl</catalog>
 </catalogs>
 ```
 

@@ -19,7 +19,7 @@ export { ParseError };
 
 const { attr, pad, escapeAttr, escapeText } = XmlWriter;
 
-const CATALOG_FILE = /^[A-Za-z0-9._-]+\.xml$/;
+const CATALOG_FILE = /^[A-Za-z0-9._-]+\.pl$/;
 
 /** Diagram catalogs are file names only (no directories or URIs). */
 export function catalogFileName(value: string): string {

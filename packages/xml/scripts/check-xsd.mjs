@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 
 const packageDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const modelsDir = join(packageDir, "src/resources/models");
-const fixturesXml = join(packageDir, "src/blocks/fixtures.xml");
 
 function xmlFiles(names) {
   return names.map((name) => join(modelsDir, name));
@@ -55,28 +54,12 @@ function validate(schemaName, files) {
   }
 }
 
-const catalogXml = readdirSync(modelsDir)
-  .filter((name) => name.endsWith(".xml") && name !== "diagram.xml")
-  .sort();
 const diagramXml = readdirSync(modelsDir).filter((name) => name === "diagram.xml");
-
-if (catalogXml.length === 0) {
-  console.error(`No catalog XML models found in ${modelsDir}`);
+if (diagramXml.length === 0) {
+  console.error(`No diagram.xml in ${modelsDir}`);
   process.exit(1);
 }
-if (!existsSync(fixturesXml)) {
-  console.error(`Fixture catalog not found: ${fixturesXml}`);
-  process.exit(1);
+for (const file of xmlFiles(diagramXml)) {
+  assertSchemaHint(file, "diagram.xsd");
 }
-
-const catalogFiles = [...xmlFiles(catalogXml), fixturesXml];
-for (const file of catalogFiles) {
-  assertSchemaHint(file, "blocks.xsd");
-}
-validate("blocks.xsd", catalogFiles);
-if (diagramXml.length > 0) {
-  for (const file of xmlFiles(diagramXml)) {
-    assertSchemaHint(file, "diagram.xsd");
-  }
-  validate("diagram.xsd", xmlFiles(diagramXml));
-}
+validate("diagram.xsd", xmlFiles(diagramXml));

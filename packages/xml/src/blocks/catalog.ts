@@ -9,8 +9,9 @@ import {
   NamedType,
 } from "./ast";
 import { ParseError, parseBlocks } from "./parse";
+import { parsePlCatalog } from "./parse-pl";
 
-/** One associated catalog document (`<blocks name>` from the XML file). */
+/** One associated catalog document (`catalog(Id, Name)` from a `.pl` file). */
 export interface CatalogRef {
   file: string;
   id: string;
@@ -49,6 +50,17 @@ export class Catalog {
 
   addXml(file: string, xml: string): void {
     this.addDoc(parseBlocks(file, xml));
+  }
+
+  addPl(file: string, src: string): void {
+    this.addDoc(parsePlCatalog(file, src));
+  }
+
+  addSource(file: string, content: string): void {
+    if (!file.endsWith(".pl")) {
+      throw ParseError.new(`catalog \`${file}\` must be a Prolog .pl file`);
+    }
+    this.addPl(file, content);
   }
 
   addDoc(doc: BlocksDoc): void {

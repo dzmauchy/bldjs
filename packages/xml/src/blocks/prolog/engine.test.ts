@@ -3,24 +3,26 @@ import { arrayOf, consumerType, named, unbounded, unionOf, intersectionOf } from
 import { Catalog } from "../catalog";
 import { getTypeEngine } from "./engine";
 import { typeToProlog, typeToSpec, constraintToSpec, prologTermToType } from "./terms";
-import { catalogPl } from "./catalog-pl";
+import { blockFact } from "./catalog-pl";
+
+function idCatalog(): Catalog {
+  const cat = new Catalog();
+  cat.addPl(
+    "id.pl",
+    `
+      catalog(t, 'T').
+      block(id, 'Id', none, [ns(test), var('T', none)]).
+      input(id, in, in, v('T'), []).
+      output(id, out, out, v('T'), []).
+    `,
+  );
+  return cat;
+}
 
 describe("Trealla type engine", () => {
   it("meets successive constraints on a type variable", async () => {
     const engine = await getTypeEngine();
-    const cat = new Catalog();
-    cat.addXml(
-      "id.xml",
-      `
-        <blocks id="t" name="T">
-          <block id="id" name="Id" ns="test">
-            <var>T</var>
-            <in name="in" type="T"/>
-            <out name="out" type="T"/>
-          </block>
-        </blocks>
-      `,
-    );
+    const cat = idCatalog();
     const block = cat.block("id")!;
     const once = await engine.infer(
       block,
@@ -43,16 +45,13 @@ describe("Trealla type engine", () => {
   it("joins vararg groundings and leaves unbound outputs unconnectable", async () => {
     const engine = await getTypeEngine();
     const cat = new Catalog();
-    cat.addXml(
-      "arr.xml",
+    cat.addPl(
+      "arr.pl",
       `
-        <blocks id="t" name="T">
-          <block id="arr" name="Arr" ns="test">
-            <var>T</var>
-            <in name="elems" type="T" vararg="true"/>
-            <out name="result" type="array[T]"/>
-          </block>
-        </blocks>
+        catalog(t, 'T').
+        block(arr, 'Arr', none, [ns(test), var('T', none)]).
+        input(arr, elems, elems, v('T'), [vararg]).
+        output(arr, result, result, array(v('T')), []).
       `,
     );
     const block = cat.block("arr")!;
@@ -89,39 +88,22 @@ describe("Trealla type engine", () => {
   });
 
   it("writes block/4 facts keyed by id", () => {
-    const cat = new Catalog();
-    cat.addXml(
-      "id.xml",
-      `
-        <blocks id="t" name="T">
-          <block id="id" name="Id" ns="test">
-            <var>T</var>
-            <in name="in" type="T"/>
-            <out name="out" type="T"/>
-          </block>
-        </blocks>
-      `,
-    );
-    const src = catalogPl(cat);
-    expect(src).toContain(":- assertz(block(id,");
+    const cat = idCatalog();
+    const src = blockFact(cat.block("id")!);
+    expect(src).toContain("block(id,");
     expect(src).toContain("var('T', none)");
-    expect(src).toContain("in(in, v('T'), none, once)");
-    expect(src).toContain("out(out, v('T'), none)");
   });
 
   it("accepts comparable(?(super(T))) on a grounded output", async () => {
     const engine = await getTypeEngine();
     const cat = new Catalog();
-    cat.addXml(
-      "cmp.xml",
+    cat.addPl(
+      "cmp.pl",
       `
-        <blocks id="t" name="T">
-          <block id="cmp" name="Cmp" ns="test">
-            <var>T</var>
-            <in name="in" type="T"/>
-            <out name="out" type="T:comparable(?(super(T)))"/>
-          </block>
-        </blocks>
+        catalog(t, 'T').
+        block(cmp, 'Cmp', none, [ns(test), var('T', none)]).
+        input(cmp, in, in, v('T'), []).
+        output(cmp, out, out, v('T'), [constraint(comparable(?(super(v('T')))))]).
       `,
     );
     const inferred = await engine.infer(
@@ -136,31 +118,16 @@ describe("Trealla type engine", () => {
 
   it("swaps catalogs on one engine without a second consult", async () => {
     const engine = await getTypeEngine();
-    const first = new Catalog();
-    first.addXml(
-      "id.xml",
-      `
-        <blocks id="t" name="T">
-          <block id="id" name="Id" ns="test">
-            <var>T</var>
-            <in name="in" type="T"/>
-            <out name="out" type="T"/>
-          </block>
-        </blocks>
-      `,
-    );
+    const first = idCatalog();
     const second = new Catalog();
-    second.addXml(
-      "merge.xml",
+    second.addPl(
+      "merge.pl",
       `
-        <blocks id="t" name="T">
-          <block id="merge" name="Merge" ns="test">
-            <var>T</var>
-            <in name="a" type="T"/>
-            <in name="b" type="T"/>
-            <out name="out" type="T"/>
-          </block>
-        </blocks>
+        catalog(t, 'T').
+        block(merge, 'Merge', none, [ns(test), var('T', none)]).
+        input(merge, a, a, v('T'), []).
+        input(merge, b, b, v('T'), []).
+        output(merge, out, out, v('T'), []).
       `,
     );
     const idOnce = await engine.infer(

@@ -67,7 +67,7 @@ export class Diagram {
   associateXml(name: string, content: string): void {
     const source: XmlSource = { name, content };
     const catalog = cloneCatalog(this.catalogInner, this.sourceList);
-    catalog.addXml(source.name, source.content);
+    catalog.addSource(source.name, source.content);
     this.catalogInner = catalog;
     this.sourceList.push(source);
   }
@@ -79,7 +79,7 @@ export class Diagram {
     const remaining = this.sourceList.filter((source) => source.name !== name);
     const catalog = new Catalog();
     for (const source of remaining) {
-      catalog.addXml(source.name, source.content);
+      catalog.addSource(source.name, source.content);
     }
     const known = new Set(catalog.blocks().map((block) => block.id));
     this.nodeList = this.nodeList.filter((node) => known.has(node.defId));
@@ -132,7 +132,7 @@ export class Diagram {
 function cloneCatalog(catalog: Catalog, sources: XmlSource[]): Catalog {
   const next = new Catalog();
   for (const source of sources) {
-    next.addXml(source.name, source.content);
+    next.addSource(source.name, source.content);
   }
   void catalog;
   return next;

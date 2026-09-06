@@ -12,6 +12,7 @@
     "./blocks/ports": "./src/blocks/ports.ts",
     "./blocks/resolve": "./src/blocks/resolve.ts",
     "./blocks/parse": "./src/blocks/parse.ts",
+    "./blocks/parse-pl": "./src/blocks/parse-pl.ts",
     "./blocks/moonbit-type": "./src/blocks/moonbit-type.ts",
     "./blocks/types": "./src/blocks/types.ts",
     "./blocks/diagram": "./src/blocks/diagram.ts",

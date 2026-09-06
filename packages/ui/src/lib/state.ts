@@ -678,7 +678,7 @@ export class AppState extends ObservableState {
   #applySources(sources: XmlSource[]): void {
     const catalog = new Catalog();
     for (const source of sources) {
-      catalog.addXml(source.name, source.content);
+      catalog.addSource(source.name, source.content);
     }
     const known = new Set(catalog.blocks().map((block) => block.id));
     const kept = this.blocks.filter((block) => known.has(block.defId));

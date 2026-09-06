@@ -1,27 +1,28 @@
-import typesXml from "../resources/models/types.xml?raw";
-import controlSystemsXml from "../resources/models/control-systems.xml?raw";
-import fixturesXml from "./fixtures.xml?raw";
-import { ParseError, parseBlocks } from "./parse";
+import typesPl from "./prolog/types.pl?raw";
+import blocksPl from "./prolog/blocks.pl?raw";
+import fixturesPl from "./prolog/fixtures.pl?raw";
+import { ParseError } from "./parse";
+import { parsePlCatalog } from "./parse-pl";
 import type { CatalogRef } from "./catalog";
 import { Catalog } from "./catalog";
 import type { Diagram, XmlSource } from "./diagram";
 
-export const TYPES_XML = typesXml;
-export const CONTROL_SYSTEMS_XML = controlSystemsXml;
-export const FIXTURES_XML = fixturesXml;
+export const TYPES_PL = typesPl;
+export const BLOCKS_PL = blocksPl;
+export const FIXTURES_PL = fixturesPl;
 
 export const BUILTIN_MODELS: ReadonlyArray<readonly [string, string]> = [
-  ["types.xml", TYPES_XML],
-  ["control-systems.xml", CONTROL_SYSTEMS_XML],
+  ["types.pl", TYPES_PL],
+  ["blocks.pl", BLOCKS_PL],
 ];
 
 export interface BuiltinCatalog extends CatalogRef {
   xml: string;
 }
 
-export const BUILTIN_CATALOGS: readonly BuiltinCatalog[] = BUILTIN_MODELS.map(([file, xml]) => {
-  const doc = parseBlocks(file, xml);
-  return { file, xml, id: doc.id, name: doc.name };
+export const BUILTIN_CATALOGS: readonly BuiltinCatalog[] = BUILTIN_MODELS.map(([file, src]) => {
+  const doc = parsePlCatalog(file, src);
+  return { file, xml: src, id: doc.id, name: doc.name };
 });
 
 const BUILTIN_BY_FILE = new Map(BUILTIN_CATALOGS.map((catalog) => [catalog.file, catalog]));
@@ -47,7 +48,7 @@ export function xmlSourcesForFiles(files: readonly string[]): XmlSource[] {
 export function catalogFromFiles(files: readonly string[]): Catalog {
   const catalog = new Catalog();
   for (const source of xmlSourcesForFiles(files)) {
-    catalog.addXml(source.name, source.content);
+    catalog.addSource(source.name, source.content);
   }
   return catalog;
 }
@@ -68,5 +69,5 @@ export function associateCatalogFiles(diagram: Diagram, files: readonly string[]
 /** Extra blocks used only by unit tests (array, flow, type constructors). */
 export function associateFixtureModels(diagram: Diagram): void {
   associateBuiltinModels(diagram);
-  diagram.associateXml("fixtures.xml", FIXTURES_XML);
+  diagram.associateXml("fixtures.pl", FIXTURES_PL);
 }

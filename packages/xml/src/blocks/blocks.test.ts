@@ -251,6 +251,8 @@ describe("blocks", () => {
     ]);
     expect(() => xmlSourcesForFiles(["missing.pl"])).toThrow("unknown catalog");
     expect(() => xmlSourcesForFiles(["models/types.pl"])).toThrow("unknown catalog");
+    expect(() => xmlSourcesForFiles(["types.xml"])).toThrow("unknown catalog");
+    expect(() => new Catalog().addSource("types.xml", "<blocks/>")).toThrow("Prolog .pl file");
     expect(catalog().catalogs().map((item) => item.file)).toEqual(["types.pl", "fixtures.pl", "blocks.pl"]);
   });
 

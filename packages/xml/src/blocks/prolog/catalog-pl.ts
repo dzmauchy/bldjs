@@ -1,18 +1,7 @@
-import type { BlockDef } from "../ast";
+import type { BlockDef, BlockParameterDef, PortDef } from "../ast";
 import type { Catalog } from "../catalog";
 import type { Grounding } from "../resolve";
 import { constraintToSpec, quoteAtom, typeToProlog, typeToSpec } from "./terms";
-
-/** Prolog source for `block/4` facts keyed by catalog id. */
-export function catalogPl(catalog: Catalog): string {
-  const asserts = catalog.blocks().map((block) => `:- assertz(${stripDot(blockFact(block))}).`);
-  const ancestors = ancestorFacts(catalog);
-  const ancestorDir =
-    ancestors.length === 0
-      ? ":- clear_ancestors."
-      : `:- clear_ancestors.\n:- assert_ancestors([${ancestors.join(", ")}]).`;
-  return [":- use_module(type).", ":- retractall(block(_, _, _, _)).", ...asserts, ancestorDir, ""].join("\n");
-}
 
 export function groundedTerm(grounded: Map<string, Grounding>, vars: ReadonlySet<string>): string {
   const items: string[] = [];
@@ -27,41 +16,95 @@ export function groundedTerm(grounded: Map<string, Grounding>, vars: ReadonlySet
   return `[${items.join(", ")}]`;
 }
 
-export function ancestorFacts(catalog: Catalog): string[] {
-  const facts: string[] = [];
+export function parentGoals(catalog: Catalog): string[] {
+  const goals: string[] = [];
   for (const typeDef of catalog.typeDefs()) {
-    const names = [quoteAtom(typeDef.name)];
-    if (typeDef.ns) {
-      names.push(quoteAtom(`${typeDef.ns}.${typeDef.name}`));
-    }
     for (const ancestor of typeDef.ancestors) {
-      const parent = typeToProlog(ancestor, new Set());
-      for (const child of names) {
-        facts.push(`${child}-${parent}`);
+      goals.push(`assert_parent(${quoteAtom(typeDef.name)}, ${typeToProlog(ancestor, new Set())})`);
+      if (typeDef.ns) {
+        goals.push(
+          `assert_parent(${quoteAtom(`${typeDef.ns}.${typeDef.name}`)}, ${typeToProlog(ancestor, new Set())})`,
+        );
       }
     }
   }
-  return facts;
+  return goals;
+}
+
+export function defineBlockGoal(block: BlockDef): string {
+  const id = quoteAtom(block.id);
+  const parts = [
+    `retractall(block(${id}, _, _, _))`,
+    `retractall(input(${id}, _, _, _, _))`,
+    `retractall(output(${id}, _, _, _, _))`,
+    `retractall(param(${id}, _, _, _))`,
+    `assertz(${stripDot(blockFact(block))})`,
+    ...block.inputs.map((port) => `assertz(${stripDot(portFact(block, port, "input"))})`),
+    ...block.outputs.map((port) => `assertz(${stripDot(portFact(block, port, "output"))})`),
+    ...block.parameters.map((param) => `assertz(${stripDot(paramFact(block, param))})`),
+  ];
+  return parts.join(",\n");
 }
 
 export function blockFact(block: BlockDef): string {
   const vars = new Set(block.vars.map((item) => item.name));
-  const varList = block.vars
-    .map((item) => `var(${quoteAtom(item.name)}, ${constraintToSpec(item.constraint, vars)})`)
-    .join(", ");
-  const ins = block.inputs
-    .map((port) => {
-      const flag = port.vararg ? "vararg" : "once";
-      return `in(${quoteAtom(port.name)}, ${typeToSpec(port.ty, vars)}, ${constraintToSpec(port.constraint, vars)}, ${flag})`;
-    })
-    .join(", ");
-  const outs = block.outputs
-    .map(
-      (port) =>
-        `out(${quoteAtom(port.name)}, ${typeToSpec(port.ty, vars)}, ${constraintToSpec(port.constraint, vars)})`,
-    )
-    .join(", ");
-  return `block(${quoteAtom(block.id)}, [${varList}], [${ins}], [${outs}]).`;
+  const attrs: string[] = [];
+  if (block.ns) {
+    attrs.push(`ns(${quoteAtom(block.ns)})`);
+  }
+  for (const attribute of block.attributes) {
+    if (attribute.value === "true") {
+      attrs.push(quoteAtom(attribute.name));
+    } else {
+      attrs.push(`${quoteAtom(attribute.name)}(${quoteAtom(attribute.value)})`);
+    }
+  }
+  for (const item of block.vars) {
+    attrs.push(`var(${quoteAtom(item.name)}, ${constraintToSpec(item.constraint, vars)})`);
+  }
+  const icon = block.icon ? quoteAtom(block.icon) : "none";
+  return `block(${quoteAtom(block.id)}, ${quoteAtom(block.name)}, ${icon}, [${attrs.join(", ")}]).`;
+}
+
+function portFact(block: BlockDef, port: PortDef, functor: "input" | "output"): string {
+  const vars = new Set(block.vars.map((item) => item.name));
+  const attrs: string[] = [];
+  if (port.vararg) {
+    attrs.push("vararg");
+  }
+  if (port.constraint) {
+    attrs.push(`constraint(${constraintToSpec(port.constraint, vars)})`);
+  }
+  for (const attribute of port.attributes) {
+    if (attribute.value === "true") {
+      attrs.push(quoteAtom(attribute.name));
+    }
+  }
+  return `${functor}(${quoteAtom(block.id)}, ${quoteAtom(port.name)}, ${quoteAtom(port.name)}, ${typeToSpec(port.ty, vars)}, [${attrs.join(", ")}]).`;
+}
+
+function paramFact(block: BlockDef, param: BlockParameterDef): string {
+  const kind = param.kind.replace(/-parameter$/, "").replace(/-/g, "_");
+  const attrs: string[] = [];
+  if (param.description) {
+    attrs.push(`description(${quoteAtom(param.description)})`);
+  }
+  if (param.default !== null) {
+    attrs.push(`default(${quoteAtom(param.default)})`);
+  }
+  if (param.min !== undefined) {
+    attrs.push(`min(${param.min})`);
+  }
+  if (param.max !== undefined) {
+    attrs.push(`max(${param.max})`);
+  }
+  if (param.step !== undefined) {
+    attrs.push(`step(${param.step})`);
+  }
+  if (param.pattern) {
+    attrs.push(`pattern(${quoteAtom(param.pattern)})`);
+  }
+  return `param(${quoteAtom(block.id)}, ${quoteAtom(param.name)}, ${kind}, [${attrs.join(", ")}]).`;
 }
 
 function stripDot(fact: string): string {

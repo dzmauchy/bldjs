@@ -47,7 +47,7 @@ describe("diagram XML", () => {
     expect(doc.connectors[0]?.input.block).toBe("blk_sensor_in");
     expect(doc.connectors[0]?.input.port).toBe("data_out");
     expect(doc.connectors[0]?.output.port).toBe("raw_in");
-    expect(doc.catalogs).toEqual(["blocks.xml"]);
+    expect(doc.catalogs).toEqual(["types.pl", "blocks.pl"]);
     const scaler = doc.blocks.find((block) => block.type === "scaler");
     expect(scaler?.parameters.map((param) => param.kind)).toEqual([
       "decimal-parameter",
@@ -65,23 +65,23 @@ describe("diagram XML", () => {
       doc.connectors.map((item) => [item.input.block, item.output.block]),
     );
     expect(again.blocks[1]?.parameters[0]?.value).toBe("0.0042");
-    expect(again.catalogs).toEqual(["blocks.xml"]);
+    expect(again.catalogs).toEqual(["types.pl", "blocks.pl"]);
   });
 
   it("parses catalog file names and rejects paths", () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <diagram id="diag_cats" name="Cats" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
   <catalogs>
-    <catalog>types.xml</catalog>
-    <catalog>control-systems.xml</catalog>
+    <catalog>types.pl</catalog>
+    <catalog>blocks.pl</catalog>
   </catalogs>
 </diagram>`;
-    expect(parseDiagramXml(xml).catalogs).toEqual(["types.xml", "control-systems.xml"]);
+    expect(parseDiagramXml(xml).catalogs).toEqual(["types.pl", "blocks.pl"]);
     expect(() =>
       parseDiagramXml(`<?xml version="1.0" encoding="UTF-8"?>
 <diagram id="diag_path" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
   <catalogs>
-    <catalog>models/types.xml</catalog>
+    <catalog>models/types.pl</catalog>
   </catalogs>
 </diagram>`),
     ).toThrow("catalog must be a file name");
@@ -89,8 +89,8 @@ describe("diagram XML", () => {
       parseDiagramXml(`<?xml version="1.0" encoding="UTF-8"?>
 <diagram id="diag_dup" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
   <catalogs>
-    <catalog>types.xml</catalog>
-    <catalog>types.xml</catalog>
+    <catalog>types.pl</catalog>
+    <catalog>types.pl</catalog>
   </catalogs>
 </diagram>`),
     ).toThrow("duplicate catalog");
@@ -102,15 +102,15 @@ describe("diagram XML", () => {
       name: "Cats",
       createdAt: "2026-08-31T05:00:00Z",
       updatedAt: "2026-08-31T05:00:00Z",
-      catalogs: ["types.xml", "control-systems.xml"],
+      catalogs: ["types.pl", "blocks.pl"],
       blocks: [],
       links: [],
     });
     expect(xml).toContain("<catalogs>");
-    expect(xml).toContain("<catalog>types.xml</catalog>");
-    expect(xml).toContain("<catalog>control-systems.xml</catalog>");
+    expect(xml).toContain("<catalog>types.pl</catalog>");
+    expect(xml).toContain("<catalog>blocks.pl</catalog>");
     expect(xml).not.toContain("resources/models");
-    expect(documentToCanvas(parseDiagramXml(xml)).catalogs).toEqual(["types.xml", "control-systems.xml"]);
+    expect(documentToCanvas(parseDiagramXml(xml)).catalogs).toEqual(["types.pl", "blocks.pl"]);
     const empty = serializeCanvas({
       id: "diag_none",
       name: "None",

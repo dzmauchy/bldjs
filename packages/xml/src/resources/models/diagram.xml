@@ -12,7 +12,8 @@
     <attribute name="environment">production</attribute>
 
     <catalogs>
-        <catalog>blocks.xml</catalog>
+        <catalog>types.pl</catalog>
+        <catalog>blocks.pl</catalog>
     </catalogs>
 
     <blocks>
