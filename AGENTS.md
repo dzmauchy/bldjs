@@ -46,7 +46,7 @@ kitchen-sink barrel. Import the file that owns the symbol:
 
 - `@bld/types/ast`, `catalog`, `compat`, `ports`, `resolve`, `format`, `types`
 - `@bld/xml/blocks/ast`, `catalog`, `compat`, `ports`, `resolve`, `parse`, `diagram`, `builtin`
-- `@bld/xml/blocks/cs/ids`, `cs/types`, `cs/plan` (not the CS generator classes unless needed)
+- `@bld/xml/blocks/cs/ids`, `cs/types`, `cs/plan`
 - `@bld/xml/diagram/xml`, `diagram/store`, `diagram/compile`
 - `@bld/xml/solution/view`, `@bld/xml/flow`, `@bld/xml/topology`, `@bld/xml/runner`
 - `@bld/wasm/isolation`, `@bld/wasm/runtime/diagram-runner`, `@bld/wasm/solution/wasm`

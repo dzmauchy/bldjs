@@ -10,11 +10,8 @@ import {
   isTransformerId,
   periodMsFrom,
 } from "./ids";
-import { nowSecs, sampleOnce } from "./generators";
-import { intervalMs } from "../../flow";
-import { SampleBuf } from "./samples";
 import { ForkNode, MapNode, ProductGroup, ProductSlot, ScopeSink, type ConsumerTree } from "./tree";
-import type { F64Func, GeneratorPlan, NodeSpec } from "./types";
+import type { GeneratorPlan, NodeSpec } from "./types";
 
 export { collectChannels, collectScopeIds } from "./tree";
 
@@ -92,59 +89,4 @@ export function planGenerator(generatorId: number, nodes: NodeSpec[], links: Lin
     delayMs: isEventDrivenGenerator(node.defId) ? 0 : periodMsFrom(node.periodMs),
     tree,
   };
-}
-
-/** @deprecated Prefer {@link planGenerator}; kept for in-process tests. */
-export interface CompiledTimer {
-  emit: F64Func;
-  delayMs: number;
-}
-
-export function compileTimer(
-  generatorId: number,
-  nodes: NodeSpec[],
-  links: Link[],
-  buffers: Map<number, SampleBuf>,
-): CompiledTimer | undefined {
-  const plan = planGenerator(generatorId, nodes, links);
-  if (!plan) {
-    return undefined;
-  }
-  const sink = plan.tree.compile(buffers, { n: 0 });
-  const node = nodes.find((item) => item.id === generatorId);
-  return {
-    emit: (time) => sink(sampleOnce(plan.defId, time, node?.value)),
-    delayMs: plan.delayMs,
-  };
-}
-
-export function spawnTimer(compiled: CompiledTimer, running: { value: boolean }): () => void {
-  if (compiled.delayMs <= 0) {
-    return () => {
-      running.value = false;
-    };
-  }
-  const delay = intervalMs(compiled.delayMs);
-  const fire = (): void => {
-    if (!running.value) {
-      return;
-    }
-    compiled.emit(nowSecs());
-  };
-  fire();
-  const interval = setInterval(() => {
-    if (!running.value) {
-      clearInterval(interval);
-      return;
-    }
-    compiled.emit(nowSecs());
-  }, delay);
-  return () => {
-    running.value = false;
-    clearInterval(interval);
-  };
-}
-
-export function stop(running: { value: boolean }): void {
-  running.value = false;
 }

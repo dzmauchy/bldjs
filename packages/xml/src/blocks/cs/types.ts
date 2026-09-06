@@ -1,13 +1,3 @@
-/** Push consumer `(T) -> void`. */
-export type Func<T> = (value: T) => void;
-/** Consumer `(number) -> void`. */
-export type DoubleConsumer = Func<number>;
-export type F64Func = DoubleConsumer;
-/** @deprecated Push model uses {@link DoubleConsumer} on every port. */
-export type DoubleSource = DoubleConsumer;
-export type F64Source = DoubleConsumer;
-/** @deprecated Same as {@link DoubleConsumer}. */
-export type Nested = DoubleConsumer;
 
 export interface NodeSpec {
   id: number;

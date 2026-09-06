@@ -1,15 +1,10 @@
-import { fork } from "./generators";
-import { SampleBuf } from "./samples";
-import { mapOnce, OvershootTransformer } from "./transformers";
-import type { F64Func, ScopeChannel } from "./types";
+import type { ScopeChannel } from "./types";
 
 /** Push-model consumer tree: `timer(sin(fork(plot[0], plot[1])))`. */
 export abstract class ConsumerNode {
   abstract readonly kind: "scope" | "fork" | "map" | "product";
 
   abstract collectChannels(label: string): ScopeChannel[];
-
-  abstract compile(buffers: Map<number, SampleBuf>, next: { n: number }): F64Func;
 
   collectScopeIds(): number[] {
     return [...new Set(this.collectChannels("out").map((channel) => channel.scopeId))];
@@ -26,13 +21,6 @@ export class ScopeSink extends ConsumerNode {
   collectChannels(label: string): ScopeChannel[] {
     return [{ scopeId: this.id, label }];
   }
-
-  compile(buffers: Map<number, SampleBuf>, next: { n: number }): F64Func {
-    const ring = next.n;
-    next.n += 1;
-    const leaf = buffers.get(ring);
-    return (value) => leaf?.push(value);
-  }
 }
 
 export class ForkNode extends ConsumerNode {
@@ -44,10 +32,6 @@ export class ForkNode extends ConsumerNode {
 
   collectChannels(label: string): ScopeChannel[] {
     return this.inner.flatMap((child) => child.collectChannels(label));
-  }
-
-  compile(buffers: Map<number, SampleBuf>, next: { n: number }): F64Func {
-    return fork(...this.inner.map((child) => child.compile(buffers, next)));
   }
 }
 
@@ -76,21 +60,12 @@ export class MapNode extends ConsumerNode {
   collectChannels(_label: string): ScopeChannel[] {
     return this.inner.collectChannels(this.defId);
   }
-
-  compile(buffers: Map<number, SampleBuf>, next: { n: number }): F64Func {
-    const inner = this.inner.compile(buffers, next);
-    if (this.defId === "overshoot") {
-      return new OvershootTransformer(this.zeta, this.omega, this.timeInput ?? true).wrap(inner);
-    }
-    return (value) => inner(mapOnce(this.defId, value));
-  }
 }
 
-/** Shared factor slots for one product block. Downstream is compiled once. */
+/** Shared factor slots for one product block. */
 export class ProductGroup {
   readonly values: number[];
   minSlot = Number.POSITIVE_INFINITY;
-  private sink: F64Func | undefined;
 
   constructor(
     readonly id: number,
@@ -111,20 +86,6 @@ export class ProductGroup {
   collectFrom(slot: number): ScopeChannel[] {
     return slot === this.minSlot ? this.inner.collectChannels("product") : [];
   }
-
-  compile(buffers: Map<number, SampleBuf>, next: { n: number }): F64Func {
-    this.sink ??= this.inner.compile(buffers, next);
-    return this.sink;
-  }
-
-  accept(slot: number, value: number): void {
-    this.values[slot] = value;
-    let p = 1;
-    for (const item of this.values) {
-      p *= item;
-    }
-    this.sink?.(p);
-  }
 }
 
 export class ProductSlot extends ConsumerNode {
@@ -144,11 +105,6 @@ export class ProductSlot extends ConsumerNode {
 
   collectChannels(_label: string): ScopeChannel[] {
     return this.group.collectFrom(this.slot);
-  }
-
-  compile(buffers: Map<number, SampleBuf>, next: { n: number }): F64Func {
-    this.group.compile(buffers, next);
-    return (value) => this.group.accept(this.slot, value);
   }
 }
 

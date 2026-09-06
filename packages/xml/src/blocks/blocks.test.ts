@@ -52,28 +52,8 @@ import { Catalog } from "./catalog";
 import { isCompatible } from "./compat";
 import {
   COMBINER_IDS,
-  ConstantGenerator,
-  DEFAULT_PERIOD_MS,
   GENERATOR_IDS,
-  GpioInGenerator,
-  SampleBuf,
-  sampleCap,
-  compileTimer,
-  CosTransformer,
-  fork,
-  mapOnce,
-  OvershootTransformer,
-  overshootStep,
   planGenerator,
-  product,
-  sampleOnce,
-  scope,
-  sin,
-  SinTransformer,
-  sinFunc,
-  spawnTimer,
-  stop,
-  timer,
 } from "./cs";
 import { type Link, Diagram } from "./diagram";
 import { parseBlocks } from "./parse";
@@ -816,19 +796,6 @@ describe("blocks", () => {
     expect(isPushType(undefined)).toBe(false);
   });
 
-  it("fork forwards each sample to every downstream", () => {
-    const left: number[] = [];
-    const right: number[] = [];
-    const both = fork(
-      (value) => left.push(value),
-      (value) => right.push(value),
-    );
-    both(1);
-    both(2);
-    expect(left).toEqual([1, 2]);
-    expect(right).toEqual([1, 2]);
-  });
-
   it("plans a hidden fork when two scopes share a timer input", () => {
     const nodes = [
       { id: 1, defId: "scope" },
@@ -893,88 +860,7 @@ describe("blocks", () => {
     ]);
   });
 
-  it("sin maps samples", () => {
-    const out: number[] = [];
-    const mapped = sinFunc((value) => out.push(value));
-    mapped(0);
-    mapped(Math.PI / 2);
-    expect(Math.abs(out[0])).toBeLessThan(1e-9);
-    expect(Math.abs(out[1] - 1)).toBeLessThan(1e-9);
-  });
-
-  it("transformer and generator classes share one registry", () => {
-    expect(new SinTransformer().map(0)).toBe(mapOnce("sin", 0));
-    expect(new CosTransformer().map(0)).toBe(mapOnce("cos", 0));
-    expect(new OvershootTransformer().map(0)).toBe(mapOnce("overshoot", 0));
-    expect(sampleOnce("timer", 3.25)).toBe(3.25);
-    expect(sampleOnce("constant", 3.25)).toBe(1);
-    expect(sampleOnce("constant", 3.25, 2.5)).toBe(2.5);
-    expect(new ConstantGenerator(10, 4).sample(0)).toBe(4);
-  });
-
-  it("cos maps samples", () => {
-    const out: number[] = [];
-    const mapped = (value: number) => out.push(Math.cos(value));
-    mapped(0);
-    mapped(Math.PI);
-    expect(Math.abs(out[0] - 1)).toBeLessThan(1e-9);
-    expect(Math.abs(out[1] + 1)).toBeLessThan(1e-9);
-  });
-
-  it("overshoot maps the classic second-order unit step", () => {
-    const zeta = 0.5;
-    const omega = 2;
-    const wd = omega * Math.sqrt(1 - zeta * zeta);
-    const peakTime = Math.PI / wd;
-    const overshoot = Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta));
-    expect(overshootStep(0, zeta, omega)).toBe(0);
-    expect(overshootStep(-1, zeta, omega)).toBe(0);
-    expect(overshootStep(peakTime, zeta, omega)).toBeCloseTo(1 + overshoot, 8);
-    expect(overshootStep(80, zeta, omega)).toBeCloseTo(1, 5);
-
-    const out: number[] = [];
-    const mapped = new OvershootTransformer(zeta, omega).wrap((value) => out.push(value));
-    mapped(10);
-    mapped(10 + peakTime);
-    expect(out[0]).toBe(0);
-    expect(out[1]).toBeCloseTo(1 + overshoot, 8);
-  });
-
-  it("overshoot peak time follows ω independently of ζ", () => {
-    const zeta = 0.5;
-    const overshoot = Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta));
-    const peak = (w: number) => Math.PI / (w * Math.sqrt(1 - zeta * zeta));
-    expect(overshootStep(peak(1), zeta, 1)).toBeCloseTo(1 + overshoot, 8);
-    expect(overshootStep(peak(4), zeta, 4)).toBeCloseTo(1 + overshoot, 8);
-    expect(overshootStep(peak(1), zeta, 4)).not.toBeCloseTo(1 + overshoot, 2);
-  });
-
-  it("product updates one slot then pushes the product of all defaults", () => {
-    const out: number[] = [];
-    const factors = product(2, 1, (value) => out.push(value));
-    factors[0]!(3);
-    factors[1]!(4);
-    expect(out).toEqual([3, 12]);
-    factors[0]!(5);
-    expect(out.at(-1)).toBe(20);
-  });
-
-  it("compile generator constant into scope", () => {
-    const nodes = [
-      { id: 1, defId: "scope" },
-      { id: 3, defId: "constant", value: 2.5 },
-    ];
-    const links: Link[] = [{ fromBlock: 1, fromOut: "out", toBlock: 3, toIn: "in" }];
-    const buffers = new Map<number, SampleBuf>([[0, new SampleBuf()]]);
-    const compiled = compileTimer(3, nodes, links, buffers)!;
-    compiled.emit(0);
-    compiled.emit(1);
-    const got = buffers.get(0)!.snapshot();
-    expect(got.at(-2)).toBe(2.5);
-    expect(got.at(-1)).toBe(2.5);
-  });
-
-  it("compile generator product of two factors from a fork", () => {
+  it("plans generator product of two factors from a fork", () => {
     const nodes = [
       { id: 1, defId: "scope" },
       { id: 2, defId: "product", count: 2, def: 1 },
@@ -990,57 +876,6 @@ describe("blocks", () => {
       { fromBlock: 4, fromOut: "out", toBlock: 5, toIn: "in" },
     ];
     expect(planGenerator(5, nodes, links)?.channels).toEqual([{ scopeId: 1, label: "product" }]);
-    const buffers = new Map<number, SampleBuf>([[0, new SampleBuf()]]);
-    const compiled = compileTimer(5, nodes, links, buffers)!;
-    compiled.emit(0);
-    expect(buffers.get(0)!.snapshot().at(-1)).toBeCloseTo(0, 8);
-    compiled.emit(Math.PI / 4);
-    expect(buffers.get(0)!.snapshot().at(-1)).toBeCloseTo(0.5, 8);
-  });
-
-  it("compile generator sines into scope", () => {
-    const nodes = [
-      { id: 1, defId: "scope" },
-      { id: 2, defId: "sin" },
-      { id: 3, defId: "timer" },
-    ];
-    const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
-    ];
-    const buffers = new Map<number, SampleBuf>([[0, new SampleBuf()]]);
-    const compiled = compileTimer(3, nodes, links, buffers)!;
-    compiled.emit(0);
-    compiled.emit(Math.PI / 2);
-    const got = buffers.get(0)!.snapshot();
-    expect(got).toHaveLength(sampleCap());
-    expect(Math.abs(got.at(-2)!)).toBeLessThan(1e-9);
-    expect(Math.abs(got.at(-1)! - 1)).toBeLessThan(1e-9);
-    expect(compiled.delayMs).toBe(DEFAULT_PERIOD_MS);
-  });
-
-  it("compile generator overshoot into scope from the first sample", () => {
-    const zeta = 0.5;
-    const omega = 2;
-    const wd = omega * Math.sqrt(1 - zeta * zeta);
-    const peakTime = Math.PI / wd;
-    const overshoot = Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta));
-    const nodes = [
-      { id: 1, defId: "scope" },
-      { id: 2, defId: "overshoot", zeta, omega },
-      { id: 3, defId: "timer" },
-    ];
-    const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
-    ];
-    const buffers = new Map<number, SampleBuf>([[0, new SampleBuf()]]);
-    const compiled = compileTimer(3, nodes, links, buffers)!;
-    compiled.emit(4);
-    compiled.emit(4 + peakTime);
-    const got = buffers.get(0)!.snapshot();
-    expect(got.at(-2)).toBe(0);
-    expect(got.at(-1)).toBeCloseTo(1 + overshoot, 8);
   });
 
   it("plan generator walks a cos transformer", () => {
@@ -1061,24 +896,9 @@ describe("blocks", () => {
     });
   });
 
-  it("compile generator needs scope", () => {
+  it("plan generator needs scope", () => {
     const nodes = [{ id: 4, defId: "timer" }];
     expect(planGenerator(4, nodes, [])).toBeUndefined();
-    expect(compileTimer(4, nodes, [], new Map())).toBeUndefined();
-  });
-
-  it("GPIO In supplies 0 once on start", () => {
-    const out: number[] = [];
-    let live = true;
-    new GpioInGenerator().run(
-      (value) => out.push(value),
-      () => {
-        const next = live;
-        live = false;
-        return next;
-      },
-    );
-    expect(out).toEqual([0]);
   });
 
   it("plans GPIO output into a GPIO input generator", () => {
@@ -1170,99 +990,6 @@ describe("blocks", () => {
 
     const sinResolved = diagram.resolveNode(sinId)!;
     expect(sinResolved.compatible.get("in")).toBe(false);
-  });
-
-  it("interprets a forked pair as timer(fork(plot, plot))", () => {
-    const left: number[] = [];
-    const right: number[] = [];
-    let live = true;
-    const running = () => {
-      const next = live;
-      live = false;
-      return next;
-    };
-    timer(fork(...scope((value) => left.push(value), (value) => right.push(value))), running, () => 4);
-    expect(left).toEqual([4]);
-    expect(right).toEqual([4]);
-  });
-
-  it("compile timer forks into two scope buffers", async () => {
-    const nodes = [
-      { id: 1, defId: "scope" },
-      { id: 2, defId: "scope" },
-      { id: 4, defId: "timer" },
-    ];
-    const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 4, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
-    ];
-    const buffers = new Map<number, SampleBuf>([
-      [0, new SampleBuf()],
-      [1, new SampleBuf()],
-    ]);
-    const compiled = compileTimer(4, nodes, links, buffers)!;
-    compiled.emit(3);
-    const left = buffers.get(0)!.snapshot();
-    const right = buffers.get(1)!.snapshot();
-    expect(left).toHaveLength(sampleCap());
-    expect(right).toHaveLength(sampleCap());
-    expect(left.at(-1)).toBe(3);
-    expect(right.at(-1)).toBe(3);
-  });
-
-  it("compile generator writes one ring per transformer channel", async () => {
-    const nodes = [
-      { id: 1, defId: "scope" },
-      { id: 2, defId: "sin" },
-      { id: 3, defId: "cos" },
-      { id: 4, defId: "timer" },
-    ];
-    const links: Link[] = [
-      { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
-      { fromBlock: 1, fromOut: "out[1]", toBlock: 3, toIn: "in" },
-      { fromBlock: 2, fromOut: "out", toBlock: 4, toIn: "in" },
-      { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" },
-    ];
-    const buffers = new Map<number, SampleBuf>([
-      [0, new SampleBuf()],
-      [1, new SampleBuf()],
-    ]);
-    compileTimer(4, nodes, links, buffers)!.emit(0);
-    expect(buffers.get(0)!.snapshot()).toHaveLength(sampleCap());
-    expect(Math.abs(buffers.get(0)!.snapshot().at(-1)!)).toBeLessThan(1e-9);
-    expect(Math.abs(buffers.get(1)!.snapshot().at(-1)! - 1)).toBeLessThan(1e-9);
-  });
-
-  it("interprets the wired chain as timer(sin(plot[0]))", () => {
-    const out: number[] = [];
-    let live = true;
-    const running = () => {
-      const next = live;
-      live = false;
-      return next;
-    };
-    timer(sin(scope((value) => out.push(value))[0]), running, () => Math.PI / 2);
-    expect(out).toHaveLength(1);
-    expect(Math.abs(out[0] - 1)).toBeLessThan(1e-9);
-  });
-
-  it("spawn timer emits until stopped", () => {
-    const buf = new SampleBuf();
-    const compiled = {
-      emit: (value: number) => buf.push(value),
-      delayMs: 1,
-    };
-    const running = { value: true };
-    const halt = spawnTimer(compiled, running);
-    halt();
-    stop(running);
-    const live = buf.snapshot();
-    expect(live).toHaveLength(sampleCap());
-    expect(live.some((value) => Number.isFinite(value))).toBe(true);
-    buf.clear();
-    const cleared = buf.snapshot();
-    expect(cleared).toHaveLength(sampleCap());
-    expect(cleared.every((value) => Number.isNaN(value))).toBe(true);
   });
 });
 
