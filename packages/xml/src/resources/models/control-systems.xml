@@ -61,7 +61,9 @@
 
   <block id="overshoot" name="Overshoot" ns="com.dauch.cs.tf" icon="overshoot">
     <attribute name="kind">Process</attribute>
-    <attribute name="description">Transformer. Maps time samples through a classic second-order underdamped unit-step response with damping ratio ζ and natural frequency ω. Damped frequency is ωd = ω√(1−ζ²). (Double) -&gt; Unit → (Double) -&gt; Unit.</attribute>
+    <attribute name="description">Transformer. Maps time samples through a classic second-order underdamped unit-step response with damping ratio ζ and natural
+      frequency ω. Damped frequency is ωd = ω√(1−ζ²). (Double) -&gt; Unit → (Double) -&gt; Unit.
+    </attribute>
     <factory id="overshoot"/>
     <parameters>
       <double-range-parameter name="ζ" description="Damping ratio ζ" min="0.05" max="0.95" step="0.01" default="0.5"/>
@@ -74,7 +76,9 @@
   <block id="product" name="Product" ns="com.dauch.cs.tf" icon="product">
     <attribute name="kind">Process</attribute>
     <attribute name="combiner">true</attribute>
-    <attribute name="description">Combiner. Returns n factor consumers. Each factor updates its slot and pushes the product of all slots into the downstream consumer. Unwired slots stay at def. (Double) -&gt; Unit → Array[(Double) -&gt; Unit].</attribute>
+    <attribute name="description">Combiner. Returns n factor consumers. Each factor updates its slot and pushes the product of all slots into the downstream
+      consumer. Unwired slots stay at def. (Double) -&gt; Unit → Array[(Double) -&gt; Unit].
+    </attribute>
     <factory id="product"/>
     <parameters>
       <integer-range-parameter name="n" description="Output count" min="1" max="8" step="1" default="2"/>
@@ -90,7 +94,8 @@
     <attribute name="kind">Start</attribute>
     <attribute name="runnable">true</attribute>
     <attribute name="generator">true</attribute>
-    <attribute name="description">Digital input. Pushes the pin level (0 or 1) when the pin changes. In the browser, toggling the switch emits one sample.</attribute>
+    <attribute name="description">Digital input. Pushes the pin level (0 or 1) when the pin changes. In the browser, toggling the switch emits one sample.
+    </attribute>
     <factory id="gpio_in"/>
     <parameters>
       <integer-range-parameter name="pin" description="GPIO pin number" min="0" max="31" step="1" default="0"/>
@@ -100,7 +105,9 @@
 
   <block id="gpio_out" name="GPIO Out" ns="com.dauch.cs.gpio" icon="gpio_out">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Digital output. Consumes each sample and writes the pin (HIGH when the value is greater than 0.5). In the browser, the switch is a disabled readout of the pin.</attribute>
+    <attribute name="description">Digital output. Consumes each sample and writes the pin (HIGH when the value is greater than 0.5). In the browser, the switch
+      is a disabled readout of the pin.
+    </attribute>
     <factory id="gpio_out"/>
     <parameters>
       <integer-range-parameter name="pin" description="GPIO pin number" min="0" max="31" step="1" default="1"/>
@@ -110,7 +117,9 @@
 
   <block id="scope" name="Scope" ns="com.dauch.cs.sink" icon="scope">
     <attribute name="kind">Output</attribute>
-    <attribute name="description">Plot sink. Returns a dynamically sized Array[(Double) -&gt; Unit]. Wire into a transformer or generator. After Run, Chart is a sliding multi-axis plot of finite samples.</attribute>
+    <attribute name="description">Plot sink. Returns a dynamically sized Array[(Double) -&gt; Unit]. Wire into a transformer or generator. After Run, Chart is a
+      sliding multi-axis plot of finite samples.
+    </attribute>
     <factory id="scope"/>
     <parameters>
       <integer-range-parameter name="n" description="Time window width in seconds" min="10" max="600" step="1" default="30"/>

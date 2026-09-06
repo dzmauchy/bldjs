@@ -1,21 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <blocks id="types" name="Types" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
   <namespace id="types" name="Types"/>
-
-  <!--
-    MoonBit catalog types. WASM is a compilation target, mapped in code:
-
-      Double → wasm f64
-      Float  → wasm f32
-      Int    → wasm i32
-      Int64  → wasm i64
-      String → wasm js-string (wasm 3.0)
-      Bool   → wasm i32
-      Unit
-      Array[T]
-      (T) -> R
-  -->
-
   <type name="Double"/>
   <type name="Float"/>
   <type name="Int"/>
