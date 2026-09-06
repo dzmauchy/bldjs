@@ -113,8 +113,12 @@ export class NamedType extends TypeNode {
     return rawTypeName(this.name) === "Array";
   }
 
+  isConsumer(): boolean {
+    return rawTypeName(this.name) === "c1";
+  }
+
   isPush(): boolean {
-    return this.isArray() && (this.args[0]?.isPush() ?? false);
+    return this.isConsumer() || (this.isArray() && (this.args[0]?.isPush() ?? false));
   }
 
   asParam(params: ParamDef[]): ParamDef | undefined {
@@ -283,7 +287,69 @@ export class IntersectionType extends MemberType {
   }
 }
 
-export type TypeExpr = NamedType | FuncType | TupleType | HoleType | SelfType | UnionType | IntersectionType;
+export class WildcardType extends TypeNode {
+  readonly kind = "wildcard" as const;
+
+  constructor(
+    readonly bound: TypeExpr | null = null,
+    readonly boundKind: "extends" | "super" | null = null,
+  ) {
+    super();
+  }
+
+  children(): TypeExpr[] {
+    return this.bound ? [this.bound] : [];
+  }
+
+  mapChildren(fn: (child: TypeExpr) => TypeExpr): TypeExpr {
+    return this.bound ? new WildcardType(fn(this.bound), this.boundKind) : this;
+  }
+
+  display(compact: boolean): string {
+    if (!this.bound || !this.boundKind) {
+      return "?";
+    }
+    return `? ${this.boundKind} ${this.bound.display(compact)}`;
+  }
+
+  equals(other: TypeExpr): boolean {
+    return (
+      other.kind === "wildcard" &&
+      this.boundKind === other.boundKind &&
+      ((this.bound === null && other.bound === null) ||
+        (this.bound !== null && other.bound !== null && this.bound.equals(other.bound)))
+    );
+  }
+
+  isGround(params: ParamDef[]): boolean {
+    return this.bound ? this.bound.isGround(params) : true;
+  }
+}
+
+export type TypeExpr =
+  | NamedType
+  | FuncType
+  | TupleType
+  | HoleType
+  | SelfType
+  | UnionType
+  | IntersectionType
+  | WildcardType;
+
+export function wildcard(
+  bound?: TypeExpr | null,
+  boundKind?: "extends" | "super" | null,
+): WildcardType {
+  return new WildcardType(bound ?? null, boundKind ?? null);
+}
+
+export function wildcardExtends(bound: TypeExpr): WildcardType {
+  return new WildcardType(bound, "extends");
+}
+
+export function wildcardSuper(bound: TypeExpr): WildcardType {
+  return new WildcardType(bound, "super");
+}
 
 export function named(name: string): TypeExpr {
   return new NamedType(name, null, []);
@@ -452,6 +518,7 @@ export const TYPE_KINDS = [
   "intersection",
   "hole",
   "self",
+  "wildcard",
 ] as const;
 export type TypeKind = (typeof TYPE_KINDS)[number];
 
@@ -502,7 +569,7 @@ export function isVarianceType(val: string): val is VarianceType {
   return (VARIANCE_TYPES as readonly string[]).includes(val);
 }
 
-export interface ParamDef {
+export interface TypeVarDef {
   name: string;
   extends: TypeExpr[];
   super?: TypeExpr[];
@@ -510,6 +577,8 @@ export interface ParamDef {
   relation?: RelationKind;
   attributes: Attribute[];
 }
+
+export type ParamDef = TypeVarDef;
 
 export interface PortDef {
   name: string;
@@ -600,8 +669,10 @@ export interface Namespace {
 export interface TypeDef {
   name: string;
   ns: string | null;
+  vars: TypeVarDef[];
   params: ParamDef[];
   ancestors: TypeExpr[];
+  extends?: TypeExpr | null;
   alias: TypeExpr | null;
   attributes: Attribute[];
   source: string;
@@ -612,6 +683,7 @@ export interface BlockDef {
   name: string;
   ns: string;
   icon: string | null;
+  vars: TypeVarDef[];
   params: ParamDef[];
   parameters: BlockParameterDef[];
   settings?: BlockParameterDef[];

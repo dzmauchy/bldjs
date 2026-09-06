@@ -1,4 +1,4 @@
-import { type ParamDef, type TypeExpr, isArrayType, isConsumerType, NamedType } from "./ast";
+import { type ParamDef, type TypeExpr, isArrayType, isConsumerType, NamedType, WildcardType } from "./ast";
 import { type Catalog, sameRaw } from "./catalog";
 import { isPrimitive } from "./types";
 
@@ -83,7 +83,36 @@ function visit(
       );
     case "self":
       return false;
+    case "wildcard":
+      if (from.bound === null || from.boundKind === null) {
+        return true;
+      }
+      if (from.boundKind === "extends") {
+        if (to.kind === "wildcard") {
+          if (to.boundKind === "extends" && to.bound !== null) {
+            return visit(catalog, params, from.bound, to.bound, visited, true, depth + 1, onMatch);
+          }
+          return false;
+        }
+        return visit(catalog, params, from.bound, to, visited, true, depth + 1, onMatch);
+      }
+      if (from.boundKind === "super") {
+        if (to.kind === "wildcard") {
+          if (to.boundKind === "super" && to.bound !== null) {
+            return visit(catalog, params, to.bound, from.bound, visited, true, depth + 1, onMatch);
+          }
+          return false;
+        }
+        return visit(catalog, params, to, from.bound, visited, true, depth + 1, onMatch);
+      }
+      return false;
     case "func":
+      if (to.kind === "type") {
+        const toAlias = catalog.expandAlias(to);
+        if (toAlias && toAlias.kind === "func") {
+          return visitFunc(catalog, params, from, toAlias, visited, depth, onMatch);
+        }
+      }
       return visitFunc(catalog, params, from, to, visited, depth, onMatch);
     case "tuple":
       return (
@@ -94,6 +123,12 @@ function visit(
         )
       );
     case "type":
+      if (to.kind === "func") {
+        const fromAlias = catalog.expandAlias(from);
+        if (fromAlias && fromAlias.kind === "func") {
+          return visitFunc(catalog, params, fromAlias, to, visited, depth, onMatch);
+        }
+      }
       return visitNamed(
         catalog,
         params,
@@ -163,20 +198,42 @@ function visitNamed(
   onMatch: (name: string, ty: TypeExpr) => void,
 ): boolean {
   if (to.kind !== "type") {
+    const fromAlias = catalog.expandAlias(new NamedType(name, ns, args));
+    if (fromAlias) {
+      return visit(catalog, params, fromAlias, to, visited, covariant, depth + 1, onMatch);
+    }
     return false;
   }
   if (args.length === 0 && to.args.length === 0) {
     return rawAssignable(catalog, name, ns, to.name, to.ns, covariant);
   }
   if (sameRaw(name, ns, to.name, to.ns)) {
+    if (args.length === 0 || to.args.length === 0) {
+      return true;
+    }
     return (
       args.length === to.args.length &&
-      args.every((formalArg, index) =>
-        visit(catalog, params, formalArg, to.args[index], visited, null, depth + 1, onMatch),
-      )
+      args.every((formalArg, index) => {
+        const actualArg = to.args[index]!;
+        if (formalArg.kind === "wildcard") {
+          return visit(catalog, params, formalArg, actualArg, visited, true, depth + 1, onMatch);
+        }
+        return visit(catalog, params, formalArg, actualArg, visited, null, depth + 1, onMatch);
+      })
     );
   }
   if (covariant === null) {
+    const fromAlias = catalog.expandAlias(new NamedType(name, ns, args));
+    if (fromAlias && visit(catalog, params, fromAlias, to, visited, null, depth + 1, onMatch)) {
+      return true;
+    }
+    const toAlias = catalog.expandAlias(to);
+    if (
+      toAlias &&
+      visit(catalog, params, new NamedType(name, ns, args), toAlias, visited, null, depth + 1, onMatch)
+    ) {
+      return true;
+    }
     return false;
   }
   if (covariant) {
@@ -188,10 +245,21 @@ function visitNamed(
         new NamedType(name, ns, args),
         projected,
         visited,
-        null,
+        true,
         depth + 1,
         onMatch,
       );
+    }
+    const fromAlias = catalog.expandAlias(new NamedType(name, ns, args));
+    if (fromAlias && visit(catalog, params, fromAlias, to, visited, true, depth + 1, onMatch)) {
+      return true;
+    }
+    const toAlias = catalog.expandAlias(to);
+    if (
+      toAlias &&
+      visit(catalog, params, new NamedType(name, ns, args), toAlias, visited, true, depth + 1, onMatch)
+    ) {
+      return true;
     }
     return false;
   }
@@ -223,6 +291,18 @@ function rawAssignable(
 
 function typeEq(catalog: Catalog, left: TypeExpr, right: TypeExpr): boolean {
   void catalog;
+  if (left.kind === "wildcard" && right.kind === "wildcard") {
+    if (left.boundKind !== right.boundKind) {
+      return false;
+    }
+    if (left.bound === null && right.bound === null) {
+      return true;
+    }
+    if (left.bound !== null && right.bound !== null) {
+      return typeEq(catalog, left.bound, right.bound);
+    }
+    return false;
+  }
   if (left.kind === "type" && right.kind === "type") {
     return (
       sameRaw(left.name, left.ns, right.name, right.ns) &&

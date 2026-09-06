@@ -1,60 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
 
-  <!-- Primitive and Built-in Input/Output Types -->
-  <xs:simpleType name="PrimitiveType">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="bool"/>
-      <xs:enumeration value="u64"/>
-      <xs:enumeration value="u32"/>
-      <xs:enumeration value="i64"/>
-      <xs:enumeration value="i32"/>
-      <xs:enumeration value="f32"/>
-      <xs:enumeration value="f64"/>
-      <xs:enumeration value="char"/>
-      <xs:enumeration value="void"/>
-      <xs:enumeration value="Double"/>
-      <xs:enumeration value="Float"/>
-      <xs:enumeration value="Int"/>
-      <xs:enumeration value="Int64"/>
-      <xs:enumeration value="UInt"/>
-      <xs:enumeration value="UInt64"/>
-      <xs:enumeration value="String"/>
-      <xs:enumeration value="Bool"/>
-      <xs:enumeration value="Byte"/>
-      <xs:enumeration value="Char"/>
-      <xs:enumeration value="Unit"/>
-    </xs:restriction>
-  </xs:simpleType>
-
-  <!-- Built-in Generic Container Types -->
-  <xs:simpleType name="BuiltinContainerType">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="Array"/>
-    </xs:restriction>
-  </xs:simpleType>
-
-  <!-- Special Type Identifiers -->
-  <xs:simpleType name="SpecialType">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="Self"/>
-      <xs:enumeration value="_"/>
-    </xs:restriction>
-  </xs:simpleType>
-
-  <!-- Type Expression Kinds -->
-  <xs:simpleType name="TypeKind">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="type"/>
-      <xs:enumeration value="func"/>
-      <xs:enumeration value="tuple"/>
-      <xs:enumeration value="array"/>
-      <xs:enumeration value="union"/>
-      <xs:enumeration value="intersection"/>
-      <xs:enumeration value="hole"/>
-      <xs:enumeration value="self"/>
-    </xs:restriction>
-  </xs:simpleType>
+  <!-- Include the shared types schema -->
+  <xs:include schemaLocation="types.xsd"/>
 
   <!-- Port Directions / Kinds -->
   <xs:simpleType name="PortDirection">
@@ -95,21 +43,6 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Variance for Generic Type Parameters -->
-  <xs:simpleType name="VarianceType">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="+"/>
-      <xs:enumeration value="-"/>
-      <xs:enumeration value="="/>
-      <xs:enumeration value="?"/>
-    </xs:restriction>
-  </xs:simpleType>
-
-  <!-- Type Reference String (Primitive, Special, Container, or Complex MoonBit Type) -->
-  <xs:simpleType name="TypeString">
-    <xs:union memberTypes="PrimitiveType BuiltinContainerType SpecialType xs:string"/>
-  </xs:simpleType>
-
   <!-- Duration Type (e.g. 100ms, 1s, 10000ns, 1d, 30m, 1h) -->
   <xs:simpleType name="DurationType">
     <xs:restriction base="xs:string">
@@ -117,46 +50,25 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Custom Attribute Definition -->
-  <xs:complexType name="AttributeDef" mixed="true">
-    <xs:sequence>
-      <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
-    </xs:sequence>
-    <xs:attribute name="name" type="xs:string" use="required"/>
-  </xs:complexType>
-
-  <!-- MoonBit type string (`Double`, `(Double) -> Unit`, `Array[T]`) -->
-  <xs:complexType name="TypeRef">
-    <xs:sequence>
-      <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-    </xs:sequence>
-    <xs:attribute name="type" type="TypeString"/>
-  </xs:complexType>
-
-  <!-- Generic Type Parameter Definition (e.g., <param name="T"/>) -->
-  <xs:complexType name="TypeParamDef">
-    <xs:sequence>
-      <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-      <xs:element name="extends" type="TypeRef" minOccurs="0" maxOccurs="unbounded"/>
-      <xs:element name="super" type="TypeRef" minOccurs="0" maxOccurs="unbounded"/>
-    </xs:sequence>
-    <xs:attribute name="name" type="xs:string" use="required"/>
-    <xs:attribute name="variance" type="VarianceType"/>
-    <xs:attribute name="relation" type="RelationKind"/>
-  </xs:complexType>
-
-  <!-- Port Definition (in/out) -->
+  <!-- Port Definition (in/out) supporting string type or structured type elements -->
   <xs:complexType name="PortDef">
-    <xs:complexContent>
-      <xs:extension base="TypeRef">
-        <xs:attribute name="name" type="xs:string" use="required"/>
-        <xs:attribute name="direction" type="PortDirection"/>
-        <xs:attribute name="vararg" type="xs:boolean" default="false"/>
-        <xs:attribute name="icon" type="xs:string"/>
-        <xs:attribute name="relation" type="RelationKind"/>
-        <xs:attribute name="relatesTo" type="xs:string"/>
-      </xs:extension>
-    </xs:complexContent>
+    <xs:sequence>
+      <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:choice minOccurs="0">
+        <xs:element name="var" type="TypeVarRef"/>
+        <xs:element name="raw-type" type="RawTypeRef"/>
+        <xs:element name="type" type="PortTypeRef"/>
+        <xs:element name="wildcard" type="WildcardTypeDef"/>
+        <xs:element name="intersection" type="IntersectionTypeDef"/>
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="type" type="TypeString"/>
+    <xs:attribute name="direction" type="PortDirection"/>
+    <xs:attribute name="vararg" type="xs:boolean" default="false"/>
+    <xs:attribute name="icon" type="xs:string"/>
+    <xs:attribute name="relation" type="RelationKind"/>
+    <xs:attribute name="relatesTo" type="xs:string"/>
   </xs:complexType>
 
   <!-- Type Relation Definition: represents relations between input types and output types -->
@@ -203,7 +115,7 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <!-- 1. Integer Parameter Declaration -->
+  <!-- Integer Parameter Declaration -->
   <xs:complexType name="IntegerParamDef">
     <xs:complexContent>
       <xs:extension base="ParamBaseDef">
@@ -212,7 +124,7 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <!-- 2. Count Parameter Declaration (Up/Down control) -->
+  <!-- Count Parameter Declaration (Up/Down control) -->
   <xs:complexType name="CountParamDef">
     <xs:complexContent>
       <xs:extension base="ParamBaseDef">
@@ -224,7 +136,7 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <!-- 3. Decimal Parameter Declaration -->
+  <!-- Decimal Parameter Declaration -->
   <xs:complexType name="DecimalParamDef">
     <xs:complexContent>
       <xs:extension base="ParamBaseDef">
@@ -233,7 +145,7 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <!-- 4. Duration Parameter Declaration -->
+  <!-- Duration Parameter Declaration -->
   <xs:complexType name="DurationParamDef">
     <xs:complexContent>
       <xs:extension base="ParamBaseDef">
@@ -242,7 +154,7 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <!-- 5. Date Parameter Declaration (yyyy-MM-dd) -->
+  <!-- Date Parameter Declaration (yyyy-MM-dd) -->
   <xs:complexType name="DateParamDef">
     <xs:complexContent>
       <xs:extension base="ParamBaseDef">
@@ -251,7 +163,7 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <!-- 6. Time Parameter Declaration (hh:mm:ss) -->
+  <!-- Time Parameter Declaration (hh:mm:ss) -->
   <xs:complexType name="TimeParamDef">
     <xs:complexContent>
       <xs:extension base="ParamBaseDef">
@@ -260,7 +172,7 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <!-- 7. Date-Time Parameter Declaration (yyyy-MM-dd'T'hh:mm:ss) -->
+  <!-- Date-Time Parameter Declaration (yyyy-MM-dd'T'hh:mm:ss) -->
   <xs:complexType name="DateTimeParamDef">
     <xs:complexContent>
       <xs:extension base="ParamBaseDef">
@@ -269,7 +181,7 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <!-- 8. Integer Range Parameter Declaration (Range control) -->
+  <!-- Integer Range Parameter Declaration (Range control) -->
   <xs:complexType name="IntegerRangeParamDef">
     <xs:complexContent>
       <xs:extension base="ParamBaseDef">
@@ -281,7 +193,7 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <!-- 9. Double Range Parameter Declaration (Range control) -->
+  <!-- Double Range Parameter Declaration (Range control) -->
   <xs:complexType name="DoubleRangeParamDef">
     <xs:complexContent>
       <xs:extension base="ParamBaseDef">
@@ -293,7 +205,7 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <!-- 10. Text Parameter Declaration (with validation rules) -->
+  <!-- Text Parameter Declaration (with validation rules) -->
   <xs:complexType name="TextParamDef">
     <xs:complexContent>
       <xs:extension base="ParamBaseDef">
@@ -332,80 +244,56 @@
     </xs:complexContent>
   </xs:complexType>
 
+  <!-- Factory binding definition -->
+  <xs:complexType name="FactoryDef">
+    <xs:sequence>
+      <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="type" type="TypeString"/>
+  </xs:complexType>
+
+  <!-- Block Definition -->
+  <xs:complexType name="BlockDef">
+    <xs:sequence>
+      <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="var" type="TypeVarDef"/>
+        <xs:element name="param" type="TypeVarDef"/>
+      </xs:choice>
+      <xs:element name="factory" type="FactoryDef" minOccurs="0"/>
+      <xs:element name="parameters" type="ParametersDef" minOccurs="0"/>
+      <xs:element name="settings" type="SettingsDef" minOccurs="0"/>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="in" type="PortDef"/>
+        <xs:element name="out" type="PortDef"/>
+        <xs:element name="input" type="PortDef"/>
+        <xs:element name="output" type="PortDef"/>
+        <xs:element name="relation" type="TypeRelationDef"/>
+        <xs:element name="type-relation" type="TypeRelationDef"/>
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="ns" type="xs:string" use="required"/>
+    <xs:attribute name="icon" type="xs:string"/>
+  </xs:complexType>
+
   <!-- ROOT ELEMENT: blocks -->
   <xs:element name="blocks">
     <xs:complexType>
       <xs:sequence>
         <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-
         <xs:choice minOccurs="0" maxOccurs="unbounded">
-
-          <xs:element name="namespace">
-            <xs:complexType>
-              <xs:sequence>
-                <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-              </xs:sequence>
-              <xs:attribute name="id" type="xs:string" use="required"/>
-              <xs:attribute name="name" type="xs:string" use="required"/>
-              <xs:attribute name="parent" type="xs:string"/>
-              <xs:attribute name="icon" type="xs:string"/>
-            </xs:complexType>
-          </xs:element>
-
-          <xs:element name="type">
-            <xs:complexType>
-              <xs:sequence>
-                <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-                <xs:element name="param" type="TypeParamDef" minOccurs="0" maxOccurs="unbounded"/>
-                <xs:element name="ancestor" type="TypeRef" minOccurs="0" maxOccurs="unbounded"/>
-                <xs:element name="alias" type="TypeRef" minOccurs="0"/>
-              </xs:sequence>
-              <xs:attribute name="name" type="xs:string" use="required"/>
-              <xs:attribute name="ns" type="xs:string"/>
-            </xs:complexType>
-          </xs:element>
-
-          <xs:element name="block">
-            <xs:complexType>
-              <xs:sequence>
-                <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-                <xs:element name="param" type="TypeParamDef" minOccurs="0" maxOccurs="unbounded"/>
-
-                <xs:element name="factory" minOccurs="0">
-                  <xs:complexType>
-                    <xs:sequence>
-                      <xs:element name="attribute" type="AttributeDef" minOccurs="0" maxOccurs="unbounded"/>
-                    </xs:sequence>
-                    <xs:attribute name="id" type="xs:string" use="required"/>
-                    <xs:attribute name="type" type="TypeString"/>
-                  </xs:complexType>
-                </xs:element>
-
-                <xs:element name="parameters" type="ParametersDef" minOccurs="0"/>
-                <xs:element name="settings" type="SettingsDef" minOccurs="0"/>
-
-                <xs:choice minOccurs="0" maxOccurs="unbounded">
-                  <xs:element name="in" type="PortDef"/>
-                  <xs:element name="out" type="PortDef"/>
-                  <xs:element name="input" type="PortDef"/>
-                  <xs:element name="output" type="PortDef"/>
-                  <xs:element name="relation" type="TypeRelationDef"/>
-                  <xs:element name="type-relation" type="TypeRelationDef"/>
-                </xs:choice>
-              </xs:sequence>
-              <xs:attribute name="id" type="xs:string" use="required"/>
-              <xs:attribute name="name" type="xs:string" use="required"/>
-              <xs:attribute name="ns" type="xs:string" use="required"/>
-              <xs:attribute name="icon" type="xs:string"/>
-            </xs:complexType>
-          </xs:element>
-
+          <xs:element name="namespace" type="NamespaceDef"/>
+          <xs:element name="type" type="TypeDef"/>
+          <xs:element name="block" type="BlockDef"/>
         </xs:choice>
       </xs:sequence>
-
       <xs:attribute name="id" type="xs:string" use="required"/>
       <xs:attribute name="name" type="xs:string" use="required"/>
       <xs:attribute name="icon" type="xs:string"/>
     </xs:complexType>
   </xs:element>
+
 </xs:schema>

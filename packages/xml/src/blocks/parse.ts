@@ -10,10 +10,14 @@ import {
   type TypeDef,
   type TypeExpr,
   type TypeRelationDef,
+  intersectionOf,
   isBlockParameterKind,
   isPortDirection,
   isRelationKind,
   isVarianceType,
+  named,
+  NamedType,
+  WildcardType,
 } from "./ast";
 import { ParseError, XmlElem } from "../dom";
 import { parseMoonbitType } from "./moonbit-type";
@@ -59,25 +63,113 @@ function parseNamespace(node: XmlElem): Namespace {
   };
 }
 
+function parseXmlTypeNode(node: XmlElem): TypeExpr {
+  switch (node.tag) {
+    case "var":
+    case "type-var":
+      return named(node.req("name"));
+    case "raw-type":
+      return new NamedType(node.req("name"), node.opt("ns") ?? null, []);
+    case "wildcard": {
+      const variance = node.opt("variance");
+      const extendsAttr = node.opt("extends");
+      const superAttr = node.opt("super");
+      let bound: TypeExpr | null = null;
+      let boundKind: "extends" | "super" | null = null;
+
+      const extendsElem = node.kids().find((k) => k.tag === "extends");
+      const superElem = node.kids().find((k) => k.tag === "super");
+
+      if (extendsAttr) {
+        bound = parseMoonbitType(extendsAttr);
+        boundKind = "extends";
+      } else if (extendsElem) {
+        bound = extendsElem.opt("type")
+          ? parseMoonbitType(extendsElem.req("type"))
+          : parsePortTypeExpr(extendsElem);
+        boundKind = "extends";
+      } else if (superAttr) {
+        bound = parseMoonbitType(superAttr);
+        boundKind = "super";
+      } else if (superElem) {
+        bound = superElem.opt("type")
+          ? parseMoonbitType(superElem.req("type"))
+          : parsePortTypeExpr(superElem);
+        boundKind = "super";
+      } else if (variance === "+") {
+        boundKind = "extends";
+      } else if (variance === "-") {
+        boundKind = "super";
+      }
+      return new WildcardType(bound, boundKind);
+    }
+    case "intersection": {
+      const members = node.kids().filter((k) => k.tag !== "attribute").map(parseXmlTypeNode);
+      return intersectionOf(members);
+    }
+    case "type": {
+      const name = node.req("name");
+      const ns = node.opt("ns") ?? null;
+      const kids = node.kids().filter((k) => k.tag !== "attribute");
+      if (kids.length === 0) {
+        if (node.opt("type")) {
+          return parseMoonbitType(node.req("type"));
+        }
+        return new NamedType(name, ns, []);
+      }
+      const args = kids.map(parseXmlTypeNode);
+      return new NamedType(name, ns, args);
+    }
+    default:
+      node.fail(`unsupported type element <${node.tag}>`);
+  }
+}
+
+function parsePortTypeExpr(node: XmlElem): TypeExpr {
+  const typeKids = node.kids().filter((k) => k.tag !== "attribute");
+  if (typeKids.length > 0) {
+    if (typeKids.length === 1) {
+      return parseXmlTypeNode(typeKids[0]!);
+    }
+    return intersectionOf(typeKids.map(parseXmlTypeNode));
+  }
+  return parseMoonbitAttr(node, undefined);
+}
+
 function parseParam(node: XmlElem): ParamDef {
   const attributes: Attribute[] = [];
   const extendsBounds: TypeExpr[] = [];
   const superBounds: TypeExpr[] = [];
+  const extendsAttr = node.opt("extends");
+  if (extendsAttr) {
+    extendsBounds.push(parseMoonbitType(extendsAttr));
+  }
   for (const child of node.kids()) {
     switch (child.tag) {
       case "attribute":
         attributes.push({ name: child.req("name"), value: child.text() });
         break;
       case "extends":
-        extendsBounds.push(parseMoonbitAttr(child, undefined));
-        rejectNestedTypes(child, "<extends>");
+        if (child.opt("type")) {
+          extendsBounds.push(parseMoonbitAttr(child, undefined));
+        } else if (child.text()) {
+          extendsBounds.push(parseMoonbitType(child.text()));
+        } else {
+          const typeKids = child.kids().filter((k) => k.tag !== "attribute");
+          if (typeKids.length > 0) {
+            extendsBounds.push(parseXmlTypeNode(typeKids[0]!));
+          }
+        }
         break;
       case "super":
-        superBounds.push(parseMoonbitAttr(child, undefined));
-        rejectNestedTypes(child, "<super>");
+        if (child.opt("type")) {
+          superBounds.push(parseMoonbitAttr(child, undefined));
+        } else if (child.text()) {
+          superBounds.push(parseMoonbitType(child.text()));
+        }
         break;
       default:
-        child.fail(`unsupported <param> child <${child.tag}>`);
+        child.fail(`unsupported <${node.tag}> child <${child.tag}>`);
     }
   }
   const varianceRaw = node.opt("variance");
@@ -95,7 +187,6 @@ function parseParam(node: XmlElem): ParamDef {
 }
 
 function parsePort(node: XmlElem, defaultDirection?: "in" | "out"): PortDef {
-  rejectNestedTypes(node, `<${node.tag}>`);
   const vararg = node.opt("vararg");
   const directionRaw = node.opt("direction");
   const direction =
@@ -106,7 +197,7 @@ function parsePort(node: XmlElem, defaultDirection?: "in" | "out"): PortDef {
   const relation = relationRaw && isRelationKind(relationRaw) ? relationRaw : undefined;
   return {
     name: node.req("name"),
-    ty: parseMoonbitAttr(node, undefined),
+    ty: parsePortTypeExpr(node),
     vararg: vararg === "true" || vararg === "1",
     icon: node.opt("icon") ?? null,
     direction,
@@ -115,7 +206,6 @@ function parsePort(node: XmlElem, defaultDirection?: "in" | "out"): PortDef {
     attributes: node.attributes(),
   };
 }
-
 
 function parseFactory(node: XmlElem): Factory {
   rejectNestedTypes(node, "<factory>");
@@ -132,24 +222,28 @@ function parseTypeDef(node: XmlElem, file: string): TypeDef {
   const ancestors: TypeExpr[] = [];
   let alias: TypeExpr | null = null;
   const attributes: Attribute[] = [];
+  const extendsAttr = node.opt("extends");
+  if (extendsAttr) {
+    ancestors.push(parseMoonbitType(extendsAttr));
+  }
   for (const child of node.kids()) {
     switch (child.tag) {
       case "attribute":
         attributes.push({ name: child.req("name"), value: child.text() });
         break;
+      case "var":
       case "param":
         params.push(parseParam(child));
         break;
+      case "extends":
       case "ancestor":
-        ancestors.push(parseMoonbitAttr(child, undefined));
-        rejectNestedTypes(child, "<ancestor>");
+        ancestors.push(parsePortTypeExpr(child));
         break;
       case "alias":
         if (alias !== null) {
           child.fail("type may have only one alias");
         }
-        alias = parseMoonbitAttr(child, undefined);
-        rejectNestedTypes(child, "<alias>");
+        alias = parsePortTypeExpr(child);
         break;
       default:
         child.fail(`unsupported <type> child <${child.tag}>`);
@@ -158,8 +252,10 @@ function parseTypeDef(node: XmlElem, file: string): TypeDef {
   return {
     name: node.req("name"),
     ns: node.opt("ns") ?? null,
+    vars: params,
     params,
     ancestors,
+    extends: extendsAttr ? parseMoonbitType(extendsAttr) : (ancestors[0] ?? null),
     alias,
     attributes,
     source: file,
@@ -251,6 +347,7 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
       case "attribute":
         attributes.push({ name: child.req("name"), value: child.text() });
         break;
+      case "var":
       case "param":
         params.push(parseParam(child));
         break;
@@ -285,6 +382,7 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
     name: node.req("name"),
     ns: node.req("ns"),
     icon: node.opt("icon") ?? null,
+    vars: params,
     params,
     parameters,
     settings: parameters,
@@ -299,7 +397,15 @@ function parseBlock(node: XmlElem, file: string): BlockDef {
 
 
 export function parseBlocks(file: string, xml: string): BlocksDoc {
-  const root = XmlElem.parse(file, xml, "blocks");
+  const document = new DOMParser().parseFromString(xml, "application/xml");
+  const parserError = document.querySelector("parsererror");
+  if (parserError) {
+    throw new ParseError(parserError.textContent?.trim() || "XML parse error", file);
+  }
+  const root = new XmlElem(file, document.documentElement);
+  if (root.tag !== "blocks" && root.tag !== "types") {
+    root.fail(`expected <blocks> or <types>, found <${root.tag}>`);
+  }
   const doc: BlocksDoc = {
     id: root.req("id"),
     name: root.req("name"),
@@ -322,10 +428,13 @@ export function parseBlocks(file: string, xml: string): BlocksDoc {
         doc.types.push(parseTypeDef(child, file));
         break;
       case "block":
+        if (root.tag === "types") {
+          child.fail("<types> document cannot contain <block>");
+        }
         doc.blocks.push(parseBlock(child, file));
         break;
       default:
-        child.fail(`unsupported <blocks> child <${child.tag}>`);
+        child.fail(`unsupported <${root.tag}> child <${child.tag}>`);
     }
   }
   return doc;

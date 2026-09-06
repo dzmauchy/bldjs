@@ -1,5 +1,6 @@
 import {
   type ParamDef,
+  type TypeVarDef,
   type TypeExpr,
   unbounded,
   PRIMITIVE_TYPES,
@@ -33,6 +34,7 @@ import {
 import type { Catalog } from "./catalog";
 
 export {
+  type TypeVarDef,
   PRIMITIVE_TYPES,
   type PrimitiveType,
   BUILTIN_CONTAINER_TYPES,

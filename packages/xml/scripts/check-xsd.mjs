@@ -70,10 +70,19 @@ if (!existsSync(fixturesXml)) {
 }
 
 const catalogFiles = [...xmlFiles(catalogXml), fixturesXml];
-for (const file of catalogFiles) {
+const typeFiles = catalogFiles.filter((file) => basename(file) === "types.xml");
+const blockFiles = catalogFiles.filter((file) => basename(file) !== "types.xml");
+
+for (const file of typeFiles) {
+  assertSchemaHint(file, "types.xsd");
+}
+validate("types.xsd", typeFiles);
+
+for (const file of blockFiles) {
   assertSchemaHint(file, "blocks.xsd");
 }
-validate("blocks.xsd", catalogFiles);
+validate("blocks.xsd", blockFiles);
+
 if (diagramXml.length > 0) {
   for (const file of xmlFiles(diagramXml)) {
     assertSchemaHint(file, "diagram.xsd");

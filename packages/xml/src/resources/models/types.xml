@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<blocks id="types" name="Types" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
+<types id="types" name="Types" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="types.xsd">
   <namespace id="types" name="Types"/>
+
+  <!-- MoonBit Primitives -->
   <type name="bool"/>
   <type name="u64"/>
   <type name="u32"/>
@@ -10,4 +12,51 @@
   <type name="f64"/>
   <type name="char"/>
   <type name="void"/>
-</blocks>
+
+  <!-- Standard Aliases / Types -->
+  <type name="Double"/>
+  <type name="Float"/>
+  <type name="Int"/>
+  <type name="Int64"/>
+  <type name="UInt"/>
+  <type name="UInt64"/>
+  <type name="String"/>
+  <type name="Bool"/>
+  <type name="Byte"/>
+  <type name="Char"/>
+  <type name="Unit"/>
+
+  <!-- Built-in Generic Container -->
+  <type name="Array">
+    <var name="T"/>
+  </type>
+
+  <!-- Function / Consumer Types -->
+  <type name="c0">
+    <alias type="() -> void"/>
+  </type>
+  <type name="c1">
+    <var name="T"/>
+    <alias type="(T) -> void"/>
+  </type>
+  <type name="c2">
+    <var name="T1"/>
+    <var name="T2"/>
+    <alias type="(T1, T2) -> void"/>
+  </type>
+  <type name="f0">
+    <var name="R"/>
+    <alias type="() -> R"/>
+  </type>
+  <type name="f1">
+    <var name="T"/>
+    <var name="R"/>
+    <alias type="(T) -> R"/>
+  </type>
+  <type name="f2">
+    <var name="T1"/>
+    <var name="T2"/>
+    <var name="R"/>
+    <alias type="(T1, T2) -> R"/>
+  </type>
+</types>

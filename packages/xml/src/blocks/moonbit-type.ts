@@ -11,6 +11,7 @@ import {
   unbounded,
   unionOf,
   unitType,
+  WildcardType,
 } from "./ast";
 import { ParseError } from "../dom";
 
@@ -83,9 +84,11 @@ class TypeParser {
 
   private parsePostfix(): Atom {
     const atom = this.parseAtom();
-    while (this.eat("?")) {
-      atom.expr = generic("Option", [unwrapAtom(atom)]);
-      atom.kind = "plain";
+    if (atom.expr.kind !== "wildcard") {
+      while (this.eat("?")) {
+        atom.expr = generic("Option", [unwrapAtom(atom)]);
+        atom.kind = "plain";
+      }
     }
     return atom;
   }
@@ -94,6 +97,27 @@ class TypeParser {
     if (this.atHole()) {
       this.i += 1;
       return { expr: new HoleType(), kind: "plain" };
+    }
+    if (this.eat("?")) {
+      this.skip();
+      if (this.eat("extends")) {
+        const bound = this.parseUnion();
+        return { expr: new WildcardType(bound, "extends"), kind: "plain" };
+      }
+      if (this.eat("super")) {
+        const bound = this.parseUnion();
+        return { expr: new WildcardType(bound, "super"), kind: "plain" };
+      }
+      return { expr: new WildcardType(null, null), kind: "plain" };
+    }
+    if (this.eat("+")) {
+      const bound = this.parseUnion();
+      return { expr: new WildcardType(bound, "extends"), kind: "plain" };
+    }
+    if (this.startsWith("-") && !this.startsWith("->")) {
+      this.eat("-");
+      const bound = this.parseUnion();
+      return { expr: new WildcardType(bound, "super"), kind: "plain" };
     }
     if (this.eat("(")) {
       if (this.eat(")")) {
@@ -125,16 +149,22 @@ class TypeParser {
     if (name === "Self") {
       return { expr: new SelfType(), kind: "plain" };
     }
-    if (this.eat("[")) {
+    this.skip();
+    if (this.eat("extends")) {
+      const bound = this.parseUnion();
+      return { expr: new WildcardType(bound, "extends"), kind: "plain" };
+    }
+    if (this.eat("<") || this.eat("[")) {
+      const closing = this.src[this.i - 1] === "<" ? ">" : "]";
       const args = [this.parseUnion()];
       while (this.eat(",")) {
-        if (this.startsWith("]")) {
+        if (this.startsWith(closing)) {
           break;
         }
         args.push(this.parseUnion());
       }
-      if (!this.eat("]")) {
-        this.fail("expected `]`");
+      if (!this.eat(closing)) {
+        this.fail(`expected \`${closing}\``);
       }
       return { expr: new NamedType(name, null, args), kind: "plain" };
     }

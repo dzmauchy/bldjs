@@ -3,6 +3,7 @@ import {
   type TypeExpr,
   arrayOf,
   blockAttribute,
+  blockInput,
   consumerType,
   displayType,
   funcType,
@@ -16,6 +17,10 @@ import {
   unbounded,
   unionOf,
   intersectionOf,
+  WildcardType,
+  wildcard,
+  wildcardExtends,
+  wildcardSuper,
   PRIMITIVE_TYPES,
   BUILTIN_CONTAINER_TYPES,
   SPECIAL_TYPES,
@@ -142,11 +147,11 @@ describe("blocks", () => {
     expect(parseBlocks("t.xml", xml).id).toBe("t");
   });
 
-  it("builtin catalogs declare blocks.xsd", () => {
-    for (const xml of [TYPES_XML, CONTROL_SYSTEMS_XML]) {
-      expect(xml).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
-      expect(xml).toContain('xsi:noNamespaceSchemaLocation="blocks.xsd"');
-    }
+  it("builtin catalogs declare schemas", () => {
+    expect(TYPES_XML).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
+    expect(TYPES_XML).toContain('xsi:noNamespaceSchemaLocation="types.xsd"');
+    expect(CONTROL_SYSTEMS_XML).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
+    expect(CONTROL_SYSTEMS_XML).toContain('xsi:noNamespaceSchemaLocation="blocks.xsd"');
   });
 
   it("fixture catalog schema location resolves to blocks.xsd", () => {
@@ -266,7 +271,7 @@ describe("blocks", () => {
     expect(cat.findType("f64")).toBeDefined();
     expect(cat.findType("char")).toBeDefined();
     expect(cat.findType("void")).toBeDefined();
-    expect(cat.findType("c1")).toBeUndefined();
+    expect(cat.findType("c1")).toBeDefined();
     expect(cat.sources().length).toBe(2);
     expect(cat.catalogs().map((item) => [item.file, item.name])).toEqual([
       ["types.xml", "Types"],
@@ -1238,6 +1243,7 @@ describe("constants, settings, relations, and type intersection inference", () =
         "intersection",
         "hole",
         "self",
+        "wildcard",
       ]);
       for (const kind of TYPE_KINDS) {
         expect(isTypeKind(kind)).toBe(true);
@@ -1887,5 +1893,458 @@ describe("constants, settings, relations, and type intersection inference", () =
       expect(resolvedSinkI.compatible.get("in")).toBe(true);
     });
   });
+
+  describe("types.xsd, blocks.xsd, parameterized types with constraints, and wildcard variance", () => {
+    it("types.xml defines primitive types, standard types, Array, and function types like c1<T>", () => {
+      const cat = new Catalog();
+      cat.addXml("types.xml", TYPES_XML);
+
+      const c1Def = cat.findType("c1");
+      expect(c1Def).toBeDefined();
+      expect(c1Def!.vars.length).toBe(1);
+      expect(c1Def!.vars[0]!.name).toBe("T");
+      expect(c1Def!.alias).toBeDefined();
+
+      const c1Expanded = cat.expandAlias(generic("c1", [t("f64")]));
+      expect(c1Expanded).toBeDefined();
+      expectType(c1Expanded!, funcType([t("f64")], t("void")));
+
+      // c1 is a consumer type and push wire type
+      expect(isConsumerType(named("c1"))).toBe(true);
+      expect(isConsumerType(generic("c1", [t("f64")]))).toBe(true);
+      expect(isPushType(generic("c1", [t("f64")]))).toBe(true);
+      expect(isPushType(arrayOf(generic("c1", [t("f64")])))).toBe(true);
+    });
+
+    it("parseMoonbitType parses angle brackets and wildcard types", () => {
+      const t1 = ty("c1<f64>");
+      expect(t1.kind).toBe("type");
+      expect((t1 as any).name).toBe("c1");
+      expect((t1 as any).args.length).toBe(1);
+      expectType((t1 as any).args[0], t("f64"));
+
+      const tWildExtends = ty("Animal<? extends Genotype>");
+      expect(tWildExtends.kind).toBe("type");
+      const arg1 = (tWildExtends as any).args[0];
+      expect(arg1.kind).toBe("wildcard");
+      expect(arg1.boundKind).toBe("extends");
+      expectType(arg1.bound, t("Genotype"));
+      expect(arg1.display(true)).toBe("? extends Genotype");
+
+      const tWildSuper = ty("Animal<? super Cat>");
+      expect(tWildSuper.kind).toBe("type");
+      const arg2 = (tWildSuper as any).args[0];
+      expect(arg2.kind).toBe("wildcard");
+      expect(arg2.boundKind).toBe("super");
+      expectType(arg2.bound, t("Cat"));
+      expect(arg2.display(true)).toBe("? super Cat");
+
+      const tWildUnbounded = ty("Animal<?>");
+      expect(tWildUnbounded.kind).toBe("type");
+      const arg3 = (tWildUnbounded as any).args[0];
+      expect(arg3.kind).toBe("wildcard");
+      expect(arg3.boundKind).toBeNull();
+      expect(arg3.bound).toBeNull();
+      expect(arg3.display(true)).toBe("?");
+
+      const tNested = ty("Box<Box<T>>");
+      expect(tNested.kind).toBe("type");
+      expect((tNested as any).args[0].kind).toBe("type");
+      expect((tNested as any).args[0].name).toBe("Box");
+
+      const tInter = ty("Box<Reader & Writer>");
+      expect(tInter.kind).toBe("type");
+      expect((tInter as any).args[0].kind).toBe("intersection");
+    });
+
+    it("types can have type parameters and constraints without variance: Animal<X extends Genotype>, Cat<X extends Genotype> extends Animal<X>", () => {
+      const cat = new Catalog();
+      cat.addXml(
+        "animals.xml",
+        `
+          <types id="animals" name="Animals" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="types.xsd">
+            <type name="Genotype"/>
+            <type name="CatGenotype" extends="Genotype"/>
+            <type name="DogGenotype" extends="Genotype"/>
+
+            <type name="Animal">
+              <var name="X" extends="Genotype"/>
+            </type>
+
+            <type name="Cat" extends="Animal&lt;X&gt;">
+              <var name="X" extends="Genotype"/>
+            </type>
+          </types>
+        `,
+      );
+
+      const animalDef = cat.findType("Animal");
+      expect(animalDef).toBeDefined();
+      expect(animalDef!.vars.length).toBe(1);
+      expect(animalDef!.vars[0]!.name).toBe("X");
+      expect(animalDef!.vars[0]!.extends.length).toBe(1);
+      expectType(animalDef!.vars[0]!.extends[0]!, t("Genotype"));
+      // No variance on types!
+      expect(animalDef!.vars[0]!.variance).toBeUndefined();
+
+      const catDef = cat.findType("Cat");
+      expect(catDef).toBeDefined();
+      expect(catDef!.ancestors.length).toBe(1);
+
+      // Cat<CatGenotype> projects to Animal<CatGenotype>
+      const supertype = cat.asSupertype(generic("Cat", [t("CatGenotype")]), "Animal");
+      expect(supertype).toBeDefined();
+      expectType(supertype!, generic("Animal", [t("CatGenotype")]));
+
+      // Cat<CatGenotype> is a subtype of Animal<CatGenotype>
+      expect(isCompatible(cat, [], generic("Animal", [t("CatGenotype")]), generic("Cat", [t("CatGenotype")]))).toBe(true);
+
+      // Invariance: Cat<CatGenotype> is NOT a subtype of Animal<DogGenotype>
+      expect(isCompatible(cat, [], generic("Animal", [t("DogGenotype")]), generic("Cat", [t("CatGenotype")]))).toBe(false);
+    });
+
+    it("wildcard variance: only wildcards have variance, enabling use-site covariance and contravariance", () => {
+      const cat = new Catalog();
+      cat.addXml(
+        "wildcards.xml",
+        `
+          <types id="wildcards" name="Wildcards" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="types.xsd">
+            <type name="Genotype"/>
+            <type name="CatGenotype" extends="Genotype"/>
+            <type name="PersianGenotype" extends="CatGenotype"/>
+
+            <type name="Animal">
+              <var name="X" extends="Genotype"/>
+            </type>
+
+            <type name="Cat" extends="Animal&lt;X&gt;">
+              <var name="X" extends="Genotype"/>
+            </type>
+          </types>
+        `,
+      );
+
+      // Invariance without wildcards:
+      // Animal<Genotype> requires Animal<Genotype> exactly, Animal<CatGenotype> cannot be passed
+      expect(isCompatible(cat, [], generic("Animal", [t("Genotype")]), generic("Animal", [t("CatGenotype")]))).toBe(false);
+
+      // Covariant wildcard: Animal<? extends Genotype> accepts Animal<CatGenotype>
+      const upperWild = generic("Animal", [wildcardExtends(t("Genotype"))]);
+      expect(isCompatible(cat, [], upperWild, generic("Animal", [t("CatGenotype")]))).toBe(true);
+      expect(isCompatible(cat, [], upperWild, generic("Animal", [t("PersianGenotype")]))).toBe(true);
+      // It also accepts through Cat's inheritance hierarchy: Cat<PersianGenotype> <: Animal<? extends Genotype>!
+      expect(isCompatible(cat, [], upperWild, generic("Cat", [t("PersianGenotype")]))).toBe(true);
+
+      // Contravariant wildcard: Animal<? super CatGenotype>
+      const lowerWild = generic("Animal", [wildcardSuper(t("CatGenotype"))]);
+      // Accepts CatGenotype
+      expect(isCompatible(cat, [], lowerWild, generic("Animal", [t("CatGenotype")]))).toBe(true);
+      // Accepts supertype Genotype
+      expect(isCompatible(cat, [], lowerWild, generic("Animal", [t("Genotype")]))).toBe(true);
+      // Rejects subtype PersianGenotype
+      expect(isCompatible(cat, [], lowerWild, generic("Animal", [t("PersianGenotype")]))).toBe(false);
+
+      // Unbounded wildcard: Animal<?> accepts any type argument
+      const unboundedWild = generic("Animal", [wildcard()]);
+      expect(isCompatible(cat, [], unboundedWild, generic("Animal", [t("CatGenotype")]))).toBe(true);
+      expect(isCompatible(cat, [], unboundedWild, generic("Animal", [t("Genotype")]))).toBe(true);
+      expect(isCompatible(cat, [], unboundedWild, generic("Cat", [t("PersianGenotype")]))).toBe(true);
+    });
+
+    it("block can have type variables via <var> with constraints (extends ...)", () => {
+      const cat = new Catalog();
+      cat.addXml(
+        "block_vars.xml",
+        `
+          <blocks id="test_block_vars" name="TestBlockVars" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
+            <type name="Genotype"/>
+            <type name="CatGenotype" extends="Genotype"/>
+            <type name="String"/>
+
+            <block id="b_process_gene" name="ProcessGene" ns="test">
+              <var name="T" extends="Genotype"/>
+              <in name="gene" type="T"/>
+              <out name="result" type="T"/>
+            </block>
+          </blocks>
+        `,
+      );
+
+      const block = cat.block("b_process_gene")!;
+      expect(block).toBeDefined();
+      expect(block.vars.length).toBe(1);
+      expect(block.vars[0]!.name).toBe("T");
+      expect(block.vars[0]!.extends.length).toBe(1);
+      expectType(block.vars[0]!.extends[0]!, t("Genotype"));
+
+      const resolver = new TypeResolver(cat);
+
+      // Compatible with CatGenotype (satisfies extends="Genotype")
+      const resolvedValid = resolver.resolve(block, new Map([["gene", { kind: "single", ty: t("CatGenotype") }]]));
+      expect(resolvedValid.compatible.get("gene")).toBe(true);
+      expectType(resolvedValid.params.get("T"), t("CatGenotype"));
+      expectType(resolvedOutput(resolvedValid, "result"), t("CatGenotype"));
+
+      // Incompatible with String (does not satisfy extends="Genotype")
+      const resolvedInvalid = resolver.resolve(block, new Map([["gene", { kind: "single", ty: t("String") }]]));
+      expect(resolvedInvalid.compatible.get("gene")).toBe(false);
+    });
+
+    it("each input can define its type via block type variable, raw type, intersection, and parameterized type with all forms", () => {
+      const cat = new Catalog();
+      cat.addXml(
+        "all_input_forms.xml",
+        `
+          <blocks id="input_forms" name="InputForms" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
+            <type name="Genotype"/>
+            <type name="Cat" extends="Genotype"/>
+            <type name="Reader"/>
+            <type name="Writer"/>
+            <type name="f64"/>
+
+            <type name="Animal">
+              <var name="X" extends="Genotype"/>
+            </type>
+
+            <type name="Box">
+              <var name="T"/>
+            </type>
+
+            <block id="b_all_forms" name="AllForms" ns="test">
+              <var name="V" extends="Genotype"/>
+
+              <!-- 1. Block type variable -->
+              <in name="p_var" type="V"/>
+
+              <!-- 2. Raw type -->
+              <in name="p_raw" type="f64"/>
+
+              <!-- 3. Intersection type -->
+              <in name="p_inter" type="Reader &amp; Writer"/>
+
+              <!-- 4. Parameterized type with: -->
+              <!-- 4a. parameterized type of this definition -->
+              <in name="p_param_nested" type="Box&lt;Box&lt;V&gt;&gt;"/>
+
+              <!-- 4b. block type variable -->
+              <in name="p_param_var" type="Box&lt;V&gt;"/>
+
+              <!-- 4c. raw type -->
+              <in name="p_param_raw" type="Box&lt;f64&gt;"/>
+
+              <!-- 4d. wildcard type with upper bound -->
+              <in name="p_param_wild_upper" type="Animal&lt;? extends Genotype&gt;"/>
+
+              <!-- 4e. wildcard type with lower bound -->
+              <in name="p_param_wild_lower" type="Animal&lt;? super Cat&gt;"/>
+
+              <!-- 4f. wildcard type unbounded -->
+              <in name="p_param_wild_unbounded" type="Animal&lt;?&gt;"/>
+
+              <!-- 4g. intersection type -->
+              <in name="p_param_inter" type="Box&lt;Reader &amp; Writer&gt;"/>
+            </block>
+          </blocks>
+        `,
+      );
+
+      const block = cat.block("b_all_forms")!;
+      expect(block).toBeDefined();
+      expect(block.inputs.length).toBe(10);
+
+      // Verify each parsed input type matches expectations
+      expect(blockInput(block, "p_var")!.ty.equals(t("V"))).toBe(true);
+      expect(blockInput(block, "p_raw")!.ty.equals(t("f64"))).toBe(true);
+      expect(blockInput(block, "p_inter")!.ty.kind).toBe("intersection");
+
+      const pNested = blockInput(block, "p_param_nested")!.ty;
+      expect(pNested.kind).toBe("type");
+      expect((pNested as any).args[0].kind).toBe("type");
+
+      const pWildUpper = blockInput(block, "p_param_wild_upper")!.ty;
+      expect((pWildUpper as any).args[0].kind).toBe("wildcard");
+      expect((pWildUpper as any).args[0].boundKind).toBe("extends");
+
+      const pWildLower = blockInput(block, "p_param_wild_lower")!.ty;
+      expect((pWildLower as any).args[0].kind).toBe("wildcard");
+      expect((pWildLower as any).args[0].boundKind).toBe("super");
+
+      const pWildUnbounded = blockInput(block, "p_param_wild_unbounded")!.ty;
+      expect((pWildUnbounded as any).args[0].kind).toBe("wildcard");
+      expect((pWildUnbounded as any).args[0].boundKind).toBeNull();
+
+      const pParamInter = blockInput(block, "p_param_inter")!.ty;
+      expect((pParamInter as any).args[0].kind).toBe("intersection");
+
+      // Verify compatibility check against various inputs
+      const resolver = new TypeResolver(cat);
+      const grounded = new Map<string, Grounding>([
+        ["p_var", { kind: "single", ty: t("Cat") }],
+        ["p_raw", { kind: "single", ty: t("f64") }],
+        ["p_param_wild_upper", { kind: "single", ty: generic("Animal", [t("Cat")]) }],
+        ["p_param_wild_lower", { kind: "single", ty: generic("Animal", [t("Genotype")]) }],
+        ["p_param_wild_unbounded", { kind: "single", ty: generic("Animal", [t("Cat")]) }],
+      ]);
+
+      const resolved = resolver.resolve(block, grounded);
+      expect(resolved.compatible.get("p_var")).toBe(true);
+      expect(resolved.compatible.get("p_raw")).toBe(true);
+      expect(resolved.compatible.get("p_param_wild_upper")).toBe(true);
+      expect(resolved.compatible.get("p_param_wild_lower")).toBe(true);
+      expect(resolved.compatible.get("p_param_wild_unbounded")).toBe(true);
+      expectType(resolved.params.get("V"), t("Cat"));
+    });
+
+    it("inputs can also be defined via structured XML child elements", () => {
+      const cat = new Catalog();
+      cat.addXml(
+        "structured_inputs.xml",
+        `
+          <blocks id="struct_inputs" name="StructInputs" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
+            <type name="Genotype"/>
+            <type name="Cat" extends="Genotype"/>
+            <type name="f64"/>
+            <type name="Animal"><var name="X" extends="Genotype"/></type>
+            <type name="Box"><var name="T"/></type>
+            <type name="Reader"/>
+            <type name="Writer"/>
+
+            <block id="b_struct" name="StructBlock" ns="test">
+              <var name="V" extends="Genotype"/>
+
+              <!-- block type variable -->
+              <in name="p_var"><var name="V"/></in>
+
+              <!-- raw type -->
+              <in name="p_raw"><raw-type name="f64"/></in>
+
+              <!-- intersection type -->
+              <in name="p_inter">
+                <intersection>
+                  <type name="Reader"/>
+                  <type name="Writer"/>
+                </intersection>
+              </in>
+
+              <!-- parameterized type with wildcard upper bound -->
+              <in name="p_wild_upper">
+                <type name="Animal">
+                  <wildcard variance="+" extends="Genotype"/>
+                </type>
+              </in>
+
+              <!-- parameterized type with wildcard lower bound -->
+              <in name="p_wild_lower">
+                <type name="Animal">
+                  <wildcard variance="-" super="Cat"/>
+                </type>
+              </in>
+
+              <!-- parameterized type with unbounded wildcard -->
+              <in name="p_wild_unbound">
+                <type name="Animal">
+                  <wildcard/>
+                </type>
+              </in>
+
+              <!-- parameterized type with nested parameterized type -->
+              <in name="p_nested">
+                <type name="Box">
+                  <type name="Box">
+                    <var name="V"/>
+                  </type>
+                </type>
+              </in>
+            </block>
+          </blocks>
+        `,
+      );
+
+      const block = cat.block("b_struct")!;
+      expect(block).toBeDefined();
+
+      expect(blockInput(block, "p_var")!.ty.equals(t("V"))).toBe(true);
+      expect(blockInput(block, "p_raw")!.ty.equals(t("f64"))).toBe(true);
+      expect(blockInput(block, "p_inter")!.ty.kind).toBe("intersection");
+
+      const pWildUpper = blockInput(block, "p_wild_upper")!.ty;
+      expect((pWildUpper as any).args[0].kind).toBe("wildcard");
+      expect((pWildUpper as any).args[0].boundKind).toBe("extends");
+
+      const pWildLower = blockInput(block, "p_wild_lower")!.ty;
+      expect((pWildLower as any).args[0].kind).toBe("wildcard");
+      expect((pWildLower as any).args[0].boundKind).toBe("super");
+
+      const pWildUnbound = blockInput(block, "p_wild_unbound")!.ty;
+      expect((pWildUnbound as any).args[0].kind).toBe("wildcard");
+      expect((pWildUnbound as any).args[0].boundKind).toBeNull();
+    });
+
+    it("type resolver infers type variables through c1<T> and functions", () => {
+      const cat = new Catalog();
+      cat.addXml("types.xml", TYPES_XML);
+      cat.addXml(
+        "fn_blocks.xml",
+        `
+          <blocks id="fn_blocks" name="FnBlocks" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
+            <block id="b_c1_consumer" name="C1Consumer" ns="test">
+              <var name="T"/>
+              <in name="fn" type="c1&lt;T&gt;"/>
+              <out name="echo" type="c1&lt;T&gt;"/>
+            </block>
+          </blocks>
+        `,
+      );
+
+      const block = cat.block("b_c1_consumer")!;
+      expect(block).toBeDefined();
+
+      const resolver = new TypeResolver(cat);
+
+      // 1. Grounding c1<T> with c1<f64>
+      const res1 = resolver.resolve(block, new Map([["fn", { kind: "single", ty: generic("c1", [t("f64")]) }]]));
+      expect(res1.compatible.get("fn")).toBe(true);
+      expectType(res1.params.get("T"), t("f64"));
+      expectType(resolvedOutput(res1, "echo"), funcType([t("f64")], t("void")));
+
+      // 2. Grounding c1<T> with (f64) -> void
+      const res2 = resolver.resolve(block, new Map([["fn", { kind: "single", ty: funcType([t("f64")], t("void")) }]]));
+      expect(res2.compatible.get("fn")).toBe(true);
+      expectType(res2.params.get("T"), t("f64"));
+      expectType(resolvedOutput(res2, "echo"), funcType([t("f64")], t("void")));
+    });
+
+    it("type resolver infers type variables from wildcard bounds", () => {
+      const cat = new Catalog();
+      cat.addXml(
+        "wildcard_infer.xml",
+        `
+          <blocks id="wild_infer" name="WildcardInfer" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
+            <type name="Genotype"/>
+            <type name="Cat" extends="Genotype"/>
+            <type name="Animal"><var name="X" extends="Genotype"/></type>
+
+            <block id="b_wild_block" name="WildBlock" ns="test">
+              <var name="T" extends="Genotype"/>
+              <in name="animal" type="Animal&lt;? extends T&gt;"/>
+              <out name="out" type="T"/>
+            </block>
+          </blocks>
+        `,
+      );
+
+      const block = cat.block("b_wild_block")!;
+      const resolver = new TypeResolver(cat);
+
+      const res = resolver.resolve(
+        block,
+        new Map([["animal", { kind: "single", ty: generic("Animal", [t("Cat")]) }]]),
+      );
+      expect(res.compatible.get("animal")).toBe(true);
+      expectType(res.params.get("T"), t("Cat"));
+      expectType(resolvedOutput(res, "out"), t("Cat"));
+    });
+  });
 });
+
 
