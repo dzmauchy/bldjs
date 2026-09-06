@@ -10,6 +10,7 @@ import {
   named,
   unbounded,
   unionOf,
+  unitType,
 } from "./ast";
 import { ParseError } from "../dom";
 
@@ -96,7 +97,7 @@ class TypeParser {
     }
     if (this.eat("(")) {
       if (this.eat(")")) {
-        return { expr: named("Unit"), kind: "empty" };
+        return { expr: unitType(), kind: "empty" };
       }
       const first = this.parseUnion();
       if (this.eat(")")) {
@@ -205,5 +206,5 @@ function paramsFromArrowLeft(left: Atom): TypeExpr[] {
 }
 
 function unwrapAtom(atom: Atom): TypeExpr {
-  return atom.kind === "empty" ? named("Unit") : atom.expr;
+  return atom.kind === "empty" ? unitType() : atom.expr;
 }

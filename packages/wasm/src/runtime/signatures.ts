@@ -4,6 +4,15 @@ import { type BlockDef, type PortDef, type TypeExpr, displayType, isArrayType } 
 export type WasmVal = string;
 
 const WASM_PRIMITIVES: Record<string, string> = {
+  bool: "i32",
+  u64: "i64",
+  u32: "i32",
+  i64: "i64",
+  i32: "i32",
+  f32: "f32",
+  f64: "f64",
+  char: "i32",
+  void: "void",
   Int: "i32",
   UInt: "i32",
   Bool: "i32",
@@ -13,6 +22,7 @@ const WASM_PRIMITIVES: Record<string, string> = {
   UInt64: "i64",
   Float: "f32",
   Double: "f64",
+  Unit: "void",
 };
 
 function rawName(expr: TypeExpr): string {

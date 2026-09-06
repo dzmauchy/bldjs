@@ -7,8 +7,8 @@ nodes size themselves with flex, and connectors are JointJS [`jumpover`](https:/
 `initAvoidRouter({ worker: true })`](https://docs.jointjs.com/api/avoid-router/initAvoidRouter/).
 
 Diagrams load multiple XML type/block models (`packages/xml/src/resources/models/*.xml`, described by `packages/xml/src/resources/models/blocks.xsd`). Wiring an output into an input grounds that input and infers the block's generic types. The builtin type library
-(`types.xml`) uses MoonBit notation: `Double`, `Float`, `Int`, `Int64`, `String`, `Bool`, `Unit`, function types `(T) -> R`, and `Array[T]`. The WASM runtime
-maps those onto WASM valtypes (`Bool` → `i32`, `String` → js-string / `externref`).
+(`types.xml`) uses abstract types: `bool`, `u64`, `u32`, `i64`, `i32`, `f32`, `f64`, `char`, `void`, function types `(f32)->void`, and `Array[T]`. The WASM runtime
+maps those onto WASM valtypes (`bool` → `i32`, `String` → js-string / `externref`).
 
 This is a TypeScript port of the Rust/Leptos [bld](https://github.com/dzmauchy/bld) workspace. The repo is an npm workspaces monorepo:
 
@@ -76,10 +76,10 @@ Serve that folder with any static file server that sets the same CSP and isolati
 - Phones keep a compact overlay (portrait and landscape): smaller chrome and blocks, a scrollable block list, and canvas pan from a finger drag. The page stays
   at `initial-scale=1` so the browser does not steal those gestures.
 - Control Systems (`com.dauch.cs`): wire Scope (`com.dauch.cs.sink`) into a generator — Timer, Constant, Sin, Cos, Random (`com.dauch.cs.gen`), or GPIO In
-  (`com.dauch.cs.gpio`). Generator ports are `(Double) -> Unit`. Scope returns a dynamically sized `Array[(Double) -> Unit]`; each outgoing wire is one plot
-  channel: `sin(plot[0])`. Product (`com.dauch.cs.tf`) takes a downstream consumer and returns `n` factor consumers (`Array[(Double) -> Unit]`); each factor
-  updates its slot and pushes the product of all slots (unwired slots stay at `def`, default 1). GPIO Out is a single `(Double) -> Unit` sink that writes a
-  digital pin (HIGH when the sample is greater than 0.5). Several `(Double) -> Unit` outputs may share one input; Run inserts a hidden `fork` that forwards each
+  (`com.dauch.cs.gpio`). Generator ports are `(f32) -> void`. Scope returns a dynamically sized `Array[(f32) -> void]`; each outgoing wire is one plot
+  channel: `sin(plot[0])`. Product (`com.dauch.cs.tf`) takes a downstream consumer and returns `n` factor consumers (`Array[(f32) -> void]`); each factor
+  updates its slot and pushes the product of all slots (unwired slots stay at `def`, default 1). GPIO Out is a single `(f32) -> void` sink that writes a
+  digital pin (HIGH when the sample is greater than 0.5). Several `(f32) -> void` outputs may share one input; Run inserts a hidden `fork` that forwards each
   sample to every downstream. Each generator has a `period` range input (default 10 ms) for its internal quantizer. Constant also has a `value` range (default
   1). Scope has a time window `n` (default 30 s, 10–600) and quantizer period `m` (default 10 ms, 10–1000); the plot is a sliding `Float64Array` of
   `n * (1000 / m)` measurements whose length is fixed from construction, addressed with a single write pointer. GPIO blocks also have a `pin` range (0–31) and a

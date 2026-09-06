@@ -182,7 +182,7 @@ describe("blocks", () => {
       <blocks id="w" name="Holes">
         <block id="b" name="W" ns="test">
           <in name="ints" type="Array[Int]"/>
-          <in name="consumer" type="(Double) -> Unit"/>
+          <in name="consumer" type="(Double) -> void"/>
           <in name="unboundedInput" type="Array[_]"/>
         </block>
       </blocks>
@@ -257,14 +257,16 @@ describe("blocks", () => {
       "sin",
       "timer",
     ]);
-    expect(cat.findType("Double")).toBeDefined();
-    expect(cat.findType("Array")).toBeDefined();
-    expect(cat.findType("String")).toBeDefined();
-    expect(cat.findType("Bool")).toBeDefined();
-    expect(cat.findType("Unit")).toBeDefined();
-    expect(cat.findType("Int")).toBeDefined();
+    expect(cat.findType("bool")).toBeDefined();
+    expect(cat.findType("u64")).toBeDefined();
+    expect(cat.findType("u32")).toBeDefined();
+    expect(cat.findType("i64")).toBeDefined();
+    expect(cat.findType("i32")).toBeDefined();
+    expect(cat.findType("f32")).toBeDefined();
+    expect(cat.findType("f64")).toBeDefined();
+    expect(cat.findType("char")).toBeDefined();
+    expect(cat.findType("void")).toBeDefined();
     expect(cat.findType("c1")).toBeUndefined();
-    expect(cat.findType("f64")).toBeUndefined();
     expect(cat.sources().length).toBe(2);
     expect(cat.catalogs().map((item) => [item.file, item.name])).toEqual([
       ["types.xml", "Types"],
@@ -532,7 +534,7 @@ describe("blocks", () => {
 
   it("substitutes params, replaces Self, and flattens unions", () => {
     const substituted = consumerType(t("T")).subst(new Map([["T", t("Double")]]));
-    expect(displayType(substituted, true)).toBe("(Double) -> Unit");
+    expect(displayType(substituted, true)).toBe("(Double) -> void");
     expect(displayType(new SelfType().replaceSelf(t("Int")), true)).toBe("Int");
     expect(typesEqual(unionOf([t("Int"), t("Int")]), t("Int"))).toBe(true);
     expect(consumerType(t("Double")).isConsumer()).toBe(true);
@@ -540,18 +542,18 @@ describe("blocks", () => {
   });
 
   it("displays common MoonBit types", () => {
-    expect(displayType(consumerType(t("Double")), true)).toBe("(Double) -> Unit");
-    expect(displayType(consumerType(consumerType(t("Double"))), true)).toBe("((Double) -> Unit) -> Unit");
+    expect(displayType(consumerType(t("Double")), true)).toBe("(Double) -> void");
+    expect(displayType(consumerType(consumerType(t("Double"))), true)).toBe("((Double) -> void) -> void");
     expect(displayType(consumerType(consumerType(consumerType(t("Double")))), true)).toBe(
-      "(((Double) -> Unit) -> Unit) -> Unit",
+      "(((Double) -> void) -> void) -> void",
     );
     expect(typeToString(consumerType(consumerType(consumerType(t("Double")))))).toBe(
-      "(((Double) -> Unit) -> Unit) -> Unit",
+      "(((Double) -> void) -> void) -> void",
     );
     expect(displayType(funcType([t("Int")], t("String")), true)).toBe("(Int) -> String");
     expect(displayType(funcType([t("Int"), t("Int64")], t("Bool")), true)).toBe("(Int, Int64) -> Bool");
     expect(displayType(funcType([], t("Double")), true)).toBe("() -> Double");
-    expect(displayType(consumerType(t("String"), t("Bool")), true)).toBe("(String, Bool) -> Unit");
+    expect(displayType(consumerType(t("String"), t("Bool")), true)).toBe("(String, Bool) -> void");
     expect(displayType(t("Double"), true)).toBe("Double");
     expect(displayType(arrayOf(t("Double")), true)).toBe("Array[Double]");
     expect(displayType(arrayOf(arrayOf(t("Int"))), true)).toBe("Array[Array[Int]]");
@@ -564,7 +566,7 @@ describe("blocks", () => {
     const timerBlock = cat.block("timer")!;
     expect(timerBlock.inputs.length).toBe(1);
     expect(timerBlock.outputs.length).toBe(0);
-    expect(displayType(timerBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(timerBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(f32) -> void");
     expect(timerBlock.inputs.find((port) => port.name === "in")!.attributes.find((a) => a.name === "wasm")).toBeUndefined();
     expect(timerBlock.attributes.find((a) => a.name === "runnable")?.value).toBe("true");
     expect(timerBlock.attributes.find((a) => a.name === "generator")?.value).toBe("true");
@@ -591,22 +593,22 @@ describe("blocks", () => {
     ).toEqual(COMBINER_IDS);
     const scope = cat.block("scope")!;
     expect(scope.inputs.length).toBe(0);
-    expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(Double) -> Unit]");
+    expect(displayType(scope.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(f32) -> void]");
     expect(scope.outputs.find((port) => port.name === "out")!.attributes.find((a) => a.name === "dynamic")?.value).toBe(
       "true",
     );
-    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("cos")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("cos")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("overshoot")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("overshoot")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("random")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(cat.block("constant")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(cat.block("sin")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(f32) -> void");
+    expect(displayType(cat.block("sin")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(f32) -> void");
+    expect(displayType(cat.block("cos")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(f32) -> void");
+    expect(displayType(cat.block("cos")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(f32) -> void");
+    expect(displayType(cat.block("overshoot")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(f32) -> void");
+    expect(displayType(cat.block("overshoot")!.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(f32) -> void");
+    expect(displayType(cat.block("random")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(f32) -> void");
+    expect(displayType(cat.block("constant")!.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(f32) -> void");
     expect(cat.block("constant")!.outputs).toEqual([]);
     const productBlock = cat.block("product")!;
-    expect(displayType(productBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(productBlock.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(Double) -> Unit]");
+    expect(displayType(productBlock.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(f32) -> void");
+    expect(displayType(productBlock.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(f32) -> void]");
     expect(productBlock.outputs.find((port) => port.name === "out")!.attributes.find((a) => a.name === "dynamic")?.value).toBe(
       "true",
     );
@@ -686,17 +688,17 @@ describe("blocks", () => {
     expect(m?.max).toBe(1000);
     const gpioIn = cat.block("gpio_in")!;
     expect(gpioIn.attributes.find((item) => item.name === "generator")?.value).toBe("true");
-    expect(displayType(gpioIn.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(gpioIn.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(f32) -> void");
     expect(gpioIn.parameters.find((param) => param.name === "pin")?.default).toBe("0");
     expect(gpioIn.parameters.find((param) => param.name === "period")).toBeUndefined();
     const gpioOut = cat.block("gpio_out")!;
     expect(gpioOut.inputs.length).toBe(0);
-    expect(displayType(gpioOut.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(gpioOut.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(f32) -> void");
     expect(gpioOut.parameters.find((param) => param.name === "pin")?.default).toBe("1");
-    expect(cat.findType("Double")).toBeDefined();
-    expect(cat.findType("Array")).toBeDefined();
-    expect(cat.findType("Unit")).toBeDefined();
-    expect(cat.findType("Int")).toBeDefined();
+    expect(cat.findType("bool")).toBeDefined();
+    expect(cat.findType("f32")).toBeDefined();
+    expect(cat.findType("void")).toBeDefined();
+    expect(cat.findType("i32")).toBeDefined();
   });
 
   it("nested consumers are not Double sample ports", () => {
@@ -1020,11 +1022,11 @@ describe("blocks", () => {
 
     const sinResolved = diagram.resolveNode(sinId)!;
     expect(sinResolved.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(sinResolved.inputs.find((port) => port.name === "in")!.ty, true)).toBe("(f32) -> void");
+    expect(displayType(sinResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("(f32) -> void");
 
     const scopeResolved = diagram.resolveNode(scopeId)!;
-    expect(displayType(scopeResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(Double) -> Unit]");
+    expect(displayType(scopeResolved.outputs.find((port) => port.name === "out")!.ty, true)).toBe("Array[(f32) -> void]");
     expect(diagram.resolveNode(timerId)!.compatible.get("in") ?? true).toBe(true);
   });
 
@@ -1055,16 +1057,16 @@ describe("blocks", () => {
     diagram.addLink(scopeId, "out", sinId, "in");
     diagram.addLink(scopeId, "out[1]", cosId, "in");
     const scope = diagram.resolveNode(scopeId)!;
-    expect(displayType(resolvedOutput(scope, "out")!, true)).toBe("(Double) -> Unit");
-    expect(displayType(resolvedOutput(scope, "out[1]")!, true)).toBe("(Double) -> Unit");
+    expect(displayType(resolvedOutput(scope, "out")!, true)).toBe("(f32) -> void");
+    expect(displayType(resolvedOutput(scope, "out[1]")!, true)).toBe("(f32) -> void");
     expect(isPushType(resolvedOutput(scope, "out"))).toBe(true);
     expect(isPushType(resolvedOutput(scope, "out[1]"))).toBe(true);
     expect(diagram.resolveNode(sinId)!.compatible.get("in") ?? true).toBe(true);
     expect(diagram.resolveNode(cosId)!.compatible.get("in") ?? true).toBe(true);
-    expect(displayType(resolvedInput(diagram.resolveNode(sinId)!, "in")!, true)).toBe("(Double) -> Unit");
-    expect(displayType(resolvedOutput(diagram.resolveNode(sinId)!, "out")!, true)).toBe("(Double) -> Unit");
-    expect(displayType(resolvedInput(diagram.resolveNode(cosId)!, "in")!, true)).toBe("(Double) -> Unit");
-    expect(displayType(resolvedOutput(diagram.resolveNode(cosId)!, "out")!, true)).toBe("(Double) -> Unit");
+    expect(displayType(resolvedInput(diagram.resolveNode(sinId)!, "in")!, true)).toBe("(f32) -> void");
+    expect(displayType(resolvedOutput(diagram.resolveNode(sinId)!, "out")!, true)).toBe("(f32) -> void");
+    expect(displayType(resolvedInput(diagram.resolveNode(cosId)!, "in")!, true)).toBe("(f32) -> void");
+    expect(displayType(resolvedOutput(diagram.resolveNode(cosId)!, "out")!, true)).toBe("(f32) -> void");
   });
 
   it("scope vector wires to sin because Array[(Double) -> Unit] grounds (Double) -> Unit", () => {
@@ -1185,6 +1187,15 @@ describe("constants, settings, relations, and type intersection inference", () =
   describe("constants and type guards", () => {
     it("defines and validates all primitive types", () => {
       expect(PRIMITIVE_TYPES).toEqual([
+        "bool",
+        "u64",
+        "u32",
+        "i64",
+        "i32",
+        "f32",
+        "f64",
+        "char",
+        "void",
         "Double",
         "Float",
         "Int",
@@ -1479,7 +1490,7 @@ describe("constants, settings, relations, and type intersection inference", () =
       const c2 = consumerType(t("Int"));
       const inter = inferIntersection([c1, c2]);
       expect(inter.kind).toBe("intersection");
-      expect(typeToString(inter)).toBe("(Double) -> Unit & (Int) -> Unit");
+      expect(typeToString(inter)).toBe("(Double) -> void & (Int) -> void");
     });
 
 

@@ -79,8 +79,8 @@ describe("buildNodeState", () => {
     });
     expect(state?.name).toBe("Scope");
     expect(state?.outputs.map((port) => ({ name: port.name, typeLabel: port.typeLabel, showType: port.showType }))).toEqual([
-      { name: "out", typeLabel: "(Double) -> Unit", showType: true },
-      { name: "out[1]", typeLabel: "(Double) -> Unit", showType: false },
+      { name: "out", typeLabel: "(f32) -> void", showType: true },
+      { name: "out[1]", typeLabel: "(f32) -> void", showType: false },
     ]);
     expect(state?.showInputs).toBe(true);
     expect(catalog.block("scope")?.parameters.map((param) => param.name)).toEqual(["n", "m"]);

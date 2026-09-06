@@ -10,16 +10,24 @@ describe("XML ↔ WASM signatures", () => {
     expect(wasmValType(named("Int"))).toBe("i32");
     expect(wasmValType(named("Bool"))).toBe("i32");
     expect(wasmValType(named("String"))).toBe("externref");
-    expect(wasmValType(consumerType(named("Double")))).toBe("(ref $fn_Double_Unit)");
+    expect(wasmValType(named("f32"))).toBe("f32");
+    expect(wasmValType(named("f64"))).toBe("f64");
+    expect(wasmValType(named("i32"))).toBe("i32");
+    expect(wasmValType(named("i64"))).toBe("i64");
+    expect(wasmValType(named("u32"))).toBe("i32");
+    expect(wasmValType(named("u64"))).toBe("i64");
+    expect(wasmValType(named("bool"))).toBe("i32");
+    expect(wasmValType(named("char"))).toBe("i32");
+    expect(wasmValType(consumerType(named("f32")))).toBe("(ref $fn_f32_void)");
     expect(wasmValType(funcType([], named("Double")))).toBe("(ref $fn_Double)");
     expect(wasmValType(funcType([named("Int")], named("String")))).toBe("(ref $fn_Int_String)");
-    expect(wasmValType(consumerType(named("Int"), named("Double")))).toBe("(ref $fn_Int_Double_Unit)");
+    expect(wasmValType(consumerType(named("Int"), named("Double")))).toBe("(ref $fn_Int_Double_void)");
     expect(wasmValType(funcType([named("Int"), named("Int64")], named("Bool")))).toBe(
       "(ref $fn_Int_Int64_Bool)",
     );
     expect(wasmValType(arrayOf(named("Int")))).toBe("(ref $array_Int)");
-    expect(wasmValType(arrayOf(consumerType(named("Double"))))).toBe("(ref $array_fn_Double_Unit)");
-    expect(wasmHeapTypeName(arrayOf(consumerType(named("Double"))))).toBe("array_fn_Double_Unit");
+    expect(wasmValType(arrayOf(consumerType(named("f32"))))).toBe("(ref $array_fn_f32_void)");
+    expect(wasmHeapTypeName(arrayOf(consumerType(named("f32"))))).toBe("array_fn_f32_void");
   });
 
   it("control-system blocks match XML ports as WASM params and results", () => {
@@ -36,10 +44,10 @@ describe("XML ↔ WASM signatures", () => {
       expect(blockSignature(cat.block(id)!)).toEqual({
         id,
         name,
-        params: [{ name: "in", type: "(ref $fn_Double_Unit)" }],
+        params: [{ name: "in", type: "(ref $fn_f32_void)" }],
         results: [],
       });
-      expect(displayType(cat.block(id)!.inputs[0].ty, true)).toBe("(Double) -> Unit");
+      expect(displayType(cat.block(id)!.inputs[0].ty, true)).toBe("(f32) -> void");
       expect(cat.block(id)!.outputs).toEqual([]);
     }
     for (const [id, name] of [
@@ -50,32 +58,32 @@ describe("XML ↔ WASM signatures", () => {
       expect(blockSignature(cat.block(id)!)).toEqual({
         id,
         name,
-        params: [{ name: "in", type: "(ref $fn_Double_Unit)" }],
-        results: [{ name: "out", type: "(ref $fn_Double_Unit)" }],
+        params: [{ name: "in", type: "(ref $fn_f32_void)" }],
+        results: [{ name: "out", type: "(ref $fn_f32_void)" }],
       });
-      expect(displayType(cat.block(id)!.inputs[0].ty, true)).toBe("(Double) -> Unit");
-      expect(displayType(cat.block(id)!.outputs[0].ty, true)).toBe("(Double) -> Unit");
+      expect(displayType(cat.block(id)!.inputs[0].ty, true)).toBe("(f32) -> void");
+      expect(displayType(cat.block(id)!.outputs[0].ty, true)).toBe("(f32) -> void");
     }
     expect(blockSignature(cat.block("product")!)).toEqual({
       id: "product",
       name: "Product",
-      params: [{ name: "in", type: "(ref $fn_Double_Unit)" }],
-      results: [{ name: "out", type: "(ref $array_fn_Double_Unit)" }],
+      params: [{ name: "in", type: "(ref $fn_f32_void)" }],
+      results: [{ name: "out", type: "(ref $array_fn_f32_void)" }],
     });
-    expect(displayType(cat.block("product")!.outputs[0].ty, true)).toBe("Array[(Double) -> Unit]");
+    expect(displayType(cat.block("product")!.outputs[0].ty, true)).toBe("Array[(f32) -> void]");
     expect(cat.block("quantizer")).toBeUndefined();
     expect(blockSignature(cat.block("scope")!)).toEqual({
       id: "scope",
       name: "Scope",
       params: [],
-      results: [{ name: "out", type: "(ref $array_fn_Double_Unit)" }],
+      results: [{ name: "out", type: "(ref $array_fn_f32_void)" }],
     });
-    expect(displayType(cat.block("scope")!.outputs[0].ty, true)).toBe("Array[(Double) -> Unit]");
+    expect(displayType(cat.block("scope")!.outputs[0].ty, true)).toBe("Array[(f32) -> void]");
     expect(blockSignature(cat.block("gpio_out")!)).toEqual({
       id: "gpio_out",
       name: "GPIO Out",
       params: [],
-      results: [{ name: "out", type: "(ref $fn_Double_Unit)" }],
+      results: [{ name: "out", type: "(ref $fn_f32_void)" }],
     });
   });
 
@@ -118,13 +126,13 @@ describe("XML ↔ WASM signatures", () => {
     associateFixtureModels(diagram);
     const cat = diagram.catalog();
     expect(signatureWat(blockSignature(cat.block("timer")!))).toBe(
-      "(func $timer (param $ctx i32) (param $in (ref $fn_Double_Unit))",
+      "(func $timer (param $ctx i32) (param $in (ref $fn_f32_void))",
     );
     expect(signatureWat(blockSignature(cat.block("sin")!))).toBe(
-      "(func $sin (param $ctx i32) (param $in (ref $fn_Double_Unit)) (result $out (ref $fn_Double_Unit))",
+      "(func $sin (param $ctx i32) (param $in (ref $fn_f32_void)) (result $out (ref $fn_f32_void))",
     );
     expect(signatureWat(blockSignature(cat.block("scope")!))).toBe(
-      "(func $scope (param $ctx i32) (result $out (ref $array_fn_Double_Unit))",
+      "(func $scope (param $ctx i32) (result $out (ref $array_fn_f32_void))",
     );
     expect(signatureWat(blockSignature(cat.block("b_decision")!), false)).toBe(
       "(func $b_decision (param $in externref) (result $true externref) (result $false externref)",

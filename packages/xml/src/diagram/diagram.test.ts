@@ -185,8 +185,8 @@ describe("diagram compile pipeline", () => {
     expect(solution.doc.blocks.map((block) => block.type)).toEqual(["scope", "sin"]);
     const sin = solution.inferred.get(2);
     expect(sin?.defId).toBe("sin");
-    expect(displayType(sin!.inputs[0]!.ty, true)).toBe("(Double) -> Unit");
-    expect(displayType(sin!.outputs[0]!.ty, true)).toBe("(Double) -> Unit");
+    expect(displayType(sin!.inputs[0]!.ty, true)).toBe("(f32) -> void");
+    expect(displayType(sin!.outputs[0]!.ty, true)).toBe("(f32) -> void");
   });
 
   it("rejects unknown catalog types before wasm", () => {

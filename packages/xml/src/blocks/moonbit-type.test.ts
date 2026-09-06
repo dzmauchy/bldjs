@@ -25,12 +25,13 @@ describe("MoonBit type notation", () => {
   });
 
   it("parses function types", () => {
-    expect(typesEqual(ty("(Double) -> Unit"), consumerType(named("Double")))).toBe(true);
+    expect(typesEqual(ty("(f32) -> void"), consumerType(named("f32")))).toBe(true);
+    expect(typesEqual(ty("(Double) -> Unit"), funcType([named("Double")], named("Unit")))).toBe(true);
     expect(typesEqual(ty("() -> Double"), funcType([], named("Double")))).toBe(true);
     expect(typesEqual(ty("(Int, String) -> Bool"), funcType([named("Int"), named("String")], named("Bool")))).toBe(
       true,
     );
-    expect(typesEqual(ty("Double -> Unit"), consumerType(named("Double")))).toBe(true);
+    expect(typesEqual(ty("f32 -> void"), consumerType(named("f32")))).toBe(true);
   });
 
   it("parses unions, intersections, and options", () => {
@@ -40,7 +41,14 @@ describe("MoonBit type notation", () => {
   });
 
   it("round-trips catalog types", () => {
-    for (const src of ["(Double) -> Unit", "Array[(Double) -> Unit]", "Array[T]", "(T1, T2) -> R"]) {
+    for (const src of [
+      "(f32) -> void",
+      "Array[(f32) -> void]",
+      "(Double) -> Unit",
+      "Array[(Double) -> Unit]",
+      "Array[T]",
+      "(T1, T2) -> R",
+    ]) {
       expect(displayType(ty(src), true)).toBe(src);
     }
   });

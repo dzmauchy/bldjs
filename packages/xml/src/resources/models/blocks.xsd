@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
 
-  <!-- MoonBit Primitive and Built-in Input/Output Types -->
+  <!-- Primitive and Built-in Input/Output Types -->
   <xs:simpleType name="PrimitiveType">
     <xs:restriction base="xs:string">
+      <xs:enumeration value="bool"/>
+      <xs:enumeration value="u64"/>
+      <xs:enumeration value="u32"/>
+      <xs:enumeration value="i64"/>
+      <xs:enumeration value="i32"/>
+      <xs:enumeration value="f32"/>
+      <xs:enumeration value="f64"/>
+      <xs:enumeration value="char"/>
+      <xs:enumeration value="void"/>
       <xs:enumeration value="Double"/>
       <xs:enumeration value="Float"/>
       <xs:enumeration value="Int"/>

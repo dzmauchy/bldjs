@@ -231,13 +231,18 @@ export function substParams(expr: TypeExpr, params: ParamDef[], args: TypeExpr[]
   return expr.subst(bindings);
 }
 
+function isUnitRawName(name: string): boolean {
+  const raw = name.split(".").at(-1) ?? name;
+  return raw === "void" || raw === "Unit";
+}
+
 export function sameRaw(
   aName: string,
   aNs: string | null | undefined,
   bName: string,
   bNs: string | null | undefined,
 ): boolean {
-  if (aName === bName) {
+  if (aName === bName || (isUnitRawName(aName) && isUnitRawName(bName))) {
     if (aNs != null && bNs != null) {
       return aNs === bNs || aNs.length === 0 || bNs.length === 0;
     }

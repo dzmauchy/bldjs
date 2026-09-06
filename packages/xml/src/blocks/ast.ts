@@ -298,20 +298,24 @@ export function unbounded(): TypeExpr {
 }
 
 export function unitType(): TypeExpr {
-  return named("Unit");
+  return named("void");
 }
 
 export function funcType(params: TypeExpr[], ret: TypeExpr = unitType()): TypeExpr {
   return new FuncType(params, ret);
 }
 
-/** MoonBit consumer `(T) -> Unit`. */
+/** Catalog consumer `(T) -> void`. */
 export function consumerType(...params: TypeExpr[]): TypeExpr {
   return funcType(params, unitType());
 }
 
 export function isUnitType(expr: TypeExpr): boolean {
-  return expr.kind === "type" && rawTypeName(expr.name) === "Unit" && expr.args.length === 0;
+  if (expr.kind !== "type" || expr.args.length !== 0) {
+    return false;
+  }
+  const raw = rawTypeName(expr.name);
+  return raw === "void" || raw === "Unit";
 }
 
 export function isArrayType(expr: TypeExpr): boolean {
@@ -409,6 +413,15 @@ export function typesEqual(left: TypeExpr, right: TypeExpr): boolean {
 }
 
 export const PRIMITIVE_TYPES = [
+  "bool",
+  "u64",
+  "u32",
+  "i64",
+  "i32",
+  "f32",
+  "f64",
+  "char",
+  "void",
   "Double",
   "Float",
   "Int",
