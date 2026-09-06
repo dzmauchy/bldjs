@@ -130,6 +130,10 @@ export function prologTermToType(term: unknown): TypeExpr {
     }
     return named(functor);
   }
+  if (functor === "v" && args.length === 1) {
+    const inner = args[0];
+    return typeof inner === "string" ? named(inner) : prologTermToType(inner);
+  }
   if (functor === "array" && args.length === 1) {
     return arrayOf(prologTermToType(args[0]));
   }

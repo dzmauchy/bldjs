@@ -36,9 +36,9 @@ import {
 } from "./ast";
 import { parseMoonbitType } from "./moonbit-type";
 import {
-  CONTROL_SYSTEMS_XML,
-  FIXTURES_XML,
-  TYPES_XML,
+  BLOCKS_PL,
+  FIXTURES_PL,
+  TYPES_PL,
   associateBuiltinModels,
   associateFixtureModels,
   xmlSourcesForFiles,
@@ -71,7 +71,7 @@ import {
   timer,
 } from "./cs";
 import { type Link, Diagram } from "./diagram";
-import { parseBlocks, parseTypeSpec } from "./parse";
+import { parsePlCatalog } from "./parse-pl";
 import {
   type Grounding,
   TypeResolver,
@@ -96,9 +96,9 @@ function ty(src: string): TypeExpr {
 
 function catalog(): Catalog {
   const next = new Catalog();
-  next.addXml("types.xml", TYPES_XML);
-  next.addXml("fixtures.xml", FIXTURES_XML);
-  next.addXml("control-systems.xml", CONTROL_SYSTEMS_XML);
+  next.addPl("types.pl", TYPES_PL);
+  next.addPl("fixtures.pl", FIXTURES_PL);
+  next.addPl("blocks.pl", BLOCKS_PL);
   return next;
 }
 
@@ -118,51 +118,16 @@ function expectType(actual: TypeExpr | undefined, expected: TypeExpr): void {
 }
 
 describe("blocks", () => {
-  it("rejects catalog library elements", () => {
-    const xml = `
-      <blocks id="t" name="T">
-        <library id="lib" name="Lib"/>
-      </blocks>
-    `;
-    expect(() => parseBlocks("t.xml", xml)).toThrow(/unsupported <blocks> child <library>/);
-  });
-
-  it("parses catalogs that declare blocks.xsd", () => {
-    const xml = `
-      <blocks id="t" name="T" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-              xsi:noNamespaceSchemaLocation="blocks.xsd">
-        <namespace id="n" name="N"/>
-      </blocks>
-    `;
-    expect(parseBlocks("t.xml", xml).id).toBe("t");
-  });
-
-  it("builtin catalogs declare blocks.xsd", () => {
-    for (const xml of [TYPES_XML, CONTROL_SYSTEMS_XML]) {
-      expect(xml).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
-      expect(xml).toContain('xsi:noNamespaceSchemaLocation="blocks.xsd"');
-    }
-  });
-
-  it("fixture catalog schema location resolves to blocks.xsd", () => {
-    expect(FIXTURES_XML).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
-    expect(FIXTURES_XML).toContain('xsi:noNamespaceSchemaLocation="../resources/models/blocks.xsd"');
-  });
-
   it("parses blocks.md apply example", () => {
-    const xml = `
-      <blocks id="workspace_01" name="Signal Processing" icon="workspace.png">
-        <namespace id="types" name="Types" icon="box.png"/>
-        <block id="b_apply" name="Apply" ns="types" icon="func.png">
-          <var>T</var>
-          <var>R</var>
-          <in name="fn" type="(T) -> R"/>
-          <in name="arg" type="T"/>
-          <out name="result" type="R"/>
-        </block>
-      </blocks>
+    const pl = `
+      catalog(workspace_01, 'Signal Processing').
+      ns(types, 'Types', none).
+      block(b_apply, 'Apply', 'func.png', [ns(types), var('T', none), var('R', none)]).
+      input(b_apply, fn, fn, fn([v('T')], v('R')), []).
+      input(b_apply, arg, arg, v('T'), []).
+      output(b_apply, result, result, v('R'), []).
     `;
-    const doc = parseBlocks("apply.xml", xml);
+    const doc = parsePlCatalog("apply.pl", pl);
     expect(doc.id).toBe("workspace_01");
     const block = doc.blocks[0];
     expect(block.vars.length).toBe(2);
@@ -173,16 +138,14 @@ describe("blocks", () => {
   });
 
   it("parses MoonBit holes and arrays", () => {
-    const xml = `
-      <blocks id="w" name="Holes">
-        <block id="b" name="W" ns="test">
-          <in name="ints" type="array[int]"/>
-          <in name="consumer" type="(double) -> unit"/>
-          <in name="unboundedInput" type="array[_]"/>
-        </block>
-      </blocks>
+    const pl = `
+      catalog(w, 'Holes').
+      block(b, 'W', none, [ns(test)]).
+      input(b, ints, ints, array(int), []).
+      input(b, consumer, consumer, fn([double], unit), []).
+      input(b, unboundedInput, unboundedInput, array(top), []).
     `;
-    const doc = parseBlocks("wild.xml", xml);
+    const doc = parsePlCatalog("wild.pl", pl);
     const block = doc.blocks[0];
     expectType(block.inputs[0].ty, arrayOf(t("int")));
     expectType(block.inputs[1].ty, consumerType(t("double")));
@@ -190,17 +153,15 @@ describe("blocks", () => {
   });
 
   it("parses union intersection and self", () => {
-    const xml = `
-      <blocks id="u" name="U">
-        <block id="b_path" name="path" ns="example.Builder">
-          <in name="segment" type="string"/>
-          <in name="complexPayload" type="((T) -> unit) &amp; (() -> T)"/>
-          <out name="result" type="int | int64"/>
-          <out name="this" type="self"/>
-        </block>
-      </blocks>
+    const pl = `
+      catalog(u, 'U').
+      block(b_path, path, none, [ns('example.Builder')]).
+      input(b_path, segment, segment, string, []).
+      input(b_path, complexPayload, complexPayload, inter(fn([v('T')], unit), fn([], v('T'))), []).
+      output(b_path, result, result, union(int, int64), []).
+      output(b_path, this, this, self, []).
     `;
-    const doc = parseBlocks("u.xml", xml);
+    const doc = parsePlCatalog("u.pl", pl);
     const block = doc.blocks[0];
     expectType(block.outputs[0].ty, unionOf([t("int"), t("int64")]));
     expect(block.outputs[1].ty.kind).toBe("self");
@@ -208,66 +169,41 @@ describe("blocks", () => {
   });
 
   it("parses f-bounded var constraints", () => {
-    const xml = `
-      <blocks id="e" name="E">
-        <block id="b_rec_new" name="rec.new" ns="example">
-          <var>T:extends(rec(T))</var>
-          <var>F:extends(h(F))</var>
-          <in name="cls" type="(T) -> unit"/>
-          <out name="value" type="T"/>
-        </block>
-      </blocks>
+    const pl = `
+      catalog(e, 'E').
+      block(b_rec_new, 'rec.new', none, [
+        ns(example),
+        var('T', extends(rec(v('T')))),
+        var('F', extends(h(v('F'))))
+      ]).
+      input(b_rec_new, cls, cls, fn([v('T')], unit), []).
+      output(b_rec_new, value, value, v('T'), []).
     `;
-    const doc = parseBlocks("e.xml", xml);
+    const doc = parsePlCatalog("e.pl", pl);
     expect(doc.blocks[0].vars[0].name).toBe("T");
-    expect(doc.blocks[0].vars[0].constraint).toBe("extends(rec(T))");
+    expect(doc.blocks[0].vars[0].constraint).toBe("extends(rec(v('T')))");
     expect(doc.blocks[0].vars[1].name).toBe("F");
-    expect(doc.blocks[0].vars[1].constraint).toBe("extends(h(F))");
+    expect(doc.blocks[0].vars[1].constraint).toBe("extends(h(v('F')))");
   });
 
   it("parses port type constraints", () => {
-    const xml = `
-      <blocks id="c" name="C">
-        <block id="b_cmp" name="Cmp" ns="example">
-          <var>T</var>
-          <in name="in" type="T:extends(h(T))"/>
-          <out name="out" type="comparable(?(super(T)))"/>
-        </block>
-      </blocks>
+    const pl = `
+      catalog(c, 'C').
+      block(b_cmp, 'Cmp', none, [ns(example), var('T', none)]).
+      input(b_cmp, in, in, v('T'), [constraint(extends(h(v('T'))))]).
+      output(b_cmp, out, out, top, [constraint(comparable(?(super(v('T')))))]).
     `;
-    const doc = parseBlocks("c.xml", xml);
+    const doc = parsePlCatalog("c.pl", pl);
     expectType(doc.blocks[0].inputs[0].ty, t("T"));
-    expect(doc.blocks[0].inputs[0].constraint).toBe("extends(h(T))");
+    expect(doc.blocks[0].inputs[0].constraint).toBe("extends(h(v('T')))");
     expect(doc.blocks[0].outputs[0].ty.kind).toBe("hole");
-    expect(doc.blocks[0].outputs[0].constraint).toBe("comparable(?(super(T)))");
-    expect(parseTypeSpec("T:extends(rec(T))").constraint).toBe("extends(rec(T))");
-  });
-
-  it("rejects factory and param tags", () => {
-    expect(() =>
-      parseBlocks(
-        "f.xml",
-        `<blocks id="t" name="T"><block id="b" name="B" ns="n"><factory id="apply"/></block></blocks>`,
-      ),
-    ).toThrow(/factory/);
-    expect(() =>
-      parseBlocks(
-        "p.xml",
-        `<blocks id="t" name="T"><block id="b" name="B" ns="n"><param name="T"/></block></blocks>`,
-      ),
-    ).toThrow(/param/);
-    expect(() =>
-      parseBlocks(
-        "ty.xml",
-        `<blocks id="t" name="T"><block id="b" name="B" ns="n"><type>true.</type></block></blocks>`,
-      ),
-    ).toThrow(/type/);
+    expect(doc.blocks[0].outputs[0].constraint).toBe("comparable(?(super(v('T'))))");
   });
 
   it("builtin models merge", () => {
     const cat = new Catalog();
-    cat.addXml("types.xml", TYPES_XML);
-    cat.addXml("control-systems.xml", CONTROL_SYSTEMS_XML);
+    cat.addPl("types.pl", TYPES_PL);
+    cat.addPl("blocks.pl", BLOCKS_PL);
     expect(cat.block("timer")).toBeDefined();
     expect(cat.block("sin")).toBeDefined();
     expect(cat.block("cos")).toBeDefined();
@@ -303,15 +239,19 @@ describe("blocks", () => {
     expect(cat.findType("f64")).toBeUndefined();
     expect(cat.sources().length).toBe(2);
     expect(cat.catalogs().map((item) => [item.file, item.name])).toEqual([
-      ["types.xml", "Types"],
-      ["control-systems.xml", "Control Systems"],
+      ["types.pl", "Types"],
+      ["blocks.pl", "Control Systems"],
     ]);
   });
 
   it("looks up builtin catalogs by file name", () => {
-    expect(xmlSourcesForFiles(["types.xml"]).map((source) => source.name)).toEqual(["types.xml"]);
-    expect(() => xmlSourcesForFiles(["missing.xml"])).toThrow("unknown catalog");
-    expect(() => xmlSourcesForFiles(["models/types.xml"])).toThrow("unknown catalog");
+    expect(xmlSourcesForFiles(["types.pl", "blocks.pl"]).map((source) => source.name)).toEqual([
+      "types.pl",
+      "blocks.pl",
+    ]);
+    expect(() => xmlSourcesForFiles(["missing.pl"])).toThrow("unknown catalog");
+    expect(() => xmlSourcesForFiles(["models/types.pl"])).toThrow("unknown catalog");
+    expect(catalog().catalogs().map((item) => item.file)).toEqual(["types.pl", "fixtures.pl", "blocks.pl"]);
   });
 
   it("array[double] is compatible with array[_]", () => {
@@ -341,16 +281,14 @@ describe("blocks", () => {
   });
 
   it("parses array[T] MoonBit notation", () => {
-    const xml = `
-      <blocks id="a" name="A">
-        <block id="b" name="B" ns="test">
-          <in name="sugar" type="array[double]"/>
-          <in name="nested" type="array[array[int]]"/>
-          <out name="alias" type="array[string]"/>
-        </block>
-      </blocks>
+    const pl = `
+      catalog(a, 'A').
+      block(b, 'B', none, [ns(test)]).
+      input(b, sugar, sugar, array(double), []).
+      input(b, nested, nested, array(array(int)), []).
+      output(b, alias, alias, array(string), []).
     `;
-    const doc = parseBlocks("arr.xml", xml);
+    const doc = parsePlCatalog("arr.pl", pl);
     expectType(doc.blocks[0].inputs[0].ty, arrayOf(t("double")));
     expectType(doc.blocks[0].inputs[1].ty, arrayOf(arrayOf(t("int"))));
     expectType(doc.blocks[0].outputs[0].ty, arrayOf(t("string")));
@@ -389,20 +327,15 @@ describe("blocks", () => {
 
   it("infer (T1, T2) -> R from two inputs", async () => {
     const cat = catalog();
-    cat.addXml(
-      "f2.xml",
+    cat.addPl(
+      "f2.pl",
       `
-        <blocks id="fn" name="Fn">
-          <block id="b_apply_f2" name="apply2" ns="test">
-            <var>T1</var>
-            <var>T2</var>
-            <var>R</var>
-            <in name="fn" type="(T1, T2) -> R"/>
-            <in name="a" type="T1"/>
-            <in name="b" type="T2"/>
-            <out name="result" type="R"/>
-          </block>
-        </blocks>
+        catalog(fn, 'Fn').
+        block(b_apply_f2, apply2, none, [ns(test), var('T1', none), var('T2', none), var('R', none)]).
+        input(b_apply_f2, fn, fn, fn([v('T1'), v('T2')], v('R')), []).
+        input(b_apply_f2, a, a, v('T1'), []).
+        input(b_apply_f2, b, b, v('T2'), []).
+        output(b_apply_f2, result, result, v('R'), []).
       `,
     );
     const resolved = await resolveBlock(
@@ -449,25 +382,19 @@ describe("blocks", () => {
 
   it("f-bounded Rec resolves through a multi-file catalog", async () => {
     const cat = catalog();
-    cat.addXml(
-      "color.xml",
+    cat.addPl(
+      "color.pl",
       `
-        <blocks id="example" name="Example">
-          <type name="rec" ns="example">
-            <var>E:extends(rec(E))</var>
-          </type>
-          <type name="color" ns="example">
-            <ancestor type="rec[color]"/>
-          </type>
-          <block id="b_color_fn" name="Color.fn" ns="example">
-            <out name="value" type="(color) -> unit"/>
-          </block>
-          <block id="b_rec_new" name="rec.new" ns="example">
-            <var>T:extends(rec(T))</var>
-            <in name="cls" type="(T) -> unit"/>
-            <out name="value" type="T"/>
-          </block>
-        </blocks>
+        catalog(example, 'Example').
+        type(rec, none).
+        var(rec, 'E', extends(rec(v('E')))).
+        type(color, none).
+        parent(color, rec(color)).
+        block(b_color_fn, 'Color.fn', none, [ns(example)]).
+        output(b_color_fn, value, value, fn([color], unit), []).
+        block(b_rec_new, 'rec.new', none, [ns(example), var('T', extends(rec(v('T'))))]).
+        input(b_rec_new, cls, cls, fn([v('T')], unit), []).
+        output(b_rec_new, value, value, v('T'), []).
       `,
     );
     const resolved = await resolveBlock(
@@ -481,16 +408,13 @@ describe("blocks", () => {
 
   it("incompatible grounding is reported", async () => {
     const cat = catalog();
-    cat.addXml(
-      "need.xml",
+    cat.addPl(
+      "need.pl",
       `
-        <blocks id="b" name="B">
-          <block id="need_c1" name="Need" ns="test">
-            <var>N:extends(fn([double], unit))</var>
-            <in name="in" type="N"/>
-            <out name="out" type="N"/>
-          </block>
-        </blocks>
+        catalog(b, 'B').
+        block(need_c1, 'Need', none, [ns(test), var('N', extends(fn([double], unit)))]).
+        input(need_c1, in, in, v('N'), []).
+        output(need_c1, out, out, v('N'), []).
       `,
     );
     const resolved = await resolveBlock(cat, "need_c1", new Map([["in", { kind: "single", ty: t("int") }]]));
@@ -499,15 +423,13 @@ describe("blocks", () => {
 
   it("builder self type is namespace", async () => {
     const cat = new Catalog();
-    cat.addXml(
-      "mod.xml",
+    cat.addPl(
+      "mod.pl",
       `
-        <blocks id="mod" name="Module">
-          <block id="b_path" name="path" ns="example.Builder">
-            <in name="segment" type="string"/>
-            <out name="this" type="self"/>
-          </block>
-        </blocks>
+        catalog(mod, 'Module').
+        block(b_path, path, none, [ns('example.Builder')]).
+        input(b_path, segment, segment, string, []).
+        output(b_path, this, this, self, []).
       `,
     );
     const resolved = await resolveBlock(cat, "b_path", new Map([["segment", { kind: "single", ty: t("string") }]]));
@@ -563,7 +485,7 @@ describe("blocks", () => {
     const diagram = new Diagram("d3", "Drop");
     associateFixtureModels(diagram);
     diagram.addNode("b_array_of");
-    diagram.dissociateXml("fixtures.xml");
+    diagram.dissociateXml("fixtures.pl");
     expect(diagram.catalog().block("b_array_of")).toBeUndefined();
     expect(diagram.catalog().block("timer")).toBeDefined();
     expect(diagram.nodes().length).toBe(0);
@@ -1330,20 +1252,16 @@ describe("constants, settings, relations, and type intersection inference", () =
     });
   });
 
-  describe("XML settings and parameter representation", () => {
-    it("parses block with <settings> container and typed <setting> elements", () => {
-      const xml = `
-        <blocks id="cfg" name="Config">
-          <block id="b_cfg" name="ConfigBlock" ns="test">
-            <settings>
-              <setting name="bufferSize" type="int" default="1024" min="64" max="65536" step="64"/>
-              <setting name="threshold" type="double" default="0.75" min="0" max="1" step="0.05"/>
-              <setting name="mode" type="string" default="fast" pattern="[a-z]+"/>
-            </settings>
-          </block>
-        </blocks>
+  describe("Prolog param/4 representation", () => {
+    it("parses block with setting and typed param/4 facts", () => {
+      const pl = `
+        catalog(cfg, 'Config').
+        block(b_cfg, 'ConfigBlock', none, [ns(test)]).
+        param(b_cfg, bufferSize, setting, [type(int), default(1024), min(64), max(65536), step(64)]).
+        param(b_cfg, threshold, setting, [type(double), default(0.75), min(0), max(1), step(0.05)]).
+        param(b_cfg, mode, setting, [type(string), default(fast), pattern('[a-z]+')]).
       `;
-      const doc = parseBlocks("cfg.xml", xml);
+      const doc = parsePlCatalog("cfg.pl", pl);
       const block = doc.blocks[0];
       expect(block.parameters).toHaveLength(3);
       expect(block.settings).toHaveLength(3);
@@ -1369,18 +1287,14 @@ describe("constants, settings, relations, and type intersection inference", () =
     });
 
     it("parses block with typed specific parameters", () => {
-      const xml = `
-        <blocks id="p" name="Params">
-          <block id="b_proc" name="Proc" ns="test">
-            <parameters>
-              <integer-parameter name="retries" type="int" default="3"/>
-              <double-range-parameter name="ratio" type="double" min="0.1" max="5.0" step="0.1" default="1.0"/>
-              <parameter name="customFlag" type="bool" default="true"/>
-            </parameters>
-          </block>
-        </blocks>
+      const pl = `
+        catalog(p, 'Params').
+        block(b_proc, 'Proc', none, [ns(test)]).
+        param(b_proc, retries, integer, [type(int), default(3)]).
+        param(b_proc, ratio, double_range, [type(double), min(0.1), max(5.0), step(0.1), default(1.0)]).
+        param(b_proc, customFlag, parameter, [type(bool), default(true)]).
       `;
-      const doc = parseBlocks("p.xml", xml);
+      const doc = parsePlCatalog("p.pl", pl);
       const block = doc.blocks[0];
       expect(block.parameters).toHaveLength(3);
       expect(block.parameters[0].name).toBe("retries");
@@ -1392,18 +1306,16 @@ describe("constants, settings, relations, and type intersection inference", () =
     });
   });
 
-  describe("XML ports, variance, and relation representation", () => {
-    it("parses input/output aliases and port direction/relations", () => {
-      const xml = `
-        <blocks id="ports_test" name="Ports">
-          <block id="b_rel_port" name="RelPort" ns="test">
-            <input name="in1" type="double" icon="pin"/>
-            <input name="in2" type="int"/>
-            <output name="out1" type="double" icon="out_pin" relation="intersection" relatesTo="in1,in2"/>
-          </block>
-        </blocks>
+  describe("Prolog ports and type variables", () => {
+    it("parses input/output aliases and port direction", () => {
+      const pl = `
+        catalog(ports_test, 'Ports').
+        block(b_rel_port, 'RelPort', none, [ns(test)]).
+        input(b_rel_port, in1, in1, double, [icon(pin)]).
+        input(b_rel_port, in2, in2, int, []).
+        output(b_rel_port, out1, out1, double, [icon(out_pin)]).
       `;
-      const doc = parseBlocks("ports.xml", xml);
+      const doc = parsePlCatalog("ports.pl", pl);
       const block = doc.blocks[0];
       expect(block.inputs).toHaveLength(2);
       expect(block.outputs).toHaveLength(1);
@@ -1417,50 +1329,17 @@ describe("constants, settings, relations, and type intersection inference", () =
 
       expect(block.outputs[0].name).toBe("out1");
       expect(block.outputs[0].direction).toBe("out");
-      expect(block.outputs[0].relation).toBe("intersection");
-      expect(block.outputs[0].relatesTo).toBe("in1,in2");
     });
 
     it("parses type variables with Prolog constraints", () => {
-      const xml = `
-        <blocks id="type_params" name="TypeParams">
-          <block id="b_poly" name="Poly" ns="test">
-            <var>T:extends(rec(T))</var>
-          </block>
-        </blocks>
+      const pl = `
+        catalog(type_params, 'TypeParams').
+        block(b_poly, 'Poly', none, [ns(test), var('T', extends(rec(v('T'))))]).
       `;
-      const doc = parseBlocks("poly.xml", xml);
+      const doc = parsePlCatalog("poly.pl", pl);
       const typeVar = doc.blocks[0].vars[0];
       expect(typeVar.name).toBe("T");
-      expect(typeVar.constraint).toBe("extends(rec(T))");
-    });
-
-    it("parses <relation> and <type-relation> elements in blocks", () => {
-      const xml = `
-        <blocks id="rel_doc" name="RelDoc">
-          <block id="b_intersect_block" name="IntersectBlock" ns="test">
-            <in name="inA" type="double"/>
-            <in name="inB" type="int"/>
-            <out name="res" type="unit"/>
-            <relation kind="intersection" from="inA,inB" to="res"/>
-            <type-relation kind="union" input="inA,inB" output="res2"/>
-          </block>
-        </blocks>
-      `;
-      const doc = parseBlocks("rel.xml", xml);
-      const block = doc.blocks[0];
-      expect(block.relations).toBeDefined();
-      expect(block.relations).toHaveLength(2);
-
-      const rel1 = block.relations![0];
-      expect(rel1.kind).toBe("intersection");
-      expect(rel1.from).toBe("inA,inB");
-      expect(rel1.to).toBe("res");
-
-      const rel2 = block.relations![1];
-      expect(rel2.kind).toBe("union");
-      expect(rel2.input).toBe("inA,inB");
-      expect(rel2.output).toBe("res2");
+      expect(typeVar.constraint).toBe("extends(rec(v('T')))");
     });
   });
 
@@ -1533,18 +1412,15 @@ describe("constants, settings, relations, and type intersection inference", () =
   describe("subtype simplification in intersections and unions", () => {
     function setupSubtypeCatalog(): Catalog {
       const cat = new Catalog();
-      cat.addXml(
-        "shapes.xml",
+      cat.addPl(
+        "shapes.pl",
         `
-          <blocks id="shapes" name="Shapes">
-            <type name="Shape" ns="shapes"/>
-            <type name="Polygon" ns="shapes">
-              <ancestor type="shapes.Shape"/>
-            </type>
-            <type name="Triangle" ns="shapes">
-              <ancestor type="shapes.Polygon"/>
-            </type>
-          </blocks>
+          catalog(shapes, 'Shapes').
+          type('shapes.Shape', none).
+          type('shapes.Polygon', none).
+          parent('shapes.Polygon', 'shapes.Shape').
+          type('shapes.Triangle', none).
+          parent('shapes.Triangle', 'shapes.Polygon').
         `,
       );
       return cat;
@@ -1588,17 +1464,14 @@ describe("constants, settings, relations, and type intersection inference", () =
   describe("block type parameter inference as intersection across inputs", () => {
     it("infers generic parameter T as intersection when grounded by two inputs", async () => {
       const cat = new Catalog();
-      cat.addXml(
-        "merge.xml",
+      cat.addPl(
+        "merge.pl",
         `
-          <blocks id="b_test" name="Test">
-            <block id="b_merge" name="Merge" ns="test">
-              <var>T</var>
-              <in name="in1" type="T"/>
-              <in name="in2" type="T"/>
-              <out name="out" type="T"/>
-            </block>
-          </blocks>
+          catalog(b_test, 'Test').
+          block(b_merge, 'Merge', none, [ns(test), var('T', none)]).
+          input(b_merge, in1, in1, v('T'), []).
+          input(b_merge, in2, in2, v('T'), []).
+          output(b_merge, out, out, v('T'), []).
         `,
       );
       const resolved = await resolveBlock(
@@ -1617,18 +1490,15 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("infers generic parameter T as intersection across three inputs", async () => {
       const cat = new Catalog();
-      cat.addXml(
-        "merge3.xml",
+      cat.addPl(
+        "merge3.pl",
         `
-          <blocks id="b_test" name="Test">
-            <block id="b_merge3" name="Merge3" ns="test">
-              <var>T</var>
-              <in name="in1" type="T"/>
-              <in name="in2" type="T"/>
-              <in name="in3" type="T"/>
-              <out name="out" type="T"/>
-            </block>
-          </blocks>
+          catalog(b_test, 'Test').
+          block(b_merge3, 'Merge3', none, [ns(test), var('T', none)]).
+          input(b_merge3, in1, in1, v('T'), []).
+          input(b_merge3, in2, in2, v('T'), []).
+          input(b_merge3, in3, in3, v('T'), []).
+          output(b_merge3, out, out, v('T'), []).
         `,
       );
       const resolved = await resolveBlock(
@@ -1646,21 +1516,17 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("simplifies intersection when inputs have a subtyping relation", async () => {
       const cat = new Catalog();
-      cat.addXml(
-        "subtypes.xml",
+      cat.addPl(
+        "subtypes.pl",
         `
-          <blocks id="sub_mod" name="SubMod">
-            <type name="Base" ns="sub"/>
-            <type name="Derived" ns="sub">
-              <ancestor type="sub.Base"/>
-            </type>
-            <block id="b_sub_merge" name="SubMerge" ns="sub">
-              <var>T</var>
-              <in name="in1" type="T"/>
-              <in name="in2" type="T"/>
-              <out name="out" type="T"/>
-            </block>
-          </blocks>
+          catalog(sub_mod, 'SubMod').
+          type('sub.Base', none).
+          type('sub.Derived', none).
+          parent('sub.Derived', 'sub.Base').
+          block(b_sub_merge, 'SubMerge', none, [ns(sub), var('T', none)]).
+          input(b_sub_merge, in1, in1, v('T'), []).
+          input(b_sub_merge, in2, in2, v('T'), []).
+          output(b_sub_merge, out, out, v('T'), []).
         `,
       );
       const resolved = await resolveBlock(
@@ -1678,17 +1544,14 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("meets shared type variables across two inputs", async () => {
       const cat = new Catalog();
-      cat.addXml(
-        "opt.xml",
+      cat.addPl(
+        "opt.pl",
         `
-          <blocks id="opt" name="Opt">
-            <block id="b_opt" name="Opt" ns="test">
-              <var>T</var>
-              <in name="in1" type="T"/>
-              <in name="in2" type="T"/>
-              <out name="out" type="T"/>
-            </block>
-          </blocks>
+          catalog(opt, 'Opt').
+          block(b_opt, 'Opt', none, [ns(test), var('T', none)]).
+          input(b_opt, in1, in1, v('T'), []).
+          input(b_opt, in2, in2, v('T'), []).
+          output(b_opt, out, out, v('T'), []).
         `,
       );
       const resolved = await resolveBlock(
@@ -1704,16 +1567,13 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("joins vararg groundings by default", async () => {
       const cat = new Catalog();
-      cat.addXml(
-        "param_rel.xml",
+      cat.addPl(
+        "param_rel.pl",
         `
-          <blocks id="pr" name="PR">
-            <block id="b_inter_varargs" name="InterVarargs" ns="test">
-              <var>T</var>
-              <in name="elems" type="T" vararg="true"/>
-              <out name="result" type="array[T]"/>
-            </block>
-          </blocks>
+          catalog(pr, 'PR').
+          block(b_inter_varargs, 'InterVarargs', none, [ns(test), var('T', none)]).
+          input(b_inter_varargs, elems, elems, v('T'), [vararg]).
+          output(b_inter_varargs, result, result, array(v('T')), []).
         `,
       );
       const resolved = await resolveBlock(
@@ -1731,17 +1591,14 @@ describe("constants, settings, relations, and type intersection inference", () =
   describe("explicit relations between input and output types", () => {
     it("infers output type as intersection of shared type-variable inputs", async () => {
       const cat = new Catalog();
-      cat.addXml(
-        "rel_block.xml",
+      cat.addPl(
+        "rel_block.pl",
         `
-          <blocks id="rb" name="RB">
-            <block id="b_rel_inter" name="RelInter" ns="test">
-              <var>T</var>
-              <in name="a" type="T"/>
-              <in name="b" type="T"/>
-              <out name="out" type="T"/>
-            </block>
-          </blocks>
+          catalog(rb, 'RB').
+          block(b_rel_inter, 'RelInter', none, [ns(test), var('T', none)]).
+          input(b_rel_inter, a, a, v('T'), []).
+          input(b_rel_inter, b, b, v('T'), []).
+          output(b_rel_inter, out, out, v('T'), []).
         `,
       );
       const resolved = await resolveBlock(
@@ -1757,16 +1614,13 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("infers output type as union of vararg groundings", async () => {
       const cat = new Catalog();
-      cat.addXml(
-        "rel_union.xml",
+      cat.addPl(
+        "rel_union.pl",
         `
-          <blocks id="ru" name="RU">
-            <block id="b_rel_union" name="RelUnion" ns="test">
-              <var>T</var>
-              <in name="elems" type="T" vararg="true"/>
-              <out name="out" type="T"/>
-            </block>
-          </blocks>
+          catalog(ru, 'RU').
+          block(b_rel_union, 'RelUnion', none, [ns(test), var('T', none)]).
+          input(b_rel_union, elems, elems, v('T'), [vararg]).
+          output(b_rel_union, out, out, v('T'), []).
         `,
       );
       const resolved = await resolveBlock(
@@ -1779,17 +1633,14 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("infers output type via shared type variables", async () => {
       const cat = new Catalog();
-      cat.addXml(
-        "port_rel.xml",
+      cat.addPl(
+        "port_rel.pl",
         `
-          <blocks id="pr2" name="PR2">
-            <block id="b_port_rel" name="PortRel" ns="test">
-              <var>T</var>
-              <in name="inA" type="T"/>
-              <in name="inB" type="T"/>
-              <out name="res" type="T"/>
-            </block>
-          </blocks>
+          catalog(pr2, 'PR2').
+          block(b_port_rel, 'PortRel', none, [ns(test), var('T', none)]).
+          input(b_port_rel, inA, inA, v('T'), []).
+          input(b_port_rel, inB, inB, v('T'), []).
+          output(b_port_rel, res, res, v('T'), []).
         `,
       );
       const resolved = await resolveBlock(
@@ -1805,16 +1656,13 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("infers output type via identity of a shared type variable", async () => {
       const cat = new Catalog();
-      cat.addXml(
-        "id_rel.xml",
+      cat.addPl(
+        "id_rel.pl",
         `
-          <blocks id="idr" name="IDR">
-            <block id="b_ident_rel" name="IdentRel" ns="test">
-              <var>T</var>
-              <in name="source" type="T"/>
-              <out name="dest" type="T"/>
-            </block>
-          </blocks>
+          catalog(idr, 'IDR').
+          block(b_ident_rel, 'IdentRel', none, [ns(test), var('T', none)]).
+          input(b_ident_rel, source, source, v('T'), []).
+          output(b_ident_rel, dest, dest, v('T'), []).
         `,
       );
       const resolved = await resolveBlock(
@@ -1845,41 +1693,29 @@ describe("constants, settings, relations, and type intersection inference", () =
     });
 
     it("wires inferred intersection into downstream blocks in a diagram", async () => {
-      const sysXml = `
-        <blocks id="sys" name="Sys">
-          <type name="double"/>
-          <type name="int"/>
-          <type name="string"/>
-
-          <block id="source_double" name="SourceDouble" ns="sys">
-            <out name="val" type="double"/>
-          </block>
-
-          <block id="source_int" name="SourceInt" ns="sys">
-            <out name="val" type="int"/>
-          </block>
-
-          <block id="combiner" name="Combiner" ns="sys">
-            <var>T</var>
-            <in name="in1" type="T"/>
-            <in name="in2" type="T"/>
-            <out name="out" type="T"/>
-          </block>
-
-          <block id="sink_double" name="SinkDouble" ns="sys">
-            <in name="in" type="double"/>
-          </block>
-
-          <block id="sink_int" name="SinkInt" ns="sys">
-            <in name="in" type="int"/>
-          </block>
-        </blocks>
+      const sysPl = `
+        catalog(sys, 'Sys').
+        type(double, none).
+        type(int, none).
+        type(string, none).
+        block(source_double, 'SourceDouble', none, [ns(sys)]).
+        output(source_double, val, val, double, []).
+        block(source_int, 'SourceInt', none, [ns(sys)]).
+        output(source_int, val, val, int, []).
+        block(combiner, 'Combiner', none, [ns(sys), var('T', none)]).
+        input(combiner, in1, in1, v('T'), []).
+        input(combiner, in2, in2, v('T'), []).
+        output(combiner, out, out, v('T'), []).
+        block(sink_double, 'SinkDouble', none, [ns(sys)]).
+        input(sink_double, in, in, double, []).
+        block(sink_int, 'SinkInt', none, [ns(sys)]).
+        input(sink_int, in, in, int, []).
       `;
       const cat = new Catalog();
-      cat.addXml("system.xml", sysXml);
+      cat.addPl("system.pl", sysPl);
 
       const diagram = new Diagram("d_sys", "SysDiagram");
-      diagram.associateXml("system.xml", sysXml);
+      diagram.associateXml("system.pl", sysPl);
 
 
       const dId = diagram.addNode("source_double");
