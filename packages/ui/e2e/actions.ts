@@ -28,7 +28,8 @@ export async function openAppMenu(page: Page): Promise<void> {
     return;
   }
   await page.locator('[data-testid="toolbar-menu"]').click();
-  await page.locator('[data-testid="toolbar-menu-dropdown"].show').waitFor();
+  await page.locator('[data-testid="toolbar-menu-dropdown"].show').waitFor({ state: "attached" });
+  await page.locator('[data-testid="menu-file"]').waitFor({ state: "attached" });
 }
 
 export async function newCanvas(page: Page): Promise<void> {

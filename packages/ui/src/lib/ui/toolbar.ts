@@ -4,6 +4,7 @@ import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { renderBrandSvg } from "$lib/flow/icons";
 import { AppHost } from "./app-host";
 import "./block-icon";
+import "./webawesome";
 
 export class BldToolbar extends AppHost {
   #menuOpen = false;
@@ -69,15 +70,13 @@ export class BldToolbar extends AppHost {
       return nothing;
     }
     return html`
-      <nav class="app-toolbar border-bottom d-flex align-items-center px-2" data-testid="app-toolbar">
-        <span class="app-brand me-2" title="Bld" data-testid="app-brand">${unsafeSVG(renderBrandSvg())}</span>
+      <nav class="app-toolbar" data-testid="app-toolbar">
+        <span class="app-brand" title="Bld" data-testid="app-brand">${unsafeSVG(renderBrandSvg())}</span>
 
         <button
           class=${classMap({
             "toolbar-btn": true,
             "toolbar-palette-btn": true,
-            btn: true,
-            "btn-sm": true,
             active: app.paletteOpen,
           })}
           type="button"
@@ -95,8 +94,6 @@ export class BldToolbar extends AppHost {
             "toolbar-btn": true,
             "toolbar-run-btn": !app.run.busy(),
             "toolbar-stop-btn": app.run.busy(),
-            btn: true,
-            "btn-sm": true,
           })}
           type="button"
           title=${app.run.busy() ? "Stop" : "Run"}
@@ -120,200 +117,173 @@ export class BldToolbar extends AppHost {
           @change=${(event: Event) => this.#onImportFile(event)}
         />
 
-        <div class="ms-auto position-relative">
-          <button
-            class=${classMap({
-              "toolbar-btn": true,
-              "toolbar-menu-btn": true,
-              btn: true,
-              "btn-sm": true,
-              active: this.#menuOpen,
-            })}
-            type="button"
-            title="Menu"
-            aria-label="Menu"
-            aria-haspopup="menu"
-            aria-expanded=${this.#menuOpen ? "true" : "false"}
-            data-testid="toolbar-menu"
-            @click=${() => this.#toggleMenu()}
-          >
-            <bld-block-icon name="menu"></bld-block-icon>
-          </button>
-          <div
-            class=${classMap({
-              "dropdown-menu": true,
-              "dropdown-menu-end": true,
-              "app-menu-dropdown": true,
-              show: this.#menuOpen,
-              "d-block": this.#menuOpen,
-            })}
-            role="menu"
+        <div class="toolbar-menu-wrapper">
+          <wa-dropdown
+            placement="bottom-end"
+            class=${classMap({ show: this.#menuOpen })}
             data-testid="toolbar-menu-dropdown"
+            ?open=${this.#menuOpen}
+            @wa-hide=${() => this.#close()}
           >
-            <div class="dropdown-header" data-testid="menu-file">File</div>
             <button
-              class="dropdown-item"
+              slot="trigger"
+              class=${classMap({
+                "toolbar-btn": true,
+                "toolbar-menu-btn": true,
+                active: this.#menuOpen,
+              })}
               type="button"
-              data-testid="menu-new-canvas"
-              @click=${() => {
-                app.clearCanvas();
-                this.#close();
+              title="Menu"
+              aria-label="Menu"
+              aria-haspopup="menu"
+              aria-expanded=${this.#menuOpen ? "true" : "false"}
+              data-testid="toolbar-menu"
+              @click=${(event: MouseEvent) => {
+                event.stopPropagation();
+                this.#toggleMenu();
               }}
             >
-              New canvas
+              <bld-block-icon name="menu"></bld-block-icon>
             </button>
-            <button
-              class="dropdown-item"
-              type="button"
-              data-testid="menu-save-diagram"
-              @click=${() => {
-                app.io.openSave();
-                this.#close();
-              }}
-            >
-              Save…
-            </button>
-            <button
-              class="dropdown-item"
-              type="button"
-              data-testid="menu-open-diagram"
-              @click=${() => {
-                void app.io.openLibrary();
-                this.#close();
-              }}
-            >
-              Open…
-            </button>
-            <button
-              class="dropdown-item"
-              type="button"
-              data-testid="menu-import-xml"
-              @click=${() => this.#importXml()}
-            >
-              Import XML…
-            </button>
-            <button
-              class="dropdown-item"
-              type="button"
-              data-testid="menu-export-xml"
-              @click=${() => {
-                app.io.exportFile();
-                this.#close();
-              }}
-            >
-              Export XML
-            </button>
-            <button
-              class="dropdown-item"
-              type="button"
-              data-testid="menu-delete-selected"
-              @click=${() => {
-                app.deleteSelected();
-                this.#close();
-              }}
-            >
-              Delete selected
-            </button>
-            <div class="dropdown-divider"></div>
-            <div class="dropdown-header" data-testid="menu-catalogs">Catalogs</div>
-            ${app.catalogChoices().map(
-              (catalog) => html`
-                <button
-                  class=${classMap({
-                    "dropdown-item": true,
-                    "d-flex": true,
-                    "align-items-center": true,
-                    "gap-2": true,
-                    active: catalog.selected,
-                  })}
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked=${catalog.selected ? "true" : "false"}
-                  data-testid=${`menu-catalog-${catalog.file}`}
-                  @click=${() => app.toggleCatalog(catalog.file)}
-                >
-                  <span class="catalog-check" aria-hidden="true">${catalog.selected ? "✓" : ""}</span>
-                  ${catalog.name}
-                </button>
-              `,
-            )}
+            ${this.#menuOpen
+              ? html`
+                  <div class="menu-header" data-testid="menu-file">File</div>
+                  <wa-dropdown-item
+                    data-testid="menu-new-canvas"
+                    @click=${() => {
+                      app.clearCanvas();
+                      this.#close();
+                    }}
+                  >
+                    New canvas
+                  </wa-dropdown-item>
+                  <wa-dropdown-item
+                    data-testid="menu-save-diagram"
+                    @click=${() => {
+                      app.io.openSave();
+                      this.#close();
+                    }}
+                  >
+                    Save…
+                  </wa-dropdown-item>
+                  <wa-dropdown-item
+                    data-testid="menu-open-diagram"
+                    @click=${() => {
+                      void app.io.openLibrary();
+                      this.#close();
+                    }}
+                  >
+                    Open…
+                  </wa-dropdown-item>
+                  <wa-dropdown-item
+                    data-testid="menu-import-xml"
+                    @click=${() => this.#importXml()}
+                  >
+                    Import XML…
+                  </wa-dropdown-item>
+                  <wa-dropdown-item
+                    data-testid="menu-export-xml"
+                    @click=${() => {
+                      app.io.exportFile();
+                      this.#close();
+                    }}
+                  >
+                    Export XML
+                  </wa-dropdown-item>
+                  <wa-dropdown-item
+                    data-testid="menu-delete-selected"
+                    @click=${() => {
+                      app.deleteSelected();
+                      this.#close();
+                    }}
+                  >
+                    Delete selected
+                  </wa-dropdown-item>
+                  <wa-divider></wa-divider>
+                  <div class="menu-header" data-testid="menu-catalogs">Catalogs</div>
+                  ${app.catalogChoices().map(
+                    (catalog) => html`
+                      <wa-dropdown-item
+                        type="checkbox"
+                        ?checked=${catalog.selected}
+                        aria-checked=${catalog.selected ? "true" : "false"}
+                        data-testid=${`menu-catalog-${catalog.file}`}
+                        @click=${(event: Event) => {
+                          event.stopPropagation();
+                          app.toggleCatalog(catalog.file);
+                        }}
+                      >
+                        ${catalog.name}
+                      </wa-dropdown-item>
+                    `,
+                  )}
 
-            <div class="dropdown-divider"></div>
-            <div class="dropdown-header" data-testid="menu-hardware">Hardware</div>
-            <button
-              class="dropdown-item"
-              type="button"
-              data-testid="menu-connect-mcu"
-              ?disabled=${!app.deploy.available() || app.deploy.connecting}
-              @click=${() => {
-                void app.deploy.connect();
-                this.#close();
-              }}
-            >
-              ${app.deploy.connected ? "MCU connected" : "Connect MCU…"}
-            </button>
-            <button
-              class="dropdown-item"
-              type="button"
-              data-testid="menu-deploy-mcu"
-              ?disabled=${!app.deploy.available() || app.deploy.connecting}
-              @click=${() => {
-                void app.deploy.deploy();
-                this.#close();
-              }}
-            >
-              Deploy MCU wasm
-            </button>
-            <div class="dropdown-divider"></div>
-            <div class="dropdown-header" data-testid="menu-view">View</div>
-            <button
-              class="dropdown-item"
-              type="button"
-              data-testid="menu-zoom-in"
-              @click=${() => {
-                app.zoomIn();
-                this.#close();
-              }}
-            >
-              Zoom in
-            </button>
-            <button
-              class="dropdown-item"
-              type="button"
-              data-testid="menu-zoom-out"
-              @click=${() => {
-                app.zoomOut();
-                this.#close();
-              }}
-            >
-              Zoom out
-            </button>
-            <button
-              class="dropdown-item"
-              type="button"
-              data-testid="menu-reset-view"
-              @click=${() => {
-                app.resetView();
-                this.#close();
-              }}
-            >
-              Reset view
-            </button>
+                  <wa-divider></wa-divider>
+                  <div class="menu-header" data-testid="menu-hardware">Hardware</div>
+                  <wa-dropdown-item
+                    data-testid="menu-connect-mcu"
+                    ?disabled=${!app.deploy.available() || app.deploy.connecting}
+                    @click=${() => {
+                      void app.deploy.connect();
+                      this.#close();
+                    }}
+                  >
+                    ${app.deploy.connected ? "MCU connected" : "Connect MCU…"}
+                  </wa-dropdown-item>
+                  <wa-dropdown-item
+                    data-testid="menu-deploy-mcu"
+                    ?disabled=${!app.deploy.available() || app.deploy.connecting}
+                    @click=${() => {
+                      void app.deploy.deploy();
+                      this.#close();
+                    }}
+                  >
+                    Deploy MCU wasm
+                  </wa-dropdown-item>
+                  <wa-divider></wa-divider>
+                  <div class="menu-header" data-testid="menu-view">View</div>
+                  <wa-dropdown-item
+                    data-testid="menu-zoom-in"
+                    @click=${() => {
+                      app.zoomIn();
+                      this.#close();
+                    }}
+                  >
+                    Zoom in
+                  </wa-dropdown-item>
+                  <wa-dropdown-item
+                    data-testid="menu-zoom-out"
+                    @click=${() => {
+                      app.zoomOut();
+                      this.#close();
+                    }}
+                  >
+                    Zoom out
+                  </wa-dropdown-item>
+                  <wa-dropdown-item
+                    data-testid="menu-reset-view"
+                    @click=${() => {
+                      app.resetView();
+                      this.#close();
+                    }}
+                  >
+                    Reset view
+                  </wa-dropdown-item>
 
-            <div class="dropdown-divider"></div>
-            <div class="dropdown-header" data-testid="menu-help">Help</div>
-            <button
-              class="dropdown-item"
-              type="button"
-              data-testid="menu-about"
-              @click=${() => {
-                app.aboutOpen = true;
-                this.#close();
-              }}
-            >
-              About
-            </button>
-          </div>
+                  <wa-divider></wa-divider>
+                  <div class="menu-header" data-testid="menu-help">Help</div>
+                  <wa-dropdown-item
+                    data-testid="menu-about"
+                    @click=${() => {
+                      app.aboutOpen = true;
+                      this.#close();
+                    }}
+                  >
+                    About
+                  </wa-dropdown-item>
+                `
+              : nothing}
+          </wa-dropdown>
         </div>
       </nav>
     `;

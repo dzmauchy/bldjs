@@ -1,5 +1,6 @@
 import { html, nothing, type TemplateResult } from "lit";
 import { AppHost } from "./app-host";
+import "./webawesome";
 
 export interface ModalChrome {
   testId: string;
@@ -11,48 +12,37 @@ export interface ModalChrome {
   wrapContent?: (content: TemplateResult) => unknown;
 }
 
-/** Bootstrap dialog shell shared by about / inputs / save-open. */
+/** Web Awesome dialog shell shared by about / inputs / save-open. */
 export abstract class BldModal extends AppHost {
-
   protected abstract isOpen(): boolean;
   protected abstract closeModal(): void;
-
-  protected renderBackdrop(testId?: string): TemplateResult {
-    return html`
-      <div
-        class="modal-backdrop fade show"
-        role="button"
-        tabindex="0"
-        data-testid=${testId ?? nothing}
-        @click=${() => this.closeModal()}
-        @keydown=${(event: KeyboardEvent) => {
-          if (event.key === "Enter" || event.key === " ") {
-            this.closeModal();
-          }
-        }}
-      ></div>
-    `;
-  }
 
   protected renderDialog(options: ModalChrome): TemplateResult | typeof nothing {
     if (!this.isOpen()) {
       return nothing;
     }
-    const content = html`
-      <div class="modal-header">
-        <h5 class="modal-title">${options.title}</h5>
-        <button type="button" class="btn-close" aria-label="Close" @click=${() => this.closeModal()}></button>
+    const bodyContent = html`
+      <div class="modal-body">
+        ${options.body}
       </div>
-      ${options.body}
-      ${options.footer ?? nothing}
+      ${options.footer ? html`<div slot="footer" class="modal-footer">${options.footer}</div>` : nothing}
     `;
+    const content = options.wrapContent ? options.wrapContent(bodyContent) : bodyContent;
     return html`
-      ${this.renderBackdrop(options.backdropTestId)}
-      <div class="modal fade show d-block" tabindex="-1" role="dialog" data-testid=${options.testId}>
-        <div class=${options.dialogClass ?? "modal-dialog modal-dialog-centered"}>
-          <div class="modal-content">${options.wrapContent ? options.wrapContent(content) : content}</div>
-        </div>
-      </div>
+      <wa-dialog
+        class=${options.dialogClass ?? ""}
+        label=${typeof options.title === "string" ? options.title : nothing}
+        ?open=${this.isOpen()}
+        data-testid=${options.testId}
+        @wa-hide=${(event: Event) => {
+          if (event.target === event.currentTarget) {
+            this.closeModal();
+          }
+        }}
+      >
+        ${typeof options.title !== "string" ? html`<span slot="label">${options.title}</span>` : nothing}
+        ${content}
+      </wa-dialog>
     `;
   }
 }

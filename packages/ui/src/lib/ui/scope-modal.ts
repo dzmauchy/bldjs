@@ -276,9 +276,6 @@ export class BldScopeModal extends AppHost {
         ${ref(this.#panel)}
         class=${classMap({
           "scope-panel": true,
-          border: true,
-          rounded: true,
-          shadow: true,
           "is-closed": !open,
           "is-placed": placed,
         })}
@@ -300,7 +297,7 @@ export class BldScopeModal extends AppHost {
           <canvas ${ref(this.#canvas)}></canvas>
         </div>
         <div class="scope-footer" data-testid="scope-footer" @pointerdown=${this.#onFooterPointerDown}>
-          <div class="scope-caption small text-secondary" data-testid="scope-caption">
+          <div class="scope-caption" data-testid="scope-caption">
             ${open ? app.blockDisplayName(app.scopeOpen) : ""}
           </div>
           <button

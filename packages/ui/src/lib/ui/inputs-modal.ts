@@ -34,18 +34,16 @@ export class BldInputsModal extends BldModal {
       testId: "inputs-modal",
       title: `Configure ${title}`,
       body: html`
-        <div class="modal-body">
+        <div>
           ${inputs.length === 0
-            ? html`<p class="text-secondary mb-0">This block has no configurable inputs.</p>`
+            ? html`<p class="text-secondary">This block has no configurable inputs.</p>`
             : inputs.map((input) => this.#renderInput(app.inputsOpen, input))}
         </div>
       `,
       footer: html`
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary" data-testid="inputs-close" @click=${() => this.closeModal()}>
-            Done
-          </button>
-        </div>
+        <wa-button variant="brand" data-testid="inputs-close" @click=${() => this.closeModal()}>
+          Done
+        </wa-button>
       `,
     });
   }
@@ -60,7 +58,7 @@ export class BldInputsModal extends BldModal {
       const max = def.max ?? 100;
       const step = def.step ?? (def.kind === "double-range-parameter" ? 0.1 : 1);
       return html`
-        <div class="input-row mb-3" data-testid=${`input-row-${def.name}`}>
+        <div class="input-row" data-testid=${`input-row-${def.name}`}>
           <div class="input-label">
             <span>${label}</span>
             <span class="input-value" data-testid=${`input-value-${def.name}`}>${value}${inputSuffix(defId, def.name)}</span>
@@ -92,13 +90,13 @@ export class BldInputsModal extends BldModal {
               ? "text"
               : "number";
     return html`
-      <div class="input-row mb-3" data-testid=${`input-row-${def.name}`}>
+      <div class="input-row" data-testid=${`input-row-${def.name}`}>
         <label class="input-label" for=${`input-${def.name}`}>
           <span>${label}</span>
         </label>
         <input
           id=${`input-${def.name}`}
-          class="form-control form-control-sm"
+          class="dialog-input"
           type=${type}
           .value=${value}
           min=${def.min ?? nothing}

@@ -323,11 +323,11 @@ export class BldPalette extends AppHost {
     }
     const groups = this.#tree();
     return html`
-      <aside class="palette border-end d-flex flex-column">
-        <div class="palette-header px-3 py-2 border-bottom">
+      <aside class="palette">
+        <div class="palette-header">
           <div>
-            <div class="small text-uppercase text-secondary fw-semibold">Blocks</div>
-            <div class="small text-secondary">Drag onto the canvas</div>
+            <div class="palette-title">Blocks</div>
+            <div class="palette-subtitle">Drag onto the canvas</div>
           </div>
           <button
             class="palette-close"
@@ -340,7 +340,7 @@ export class BldPalette extends AppHost {
             ×
           </button>
         </div>
-        <div class="palette-list flex-grow-1 overflow-auto" data-testid="palette-list">
+        <div class="palette-list" data-testid="palette-list">
           ${groups.map((group) => this.#renderGroup(group, groups, false))}
         </div>
       </aside>

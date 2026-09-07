@@ -251,8 +251,7 @@ export class DiagramInteractionController {
         const world = this.host.toWorld(event.clientX, event.clientY);
         if (world) {
           const origin = blockOriginFromDrop(world.x, world.y);
-          const block = app.addBlock(defId, origin.x, origin.y);
-          app.selectBlock(block.id);
+          app.addBlock(defId, origin.x, origin.y);
           this.host.requestUpdate();
           return;
         }

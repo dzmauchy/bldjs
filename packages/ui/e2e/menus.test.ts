@@ -116,7 +116,7 @@ test.describe("menus", () => {
     await page.locator('[data-testid="menu-about"]').click();
     const modal = await waitDeep(page, '[data-testid="about-modal"]');
     await expect(modal).toContainText("About Bld");
-    await page.locator('[data-testid="about-modal"] .btn-close').click();
+    await page.locator('[data-testid="about-modal"] [part~="close-button"]').click();
     await expect(page.locator('[data-testid="about-modal"]')).toHaveCount(0);
   });
 

@@ -114,4 +114,4 @@ Serve that folder with any static file server that sets the same CSP and isolati
   `setInterval`, GPIO simulation) and **prod** linear wasm (MCU `"env"` ABI + WebSerial deploy)
 - Vite
 - TypeScript 7
-- Bootstrap 5.3.8, dark theme (`data-bs-theme="dark"`)
+- Web Awesome 3, dark theme (`class="wa-dark"`)

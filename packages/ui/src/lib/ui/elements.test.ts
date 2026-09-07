@@ -88,7 +88,7 @@ describe("modal overlay chrome", () => {
     document.body.replaceChildren();
   });
 
-  it("keeps Bootstrap overlay styles on inputs and save/open subclasses", () => {
+  it("keeps Web Awesome overlay styles on inputs and save/open subclasses", () => {
     expectOverlayChrome(BldInputsModal.styles);
     expectOverlayChrome(BldDiagramIoModal.styles);
   });
@@ -107,9 +107,8 @@ describe("modal overlay chrome", () => {
     await modal.updateComplete;
     const dialog = modal.renderRoot.querySelector("[data-testid=inputs-modal]");
     expect(dialog).not.toBeNull();
-    expect(dialog?.classList.contains("modal")).toBe(true);
-    expect(dialog?.classList.contains("show")).toBe(true);
-    expect(dialog?.classList.contains("d-block")).toBe(true);
+    expect(dialog?.tagName.toLowerCase()).toBe("wa-dialog");
+    expect(dialog?.hasAttribute("open")).toBe(true);
     expect(modal.renderRoot.querySelector("[data-testid=input-value-period]")?.textContent).toBe("10 ms");
   });
 
