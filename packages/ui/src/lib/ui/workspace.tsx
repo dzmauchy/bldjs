@@ -1,18 +1,15 @@
-import { html, nothing } from "lit";
+import type { JSX } from "solid-js";
 import { AppHost } from "./app-host";
 import "$lib/flow/diagram";
 
 export class BldWorkspace extends AppHost {
-
-  protected override render() {
-    if (!this.app) {
-      return nothing;
-    }
-    return html`
+  override render(): JSX.Element {
+    const app = this.app;
+    return (
       <div class="workspace">
-        <bld-diagram .app=${this.app}></bld-diagram>
+        <bld-diagram prop:app={app}></bld-diagram>
       </div>
-    `;
+    );
   }
 }
 

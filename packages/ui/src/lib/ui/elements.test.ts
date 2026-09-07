@@ -424,5 +424,31 @@ describe("BldPalette", () => {
     // No buttons inside the palette block
     expect(timerItem?.querySelector("button, input")).toBeNull();
   });
+
+  it("adds block at view center when double clicking a palette item", async () => {
+    const palette = document.createElement("bld-palette") as BldPalette;
+    const app = new AppState();
+    palette.app = app;
+    document.body.append(palette);
+    await palette.updateComplete;
+
+    const timerItem = palette.renderRoot.querySelector('[data-testid="palette-timer"]');
+    expect(timerItem).not.toBeNull();
+    timerItem?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
+    expect(app.blocks.length).toBe(1);
+  });
+
+  it("adds block to diagram when double clicking palette item in bld-app", async () => {
+    const bldApp = document.createElement("bld-app") as BldApp;
+    document.body.append(bldApp);
+    await bldApp.updateComplete;
+
+    const timerItem = bldApp.querySelector('[data-testid="palette-timer"]');
+    expect(timerItem).not.toBeNull();
+    timerItem?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
+    expect(bldApp.app.blocks.length).toBe(1);
+    const node = bldApp.querySelector('bld-node[data-block-def="timer"]');
+    expect(node).not.toBeNull();
+  });
 });
 

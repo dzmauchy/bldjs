@@ -1,5 +1,6 @@
 import { createReadStream, readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
+import solid from "vite-plugin-solid";
 import { defineConfig, type Plugin } from "vitest/config";
 
 const csp = "script-src 'self' 'wasm-unsafe-eval';";
@@ -77,7 +78,7 @@ function serveLibavoidWasm(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [crossOriginIsolation(), serveLibavoidWasm()],
+  plugins: [solid(), crossOriginIsolation(), serveLibavoidWasm()],
   resolve: {
     alias: {
       $lib: fileURLToPath(new URL("./src/lib", import.meta.url)),
