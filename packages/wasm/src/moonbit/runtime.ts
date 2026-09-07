@@ -61,6 +61,7 @@ function jsBindings(needs: PreambleNeeds): string[] {
   bindings.push('fn js_set_interval(cb : () -> Unit, ms : Int) -> Int = "js" "setInterval"');
   bindings.push('fn host_push(v : Double, ring : Int) -> Unit = "host" "push"');
   bindings.push('fn host_tap(v : Double, idx : Int) -> Unit = "host" "tap"');
+  bindings.push('fn host_tick() -> Unit = "host" "tick"');
   if (needs.gpio) {
     bindings.push('fn host_pin_read(pin : Int) -> Int = "host" "pin_read"');
     bindings.push('fn host_pin_write(pin : Int, val : Int) -> Unit = "host" "pin_write"');
@@ -154,6 +155,7 @@ function preambleProd(needs: PreambleNeeds): string {
     emitStopped("wasm"),
     "type C1 = (Double) -> Unit",
     emitIntrospect("identity"),
+    "fn host_tick() -> Unit {\n  ()\n}",
   ];
   return `${parts.filter((part) => part.length > 0).join("\n")}
 `;

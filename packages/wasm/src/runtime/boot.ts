@@ -6,6 +6,7 @@ export interface InstantiatedGenerator {
   start: (delayMs: number) => void;
   stopTimers: () => void;
   fire: () => void;
+  readFlowHz: (nowMs?: number) => number[];
 }
 
 /** Compile and instantiate a generator module with the JS host imports. */
@@ -31,5 +32,6 @@ export async function bootGeneratorInstance(
     start: start as (delayMs: number) => void,
     stopTimers: () => host.stopTimers(),
     fire: () => host.fire(),
+    readFlowHz: (nowMs?: number) => host.frequencies(nowMs),
   };
 }

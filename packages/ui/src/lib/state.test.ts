@@ -516,6 +516,8 @@ describe("AppState run", () => {
     app.run.sampleFlowRates(t0 + 50);
     expect(app.run.connectorHz(link)).toBeGreaterThan(0);
     app.run.sampleFlowRates(t0 + 150);
+    expect(app.run.connectorHz(link)).toBeGreaterThan(0);
+    app.run.sampleFlowRates(t0 + 1150);
     expect(app.run.connectorHz(link)).toBe(0);
     app.run.stop();
   });

@@ -26,12 +26,16 @@ export function pushSample(memory: WebAssembly.Memory, value: number, ring: numb
 export interface HostOptions {
   now?: () => number;
   connectorCount?: number;
+  delayMs?: number;
+  onFrequency?: (frequencies: number[]) => void;
 }
 
 export interface WasmHost {
   imports: WebAssembly.Imports;
   stopTimers(): void;
   fire(): void;
+  tick(): void;
+  frequencies(nowMs?: number): number[];
 }
 
 /**
@@ -44,9 +48,15 @@ export interface WasmHost {
 export function createHost(memory: WebAssembly.Memory, options: HostOptions = {}): WasmHost {
   const nowSecs = options.now ?? (() => Date.now() / 1000);
   const connectorCount = options.connectorCount ?? 0;
-  const introspector = new ConnectorIntrospector(connectorCount);
+  const delayMs = options.delayMs ?? 10;
+  const introspector = new ConnectorIntrospector(connectorCount, delayMs, false);
   const timers = new Set<() => void>();
   let intervalFire: (() => void) | undefined;
+
+  const notifyFrequency = (): void => {
+    const freqs = introspector.advance();
+    options.onFrequency?.(freqs);
+  };
 
   const fire = (): void => {
     if (intervalFire) {
@@ -83,6 +93,9 @@ export function createHost(memory: WebAssembly.Memory, options: HostOptions = {}
           bumpFlowCount(memory, index);
         }
       },
+      tick(): void {
+        notifyFrequency();
+      },
       pin_read(pin: number): number {
         return readGpio(memory, pin);
       },
@@ -99,6 +112,15 @@ export function createHost(memory: WebAssembly.Memory, options: HostOptions = {}
   return {
     imports,
     fire,
+    tick() {
+      notifyFrequency();
+    },
+    frequencies(nowMs?: number) {
+      if (nowMs !== undefined) {
+        return introspector.advance(nowMs);
+      }
+      return introspector.frequencies();
+    },
     stopTimers() {
       for (const stop of timers) {
         stop();

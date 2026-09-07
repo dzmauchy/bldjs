@@ -22,10 +22,29 @@ async function start(
 ): Promise<void> {
   clearTimer();
   memory = shared;
-  gen = await bootGeneratorInstance(wasm, shared, { connectorCount: count });
+  gen = await bootGeneratorInstance(wasm, shared, {
+    connectorCount: count,
+    delayMs,
+    onFrequency(frequencies) {
+      self.postMessage({ type: "frequency", frequencies });
+    },
+  });
   if (eventDriven) {
     gen.tick();
+    let lastSentNonZero = false;
+    const decayInterval = setInterval(() => {
+      const freqs = gen?.readFlowHz(Date.now());
+      if (!freqs) {
+        return;
+      }
+      const hasNonZero = freqs.some((f) => f > 0);
+      if (hasNonZero || lastSentNonZero) {
+        self.postMessage({ type: "frequency", frequencies: freqs });
+      }
+      lastSentNonZero = hasNonZero;
+    }, 100);
     stopTimers = () => {
+      clearInterval(decayInterval);
       if (memory) {
         requestStop(memory);
       }

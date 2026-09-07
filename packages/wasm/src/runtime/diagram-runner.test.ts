@@ -102,6 +102,8 @@ describe("DiagramRunner", () => {
     session.sampleFlowRates(t0 + 50);
     expect(session.connectorHz(links[0]!)).toBeGreaterThan(0);
     session.sampleFlowRates(t0 + 150);
+    expect(session.connectorHz(links[0]!)).toBeGreaterThan(0);
+    session.sampleFlowRates(t0 + 1150);
     expect(session.connectorHz(links[0]!)).toBe(0);
     runner.stop();
   });
@@ -122,6 +124,11 @@ describe("DiagramRunner", () => {
       { fromBlock: 3, fromOut: "out[1]", toBlock: 5, toIn: "in" },
     ];
     const session = await runner.start(nodes, links, { yieldForPaint: async () => {} });
+
+    // Assert connectors have 0 Hz on start (steady state, no fast animation)
+    for (const link of links) {
+      expect(session.connectorHz(link)).toBe(0);
+    }
 
     // Assert Scope has exactly one channel (not two duplicate channels)
     const scopeChannels = session.snapshotScope(1);
@@ -145,6 +152,9 @@ describe("DiagramRunner", () => {
 
     // The overshoot signal must rise and exceed 1.0 (classic second-order underdamped response)
     expect(afterSamples.some((val) => val > 1.05)).toBe(true);
+
+    // Signals changed, so connectors now have positive frequency (animation active)
+    expect(session.connectorHz(links[3]!)).toBeGreaterThan(0);
 
     runner.stop();
   });

@@ -12,6 +12,7 @@ export interface GeneratorHandle {
   snapshot(scopeIndex?: number): number[];
   latest(scopeIndex?: number): number;
   readFlowCounts(): number[];
+  readFlowHz(nowMs?: number): number[];
   gpioLevel(pin: number): number;
   setGpio(pin: number, level: number): void;
   stop(): void;
@@ -26,6 +27,7 @@ export interface StartGeneratorOptions {
   gpio?: ReadonlyMap<number, number>;
   /** GPIO In: sample the pin once on start, then callers fire `tick()` on each edge. */
   eventDriven?: boolean;
+  onFrequency?: (frequencies: number[]) => void;
 }
 
 function hostOptions(nowOrOptions?: (() => number) | HostOptions): HostOptions {
@@ -46,6 +48,7 @@ export async function instantiateGenerator(
 function bindHandle(
   memory: WebAssembly.Memory,
   connectors: readonly SolutionViewConnector[],
+  readFlowHz: (nowMs?: number) => number[],
   stop: () => void,
   tick?: () => void,
 ): GeneratorHandle {
@@ -54,6 +57,7 @@ function bindHandle(
     snapshot: (scopeIndex = 0) => readSamples(memory, scopeIndex),
     latest: (scopeIndex = 0) => readLatest(memory, scopeIndex),
     readFlowCounts: () => readFlowCounts(memory, connectors.length),
+    readFlowHz,
     gpioLevel: (pin) => readGpio(memory, pin),
     setGpio: (pin, level) => writeGpio(memory, pin, level),
     stop,
@@ -66,16 +70,28 @@ export async function startLocalGenerator(options: StartGeneratorOptions): Promi
   const memory = createMemory(canShareMemory());
   initGpio(memory, options.gpio);
   const connectors = options.connectors ?? [];
+  let currentHz = Array.from({ length: connectors.length }, () => 0);
   const gen = await instantiateGenerator(options.wasm, memory, {
     now: options.now,
     connectorCount: connectors.length,
+    delayMs: options.delayMs,
+    onFrequency(frequencies) {
+      currentHz = frequencies;
+      options.onFrequency?.(frequencies);
+    },
   });
+  const readFlowHz = (nowMs?: number) => {
+    if (nowMs !== undefined) {
+      currentHz = gen.readFlowHz(nowMs);
+    }
+    return currentHz;
+  };
   if (options.eventDriven) {
     gen.tick();
-    return bindHandle(memory, connectors, () => gen.stopTimers(), () => gen.tick());
+    return bindHandle(memory, connectors, readFlowHz, () => gen.stopTimers(), () => gen.tick());
   }
   gen.start(options.delayMs);
-  return bindHandle(memory, connectors, () => gen.stopTimers(), () => gen.fire());
+  return bindHandle(memory, connectors, readFlowHz, () => gen.stopTimers(), () => gen.fire());
 }
 
 /** One dedicated worker (wasm thread) per generator; `setInterval` lives in that worker. */
@@ -83,7 +99,19 @@ export async function startWorkerGenerator(options: StartGeneratorOptions): Prom
   const memory = createMemory(true);
   initGpio(memory, options.gpio);
   const connectors = options.connectors ?? [];
+  let currentHz = Array.from({ length: connectors.length }, () => 0);
   const worker = new Worker(new URL("./generator.worker.ts", import.meta.url), { type: "module" });
+  worker.onmessage = (
+    event: MessageEvent<{
+      type: string;
+      frequencies?: number[];
+    }>,
+  ) => {
+    if (event.data.type === "frequency" && event.data.frequencies) {
+      currentHz = event.data.frequencies;
+      options.onFrequency?.(currentHz);
+    }
+  };
   const copy = options.wasm.slice();
   worker.postMessage(
     {
@@ -99,6 +127,7 @@ export async function startWorkerGenerator(options: StartGeneratorOptions): Prom
   return bindHandle(
     memory,
     connectors,
+    () => currentHz,
     () => {
       requestStop(memory);
       worker.postMessage({ type: "stop" });

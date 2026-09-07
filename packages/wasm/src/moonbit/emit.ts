@@ -283,6 +283,7 @@ export function emitSolutionFiles(
       `pub fn tick() -> Unit {
   stopped()
 ${statements.join("\n") || "  ()"}
+  host_tick()
 }
 `,
     ],

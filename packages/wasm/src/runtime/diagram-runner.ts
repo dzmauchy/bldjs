@@ -3,7 +3,7 @@ import type { GeneratorPlan, NodeSpec, ScopeSeries } from "@bld/xml/blocks/cs/ty
 import { isEventDrivenGenerator, meterMsFrom, sampleCap, windowSecondsFrom } from "@bld/xml/blocks/cs/ids";
 import { WindowBuf } from "@bld/xml/blocks/cs/samples";
 import type { Link } from "@bld/xml/blocks/diagram";
-import { hzFromDelta, intervalMs } from "@bld/xml/flow";
+import { intervalMs } from "@bld/xml/flow";
 import type { Runner, RunnerSession, RunnerStartOptions } from "@bld/xml/runner";
 import { connectorKey, solutionViewFrom } from "@bld/xml/solution/view";
 import { plannedGenerators, topologyKey } from "@bld/xml/topology";
@@ -34,20 +34,18 @@ export class DiagramRunCancelled extends Error {
 
 export const EMPTY_RUN_MESSAGE = "Wire a Scope or GPIO into a generator, then Run.";
 
-type ScopeMeter = {
+interface ScopeMeter {
   buffers: WindowBuf[];
   timer: ReturnType<typeof setInterval>;
-};
+}
 
 /** Live generator session: handles, scope bindings, and connector Hertz. */
 export class RunningDiagram implements RunnerSession {
-  readonly generators = new Map<number, GeneratorHandle>();
-  readonly scopeChannels = new Map<number, ScopeChannelBinding[]>();
-  readonly linkHz = new Map<string, number>();
   readonly topology: string;
+  readonly linkHz = new Map<string, number>();
+  readonly scopeChannels = new Map<number, ScopeChannelBinding[]>();
+  readonly generators = new Map<number, GeneratorHandle>();
   prodWasm: Uint8Array | null = null;
-  #flowPrev = new Map<GeneratorHandle, number[]>();
-  #flowSampleAt = 0;
   #meters = new Map<number, ScopeMeter>();
   #disposed = false;
 
@@ -67,8 +65,6 @@ export class RunningDiagram implements RunnerSession {
     this.generators.clear();
     this.scopeChannels.clear();
     this.linkHz.clear();
-    this.#flowPrev.clear();
-    this.#flowSampleAt = 0;
   }
 
   isScopeLive(id: number): boolean {
@@ -99,25 +95,11 @@ export class RunningDiagram implements RunnerSession {
     if (this.generators.size === 0) {
       return;
     }
-    if (this.#flowSampleAt === 0) {
-      this.#flowSampleAt = now;
-      for (const handle of this.generators.values()) {
-        this.#flowPrev.set(handle, handle.readFlowCounts());
-      }
-      return;
-    }
-    const dt = now - this.#flowSampleAt;
-    if (dt <= 0) {
-      return;
-    }
-    this.#flowSampleAt = now;
     for (const handle of this.generators.values()) {
-      const counts = handle.readFlowCounts();
-      const prev = this.#flowPrev.get(handle) ?? [];
+      const freqs = handle.readFlowHz(now);
       handle.connectors.forEach((link, index) => {
-        this.linkHz.set(connectorKey(link), hzFromDelta(prev[index] ?? 0, counts[index] ?? 0, dt));
+        this.linkHz.set(connectorKey(link), freqs[index] ?? 0);
       });
-      this.#flowPrev.set(handle, counts);
     }
   }
 
@@ -141,7 +123,7 @@ export class RunningDiagram implements RunnerSession {
   arm(plans: GeneratorPlan[], nodes: NodeSpec[], links: Link[]): void {
     const view = solutionViewFrom(nodes, links);
     for (const plan of plans) {
-      if (!isEventDrivenGenerator(plan.defId)) {
+      if (!isEventDrivenGenerator(plan.defId) && plan.defId !== "constant") {
         const nominalHz = 1000 / intervalMs(plan.delayMs);
         for (const link of view.subgraphFromGenerator(plan.generatorId).connectors) {
           this.linkHz.set(connectorKey(link), nominalHz);
@@ -241,6 +223,11 @@ export class DiagramRunner implements Runner {
         connectors,
         gpio: options.gpio,
         eventDriven: isEventDrivenGenerator(plan.defId),
+        onFrequency(frequencies) {
+          connectors.forEach((link, index) => {
+            session.linkHz.set(connectorKey(link), frequencies[index] ?? 0);
+          });
+        },
       });
       if (op !== this.#op) {
         handle.stop();
@@ -249,7 +236,7 @@ export class DiagramRunner implements Runner {
       for (const id of plan.generatorIds ?? [plan.generatorId]) {
         session.generators.set(id, handle);
       }
-      if (!isEventDrivenGenerator(plan.defId)) {
+      if (!isEventDrivenGenerator(plan.defId) && plan.defId !== "constant") {
         const nominalHz = 1000 / intervalMs(plan.delayMs);
         for (const link of connectors) {
           session.linkHz.set(connectorKey(link), nominalHz);
