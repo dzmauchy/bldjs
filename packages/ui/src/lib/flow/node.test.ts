@@ -121,6 +121,7 @@ describe("BldNode", () => {
     const selectedCss = appCss;
     expect(selectedCss).toContain("node-selected-fade");
     expect(selectedCss).toContain("#14191e");
+    expect(selectedCss).toMatch(/\.flow-node\s*\{[^}]*box-shadow:\s*0 3px 8px rgba\(0,\s*0,\s*0,\s*0\.45\)/);
     expect(selectedCss).not.toMatch(/bld-node\[data-selected\]\s*\{[^}]*border-color/);
     const chart = node.renderRoot.querySelector('[data-testid="chart-7"]') as HTMLButtonElement;
     expect(chart.hidden).toBe(false);

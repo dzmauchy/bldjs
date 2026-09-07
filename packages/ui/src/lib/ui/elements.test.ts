@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import "$lib/ui/app-element";
@@ -157,6 +159,12 @@ describe("modal overlay chrome", () => {
     await modal.updateComplete;
     expect(modal.renderRoot.querySelector("[data-testid=input-value-n]")?.textContent).toBe("2");
     expect(modal.renderRoot.querySelector("[data-testid=input-value-def]")?.textContent).toBe("1");
+  });
+
+  it("styles input labels with space-between and input values aligned to right", () => {
+    const css = fs.readFileSync(path.resolve(__dirname, "../../app.css"), "utf8");
+    expect(css).toMatch(/\.input-label\s*\{[^}]*justify-content:\s*space-between/);
+    expect(css).toMatch(/\.input-value\s*\{[^}]*text-align:\s*right/);
   });
 });
 
