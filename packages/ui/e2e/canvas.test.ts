@@ -243,6 +243,32 @@ test.describe("canvas", () => {
     expect(Math.abs(centerY - dropY)).toBeLessThan(Math.abs(node.y - dropY));
   });
 
+  test("selects a palette block on single click with fade and inserts it on canvas click", async () => {
+    await newCanvas(page);
+    const paletteItem = page.locator('[data-testid="palette-cos"]');
+    await paletteItem.click();
+    await expect(paletteItem).toHaveClass(/is-selected/);
+    await expect(paletteItem).toHaveAttribute("data-selected", "");
+    expect(await paletteItem.evaluate((el) => getComputedStyle(el).animationName)).toContain("palette-selected-fade");
+
+    const canvas = diagramCss(page, '[data-testid="diagram-canvas"]');
+    const canvasBox = await boxOf(canvas);
+    const clickX = Math.round(canvasBox.x + canvasBox.width * 0.6);
+    const clickY = Math.round(canvasBox.y + canvasBox.height * 0.4);
+    await page.mouse.click(clickX, clickY);
+
+    await waitForBlock(page, "cos");
+    expect(await statusBlocks(page)).toBe("1 block");
+    await expect(paletteItem).not.toHaveClass(/is-selected/);
+    await expect(paletteItem).not.toHaveAttribute("data-selected", "");
+
+    const node = await boxOf(nodeHost(page, "cos"));
+    const centerX = node.x + node.width / 2;
+    const centerY = node.y + node.height / 2;
+    expect(Math.abs(centerX - clickX)).toBeLessThan(50);
+    expect(Math.abs(centerY - clickY)).toBeLessThan(50);
+  });
+
   test("renders a labeled block with a 32px icon and inset edge circles", async () => {
     await newCanvas(page);
     await placeBlock(page, "sin");

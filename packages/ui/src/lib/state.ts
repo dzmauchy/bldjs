@@ -57,6 +57,7 @@ export class AppState extends ObservableState {
   declare aboutOpen: boolean;
   declare compactUi: boolean;
   declare paletteOpen: boolean;
+  declare selectedPaletteDefId: string | null;
   declare draggingDefId: string | null;
   declare linkingFrom: LinkingFrom | null;
   declare scopeOpen: number;
@@ -83,6 +84,7 @@ export class AppState extends ObservableState {
       links: [],
       selected: NONE_ID,
       selectedLink: null,
+      selectedPaletteDefId: null,
       panX: 48,
       panY: 48,
       zoom: 1,
@@ -514,16 +516,27 @@ export class AppState extends ObservableState {
   selectBlock(id: number): void {
     this.selected = id;
     this.selectedLink = null;
+    this.selectedPaletteDefId = null;
   }
 
   selectLink(link: Link): void {
     this.selected = NONE_ID;
     this.selectedLink = link;
+    this.selectedPaletteDefId = null;
   }
 
   clearSelection(): void {
     this.selected = NONE_ID;
     this.selectedLink = null;
+    this.selectedPaletteDefId = null;
+  }
+
+  selectPaletteDef(defId: string | null): void {
+    this.selectedPaletteDefId = this.selectedPaletteDefId === defId ? null : defId;
+    if (this.selectedPaletteDefId) {
+      this.selected = NONE_ID;
+      this.selectedLink = null;
+    }
   }
 
   isLinkSelected(link: Link): boolean {
@@ -671,6 +684,7 @@ export class AppState extends ObservableState {
     this.inputsOpen = NONE_ID;
     this.selected = NONE_ID;
     this.selectedLink = null;
+    this.selectedPaletteDefId = null;
     this.linkingFrom = null;
   }
 

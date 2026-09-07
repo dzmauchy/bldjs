@@ -28,7 +28,6 @@ html.compact-ui {
   margin: 0;
   padding: 8px 12px;
   border: 1px solid #495057;
-  border-left: 3px solid #0d6efd;
   border-radius: 8px;
   background: #23282d;
   color: #dee2e6;
@@ -354,8 +353,9 @@ bld-palette {
   max-width: 100%;
   box-sizing: border-box;
   flex: 0 0 auto;
-  border: 1px solid #14181b;
-  box-shadow: inset 3px 0 0 var(--block-accent, #0d6efd), 0 3px 8px rgba(0, 0, 0, 0.65), 0 1px 3px rgba(0, 0, 0, 0.45);
+  background-color: #14191e;
+  border: 1px solid var(--bs-border-color, #495057);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
   cursor: grab;
   user-select: none;
   touch-action: pan-y;
@@ -371,9 +371,9 @@ bld-palette {
   }
 }
 .palette-item.flow-node:hover {
-  background-color: #2b3238;
-  border-color: #0e1113;
-  box-shadow: inset 3px 0 0 var(--block-accent, #0d6efd), 0 4px 12px rgba(0, 0, 0, 0.75), 0 1px 4px rgba(0, 0, 0, 0.5);
+  background-color: #1c2228;
+  border-color: var(--bs-border-color, #495057);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
 }
 .palette-item.flow-node:focus-visible {
   outline: 2px solid var(--bs-primary, #0d6efd);
@@ -384,6 +384,21 @@ bld-palette {
 }
 .palette-item.flow-node.is-drag-source {
   opacity: 0.38;
+}
+@keyframes palette-selected-fade {
+  0%,
+  100% {
+    background-color: #14191e;
+  }
+  50% {
+    background-color: #23282d;
+  }
+}
+.palette-item.flow-node.is-selected,
+.palette-item.flow-node[data-selected] {
+  animation: palette-selected-fade 1.8s ease-in-out infinite;
+  border-color: var(--bs-primary, #0d6efd);
+  box-shadow: 0 0 0 1px var(--bs-primary, #0d6efd), 0 3px 8px rgba(0, 0, 0, 0.45);
 }
 bld-palette[data-compact] {
   position: absolute;
@@ -667,7 +682,6 @@ bld-node.block-kind-output,
   background-color: #23282d;
   border: 1px solid var(--bs-border-color, #495057);
   border-radius: 8px;
-  box-shadow: inset 3px 0 0 var(--block-accent, #0d6efd);
 }
 .flow-node-body {
   display: flex;

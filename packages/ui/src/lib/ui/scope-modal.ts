@@ -91,6 +91,7 @@ export class BldScopeModal extends AppHost {
       return;
     }
     this.#openId = id;
+    plot.resetScales();
     this.#applySeries(plot, this.app.run.snapshotScope(id));
     plot.fit();
     this.#startTicks(id);

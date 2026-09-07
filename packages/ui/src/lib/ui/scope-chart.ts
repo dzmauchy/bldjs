@@ -69,8 +69,104 @@ export function seriesValueRange(samples: readonly number[]): ScopeValueRange {
     const pad = Math.abs(min) * 0.1 || 1;
     return { min: min - pad, max: max + pad };
   }
-  const pad = (max - min) * 0.08;
+  const pad = (max - min) * 0.1;
   return { min: min - pad, max: max + pad };
+}
+
+export function hasFiniteSamples(samples: readonly number[]): boolean {
+  for (let i = 0; i < samples.length; i += 1) {
+    if (Number.isFinite(samples[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export const SCOPE_SCALE_SHRINK_DELAY_MS = 10_000;
+
+export interface ScopeScaleHistoryEntry {
+  readonly time: number;
+  readonly min: number;
+  readonly max: number;
+  readonly fallback?: boolean;
+}
+
+export class ScopeScaleTracker {
+  readonly delayMs: number;
+  #channels: Array<{
+    history: ScopeScaleHistoryEntry[];
+    label: string;
+  }> = [];
+
+  constructor(delayMs = SCOPE_SCALE_SHRINK_DELAY_MS) {
+    this.delayMs = delayMs;
+  }
+
+  get ranges(): ScopeValueRange[] {
+    return this.#channels.map((ch) => this.#heldRange(ch.history));
+  }
+
+  update(series: readonly ScopeSeries[], now = performance.now()): ScopeValueRange[] {
+    if (this.#channels.length > series.length) {
+      this.#channels.length = series.length;
+    }
+    const result: ScopeValueRange[] = [];
+    for (let i = 0; i < series.length; i += 1) {
+      const channel = series[i];
+      let record = this.#channels[i];
+      const channelKey = channel.label || String(i);
+      if (!record || record.label !== channelKey) {
+        record = {
+          history: [],
+          label: channelKey,
+        };
+        this.#channels[i] = record;
+      }
+      const hasFinite = hasFiniteSamples(channel.samples);
+      const target = seriesValueRange(channel.samples);
+
+      if (hasFinite && record.history.length > 0 && record.history.every((e) => e.fallback)) {
+        record.history = [];
+      }
+
+      const cutoff = now - this.delayMs;
+      record.history = record.history.filter((e) => e.time >= cutoff && e.time <= now);
+
+      record.history.push({
+        time: now,
+        min: target.min,
+        max: target.max,
+        fallback: !hasFinite,
+      });
+
+      result.push(this.#heldRange(record.history));
+    }
+    return result;
+  }
+
+  #heldRange(history: readonly ScopeScaleHistoryEntry[]): ScopeValueRange {
+    if (history.length === 0) {
+      return { min: -1, max: 1 };
+    }
+    let min = Infinity;
+    let max = -Infinity;
+    for (const entry of history) {
+      if (entry.min < min) {
+        min = entry.min;
+      }
+      if (entry.max > max) {
+        max = entry.max;
+      }
+    }
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) {
+      return { min: -1, max: 1 };
+    }
+    return { min, max };
+  }
+
+  reset(): void {
+    this.#channels = [];
+  }
 }
 
 export function niceTicks(min: number, max: number, count = 5): number[] {
@@ -272,11 +368,12 @@ export function drawScopePlot(
   width: number,
   height: number,
   series: readonly ScopeSeries[] = [],
+  customRanges?: readonly ScopeValueRange[],
 ): void {
   ctx.fillStyle = PLOT_BG;
   ctx.fillRect(0, 0, width, height);
   const layout = scopePlotLayout(width, height, series.length);
-  const ranges = series.map((channel) => seriesValueRange(channel.samples));
+  const ranges = customRanges ?? series.map((channel) => seriesValueRange(channel.samples));
   const gridRange = ranges[0] ?? { min: -1, max: 1 };
   const gridTicks = niceTicks(gridRange.min, gridRange.max);
   if (layout.legend) {
@@ -351,7 +448,11 @@ export function fitScopeCanvas(canvas: HTMLCanvasElement): { width: number; heig
   return { width, height, dpr };
 }
 
-export function paintScopeCanvas(canvas: HTMLCanvasElement, series: readonly ScopeSeries[]): boolean {
+export function paintScopeCanvas(
+  canvas: HTMLCanvasElement,
+  series: readonly ScopeSeries[],
+  ranges?: readonly ScopeValueRange[],
+): boolean {
   const size = fitScopeCanvas(canvas);
   if (!size) {
     return false;
@@ -361,21 +462,23 @@ export function paintScopeCanvas(canvas: HTMLCanvasElement, series: readonly Sco
     return false;
   }
   ctx.setTransform(size.dpr, 0, 0, size.dpr, 0, 0);
-  drawScopePlot(ctx, size.width, size.height, series);
+  drawScopePlot(ctx, size.width, size.height, series, ranges);
   return true;
 }
 
 /** Owns a live canvas plot: resize until layout exists, then keep redrawing. */
 export class ScopeCanvasPlot {
   readonly canvas: HTMLCanvasElement;
+  readonly scaleTracker: ScopeScaleTracker;
   #series: readonly ScopeSeries[] = [];
   #observer: ResizeObserver | null = null;
   #raf: number[] = [];
   #onPaint: ((painted: boolean) => void) | null;
 
-  constructor(canvas: HTMLCanvasElement, onPaint?: (painted: boolean) => void) {
+  constructor(canvas: HTMLCanvasElement, onPaint?: (painted: boolean) => void, scaleTracker?: ScopeScaleTracker) {
     this.canvas = canvas;
     this.#onPaint = onPaint ?? null;
+    this.scaleTracker = scaleTracker ?? new ScopeScaleTracker();
     canvas.getContext("2d");
     this.#observer = new ResizeObserver(() => {
       this.redraw();
@@ -391,13 +494,19 @@ export class ScopeCanvasPlot {
     return this.#series.length;
   }
 
-  setSeries(series: readonly ScopeSeries[]): boolean {
+  setSeries(series: readonly ScopeSeries[], now = performance.now()): boolean {
     this.#series = series;
+    this.scaleTracker.update(series, now);
     return this.redraw();
   }
 
+  resetScales(): void {
+    this.scaleTracker.reset();
+  }
+
   redraw(): boolean {
-    const painted = paintScopeCanvas(this.canvas, this.#series);
+    const ranges = this.scaleTracker.ranges;
+    const painted = paintScopeCanvas(this.canvas, this.#series, ranges.length > 0 ? ranges : undefined);
     this.#onPaint?.(painted);
     return painted;
   }
@@ -423,5 +532,6 @@ export class ScopeCanvasPlot {
       cancelAnimationFrame(id);
     }
     this.#raf = [];
+    this.scaleTracker.reset();
   }
 }

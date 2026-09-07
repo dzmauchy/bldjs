@@ -7,7 +7,7 @@ import { AppHost } from "./app-host";
 import { type PaletteGroup, buildPaletteTree, paletteGroupIds } from "./palette-tree";
 import "./block-icon";
 
-const PALETTE_DRAG = 10;
+const PALETTE_DRAG = 3;
 
 interface PointerDrag {
   pointerId: number;
@@ -89,6 +89,7 @@ export class BldPalette extends AppHost {
   #renderBlock(def: BlockDef) {
     const app = this.app;
     const kind = app.kindOf(def);
+    const isSelected = app.selectedPaletteDefId === def.id;
     const hint = def.attributes.find((a) => a.name === "description")?.value ?? kind.hint;
     return html`
       <div
@@ -97,26 +98,34 @@ export class BldPalette extends AppHost {
           "flow-node": true,
           [kind.className]: true,
           "is-drag-source": app.draggingDefId === def.id,
+          "is-selected": isSelected,
         })}
         role="button"
         tabindex="0"
         draggable="true"
+        data-selected=${isSelected ? "" : nothing}
         data-testid=${`palette-${def.id}`}
-        title=${`${hint} — drag onto the canvas, or double-click to drop at the center`}
+        title=${`${hint} — click to select and drop on canvas, drag onto canvas, or double-click to drop at center`}
         @pointerdown=${(event: PointerEvent) => this.#onItemPointerDown(event, def.id)}
         @dragstart=${(event: DragEvent) => this.#onDragStart(event, def.id)}
         @dragend=${() => this.#onDragEnd()}
         @keydown=${(event: KeyboardEvent) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
+            app.selectedPaletteDefId = null;
             app.addBlockAtViewCenter(def.id);
-            app.closePalette();
+            if (app.compactUi) {
+              app.closePalette();
+            }
           }
         }}
         @dblclick=${() => {
           app.draggingDefId = null;
+          app.selectedPaletteDefId = null;
           app.addBlockAtViewCenter(def.id);
-          app.closePalette();
+          if (app.compactUi) {
+            app.closePalette();
+          }
         }}
       >
         <div class="flow-node-port-col is-in flow-node-ports">
@@ -168,14 +177,13 @@ export class BldPalette extends AppHost {
   }
 
   #onItemPointerDown(event: PointerEvent, defId: string): void {
-    if (!event.isPrimary || event.pointerType === "mouse") {
+    if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) {
       return;
     }
     const source = event.currentTarget;
     if (!(source instanceof HTMLElement)) {
       return;
     }
-    source.draggable = false;
     this.#cancelPointerDrag();
     this.#drag = {
       pointerId: event.pointerId,
@@ -201,12 +209,15 @@ export class BldPalette extends AppHost {
     if (Math.hypot(dx, dy) < PALETTE_DRAG) {
       return;
     }
-    if (Math.abs(dy) >= Math.abs(dx)) {
+    if (event.pointerType === "touch" && Math.abs(dy) > Math.abs(dx) * 1.5) {
       this.#cancelPointerDrag();
       return;
     }
     event.preventDefault();
     drag.dragged = true;
+    if (drag.source) {
+      drag.source.draggable = false;
+    }
     this.app.draggingDefId = drag.defId;
     drag.ghost = this.#ghostFor(drag.defId, event.clientX, event.clientY);
     document.body.append(drag.ghost);
@@ -232,24 +243,32 @@ export class BldPalette extends AppHost {
     if (!drag || event.pointerId !== drag.pointerId) {
       return;
     }
-    const { defId, dragged } = drag;
+    const { defId, dragged, source } = drag;
     const clientX = event.clientX;
     const clientY = event.clientY;
     const cancelled = event.type === "pointercancel";
     this.#cancelPointerDrag();
+    if (source) {
+      source.draggable = true;
+    }
     this.app.draggingDefId = null;
     if (cancelled) {
       return;
     }
-    if (this.app.compactUi) {
-      this.app.closePalette();
-    }
     if (dragged) {
+      if (this.app.compactUi) {
+        this.app.closePalette();
+      }
       const detail: PaletteDropDetail = { defId, clientX, clientY };
       window.dispatchEvent(new CustomEvent(PALETTE_DROP_EVENT, { detail }));
       return;
     }
-    this.app.addBlockAtViewCenter(defId);
+    if (this.app.compactUi) {
+      this.app.closePalette();
+      this.app.addBlockAtViewCenter(defId);
+      return;
+    }
+    this.app.selectPaletteDef(defId);
   };
 
   #ghostFor(defId: string, clientX: number, clientY: number): HTMLElement {
@@ -265,6 +284,9 @@ export class BldPalette extends AppHost {
   #cancelPointerDrag(): void {
     const drag = this.#drag;
     this.#drag = null;
+    if (drag?.source) {
+      drag.source.draggable = true;
+    }
     drag?.source?.removeEventListener("pointermove", this.#onSourcePointerMove);
     drag?.source?.removeEventListener("pointerup", this.#onWindowPointerUp);
     drag?.source?.removeEventListener("pointercancel", this.#onWindowPointerUp);

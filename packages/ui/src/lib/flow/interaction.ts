@@ -1,5 +1,6 @@
 import type { Link } from "@bld/xml/blocks/diagram";
 import type { AppState } from "$lib/state";
+import { blockOriginFromDrop } from "$lib/model";
 import { nodeFromClientPoint, nodeFromComposedPath, portFromClientPoint, portFromComposedPath } from "./layout";
 import { uniqueCompatibleDropPort } from "./link-types";
 import { capturePointer, isCanvasPointer, releasePointer } from "./pointer";
@@ -244,6 +245,18 @@ export class DiagramInteractionController {
     }
     event.preventDefault();
     if (event.button === 0) {
+      if (app.selectedPaletteDefId) {
+        const defId = app.selectedPaletteDefId;
+        app.selectedPaletteDefId = null;
+        const world = this.host.toWorld(event.clientX, event.clientY);
+        if (world) {
+          const origin = blockOriginFromDrop(world.x, world.y);
+          const block = app.addBlock(defId, origin.x, origin.y);
+          app.selectBlock(block.id);
+          this.host.requestUpdate();
+          return;
+        }
+      }
       app.clearSelection();
       app.linkingFrom = null;
       this.previewTo = null;
