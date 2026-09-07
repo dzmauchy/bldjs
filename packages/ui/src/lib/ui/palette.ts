@@ -152,7 +152,13 @@ export class BldPalette extends AppHost {
         ${isOpen
           ? html`
               <div class=${classMap({ "palette-ns-body": true, "is-nested": nested })}>
-                ${group.blocks.map((def) => this.#renderBlock(def))}
+                ${group.blocks.length > 0
+                  ? html`
+                      <div class="palette-blocks-grid">
+                        ${group.blocks.map((def) => this.#renderBlock(def))}
+                      </div>
+                    `
+                  : nothing}
                 ${group.children.map((child) => this.#renderGroup(child, groups, true))}
               </div>
             `
