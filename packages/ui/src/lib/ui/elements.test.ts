@@ -401,18 +401,21 @@ describe("BldPalette", () => {
 
     const timerItem = palette.renderRoot.querySelector('[data-testid="palette-timer"]');
     expect(timerItem).not.toBeNull();
-    const preview = timerItem?.querySelector(".palette-block-preview");
-    expect(preview).not.toBeNull();
-    const flowNode = preview?.querySelector(".flow-node");
-    expect(flowNode).not.toBeNull();
+    // The palette block itself is the button and dnd source
+    expect(timerItem?.getAttribute("role")).toBe("button");
+    expect(timerItem?.classList.contains("flow-node")).toBe(true);
+    expect(timerItem?.getAttribute("draggable")).toBe("true");
+
     // Inputs are rendered
-    expect(flowNode?.querySelector(".flow-node-port-col.is-in .block-port")).not.toBeNull();
+    expect(timerItem?.querySelector(".flow-node-port-col.is-in .block-port")).not.toBeNull();
     // Icon is rendered
-    expect(flowNode?.querySelector(".flow-node-icon bld-block-icon")).not.toBeNull();
+    expect(timerItem?.querySelector(".flow-node-icon bld-block-icon")).not.toBeNull();
     // Title is inside the block preview
-    expect(flowNode?.querySelector(".flow-node-title")?.textContent).toBe("Timer");
+    expect(timerItem?.querySelector(".flow-node-title")?.textContent).toBe("Timer");
     // No label text on the right side of the block
     expect(timerItem?.querySelector(".palette-item-label")).toBeNull();
+    // No buttons inside the palette block
+    expect(timerItem?.querySelector("button, input")).toBeNull();
   });
 });
 

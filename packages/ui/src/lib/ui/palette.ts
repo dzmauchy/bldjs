@@ -86,47 +86,6 @@ export class BldPalette extends AppHost {
     `;
   }
 
-  #renderBlockPreview(def: BlockDef) {
-    return html`
-      <div class="palette-block-preview" aria-hidden="true">
-        <div class="flow-node" role="group" title=${def.name}>
-          <div class="flow-node-port-col is-in flow-node-ports">
-            ${def.inputs.map((port) => this.#renderPort(port, "in", def.inputs.length > 1))}
-          </div>
-          <div class="flow-node-body">
-            <span class="flow-node-title">${def.name}</span>
-            <span class="flow-node-icon" aria-hidden="true">
-              <bld-block-icon .name=${def.icon}></bld-block-icon>
-            </span>
-            ${(def.parameters?.length ?? 0) > 0
-              ? html`
-                  <button class="flow-node-config" type="button" tabindex="-1" aria-hidden="true" title="Configure inputs">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <circle cx="8" cy="8" r="2.1"/>
-                      <path d="M8 2.4v1.5M8 12.1v1.5M2.4 8h1.5M12.1 8h1.5M4 4l1.1 1.1M10.9 10.9 12 12M4 12l1.1-1.1M10.9 5.1 12 4"/>
-                    </svg>
-                  </button>
-                `
-              : nothing}
-            ${def.id === "gpio_in" || def.id === "gpio_out"
-              ? html`
-                  <div class="form-check form-switch flow-node-gpio">
-                    <input class="form-check-input" type="checkbox" role="switch" tabindex="-1" disabled aria-hidden="true" />
-                  </div>
-                `
-              : nothing}
-            ${def.id === "scope"
-              ? html`<button class="flow-node-chart" type="button" tabindex="-1" aria-hidden="true">Chart</button>`
-              : nothing}
-          </div>
-          <div class="flow-node-port-col is-out flow-node-ports">
-            ${def.outputs.map((port) => this.#renderPort(port, "out", def.outputs.length > 1))}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
   #renderBlock(def: BlockDef) {
     const app = this.app;
     const kind = app.kindOf(def);
@@ -135,6 +94,7 @@ export class BldPalette extends AppHost {
       <div
         class=${classMap({
           "palette-item": true,
+          "flow-node": true,
           [kind.className]: true,
           "is-drag-source": app.draggingDefId === def.id,
         })}
@@ -159,7 +119,18 @@ export class BldPalette extends AppHost {
           app.closePalette();
         }}
       >
-        ${this.#renderBlockPreview(def)}
+        <div class="flow-node-port-col is-in flow-node-ports">
+          ${def.inputs.map((port) => this.#renderPort(port, "in", def.inputs.length > 1))}
+        </div>
+        <div class="flow-node-body">
+          <span class="flow-node-title">${def.name}</span>
+          <span class="flow-node-icon" aria-hidden="true">
+            <bld-block-icon .name=${def.icon}></bld-block-icon>
+          </span>
+        </div>
+        <div class="flow-node-port-col is-out flow-node-ports">
+          ${def.outputs.map((port) => this.#renderPort(port, "out", def.outputs.length > 1))}
+        </div>
       </div>
     `;
   }
