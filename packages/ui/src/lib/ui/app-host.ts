@@ -16,6 +16,10 @@ export class AppHost extends LitElement {
     this.app = undefined as unknown as AppState;
   }
 
+  override createRenderRoot(): HTMLElement {
+    return this;
+  }
+
   override connectedCallback(): void {
     super.connectedCallback();
     this.bindApp();

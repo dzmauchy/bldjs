@@ -7,6 +7,7 @@ import { BldBlockIcon } from "./block-icon";
 import { BldDiagramIoModal } from "./diagram-io-modal";
 import { BldInputsModal } from "./inputs-modal";
 import { BldModal } from "./modal";
+import { BldPalette } from "./palette";
 import { BldScopeModal, clampScopePanelPosition } from "./scope-modal";
 import { BldWorkspace } from "./workspace";
 
@@ -170,8 +171,8 @@ describe("BldBlockIcon", () => {
     icon.name = "timer.svg";
     document.body.append(icon);
     await icon.updateComplete;
-    const svg = icon.shadowRoot?.querySelector("svg");
-    const glyph = icon.shadowRoot?.querySelector("path, circle, rect, ellipse");
+    const svg = icon.renderRoot.querySelector("svg");
+    const glyph = icon.renderRoot.querySelector("path, circle, rect, ellipse");
     expect(svg?.namespaceURI).toBe("http://www.w3.org/2000/svg");
     expect(glyph).not.toBeNull();
     expect(glyph!.namespaceURI).toBe("http://www.w3.org/2000/svg");
@@ -191,9 +192,9 @@ describe("Lit update scheduling", () => {
     const app = document.createElement("bld-app") as BldApp;
     document.body.append(app);
     await app.updateComplete;
-    const workspace = app.shadowRoot?.querySelector("bld-workspace") as BldWorkspace;
+    const workspace = app.renderRoot.querySelector("bld-workspace") as BldWorkspace;
     await workspace.updateComplete;
-    const diagram = workspace.shadowRoot?.querySelector("bld-diagram");
+    const diagram = workspace.renderRoot.querySelector("bld-diagram");
     await (diagram as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
     await app.updateComplete;
     expect(litChangeInUpdateWarnings(warn)).toEqual([]);
@@ -385,3 +386,33 @@ describe("scope panel position", () => {
     expect(clampScopePanelPosition(10, 20, 1600, 1000, 1400, 900)).toEqual({ left: 0, top: 0 });
   });
 });
+
+describe("BldPalette", () => {
+  afterEach(() => {
+    document.body.replaceChildren();
+  });
+
+  it("renders a 50% block view preview equal to diagram unconnected block without right-side caption", async () => {
+    const palette = document.createElement("bld-palette") as BldPalette;
+    const app = new AppState();
+    palette.app = app;
+    document.body.append(palette);
+    await palette.updateComplete;
+
+    const timerItem = palette.renderRoot.querySelector('[data-testid="palette-timer"]');
+    expect(timerItem).not.toBeNull();
+    const preview = timerItem?.querySelector(".palette-block-preview");
+    expect(preview).not.toBeNull();
+    const flowNode = preview?.querySelector(".flow-node");
+    expect(flowNode).not.toBeNull();
+    // Inputs are rendered
+    expect(flowNode?.querySelector(".flow-node-port-col.is-in .block-port")).not.toBeNull();
+    // Icon is rendered
+    expect(flowNode?.querySelector(".flow-node-icon bld-block-icon")).not.toBeNull();
+    // Title is inside the block preview
+    expect(flowNode?.querySelector(".flow-node-title")?.textContent).toBe("Timer");
+    // No label text on the right side of the block
+    expect(timerItem?.querySelector(".palette-item-label")).toBeNull();
+  });
+});
+

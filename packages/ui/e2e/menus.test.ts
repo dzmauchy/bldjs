@@ -101,7 +101,7 @@ test.describe("menus", () => {
         };
         const button = walk(document);
         const icon = button && button.querySelector("bld-block-icon");
-        const svg = icon && icon.shadowRoot && icon.shadowRoot.querySelector("svg");
+        const svg = icon && (icon.shadowRoot ?? icon).querySelector("svg");
         const glyph = svg && svg.querySelector("path, rect, circle, ellipse");
         return glyph && glyph.namespaceURI;
       }, `[data-testid="${buttonTestId}"]`);

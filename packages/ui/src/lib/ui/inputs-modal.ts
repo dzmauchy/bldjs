@@ -1,4 +1,4 @@
-import { css, html, nothing, type CSSResultGroup } from "lit";
+import { html, nothing } from "lit";
 import { isNoneId } from "$lib/model";
 import type { AppState } from "$lib/state";
 import { BldModal } from "./modal";
@@ -14,29 +14,6 @@ function inputSuffix(defId: string, name: string): string {
 }
 
 export class BldInputsModal extends BldModal {
-  static override styles: CSSResultGroup = [
-    super.styles,
-    css`
-    .input-row {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-    }
-    .input-label {
-      display: flex;
-      justify-content: space-between;
-      gap: 0.75rem;
-      font-size: 0.875rem;
-    }
-    .input-value {
-      font-family: var(--bs-font-monospace, ui-monospace, monospace);
-      color: var(--bs-info, #0dcaf0);
-    }
-    input[type="range"] {
-      width: 100%;
-    }
-    `,
-  ];
 
   protected isOpen(): boolean {
     return Boolean(this.app) && !isNoneId(this.app.inputsOpen);

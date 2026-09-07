@@ -1,112 +1,11 @@
-import { css, html, nothing } from "lit";
+import { html, nothing } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { renderBrandSvg } from "$lib/flow/icons";
-import { bootstrapStyles } from "./bootstrap";
 import { AppHost } from "./app-host";
 import "./block-icon";
 
 export class BldToolbar extends AppHost {
-
-  static override styles = [
-    bootstrapStyles,
-    css`
-      :host {
-        display: block;
-        height: 40px;
-        flex: 0 0 40px;
-      }
-      .app-toolbar {
-        height: 40px;
-        background: #1b1f22;
-        gap: 0.35rem;
-      }
-      .app-brand {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 28px;
-        height: 28px;
-        flex: 0 0 28px;
-      }
-      .app-brand svg,
-      .app-brand-icon {
-        width: 28px;
-        height: 28px;
-        display: block;
-      }
-      .toolbar-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--bs-body-color);
-        border: 0;
-        background: transparent;
-        padding: 0.2rem 0.45rem;
-        min-width: 28px;
-        min-height: 28px;
-        line-height: 1;
-      }
-      .toolbar-btn bld-block-icon {
-        font-size: 1rem;
-      }
-      .toolbar-btn:hover:not(:disabled),
-      .toolbar-btn.active {
-        background: var(--bs-tertiary-bg);
-        color: var(--bs-body-color);
-      }
-      .toolbar-btn:disabled {
-        opacity: 0.45;
-      }
-      .toolbar-palette-btn {
-        display: none;
-      }
-      :host([data-compact]) {
-        height: calc(32px + env(safe-area-inset-top, 0px));
-        flex-basis: calc(32px + env(safe-area-inset-top, 0px));
-      }
-      :host([data-compact]) .app-toolbar {
-        height: calc(32px + env(safe-area-inset-top, 0px));
-        padding-top: env(safe-area-inset-top, 0px);
-      }
-      :host([data-compact]) .app-brand,
-      :host([data-compact]) .app-brand svg,
-      :host([data-compact]) .app-brand-icon {
-        width: 22px;
-        height: 22px;
-      }
-      :host([data-compact]) .toolbar-btn {
-        min-width: 24px;
-        min-height: 24px;
-        padding: 0.12rem 0.32rem;
-      }
-      :host([data-compact]) .toolbar-btn bld-block-icon {
-        font-size: 0.85rem;
-      }
-      :host([data-compact]) .toolbar-palette-btn {
-        display: inline-flex;
-      }
-      .app-menu-dropdown {
-        display: none;
-        position: absolute;
-        top: calc(100% + 2px);
-        right: 0;
-        left: auto;
-        min-width: 220px;
-        z-index: 20;
-      }
-      .app-menu-dropdown.show {
-        display: block;
-      }
-      .catalog-check {
-        display: inline-block;
-        width: 0.9em;
-        flex: 0 0 0.9em;
-        text-align: center;
-      }
-    `,
-  ];
-
   #menuOpen = false;
 
   override connectedCallback(): void {
@@ -192,7 +91,13 @@ export class BldToolbar extends AppHost {
         </button>
 
         <button
-          class="toolbar-btn btn btn-sm"
+          class=${classMap({
+            "toolbar-btn": true,
+            "toolbar-run-btn": !app.run.busy(),
+            "toolbar-stop-btn": app.run.busy(),
+            btn: true,
+            "btn-sm": true,
+          })}
           type="button"
           title=${app.run.busy() ? "Stop" : "Run"}
           aria-label=${app.run.busy() ? "Stop" : "Run"}

@@ -1,11 +1,10 @@
-import { css, html, nothing } from "lit";
+import { html, nothing } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { createRef, ref } from "lit/directives/ref.js";
 import { styleMap } from "lit/directives/style-map.js";
 import { isNoneId } from "$lib/model";
 import { capturePointer, releasePointer } from "$lib/flow/pointer";
 import type { ScopeSeries } from "@bld/xml/blocks/cs/types";
-import { bootstrapStyles } from "./bootstrap";
 import { AppHost } from "./app-host";
 import { SCOPE_CHART_HEIGHT, SCOPE_CHART_MAX_WIDTH, ScopeCanvasPlot } from "./scope-chart";
 
@@ -48,96 +47,6 @@ export class BldScopeModal extends AppHost {
   #top: number | null = null;
   #drag: ScopeDrag | null = null;
   #listening = false;
-
-  static override styles = [
-    bootstrapStyles,
-    css`
-      :host {
-        display: contents;
-      }
-      .scope-panel {
-        position: fixed;
-        z-index: 1040;
-        width: min(${SCOPE_CHART_MAX_WIDTH}px, calc(100vw - 2rem));
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        overflow: hidden;
-        background: var(--bs-modal-bg, var(--bs-body-bg, #212529));
-        color: var(--bs-body-color, #dee2e6);
-        transition: none;
-      }
-      .scope-panel.is-placed {
-        transform: none;
-      }
-      /* Keep the overlay in the box tree while closed so the canvas is
-         already sized and the 2d context is warm before the first open.
-         Do not use display: none. */
-      :host(:not([open])) .scope-panel,
-      .scope-panel.is-closed {
-        visibility: hidden;
-        pointer-events: none;
-        opacity: 0;
-      }
-      .scope-chart {
-        width: 100%;
-        height: ${SCOPE_CHART_HEIGHT}px;
-        background: #14171a;
-        position: relative;
-        content-visibility: visible;
-      }
-      .scope-footer {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.75rem;
-        padding: 0.4rem 0.75rem;
-        background: #1b1f22;
-        border-top: 1px solid #2b3035;
-        cursor: grab;
-        touch-action: none;
-        user-select: none;
-      }
-      .scope-footer.is-dragging {
-        cursor: grabbing;
-      }
-      .scope-caption {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .scope-close {
-        flex: 0 0 auto;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 1.7rem;
-        height: 1.7rem;
-        padding: 0;
-        border: 0;
-        border-radius: 0.25rem;
-        background: transparent;
-        color: var(--bs-secondary-color, #adb5bd);
-        font-size: 1.35rem;
-        line-height: 1;
-        cursor: pointer;
-      }
-      .scope-close:hover,
-      .scope-close:focus-visible {
-        color: var(--bs-body-color, #f8f9fa);
-        background: var(--bs-tertiary-bg, rgba(255, 255, 255, 0.08));
-      }
-      canvas {
-        display: block;
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-      }
-    `,
-  ];
-
   override connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener("resize", this.#onResize);

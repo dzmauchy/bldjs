@@ -1,4 +1,12 @@
+import fs from "node:fs";
+import path from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+
+const cssPath = [
+  path.resolve(process.cwd(), "src/app.css"),
+  path.resolve(process.cwd(), "packages/ui/src/app.css"),
+].find((p) => fs.existsSync(p))!;
+const appCss = fs.readFileSync(cssPath, "utf8");
 import { portFromComposedPath } from "./layout";
 import { BldNode } from "./node";
 import type { BldNodeState } from "./types";
@@ -50,7 +58,7 @@ describe("BldNode", () => {
 
   it("renders flex columns so port count drives layout", async () => {
     const node = await mountNode(sampleState());
-    const shadow = node.shadowRoot;
+    const shadow = node.renderRoot;
     expect(shadow).not.toBeNull();
     expect(shadow!.querySelector(".flow-node")).not.toBeNull();
     expect(shadow!.querySelector(".flow-node-ports")).not.toBeNull();
@@ -80,17 +88,17 @@ describe("BldNode", () => {
     node.addEventListener("portpointerdown", (event) => {
       detail = (event as CustomEvent).detail;
     });
-    const handle = node.shadowRoot!.querySelector('[data-testid="output-result"]')!;
+    const handle = node.renderRoot.querySelector('[data-testid="output-result"]')!;
     handle.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, clientX: 4, clientY: 8 }));
     expect(detail).toMatchObject({ blockId: 7, port: "result", side: "out", clientX: 4, clientY: 8 });
   });
 
   it("resolves a port from the composed path", async () => {
     const node = await mountNode(sampleState());
-    const handle = node.shadowRoot!.querySelector('[data-testid="input-elems"]')!;
+    const handle = node.renderRoot.querySelector('[data-testid="input-elems"]')!;
     const event = new PointerEvent("pointerup", { bubbles: true, composed: true });
     Object.defineProperty(event, "composedPath", {
-      value: () => [handle, node.shadowRoot, node, document.body],
+      value: () => [handle, node, document.body],
     });
     expect(portFromComposedPath(event)).toEqual({ host: node, side: "in", port: "elems" });
   });
@@ -109,15 +117,12 @@ describe("BldNode", () => {
       }),
     );
     expect(node.hasAttribute("data-selected")).toBe(true);
-    expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("Scope");
-    const selectedCss = (Array.isArray(BldNode.styles) ? BldNode.styles : [BldNode.styles])
-      .flat(Infinity)
-      .map((sheet) => (sheet as { cssText: string }).cssText)
-      .join("\n");
+    expect(node.renderRoot.querySelector(".flow-node-title")?.textContent).toBe("Scope");
+    const selectedCss = appCss;
     expect(selectedCss).toContain("node-selected-fade");
     expect(selectedCss).toContain("#14191e");
-    expect(selectedCss).not.toMatch(/:host\(\[data-selected\]\)[^{]*\{[^}]*border-color/);
-    const chart = node.shadowRoot!.querySelector('[data-testid="chart-7"]') as HTMLButtonElement;
+    expect(selectedCss).not.toMatch(/bld-node\[data-selected\]\s*\{[^}]*border-color/);
+    const chart = node.renderRoot.querySelector('[data-testid="chart-7"]') as HTMLButtonElement;
     expect(chart.hidden).toBe(false);
     let opened = false;
     node.addEventListener("chartclick", () => {
@@ -140,7 +145,7 @@ describe("BldNode", () => {
         paramsLine: "",
       }),
     );
-    const chart = node.shadowRoot!.querySelector('[data-testid="chart-7"]') as HTMLButtonElement;
+    const chart = node.renderRoot.querySelector('[data-testid="chart-7"]') as HTMLButtonElement;
     expect(chart.disabled).toBe(true);
     let opened = false;
     node.addEventListener("chartclick", () => {
@@ -148,12 +153,12 @@ describe("BldNode", () => {
     });
     chart.click();
     expect(opened).toBe(false);
-    expect(node.shadowRoot!.querySelector('[data-testid="output-out-type"]')).toBeNull();
-    expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-type')).toBeNull();
-    expect(node.shadowRoot!.querySelector('[data-vector="out"] .block-port-name')).toBeNull();
-    expect(node.shadowRoot!.querySelector(".flow-node")?.getAttribute("title")).toBe("Scope");
-    expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("Scope");
-    expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("(Double) -> Unit");
+    expect(node.renderRoot.querySelector('[data-testid="output-out-type"]')).toBeNull();
+    expect(node.renderRoot.querySelector('[data-testid="output-out"] .block-port-type')).toBeNull();
+    expect(node.renderRoot.querySelector('[data-vector="out"] .block-port-name')).toBeNull();
+    expect(node.renderRoot.querySelector(".flow-node")?.getAttribute("title")).toBe("Scope");
+    expect(node.renderRoot.querySelector(".flow-node-title")?.textContent).toBe("Scope");
+    expect(node.renderRoot.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("(Double) -> Unit");
   });
 
   it("renders extra slotted ports with distinct handles", async () => {
@@ -169,14 +174,14 @@ describe("BldNode", () => {
         paramsLine: "",
       }),
     );
-    expect(node.shadowRoot!.querySelector('[data-vector="out"] .block-port-name')).toBeNull();
-    expect(node.shadowRoot!.querySelector('[data-testid="output-out"] .block-port-name')).toBeNull();
-    expect(node.shadowRoot!.querySelector('[data-testid="output-out[1]"] .block-port-name')).toBeNull();
-    expect(node.shadowRoot!.querySelectorAll("[data-port][data-side='out']")).toHaveLength(2);
-    expect(node.shadowRoot!.querySelectorAll('[data-vector="out"] .block-port-vector-rail')).toHaveLength(1);
-    expect(node.shadowRoot!.querySelectorAll('[data-vector="out"] [data-handle]')).toHaveLength(2);
-    expect(node.shadowRoot!.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("(Double) -> Unit");
-    expect(node.shadowRoot!.querySelector('[data-testid="output-out[1]"]')?.getAttribute("title")).toBe("(Double) -> Unit");
+    expect(node.renderRoot.querySelector('[data-vector="out"] .block-port-name')).toBeNull();
+    expect(node.renderRoot.querySelector('[data-testid="output-out"] .block-port-name')).toBeNull();
+    expect(node.renderRoot.querySelector('[data-testid="output-out[1]"] .block-port-name')).toBeNull();
+    expect(node.renderRoot.querySelectorAll("[data-port][data-side='out']")).toHaveLength(2);
+    expect(node.renderRoot.querySelectorAll('[data-vector="out"] .block-port-vector-rail')).toHaveLength(1);
+    expect(node.renderRoot.querySelectorAll('[data-vector="out"] [data-handle]')).toHaveLength(2);
+    expect(node.renderRoot.querySelector('[data-testid="output-out"]')?.getAttribute("title")).toBe("(Double) -> Unit");
+    expect(node.renderRoot.querySelector('[data-testid="output-out[1]"]')?.getAttribute("title")).toBe("(Double) -> Unit");
   });
 
   it("renders a second extra input handle", async () => {
@@ -192,11 +197,11 @@ describe("BldNode", () => {
         paramsLine: "",
       }),
     );
-    expect(node.shadowRoot!.querySelector('[data-vector="in"] .block-port-name')).toBeNull();
-    expect(node.shadowRoot!.querySelector('[data-testid="input-in"] .block-port-name')).toBeNull();
-    expect(node.shadowRoot!.querySelector('[data-testid="input-in[1]"] .block-port-name')).toBeNull();
-    expect(node.shadowRoot!.querySelectorAll("[data-port][data-side='in']")).toHaveLength(2);
-    expect(node.shadowRoot!.querySelectorAll('[data-vector="in"] [data-handle]')).toHaveLength(2);
+    expect(node.renderRoot.querySelector('[data-vector="in"] .block-port-name')).toBeNull();
+    expect(node.renderRoot.querySelector('[data-testid="input-in"] .block-port-name')).toBeNull();
+    expect(node.renderRoot.querySelector('[data-testid="input-in[1]"] .block-port-name')).toBeNull();
+    expect(node.renderRoot.querySelectorAll("[data-port][data-side='in']")).toHaveLength(2);
+    expect(node.renderRoot.querySelectorAll('[data-vector="in"] [data-handle]')).toHaveLength(2);
   });
 
   it("prints the type under a port only when showType is set", async () => {
@@ -206,13 +211,13 @@ describe("BldNode", () => {
         inputs: [{ name: "elems", typeLabel: "f64", vararg: true, showType: true }],
       }),
     );
-    expect(node.shadowRoot!.querySelector('[data-testid="output-result-type"]')?.textContent).toBe("Array[Double]");
-    expect(node.shadowRoot!.querySelector('[data-testid="input-elems-type"]')?.textContent).toBe("f64");
-    expect(node.shadowRoot!.querySelector('[data-testid="output-result"]')?.classList.contains("is-typed")).toBe(true);
-    expect(node.shadowRoot!.querySelector('[data-vector="elems"] .block-port-type')?.textContent).toBe("f64");
-    expect(node.shadowRoot!.querySelector(".block-port-meta .block-port-type")).toBeNull();
-    expect(node.shadowRoot!.querySelector('[data-testid="output-result"] .block-port-anchor .block-port-type')).not.toBeNull();
-    expect(node.shadowRoot!.querySelector('[data-testid="input-elems"] .block-port-anchor .block-port-type')).not.toBeNull();
+    expect(node.renderRoot.querySelector('[data-testid="output-result-type"]')?.textContent).toBe("Array[Double]");
+    expect(node.renderRoot.querySelector('[data-testid="input-elems-type"]')?.textContent).toBe("f64");
+    expect(node.renderRoot.querySelector('[data-testid="output-result"]')?.classList.contains("is-typed")).toBe(true);
+    expect(node.renderRoot.querySelector('[data-vector="elems"] .block-port-type')?.textContent).toBe("f64");
+    expect(node.renderRoot.querySelector(".block-port-meta .block-port-type")).toBeNull();
+    expect(node.renderRoot.querySelector('[data-testid="output-result"] .block-port-anchor .block-port-type')).not.toBeNull();
+    expect(node.renderRoot.querySelector('[data-testid="input-elems"] .block-port-anchor .block-port-type')).not.toBeNull();
   });
 
   it("shows in/out names only when a side has more than one catalog port", async () => {
@@ -230,12 +235,12 @@ describe("BldNode", () => {
         paramsLine: "",
       }),
     );
-    expect(node.shadowRoot!.querySelector('[data-testid="input-array"] .block-port-name')?.textContent).toBe("array");
-    expect(node.shadowRoot!.querySelector('[data-testid="input-index"] .block-port-name')?.textContent).toBe("index");
-    expect(node.shadowRoot!.querySelector('[data-testid="output-true"] .block-port-name')?.textContent).toBe("true");
-    expect(node.shadowRoot!.querySelector('[data-testid="output-false"] .block-port-name')?.textContent).toBe("false");
-    expect(node.shadowRoot!.querySelector(".flow-node-title")?.textContent).toBe("array.get");
-    expect(node.shadowRoot!.querySelector(".flow-node")?.getAttribute("title")).toBe("array.get");
+    expect(node.renderRoot.querySelector('[data-testid="input-array"] .block-port-name')?.textContent).toBe("array");
+    expect(node.renderRoot.querySelector('[data-testid="input-index"] .block-port-name')?.textContent).toBe("index");
+    expect(node.renderRoot.querySelector('[data-testid="output-true"] .block-port-name')?.textContent).toBe("true");
+    expect(node.renderRoot.querySelector('[data-testid="output-false"] .block-port-name')?.textContent).toBe("false");
+    expect(node.renderRoot.querySelector(".flow-node-title")?.textContent).toBe("array.get");
+    expect(node.renderRoot.querySelector(".flow-node")?.getAttribute("title")).toBe("array.get");
   });
 
   it("reports its measured size through noderesize", async () => {
@@ -267,7 +272,7 @@ describe("BldNode", () => {
         paramsLine: "",
       }),
     );
-    const button = node.shadowRoot!.querySelector('[data-testid="inputs-7"]') as HTMLButtonElement;
+    const button = node.renderRoot.querySelector('[data-testid="inputs-7"]') as HTMLButtonElement;
     expect(button).not.toBeNull();
     expect(button.getAttribute("title")).toBe("Configure inputs");
     expect(button.disabled).toBe(false);
@@ -291,7 +296,7 @@ describe("BldNode", () => {
         paramsLine: "",
       }),
     );
-    const button = node.shadowRoot!.querySelector('[data-testid="inputs-7"]') as HTMLButtonElement;
+    const button = node.renderRoot.querySelector('[data-testid="inputs-7"]') as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     expect(button.getAttribute("title")).toBe("Stop the run to configure inputs");
     let opened = false;
@@ -313,7 +318,7 @@ describe("BldNode", () => {
         paramsLine: "",
       }),
     );
-    expect(node.shadowRoot!.querySelector(".flow-node-config")).toBeNull();
+    expect(node.renderRoot.querySelector(".flow-node-config")).toBeNull();
   });
 
   it("shows a GPIO switch that emits gpioclick", async () => {
@@ -330,18 +335,15 @@ describe("BldNode", () => {
         paramsLine: "",
       }),
     );
-    const toggle = node.shadowRoot!.querySelector('[data-testid="gpio-7"]') as HTMLInputElement;
+    const toggle = node.renderRoot.querySelector('[data-testid="gpio-7"]') as HTMLInputElement;
     expect(toggle).not.toBeNull();
     expect(toggle.type).toBe("checkbox");
     expect(toggle.getAttribute("role")).toBe("switch");
     expect(toggle.disabled).toBe(false);
     expect(toggle.checked).toBe(false);
     expect(toggle.getAttribute("aria-label")).toBe("GPIO pin 0 LOW");
-    expect(node.shadowRoot!.querySelector(".form-check-label")).toBeNull();
-    const gpioCss = (Array.isArray(BldNode.styles) ? BldNode.styles : [BldNode.styles])
-      .flat(Infinity)
-      .map((sheet) => (sheet as { cssText: string }).cssText)
-      .join("\n");
+    expect(node.renderRoot.querySelector(".form-check-label")).toBeNull();
+    const gpioCss = appCss;
     expect(gpioCss).toContain(".flow-node-gpio.form-switch .form-check-input");
     expect(gpioCss).toMatch(/\.flow-node-gpio\s*\{[^}]*padding:\s*0/);
     expect(gpioCss).toMatch(/\.flow-node-gpio\.form-switch \.form-check-input\s*\{[^}]*float:\s*none/);
@@ -360,8 +362,8 @@ describe("BldNode", () => {
     };
     await node.updateComplete;
     expect(node.hasAttribute("data-gpio-on")).toBe(true);
-    expect((node.shadowRoot!.querySelector('[data-testid="gpio-7"]') as HTMLInputElement).checked).toBe(true);
-    expect((node.shadowRoot!.querySelector('[data-testid="gpio-7"]') as HTMLInputElement).getAttribute("aria-label")).toBe(
+    expect((node.renderRoot.querySelector('[data-testid="gpio-7"]') as HTMLInputElement).checked).toBe(true);
+    expect((node.renderRoot.querySelector('[data-testid="gpio-7"]') as HTMLInputElement).getAttribute("aria-label")).toBe(
       "GPIO pin 0 HIGH",
     );
   });
@@ -380,12 +382,12 @@ describe("BldNode", () => {
         paramsLine: "",
       }),
     );
-    const toggle = node.shadowRoot!.querySelector('[data-testid="gpio-7"]') as HTMLInputElement;
+    const toggle = node.renderRoot.querySelector('[data-testid="gpio-7"]') as HTMLInputElement;
     expect(toggle.disabled).toBe(true);
     expect(toggle.checked).toBe(true);
     expect(toggle.getAttribute("aria-label")).toBe("GPIO pin 1 HIGH");
-    expect(node.shadowRoot!.querySelector(".form-check.form-switch")).not.toBeNull();
-    expect(node.shadowRoot!.querySelector(".form-check-label")).toBeNull();
+    expect(node.renderRoot.querySelector(".form-check.form-switch")).not.toBeNull();
+    expect(node.renderRoot.querySelector(".form-check-label")).toBeNull();
     let toggled = false;
     node.addEventListener("gpioclick", () => {
       toggled = true;

@@ -182,7 +182,7 @@ export async function connectorWorldPolylines(page: Page): Promise<{ x: number; 
       return null;
     };
     const diagram = walk(document, "bld-diagram");
-    const hosts = [...(diagram?.shadowRoot?.querySelectorAll("bld-connector:not([data-preview])") ?? [])];
+    const hosts = [...((diagram?.shadowRoot ?? diagram)?.querySelectorAll("bld-connector:not([data-preview])") ?? [])];
     return hosts.map((host) => parse((host as HTMLElement).dataset.points ?? ""));
   });
 }
@@ -292,7 +292,7 @@ export async function boxOf(locator: Locator): Promise<{ x: number; y: number; w
 
 export async function worldPan(page: Page): Promise<{ x: number; y: number }> {
   return page.locator("bld-diagram").evaluate((diagram) => {
-    const world = diagram.shadowRoot?.querySelector(".world");
+    const world = (diagram.shadowRoot ?? diagram).querySelector(".world");
     if (!(world instanceof HTMLElement)) {
       throw new Error("worldPan: world missing");
     }
@@ -320,7 +320,7 @@ export async function fireCanvasPan(page: Page, dx: number, dy: number): Promise
         return null;
       };
       const diagram = walk(document, "bld-diagram");
-      const viewport = diagram?.shadowRoot?.querySelector(".viewport");
+      const viewport = (diagram?.shadowRoot ?? diagram)?.querySelector(".viewport");
       if (!(viewport instanceof HTMLElement)) {
         throw new Error("fireCanvasPan: viewport missing");
       }

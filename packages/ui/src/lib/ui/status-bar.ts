@@ -1,34 +1,7 @@
-import { css, html, nothing } from "lit";
-import { bootstrapStyles } from "./bootstrap";
+import { html, nothing } from "lit";
 import { AppHost } from "./app-host";
 
 export class BldStatusBar extends AppHost {
-  static override styles = [
-    bootstrapStyles,
-    css`
-      :host {
-        display: block;
-        height: 28px;
-        flex: 0 0 28px;
-      }
-      .app-statusbar {
-        height: 28px;
-        background: #1b1f22;
-      }
-      :host([data-compact]) {
-        height: calc(20px + env(safe-area-inset-bottom, 0px));
-        flex-basis: calc(20px + env(safe-area-inset-bottom, 0px));
-      }
-      :host([data-compact]) .app-statusbar {
-        height: calc(20px + env(safe-area-inset-bottom, 0px));
-        padding-bottom: env(safe-area-inset-bottom, 0px);
-        font-size: 0.62rem;
-      }
-      :host([data-compact]) .status-hint {
-        display: none;
-      }
-    `,
-  ];
 
   #countLabel(count: number, singular: string, plural: string): string {
     return count === 1 ? `1 ${singular}` : `${count} ${plural}`;

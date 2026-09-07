@@ -1,5 +1,4 @@
-import { css, html, nothing, type CSSResultGroup, type TemplateResult } from "lit";
-import { bootstrapStyles } from "./bootstrap";
+import { html, nothing, type TemplateResult } from "lit";
 import { AppHost } from "./app-host";
 
 export interface ModalChrome {
@@ -14,15 +13,6 @@ export interface ModalChrome {
 
 /** Bootstrap dialog shell shared by about / inputs / save-open. */
 export abstract class BldModal extends AppHost {
-  /** Subclasses that add styles must include `super.styles` so the overlay chrome stays adopted. */
-  static override styles: CSSResultGroup = [
-    bootstrapStyles,
-    css`
-      :host {
-        display: contents;
-      }
-    `,
-  ];
 
   protected abstract isOpen(): boolean;
   protected abstract closeModal(): void;

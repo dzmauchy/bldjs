@@ -4,11 +4,11 @@ import { BldToolbar } from "./toolbar";
 
 async function glyph(host: Element | null | undefined): Promise<SVGElement | null> {
   const icon = host?.querySelector("bld-block-icon");
-  if (!(icon instanceof HTMLElement) || !icon.shadowRoot) {
+  if (!(icon instanceof HTMLElement)) {
     return null;
   }
   await (icon as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
-  return icon.shadowRoot.querySelector("svg");
+  return (icon.renderRoot ?? icon).querySelector("svg");
 }
 
 describe("BldToolbar", () => {
@@ -22,10 +22,10 @@ describe("BldToolbar", () => {
     document.body.append(bar);
     await bar.updateComplete;
 
-    const run = bar.shadowRoot?.querySelector('[data-testid="toolbar-run"]');
-    const stop = bar.shadowRoot?.querySelector('[data-testid="toolbar-stop"]');
-    const menu = bar.shadowRoot?.querySelector('[data-testid="toolbar-menu"]');
-    const brand = bar.shadowRoot?.querySelector('[data-testid="app-brand"] svg');
+    const run = bar.renderRoot.querySelector('[data-testid="toolbar-run"]');
+    const stop = bar.renderRoot.querySelector('[data-testid="toolbar-stop"]');
+    const menu = bar.renderRoot.querySelector('[data-testid="toolbar-menu"]');
+    const brand = bar.renderRoot.querySelector('[data-testid="app-brand"] svg');
     expect(brand?.getAttribute("viewBox")).toBe("0 0 512 512");
     expect(brand?.getAttribute("aria-label")).toBe("Bld");
     expect(run?.textContent?.trim()).toBe("");
@@ -51,15 +51,17 @@ describe("BldToolbar", () => {
     document.body.append(bar);
     await bar.updateComplete;
 
-    const runBtn = () => bar.shadowRoot?.querySelector('[data-testid="toolbar-run"]') as HTMLButtonElement | null;
-    const stopBtn = () => bar.shadowRoot?.querySelector('[data-testid="toolbar-stop"]') as HTMLButtonElement | null;
+    const runBtn = () => bar.renderRoot.querySelector('[data-testid="toolbar-run"]') as HTMLButtonElement | null;
+    const stopBtn = () => bar.renderRoot.querySelector('[data-testid="toolbar-stop"]') as HTMLButtonElement | null;
     expect(runBtn()).not.toBeNull();
+    expect(runBtn()?.classList.contains("toolbar-run-btn")).toBe(true);
     expect(stopBtn()).toBeNull();
     expect((await glyph(runBtn()))?.querySelector("path")?.getAttribute("d")).toContain("M4 2.5v11L13.5 8Z");
 
     app.run.starting = true;
     await bar.updateComplete;
     expect(runBtn()).toBeNull();
+    expect(stopBtn()?.classList.contains("toolbar-stop-btn")).toBe(true);
     expect(stopBtn()?.getAttribute("aria-label")).toBe("Stop");
     expect(stopBtn()?.getAttribute("title")).toBe("Stop");
     expect(stopBtn()?.disabled).toBe(false);
@@ -85,10 +87,10 @@ describe("BldToolbar", () => {
     document.body.append(bar);
     await bar.updateComplete;
 
-    const dropdown = () => bar.shadowRoot?.querySelector('[data-testid="toolbar-menu-dropdown"]');
+    const dropdown = () => bar.renderRoot.querySelector('[data-testid="toolbar-menu-dropdown"]');
     expect(dropdown()?.classList.contains("show")).toBe(false);
 
-    (bar.shadowRoot?.querySelector('[data-testid="toolbar-menu"]') as HTMLButtonElement).click();
+    (bar.renderRoot.querySelector('[data-testid="toolbar-menu"]') as HTMLButtonElement).click();
     await bar.updateComplete;
     expect(dropdown()?.classList.contains("show")).toBe(true);
     expect(dropdown()?.querySelector('[data-testid="menu-about"]')).not.toBeNull();
@@ -116,9 +118,9 @@ describe("BldToolbar", () => {
     document.body.append(bar);
     await bar.updateComplete;
 
-    (bar.shadowRoot?.querySelector('[data-testid="toolbar-menu"]') as HTMLButtonElement).click();
+    (bar.renderRoot.querySelector('[data-testid="toolbar-menu"]') as HTMLButtonElement).click();
     await bar.updateComplete;
-    const control = bar.shadowRoot?.querySelector(
+    const control = bar.renderRoot.querySelector(
       '[data-testid="menu-catalog-control-systems.xml"]',
     ) as HTMLButtonElement;
     expect(control.getAttribute("aria-checked")).toBe("true");
@@ -126,9 +128,9 @@ describe("BldToolbar", () => {
     await bar.updateComplete;
     expect(app.blockDef("timer")).toBeUndefined();
     expect(
-      bar.shadowRoot?.querySelector('[data-testid="menu-catalog-control-systems.xml"]')?.getAttribute("aria-checked"),
+      bar.renderRoot.querySelector('[data-testid="menu-catalog-control-systems.xml"]')?.getAttribute("aria-checked"),
     ).toBe("false");
-    expect(bar.shadowRoot?.querySelector('[data-testid="toolbar-menu-dropdown"]')?.classList.contains("show")).toBe(
+    expect(bar.renderRoot.querySelector('[data-testid="toolbar-menu-dropdown"]')?.classList.contains("show")).toBe(
       true,
     );
   });
@@ -139,7 +141,7 @@ describe("BldToolbar", () => {
     document.body.append(bar);
     await bar.updateComplete;
 
-    const toggle = bar.shadowRoot?.querySelector('[data-testid="toolbar-palette"]') as HTMLButtonElement;
+    const toggle = bar.renderRoot.querySelector('[data-testid="toolbar-palette"]') as HTMLButtonElement;
     expect(toggle).not.toBeNull();
     expect(toggle.getAttribute("aria-label")).toBe("Blocks");
     expect(toggle.getAttribute("aria-pressed")).toBe("false");

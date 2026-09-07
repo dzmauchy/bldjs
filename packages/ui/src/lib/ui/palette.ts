@@ -1,8 +1,8 @@
-import { css, html, nothing, type TemplateResult } from "lit";
+import { html, nothing, type TemplateResult } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { type BlockDef } from "@bld/xml/blocks/ast";
+import { isArrayType, type PortDef } from "@bld/types/ast";
 import { FLOW_MIME, PALETTE_DROP_EVENT, type PaletteDropDetail } from "$lib/flow/mime";
-import { bootstrapStyles } from "./bootstrap";
 import { AppHost } from "./app-host";
 import { type PaletteGroup, buildPaletteTree, paletteGroupIds } from "./palette-tree";
 import "./block-icon";
@@ -22,202 +22,6 @@ interface PointerDrag {
 export class BldPalette extends AppHost {
   #open: Set<string> | null = null;
   #drag: PointerDrag | null = null;
-
-  static override styles = [
-    bootstrapStyles,
-    css`
-      :host {
-        display: flex;
-        width: 200px;
-        flex: 0 0 200px;
-        min-height: 0;
-        height: 100%;
-        overflow: hidden;
-      }
-      .palette {
-        display: flex;
-        flex-direction: column;
-        width: 100%;
-        flex: 1 1 auto;
-        min-width: 0;
-        min-height: 0;
-        height: 100%;
-        overflow: hidden;
-        background: #1c2125;
-      }
-      .palette-header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 0.5rem;
-      }
-      .palette-close {
-        display: none;
-        border: 0;
-        background: transparent;
-        color: var(--bs-secondary-color, #adb5bd);
-        padding: 0 0.15rem;
-        line-height: 1;
-        font-size: 1.35rem;
-        cursor: pointer;
-      }
-      .palette-list {
-        padding: 0;
-        min-height: 0;
-        flex: 1 1 auto;
-        overflow-x: hidden;
-        overflow-y: auto;
-        touch-action: pan-y;
-        overscroll-behavior: contain;
-        -webkit-overflow-scrolling: touch;
-      }
-      .palette-ns {
-        border-bottom: 1px solid var(--bs-border-color);
-      }
-      .palette-ns.is-child {
-        border-bottom: 0;
-      }
-      .palette-ns.is-child .palette-ns-toggle {
-        padding-left: 1.35rem;
-        background: #15191c;
-        font-size: 0.68rem;
-      }
-      .palette-ns-body.is-nested {
-        padding-left: 0.35rem;
-      }
-      .palette-ns-toggle {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.5rem;
-        border: 0;
-        background: #181c1f;
-        color: inherit;
-        text-align: left;
-        padding: 0.55rem 0.9rem;
-        font-size: 0.72rem;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        cursor: pointer;
-      }
-      .palette-ns-toggle::after {
-        content: "▸";
-        font-size: 0.7rem;
-        opacity: 0.7;
-      }
-      .palette-ns-toggle.open::after {
-        content: "▾";
-      }
-      .palette-ns-toggle:hover {
-        background: #1f2529;
-      }
-      .palette-ns-body {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        padding: 8px;
-      }
-      .palette-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 8px;
-        border: 1px solid var(--bs-border-color);
-        border-left: 3px solid var(--block-accent);
-        border-radius: 6px;
-        background: #23282d;
-        color: inherit;
-        cursor: grab;
-        user-select: none;
-        font-size: 0.8rem;
-        font-weight: 600;
-        touch-action: pan-y;
-      }
-      .palette-item:hover {
-        background: #2b3238;
-      }
-      .palette-item:active {
-        cursor: grabbing;
-      }
-      .palette-item.is-drag-source {
-        opacity: 0.38;
-      }
-      .palette-item-icon {
-        color: var(--block-accent);
-        width: 1.1rem;
-        height: 1.1rem;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex: 0 0 auto;
-      }
-      .palette-item-label {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .block-kind-start {
-        --block-accent: var(--bs-success);
-      }
-      .block-kind-process {
-        --block-accent: var(--bs-primary);
-      }
-      .block-kind-decision {
-        --block-accent: var(--bs-warning);
-      }
-      .block-kind-data {
-        --block-accent: var(--bs-info);
-      }
-      .block-kind-output {
-        --block-accent: var(--bs-danger);
-      }
-      :host([data-compact]) {
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        height: auto;
-        width: min(168px, 78vw);
-        flex: none;
-        z-index: 6;
-        display: none;
-        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
-      }
-      :host([data-compact][data-open]) {
-        display: flex;
-      }
-      :host([data-compact][data-dragging]) {
-        opacity: 0.18;
-        pointer-events: none;
-      }
-      :host([data-compact]) .palette {
-        width: 100%;
-      }
-      :host([data-compact]) .palette-close {
-        display: inline-flex;
-      }
-      :host([data-compact]) .palette-ns-toggle {
-        padding: 0.38rem 0.6rem;
-        font-size: 0.62rem;
-      }
-      :host([data-compact]) .palette-ns-body {
-        gap: 3px;
-        padding: 5px;
-      }
-      :host([data-compact]) .palette-item {
-        padding: 4px 6px;
-        font-size: 0.68rem;
-        gap: 6px;
-      }
-      :host([data-compact]) .palette-item-icon {
-        width: 0.95rem;
-        height: 0.95rem;
-      }
-    `,
-  ];
 
   override disconnectedCallback(): void {
     this.#cancelPointerDrag();
@@ -246,6 +50,81 @@ export class BldPalette extends AppHost {
     const nsSet = new Set([ns]);
     this.#open = open.has(ns) ? open.difference(nsSet) : open.union(nsSet);
     this.requestUpdate();
+  }
+
+  #renderPort(port: PortDef, side: "in" | "out", showName: boolean = false) {
+    const isVector = port.vararg || isArrayType(port.ty);
+    const meta = showName
+      ? html`
+          <span class="block-port-meta">
+            <span class="block-port-name">${port.name}</span>
+          </span>
+        `
+      : nothing;
+    if (!isVector) {
+      return html`
+        <div class="block-port-row is-${side}">
+          <span class="block-port-anchor">
+            <span class="block-port"></span>
+          </span>
+          ${meta}
+        </div>
+      `;
+    }
+    return html`
+      <div class="block-port-vector is-${side}">
+        <div class="block-port-vector-pins">
+          <div class="block-port-row is-${side} is-vector">
+            <span class="block-port-anchor">
+              <span class="block-port"></span>
+            </span>
+          </div>
+        </div>
+        <span class="block-port-vector-rail" aria-hidden="true"></span>
+        ${meta}
+      </div>
+    `;
+  }
+
+  #renderBlockPreview(def: BlockDef) {
+    return html`
+      <div class="palette-block-preview" aria-hidden="true">
+        <div class="flow-node" role="group" title=${def.name}>
+          <div class="flow-node-port-col is-in flow-node-ports">
+            ${def.inputs.map((port) => this.#renderPort(port, "in", def.inputs.length > 1))}
+          </div>
+          <div class="flow-node-body">
+            <span class="flow-node-title">${def.name}</span>
+            <span class="flow-node-icon" aria-hidden="true">
+              <bld-block-icon .name=${def.icon}></bld-block-icon>
+            </span>
+            ${(def.parameters?.length ?? 0) > 0
+              ? html`
+                  <button class="flow-node-config" type="button" tabindex="-1" aria-hidden="true" title="Configure inputs">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="8" cy="8" r="2.1"/>
+                      <path d="M8 2.4v1.5M8 12.1v1.5M2.4 8h1.5M12.1 8h1.5M4 4l1.1 1.1M10.9 10.9 12 12M4 12l1.1-1.1M10.9 5.1 12 4"/>
+                    </svg>
+                  </button>
+                `
+              : nothing}
+            ${def.id === "gpio_in" || def.id === "gpio_out"
+              ? html`
+                  <div class="form-check form-switch flow-node-gpio">
+                    <input class="form-check-input" type="checkbox" role="switch" tabindex="-1" disabled aria-hidden="true" />
+                  </div>
+                `
+              : nothing}
+            ${def.id === "scope"
+              ? html`<button class="flow-node-chart" type="button" tabindex="-1" aria-hidden="true">Chart</button>`
+              : nothing}
+          </div>
+          <div class="flow-node-port-col is-out flow-node-ports">
+            ${def.outputs.map((port) => this.#renderPort(port, "out", def.outputs.length > 1))}
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   #renderBlock(def: BlockDef) {
@@ -280,10 +159,7 @@ export class BldPalette extends AppHost {
           app.closePalette();
         }}
       >
-        <span class="palette-item-icon" aria-hidden="true">
-          <bld-block-icon .name=${def.icon}></bld-block-icon>
-        </span>
-        <span class="palette-item-label">${def.name}</span>
+        ${this.#renderBlockPreview(def)}
       </div>
     `;
   }

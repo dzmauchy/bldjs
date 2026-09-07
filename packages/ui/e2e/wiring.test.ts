@@ -363,7 +363,7 @@ test.describe("wiring", () => {
     const directions = await flow.evaluateAll((els) =>
       els.map((el) => {
         const push = el.hasAttribute("data-push");
-        const seg = el.shadowRoot?.querySelector(".seg");
+        const seg = (el.shadowRoot ?? el).querySelector(".seg");
         return {
           push,
           direction: seg ? getComputedStyle(seg).animationDirection : "",

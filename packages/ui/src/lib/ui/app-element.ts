@@ -1,9 +1,8 @@
-import { LitElement, css, html, nothing } from "lit";
+import { LitElement, html, nothing } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { AppController } from "$lib/context";
 import { COMPACT_UI_QUERY, compactUiMatches, isNoneId } from "$lib/model";
 import { AppState } from "$lib/state";
-import { bootstrapStyles } from "./bootstrap";
 import "./about-modal";
 import "./diagram-io-modal";
 import "./toolbar";
@@ -18,45 +17,9 @@ export class BldApp extends LitElement {
   #ctrl = new AppController(this, this.app);
   #compact?: MediaQueryList;
 
-  static override styles = [
-    bootstrapStyles,
-    css`
-      :host {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-        height: 100dvh;
-        background: var(--bs-body-bg);
-        color: var(--bs-body-color);
-      }
-      .app-shell {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        background: var(--bs-body-bg);
-        color: var(--bs-body-color);
-      }
-      .app-body {
-        display: flex;
-        flex: 1 1 auto;
-        min-height: 0;
-        position: relative;
-        background: #121416;
-      }
-      :host([data-compact]) {
-        font-size: 13px;
-      }
-      .palette-backdrop {
-        position: absolute;
-        inset: 0;
-        z-index: 5;
-        background: rgba(0, 0, 0, 0.4);
-      }
-      bld-palette {
-        z-index: 6;
-      }
-    `,
-  ];
+  override createRenderRoot(): HTMLElement {
+    return this;
+  }
 
   connectedCallback(): void {
     super.connectedCallback();

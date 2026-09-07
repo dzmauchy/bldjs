@@ -112,7 +112,7 @@ test.describe("phone landscape", () => {
     const palette = page.locator("bld-palette");
     await expect(palette).toHaveAttribute("data-compact", "");
     const scroll = await palette.evaluate((host) => {
-      const list = host.shadowRoot?.querySelector('[data-testid="palette-list"]');
+      const list = (host.shadowRoot ?? host).querySelector('[data-testid="palette-list"]');
       if (!(list instanceof HTMLElement)) {
         throw new Error("palette-list missing");
       }

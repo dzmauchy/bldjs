@@ -1,4 +1,4 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { renderIconSvg } from "$lib/flow/icons";
 
@@ -9,26 +9,9 @@ export class BldBlockIcon extends LitElement {
 
   declare name: string | null;
 
-  static override styles = css`
-    :host {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 1em;
-      height: 1em;
-      line-height: 1;
-    }
-    svg {
-      width: 1em;
-      height: 1em;
-      flex: 0 0 auto;
-      stroke: currentColor;
-      stroke-width: 1.4;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      overflow: visible;
-    }
-  `;
+  override createRenderRoot(): HTMLElement {
+    return this;
+  }
 
   constructor() {
     super();

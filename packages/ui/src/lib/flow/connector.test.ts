@@ -1,4 +1,12 @@
+import fs from "node:fs";
+import path from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+
+const cssPath = [
+  path.resolve(process.cwd(), "src/app.css"),
+  path.resolve(process.cwd(), "packages/ui/src/app.css"),
+].find((p) => fs.existsSync(p))!;
+const appCss = fs.readFileSync(cssPath, "utf8");
 import { BldConnector } from "./connector";
 import { FLOW_PERIOD_MIN_MS, flowPeriodMs } from "@bld/xml/flow";
 import "./connector";
@@ -12,18 +20,21 @@ async function mountConnector(init: Partial<BldConnector>): Promise<BldConnector
 }
 
 function strokeClip(link: BldConnector): string {
-  return (link.shadowRoot?.querySelector(".path-stroke") as HTMLElement | null)?.style.clipPath ?? "";
+  return (link.renderRoot.querySelector(".path-stroke") as HTMLElement | null)?.style.clipPath ?? "";
 }
 
 describe("BldConnector", () => {
   beforeAll(() => {
     expect(customElements.get("bld-connector")).toBeDefined();
-    const cssText = (BldConnector.styles as { cssText: string }).cssText;
-    expect(cssText).not.toContain("[data-flow=");
-    expect(cssText).toContain("--flow-period");
-    expect(cssText).toContain("[data-push]");
-    expect(cssText).toContain("animation-direction: reverse");
-    expect(cssText).not.toContain("svg");
+    const connectorCss = appCss.slice(
+      appCss.indexOf("/* bld-connector */"),
+      appCss.indexOf("/* bld-block-icon */"),
+    );
+    expect(connectorCss).not.toContain("[data-flow=");
+    expect(connectorCss).toContain("--flow-period");
+    expect(connectorCss).toContain("[data-push]");
+    expect(connectorCss).toContain("animation-direction: reverse");
+    expect(connectorCss).not.toContain("svg");
   });
 
   afterEach(() => {
@@ -34,8 +45,8 @@ describe("BldConnector", () => {
     const link = await mountConnector({ from: { x: 10, y: 20 }, to: { x: 120, y: 40 } });
     const clip = strokeClip(link);
     expect(clip.startsWith("polygon(")).toBe(true);
-    expect(link.shadowRoot?.querySelector("svg")).toBeNull();
-    expect(link.shadowRoot?.querySelector(".path-hit")).not.toBeNull();
+    expect(link.renderRoot.querySelector("svg")).toBeNull();
+    expect(link.renderRoot.querySelector(".path-hit")).not.toBeNull();
     expect(Number.parseFloat(link.style.width)).toBeGreaterThan(0);
     expect(Number.parseFloat(link.style.height)).toBeGreaterThan(20);
     expect(link.style.left).toMatch(/px$/);
@@ -75,20 +86,20 @@ describe("BldConnector", () => {
     await link.updateComplete;
     expect(link.hasAttribute("data-flow")).toBe(false);
     expect(link.style.getPropertyValue("--flow-period")).toBe("");
-    expect(link.shadowRoot?.querySelector(".seg")).toBeNull();
+    expect(link.renderRoot.querySelector(".seg")).toBeNull();
   });
 
   it("reverses dash travel when the wire is a push-model consumer", async () => {
     const pull = await mountConnector({ from: { x: 0, y: 0 }, to: { x: 80, y: 0 }, hz: 10 });
     expect(pull.hasAttribute("data-push")).toBe(false);
-    expect(pull.shadowRoot!.querySelector(".seg")).not.toBeNull();
+    expect(pull.renderRoot.querySelector(".seg")).not.toBeNull();
     pull.push = true;
     await pull.updateComplete;
     expect(pull.hasAttribute("data-push")).toBe(true);
     const push = await mountConnector({ from: { x: 0, y: 0 }, to: { x: 80, y: 0 }, hz: 5, push: true });
     expect(push.hasAttribute("data-push")).toBe(true);
     expect(push.hasAttribute("data-flow")).toBe(true);
-    expect(push.shadowRoot!.querySelector(".seg")).not.toBeNull();
+    expect(push.renderRoot.querySelector(".seg")).not.toBeNull();
   });
 
   it("updates the clip-path when an endpoint moves with its node", async () => {
@@ -110,7 +121,7 @@ describe("BldConnector", () => {
     });
     expect(link.hasAttribute("data-preview")).toBe(true);
     expect(link.hasAttribute("data-selected")).toBe(true);
-    expect(link.shadowRoot?.querySelector(".path-stroke")?.classList.contains("is-dashed")).toBe(true);
+    expect(link.renderRoot.querySelector(".path-stroke")?.classList.contains("is-dashed")).toBe(true);
   });
 
   it("emits linkpointerdown from the hit path", async () => {
@@ -119,7 +130,7 @@ describe("BldConnector", () => {
     link.addEventListener("linkpointerdown", () => {
       fired = true;
     });
-    link.shadowRoot!.querySelector(".path-hit")!.dispatchEvent(
+    link.renderRoot.querySelector(".path-hit")!.dispatchEvent(
       new PointerEvent("pointerdown", { bubbles: true, composed: true }),
     );
     expect(fired).toBe(true);

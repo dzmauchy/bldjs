@@ -1,4 +1,4 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { styleMap } from "lit/directives/style-map.js";
 import {
@@ -43,69 +43,9 @@ export class BldConnector extends LitElement {
     declare push: boolean;
     declare hz: number;
 
-  static override styles = css`
-    :host {
-      display: block;
-      position: absolute;
-      z-index: 0;
-      pointer-events: none;
-      overflow: visible;
-      --stroke: color-mix(in srgb, var(--bs-primary, #0d6efd) 80%, white);
-    }
-    :host([data-preview]) {
-      z-index: 3;
-    }
-    :host([data-selected]) {
-      --stroke: var(--bs-info, #0dcaf0);
-    }
-    .path-hit,
-    .path-stroke {
-      position: absolute;
-      inset: 0;
-    }
-    .path-hit {
-      cursor: pointer;
-      pointer-events: auto;
-    }
-    :host([data-preview]) .path-hit {
-      pointer-events: none;
-    }
-    .path-stroke {
-      pointer-events: none;
-      background: var(--stroke);
-    }
-    .path-stroke.is-dashed {
-      background: transparent;
-    }
-    .seg {
-      position: absolute;
-      pointer-events: none;
-      background-repeat: repeat;
-      transform-origin: 0 50%;
-      animation-name: bld-flow-dash;
-    }
-    :host([data-flow]) .seg {
-      animation-timing-function: linear;
-      animation-iteration-count: infinite;
-      animation-duration: var(--flow-period, 0ms);
-    }
-    :host([data-push]) .seg {
-      animation-direction: reverse;
-    }
-    :host(:not([data-flow])) .seg {
-      animation-name: none;
-    }
-    @keyframes bld-flow-dash {
-      to {
-        background-position: 14px 0;
-      }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .seg {
-        animation: none !important;
-      }
-    }
-  `;
+  override createRenderRoot(): HTMLElement {
+    return this;
+  }
 
   constructor() {
     super();

@@ -170,8 +170,8 @@ test.describe("canvas", () => {
           return null;
         };
         const diagram = walk(document, "bld-diagram");
-        const node = diagram?.shadowRoot?.querySelector('bld-node[data-block-def="timer"]');
-        const viewport = diagram?.shadowRoot?.querySelector(".viewport");
+        const node = (diagram?.shadowRoot ?? diagram)?.querySelector('bld-node[data-block-def="timer"]');
+        const viewport = (diagram?.shadowRoot ?? diagram)?.querySelector(".viewport");
         if (!node || !viewport) {
           throw new Error("touch drag: timer node or viewport missing");
         }

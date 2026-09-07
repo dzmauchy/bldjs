@@ -21,7 +21,7 @@ export function measureHostLayout(host: HTMLElement): NodeLayout {
   const scaleX = width === 0 ? 1 : hostRect.width / width || 1;
   const scaleY = height === 0 ? 1 : hostRect.height / height || 1;
   const ports: NodeLayout["ports"] = { in: {}, out: {} };
-  const root = host.shadowRoot;
+  const root = (host as HTMLElement & { renderRoot?: Element }).renderRoot ?? host.shadowRoot ?? host;
   if (!root) {
     return { width, height, ports };
   }
@@ -110,17 +110,18 @@ function portFromElement(item: Element): { host: HTMLElement; side: PortSide; po
   if (!item.hasAttribute("data-port")) {
     return undefined;
   }
-  const root = item.getRootNode();
-  if (!(root instanceof ShadowRoot) || !(root.host instanceof HTMLElement)) {
-    return undefined;
-  }
-  if (root.host.localName !== "bld-node") {
+  const host =
+    (item.closest("bld-node") as HTMLElement | null) ??
+    (item.getRootNode() instanceof ShadowRoot && (item.getRootNode() as ShadowRoot).host instanceof HTMLElement
+      ? ((item.getRootNode() as ShadowRoot).host as HTMLElement)
+      : undefined);
+  if (!host || host.localName !== "bld-node") {
     return undefined;
   }
   const side = item.getAttribute("data-side");
   const port = item.getAttribute("data-name");
   if ((side === "in" || side === "out") && port) {
-    return { host: root.host, side, port };
+    return { host, side, port };
   }
   return undefined;
 }
