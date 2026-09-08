@@ -9,29 +9,44 @@ import {
   type PortDef,
   type TypeDef,
   type TypeExpr,
+  arrayOf,
+  displayType,
+  funcType,
+  generic,
   isBlockParameterKind,
   named,
+  unbounded,
+  unionOf,
 } from "@bld/types/ast";
 import {
   isArrayLiteralExpression,
+  isArrayTypeNode,
   isCallExpression,
   isClassDeclaration,
   isDecorator,
   isExpressionStatement,
   isFalseLiteral,
   isFunctionDeclaration,
+  isFunctionTypeNode,
   isIdentifier,
+  isIndexedAccessTypeNode,
+  isIntersectionTypeNode,
   isModuleBlock,
   isModuleDeclaration,
   isNamedTupleMember,
   isNumericLiteral,
   isObjectLiteralExpression,
+  isParenthesizedTypeNode,
   isPrefixUnaryExpression,
   isPropertyAssignment,
+  isQualifiedName,
   isStringLiteral,
   isTrueLiteral,
   isTypeAliasDeclaration,
+  isTypeNode,
   isTypeParameterDeclaration,
+  isTypeReferenceNode,
+  isUnionTypeNode,
   type CallExpression,
   type ClassDeclaration,
   type Expression,
@@ -44,7 +59,7 @@ import {
 } from "typescript/unstable/ast";
 import { PRELUDE_FILE } from "./prelude";
 import { type TscContext, VIRTUAL_ROOT } from "./host";
-import { registerCheckerType } from "./types";
+import { registerCheckerType, tsSyntax } from "./types";
 
 type Meta = Record<string, unknown>;
 
@@ -290,6 +305,7 @@ interface ExtractState {
   attributes: Attribute[];
   namespaces: Map<string, Namespace>;
   types: TypeDef[];
+  typeMeta: Map<string, Meta>;
   blocks: BlockDef[];
   functions: Map<string, { node: FunctionDeclaration; ns: string }>;
 }
@@ -325,12 +341,103 @@ function ensureNamespace(state: ExtractState, id: string, name?: string): void {
   });
 }
 
+function entityNameText(node: Node): string | undefined {
+  if (isIdentifier(node)) {
+    return node.text;
+  }
+  if (isQualifiedName(node)) {
+    const left = entityNameText(node.left);
+    return left ? `${left}.${node.right.text}` : node.right.text;
+  }
+  return identText(node);
+}
+
+/**
+ * Read the written type node so `c<f32>` stays `(f32) -> void`.
+ * `type f32 = Float32Array[1]` reduces to `number` in the checker.
+ */
+function typeExprFromTypeNode(node: Node | undefined): TypeExpr | undefined {
+  if (!node) {
+    return undefined;
+  }
+  if (isParenthesizedTypeNode(node)) {
+    return typeExprFromTypeNode(node.type);
+  }
+  if (isArrayTypeNode(node)) {
+    return arrayOf(typeExprFromTypeNode(node.elementType) ?? unbounded());
+  }
+  if (isFunctionTypeNode(node)) {
+    const params = [...node.parameters].map((param) => typeExprFromTypeNode(param.type) ?? unbounded());
+    return funcType(params, typeExprFromTypeNode(node.type) ?? named("void"));
+  }
+  if (isTypeReferenceNode(node)) {
+    const name = entityNameText(node.typeName) ?? node.getText().replace(/\s+/g, "");
+    const args = [...(node.typeArguments ?? [])].map((arg) => typeExprFromTypeNode(arg) ?? unbounded());
+    return applyWrittenAlias(name, args);
+  }
+  if (isUnionTypeNode(node)) {
+    return unionOf([...node.types].map((member) => typeExprFromTypeNode(member) ?? unbounded()));
+  }
+  if (isIntersectionTypeNode(node)) {
+    const members = [...node.types].map((member) => typeExprFromTypeNode(member) ?? unbounded());
+    return members[0];
+  }
+  if (isIndexedAccessTypeNode(node)) {
+    return undefined;
+  }
+  const text = node.getText().replace(/\s+/g, "");
+  if (/^[A-Za-z_][\w.]*$/.test(text)) {
+    return named(text);
+  }
+  return undefined;
+}
+
+function applyWrittenAlias(name: string, args: TypeExpr[]): TypeExpr {
+  if (name === "c" && args.length === 1) {
+    return funcType(args, named("void"));
+  }
+  if (name === "c0") {
+    return funcType([], named("void"));
+  }
+  if (name === "c1" && args.length === 1) {
+    return funcType(args, named("void"));
+  }
+  if (name === "c2" && args.length === 2) {
+    return funcType(args, named("void"));
+  }
+  if (name === "f0" && args.length === 1) {
+    return funcType([], args[0]!);
+  }
+  if (name === "f1" && args.length === 2) {
+    return funcType([args[0]!], args[1]!);
+  }
+  if (name === "f2" && args.length === 3) {
+    return funcType([args[0]!, args[1]!], args[2]!);
+  }
+  if ((name === "Multiplexed" || name === "Array") && args.length === 1) {
+    return arrayOf(args[0]!);
+  }
+  if (args.length > 0) {
+    return generic(name, args);
+  }
+  return named(name);
+}
+
 function typeFromNode(ctx: TscContext, node: Node | undefined): TypeExpr {
   if (!node) {
     return named("void");
   }
+  const written = isTypeNode(node) ? typeExprFromTypeNode(node) : undefined;
   const checker = ctx.checker;
   const type = checker.getTypeFromTypeNode?.(node as never) ?? checker.getTypeAtLocation(node);
+  if (written) {
+    if (type) {
+      ctx.registerType(tsSyntax(written), type);
+      ctx.registerType(displayType(written, true), type);
+      ctx.registerType(displayType(written, false), type);
+    }
+    return written;
+  }
   if (!type) {
     return named("void");
   }
@@ -346,10 +453,39 @@ function restElementType(ctx: TscContext, param: Node | undefined): TypeExpr {
 }
 
 function addTypeDef(state: ExtractState, def: TypeDef): void {
-  if (state.types.some((item) => item.name === def.name && item.ns === def.ns)) {
+  const existing = state.types.find((item) => item.name === def.name && item.ns === def.ns);
+  if (existing) {
+    if (existing.attributes.length === 0 && def.attributes.length > 0) {
+      existing.attributes = def.attributes;
+    }
     return;
   }
   state.types.push(def);
+}
+
+function applyTypeMeta(state: ExtractState, ns: string, meta: Meta): void {
+  const name = str(meta, "name");
+  if (!name) {
+    return;
+  }
+  state.typeMeta.set(name, meta);
+  addTypeDef(state, {
+    name,
+    ns: ns || null,
+    vars: [],
+    params: [],
+    ancestors: [],
+    attributes: flagAttrs(meta, ["icon"]),
+    source: state.id,
+  });
+}
+
+function typeCallMeta(expr: Expression): Meta | undefined {
+  if (!isCallExpression(expr) || !isIdentifier(expr.expression) || expr.expression.text !== "Type") {
+    return undefined;
+  }
+  const arg = expr.arguments[0];
+  return arg && isObjectLiteralExpression(arg) ? objectMeta(arg) : {};
 }
 
 function walk(ctx: TscContext, state: ExtractState, node: Node, ns: string): void {
@@ -405,17 +541,19 @@ function walk(ctx: TscContext, state: ExtractState, node: Node, ns: string): voi
   if (isTypeAliasDeclaration(node)) {
     const name = node.name.text;
     const params = paramDefs(node);
+    const meta = state.typeMeta.get(name);
     addTypeDef(state, {
       name,
       ns: ns || null,
       vars: params,
       params,
       ancestors: [],
-      attributes: [],
+      attributes: meta ? flagAttrs(meta, ["icon"]) : [],
       source: state.id,
     });
     const type = ctx.checker.getTypeAtLocation(node);
     if (type) {
+      ctx.registerType(name, type);
       registerCheckerType(ctx.checker, type, (text, ty) => ctx.registerType(text, ty));
     }
     return;
@@ -428,6 +566,11 @@ function walk(ctx: TscContext, state: ExtractState, node: Node, ns: string): voi
     return;
   }
   if (isExpressionStatement(node) && isCallExpression(node.expression)) {
+    const typeMeta = typeCallMeta(node.expression);
+    if (typeMeta) {
+      applyTypeMeta(state, ns, typeMeta);
+      return;
+    }
     const wrapped = unwrapDecoratorCalls(node.expression);
     if (wrapped && wrapped.layers.some((layer) => layer.name === "Block")) {
       addBlock(ctx, state, wrapped.fnName, wrapped.layers, ns, node.expression);
@@ -474,7 +617,7 @@ function addBlock(
       const param = inputParams[index];
       const rest = param?.dotDotDotToken !== undefined;
       const ty = rest
-        ? restElementType(ctx, param)
+        ? restElementType(ctx, param.type ?? param)
         : typeFromNode(ctx, param?.type ?? param);
       inputs.push(portFromMeta(key, ty, "in", meta, rest || meta.vararg === true));
     });
@@ -570,6 +713,7 @@ export function extractCatalog(ctx: TscContext, file: string): BlocksDoc {
     attributes: [],
     namespaces: new Map(),
     types: [],
+    typeMeta: new Map(),
     blocks: [],
     functions: new Map(),
   };
@@ -646,6 +790,9 @@ export function extractCatalog(ctx: TscContext, file: string): BlocksDoc {
       return;
     }
     if (isClassDeclaration(node) || isTypeAliasDeclaration(node)) {
+      walk(ctx, state, node, ns);
+    }
+    if (isExpressionStatement(node) && isCallExpression(node.expression) && typeCallMeta(node.expression)) {
       walk(ctx, state, node, ns);
     }
     node.forEachChild((child) => first(child, ns));

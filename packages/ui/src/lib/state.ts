@@ -27,7 +27,6 @@ import { ObservableState } from "./observable";
 import { catalogChoices, type CatalogChoice } from "./state/catalog";
 import { DiagramIo } from "./state/io";
 import { RunSession } from "./state/run";
-import { DeploySession } from "./state/deploy";
 import { portAcceptsMany, remapSelectedLink, WiringGraph } from "./wiring";
 
 export type { BlockInstance, CatalogChoice };
@@ -41,7 +40,6 @@ export interface LinkingFrom {
 export class AppState extends ObservableState {
   readonly run: RunSession;
   readonly io: DiagramIo;
-  readonly deploy: DeploySession;
 
   declare catalog: Catalog;
   declare sources: ModelSource[];
@@ -100,10 +98,6 @@ export class AppState extends ObservableState {
     });
     this.run = new RunSession(this);
     this.io = new DiagramIo(this, repo);
-    this.deploy = new DeploySession({
-      notify: () => this.notify(),
-      prodWasm: () => this.run.prodWasm(),
-    });
   }
 
   get createdAt(): string {

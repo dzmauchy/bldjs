@@ -8,20 +8,28 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const sample = `
+function Type(meta: object): void { void meta; }
+function Namespace(meta: object): (target: Function) => void { return (target) => target; }
+function Catalog(meta: object): (target: Function) => void { return (target) => target; }
+function Block(meta: object): <T>(fn: T) => T { return (fn) => fn; }
+function Inputs(meta: object): <T>(fn: T) => T { return (fn) => fn; }
+function Outputs(meta: object): <T>(fn: T) => T { return (fn) => fn; }
+function Params(meta: object): <T>(fn: T) => T { return (fn) => fn; }
+
+interface Float32Array { readonly [index: number]: number; }
+interface Float64Array { readonly [index: number]: number; }
+
 @Catalog({ id: "cs", name: "Control Systems" })
 class _catalog {}
 
-@Type({ name: "f32", icon: "f32" })
-class f32 { declare private brand: "f32"; }
+Type({ name: "f32", icon: "f32" });
+type f32 = Float32Array[1];
 
-@Type({ name: "f64", icon: "f64" })
-class f64 { declare private brand: "f64"; }
+Type({ name: "f64", icon: "f64" });
+type f64 = Float64Array[1];
 
 type c<T> = (arg: T) => void;
-class Multiplexed<T> {
-  declare private brand: "Multiplexed";
-  declare private item: T;
-}
+type Multiplexed<T> = T[];
 
 namespace com.dauch.cs {
   @Namespace({ name: "Control Systems" })
@@ -43,7 +51,7 @@ namespace com.dauch.cs {
       n: { kind: "integer-range-parameter", name: "n", default: "30", min: 10, max: 600 },
       m: { kind: "integer-range-parameter", name: "m", default: "10", min: 10, max: 1000 },
     })
-    function scope(n: number, m: number): Multiplexed<c<f32>> { return undefined as unknown as Multiplexed<c<f32>>; }
+    function scope(n: number, m: number): Multiplexed<c<f32>> { return []; }
   }
 }
 `;
@@ -60,7 +68,7 @@ function timer(period: number, inp: c<f32>): void {}
     expect(out).not.toMatch(/@Block/);
   });
 
-  it("extracts branded primitives, namespaces, and CS blocks", () => {
+  it("extracts typed-array aliases, namespaces, and CS blocks", () => {
     const ctx = createTscContext([{ name: "model.ts", content: sample }]);
     try {
       const doc = extractCatalog(ctx, "model.ts");
@@ -76,11 +84,14 @@ function timer(period: number, inp: c<f32>): void {}
       expect(timer?.parameters[0]?.name).toBe("period");
       expect(timer?.parameters[0]?.default).toBe("10");
       expect(displayType(timer!.inputs[0]!.ty, true)).toBe("(f32) -> void");
+      expect(sample).toMatch(/^type f32 = Float32Array\[1];$/m);
+      expect(sample).not.toMatch(/type f32 = number/);
+      expect(sample).not.toMatch(/class f32\b/);
       expect(timer?.outputs).toEqual([]);
       expect(scope?.ns).toBe("com.dauch.cs.sink");
       expect(displayType(scope!.outputs[0]!.ty, true)).toBe("Array[(f32) -> void]");
       expect(scope?.outputs[0]?.attributes.find((item) => item.name === "dynamic")?.value).toBe("true");
-      expect(ctx.isTypeAssignableTo(ctx.typeFromText("f32")!, ctx.typeFromText("f64")!)).toBe(false);
+      expect(ctx.isTypeAssignableTo(ctx.typeFromText("f32")!, ctx.typeFromText("f64")!)).toBe(true);
     } finally {
       ctx.dispose();
     }
@@ -113,6 +124,12 @@ function timer(period: number, inp: c<f32>): void {}
       expect(hydrated.blocks.map((block) => block.id)).toEqual(doc.blocks.map((block) => block.id));
       const timer = hydrated.blocks.find((block) => block.id === "timer");
       expect(displayType(timer!.inputs[0]!.ty, true)).toBe("(f32) -> void");
+      expect(source).toMatch(/^type f32 = Float32Array\[1];$/m);
+      expect(source).toMatch(/^type f64 = Float64Array\[1];$/m);
+      expect(source).toMatch(/^type c<T> = \(arg: T\) => void;$/m);
+      expect(source).toMatch(/^type Multiplexed<T> = T\[\];$/m);
+      expect(source).not.toMatch(/type f32 = number/);
+      expect(source).not.toMatch(/class f32\b/);
     } finally {
       ctx.dispose();
     }

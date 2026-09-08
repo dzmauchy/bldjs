@@ -250,7 +250,7 @@ describe("AppState run", () => {
     app.run.stop();
   });
 
-  it("run compiles wasm and enables the scope chart", async () => {
+  it("run compiles the diagram TypeScript and enables the scope chart", async () => {
     const app = new AppState();
     const { generatorId, scopeId } = wireCsPipeline(app);
     await app.run.start();

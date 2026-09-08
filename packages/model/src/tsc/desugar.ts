@@ -1,11 +1,11 @@
 /** Rewrite `@Dec(...) function name` into a function plus `Dec(...)(name)` so tsc can typecheck. */
 
 function isIdentStart(ch: string): boolean {
-  return /[A-Za-z_$]/.test(ch);
+  return ch === "$" || ch === "_" || /[\p{ID_Start}]/u.test(ch);
 }
 
 function isIdentPart(ch: string): boolean {
-  return /[A-Za-z0-9_$]/.test(ch);
+  return ch === "$" || /[\p{ID_Continue}]/u.test(ch);
 }
 
 function skipLineComment(source: string, i: number): number {

@@ -5,7 +5,6 @@ import {
   dragNodeBy,
   newCanvas,
   nodeHost,
-  openAppMenu,
   openWorkspace,
   placeBlock,
   waitForLinks,
@@ -77,10 +76,6 @@ test.describe("gpio", () => {
     await expect(nodeHost(page, "gpio_out").locator('[data-testid^="inputs-"]')).toBeDisabled();
     await page.waitForTimeout(300);
     await expect(page.locator("bld-connector:not([data-preview])[data-flow]")).toHaveCount(0);
-
-    await openAppMenu(page);
-    await expect(page.locator('[data-testid="menu-hardware"]')).toHaveText("Hardware");
-    await expect(page.locator('[data-testid="menu-deploy-mcu"]')).toBeVisible();
   });
 
   test("starts Constant (1) and GPIO In (OFF) -> Product -> Overshoot -> Scope with no signal on Scope until GPIO is toggled", async () => {

@@ -92,14 +92,21 @@ export function nativeTscAvailable(): boolean {
   return typeof node === "string";
 }
 
+function sourcesDeclareDecorators(sources: readonly VirtualFile[]): boolean {
+  return sources.some((source) => /\bfunction Type\(/.test(source.content));
+}
+
 export function createTscContext(sources: readonly VirtualFile[]): TscContext {
   const files: Record<string, string> = {};
-  const names = [PRELUDE_FILE, ...sources.map((source) => source.name)];
+  const usePrelude = !sourcesDeclareDecorators(sources);
+  const names = usePrelude ? [PRELUDE_FILE, ...sources.map((source) => source.name)] : sources.map((source) => source.name);
   files[TSCONFIG_FILE] = tsconfigFor(names);
-  files[virtualPath(PRELUDE_FILE)] = PRELUDE;
   const map = new Map<string, string>();
+  if (usePrelude) {
+    files[virtualPath(PRELUDE_FILE)] = PRELUDE;
+    map.set(virtualPath(PRELUDE_FILE), PRELUDE);
+  }
   map.set(TSCONFIG_FILE, files[TSCONFIG_FILE]!);
-  map.set(virtualPath(PRELUDE_FILE), PRELUDE);
   for (const source of sources) {
     const path = virtualPath(source.name);
     const content = desugarFunctionDecorators(source.content);

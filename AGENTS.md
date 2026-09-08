@@ -39,9 +39,21 @@ with Playwright (`make test-e2e` / `npm run test:e2e`). Prefer Playwright tests 
 Do not repeat a UI walkthrough for inference cases that unit tests already cover
 (`array`, `f2`, varargs, chains, F-bounded types, multi-file catalogs, and similar).
 
+## Types
+
+Catalog primitives are typed-array element aliases in `packages/model/src/resources/models/model.ts`:
+
+```
+type f32 = Float32Array[1]
+type c<T> = (arg: T) => void
+type Multiplexed<T> = T[]
+```
+
+Do not replace those with `number` or branded classes. The checker reduces `Float32Array[1]` to `number`; extract port types from the written AST so `c<f32>` stays `(f32) -> void` and `f32` stays distinct from `f64`.
+
 ## Imports
 
-Do not import `@bld/types`, `@bld/model`, or `@bld/wasm` package roots. Those packages have no
+Do not import `@bld/types` or `@bld/model` package roots. Those packages have no
 kitchen-sink barrel. Import the file that owns the symbol:
 
 - `@bld/types/ast`, `catalog`, `compat`, `ports`, `resolve`, `format`, `types`
@@ -49,7 +61,7 @@ kitchen-sink barrel. Import the file that owns the symbol:
 - `@bld/model/blocks/cs/ids`, `cs/types`, `cs/plan`
 - `@bld/model/diagram/json`, `diagram/store`, `diagram/compile`
 - `@bld/model/solution/view`, `@bld/model/flow`, `@bld/model/topology`, `@bld/model/runner`
-- `@bld/wasm/isolation`, `@bld/wasm/runtime/diagram-runner`, `@bld/wasm/solution/wasm`
+- `@bld/model/isolation`, `@bld/model/runtime/diagram-runner`, `@bld/model/tsc/emit`
 
 UI run/stop lives in `packages/ui/src/lib/state/run.ts`. Save/open lives in
 `packages/ui/src/lib/state/io.ts`. Canvas wiring stays in `packages/ui/src/lib/state.ts`.

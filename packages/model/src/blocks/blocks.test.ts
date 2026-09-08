@@ -126,7 +126,7 @@ describe("blocks", () => {
     expect(() => catalogSourcesForFiles(["models/model.ts"])).toThrow("unknown catalog");
   });
 
-  it("branded primitives do not widen", () => {
+  it("typed-array aliases stay distinct by written name", () => {
     const cat = catalog();
     expect(isCompatible(cat, [], t("f64"), t("f32"))).toBe(false);
     expect(isCompatible(cat, [], t("f32"), t("f64"))).toBe(false);
@@ -211,7 +211,7 @@ describe("blocks", () => {
     expect(arrayOf(consumerType(t("Double"))).isPush()).toBe(true);
   });
 
-  it("displays common MoonBit types", () => {
+  it("displays common function and array types", () => {
     expect(displayType(consumerType(t("Double")), true)).toBe("(Double) -> void");
     expect(displayType(consumerType(consumerType(t("Double"))), true)).toBe("((Double) -> void) -> void");
     expect(displayType(consumerType(consumerType(consumerType(t("Double")))), true)).toBe(

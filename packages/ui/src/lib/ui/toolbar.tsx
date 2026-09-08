@@ -153,21 +153,6 @@ export class BldToolbar extends AppHost {
                   </For>
 
                   <wa-divider></wa-divider>
-                  <div class="menu-header" data-testid="menu-hardware">Hardware</div>
-                  {item(
-                    "menu-connect-mcu",
-                    app.deploy.connected ? "MCU connected" : "Connect MCU…",
-                    () => void app.deploy.connect(),
-                    !app.deploy.available() || app.deploy.connecting,
-                  )}
-                  {item(
-                    "menu-deploy-mcu",
-                    "Deploy MCU wasm",
-                    () => void app.deploy.deploy(),
-                    !app.deploy.available() || app.deploy.connecting,
-                  )}
-
-                  <wa-divider></wa-divider>
                   <div class="menu-header" data-testid="menu-view">View</div>
                   {item("menu-zoom-in", "Zoom in", () => app.zoomIn())}
                   {item("menu-zoom-out", "Zoom out", () => app.zoomOut())}

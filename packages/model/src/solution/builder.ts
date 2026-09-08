@@ -1,20 +1,16 @@
 import type { SolutionView, SolutionViewConnector } from "./view";
 
 export interface SolutionAssembly {
-  /** Browser/dev module (`wasm-gc`) with Math/Date/`setInterval` imports. */
-  wasm: Uint8Array;
-  /** MCU/prod module (linear `wasm`) with `"env"` RTOS/WebUSB imports. */
-  prodWasm: Uint8Array;
+  /** Compiled JavaScript for the diagram worker. */
+  js: string;
+  /** Generated TypeScript diagram payload. */
   text: string;
   /** Consumer wires in the assembled subgraph, in runner frequency-counter order. */
   connectors: readonly SolutionViewConnector[];
 }
 
-export type WasmTarget = "wasm-gc" | "wasm";
-
 export interface TargetAssembly {
-  target: WasmTarget;
-  wasm: Uint8Array;
+  js: string;
   text: string;
   connectors: readonly SolutionViewConnector[];
 }
@@ -24,8 +20,7 @@ export interface SolutionBuilder {
   build(view: SolutionView, options?: unknown): Promise<SolutionAssembly>;
 }
 
-/** Abstract base solution builder for a specific target. */
+/** Abstract base solution builder. */
 export abstract class AbstractSolutionBuilder {
-  abstract readonly target: WasmTarget;
   abstract build(view: SolutionView, options?: unknown): Promise<TargetAssembly>;
 }

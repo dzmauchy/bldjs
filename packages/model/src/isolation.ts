@@ -17,9 +17,13 @@ export function canShareMemory(): boolean {
 
 /**
  * Dedicated workers that post SharedArrayBuffer need `crossOriginIsolated`.
- * JointJS libavoid and the generator worker both fail without it; callers
- * should fall back to the main thread.
+ * JointJS libavoid fails without it; callers should fall back to the main thread.
  */
 export function canUseIsolatedWorker(): boolean {
   return typeof Worker === "function" && canShareMemory() && globalThis.crossOriginIsolated === true;
+}
+
+/** Diagram JS workers only need Worker; they post ordinary messages. */
+export function canUseDiagramWorker(): boolean {
+  return typeof Worker === "function";
 }

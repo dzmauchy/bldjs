@@ -40,6 +40,41 @@ export function typeFromTs(checker: Checker, type: Type): TypeExpr {
   if (type.isErrorType()) {
     return unbounded();
   }
+
+  const alias = type.getAliasSymbol();
+  if (alias) {
+    const aliasName = alias.name;
+    const aliasArgs = type.getAliasTypeArguments().map((arg) => typeFromTs(checker, arg));
+    if (aliasName === "c" && aliasArgs.length === 1) {
+      return funcType(aliasArgs, named("void"));
+    }
+    if (aliasName === "c0") {
+      return funcType([], named("void"));
+    }
+    if (aliasName === "c1" && aliasArgs.length === 1) {
+      return funcType(aliasArgs, named("void"));
+    }
+    if (aliasName === "c2" && aliasArgs.length === 2) {
+      return funcType(aliasArgs, named("void"));
+    }
+    if (aliasName === "f0" && aliasArgs.length === 1) {
+      return funcType([], aliasArgs[0]!);
+    }
+    if (aliasName === "f1" && aliasArgs.length === 2) {
+      return funcType([aliasArgs[0]!], aliasArgs[1]!);
+    }
+    if (aliasName === "f2" && aliasArgs.length === 3) {
+      return funcType([aliasArgs[0]!, aliasArgs[1]!], aliasArgs[2]!);
+    }
+    if ((aliasName === "Multiplexed" || aliasName === "Array") && aliasArgs.length === 1) {
+      return arrayOf(aliasArgs[0]!);
+    }
+    if (aliasArgs.length > 0) {
+      return generic(aliasName, aliasArgs);
+    }
+    return named(aliasName);
+  }
+
   if (type.flags & TypeFlags.Void || type.flags & TypeFlags.Undefined) {
     return named("void");
   }
@@ -63,37 +98,6 @@ export function typeFromTs(checker: Checker, type: Type): TypeExpr {
   }
   if (type.flags & TypeFlags.String) {
     return named("string");
-  }
-
-  const alias = type.getAliasSymbol();
-  if (alias) {
-    const aliasName = alias.name;
-    const aliasArgs = type.getAliasTypeArguments().map((arg) => typeFromTs(checker, arg));
-    if (aliasName === "c" && aliasArgs.length === 1) {
-      return funcType(aliasArgs, named("void"));
-    }
-    if (aliasName === "c0") {
-      return funcType([], named("void"));
-    }
-    if (aliasName === "c2" && aliasArgs.length === 2) {
-      return funcType(aliasArgs, named("void"));
-    }
-    if (aliasName === "f0" && aliasArgs.length === 1) {
-      return funcType([], aliasArgs[0]!);
-    }
-    if (aliasName === "f1" && aliasArgs.length === 2) {
-      return funcType([aliasArgs[0]!], aliasArgs[1]!);
-    }
-    if (aliasName === "f2" && aliasArgs.length === 3) {
-      return funcType([aliasArgs[0]!, aliasArgs[1]!], aliasArgs[2]!);
-    }
-    if ((aliasName === "Multiplexed" || aliasName === "Array") && aliasArgs.length === 1) {
-      return arrayOf(aliasArgs[0]!);
-    }
-    if (aliasArgs.length > 0) {
-      return generic(aliasName, aliasArgs);
-    }
-    return named(aliasName);
   }
 
   if (checker.isArrayType(type)) {
