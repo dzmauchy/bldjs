@@ -18,14 +18,13 @@ import {
   unbounded,
   unionOf,
 } from "@bld/types/ast";
-import {
+import ts, {
   isArrayLiteralExpression,
   isArrayTypeNode,
   isCallExpression,
   isClassDeclaration,
   isDecorator,
   isExpressionStatement,
-  isFalseLiteral,
   isFunctionDeclaration,
   isFunctionTypeNode,
   isIdentifier,
@@ -41,12 +40,12 @@ import {
   isPropertyAssignment,
   isQualifiedName,
   isStringLiteral,
-  isTrueLiteral,
   isTypeAliasDeclaration,
   isTypeNode,
   isTypeParameterDeclaration,
   isTypeReferenceNode,
   isUnionTypeNode,
+  SyntaxKind,
   type CallExpression,
   type ClassDeclaration,
   type Expression,
@@ -56,7 +55,10 @@ import {
   type ObjectLiteralExpression,
   type SourceFile,
   type TypeAliasDeclaration,
-} from "typescript/unstable/ast";
+} from "typescript";
+
+const isTrueLiteral = (node: Node): boolean => node.kind === SyntaxKind.TrueKeyword;
+const isFalseLiteral = (node: Node): boolean => node.kind === SyntaxKind.FalseKeyword;
 import { PRELUDE_FILE } from "./prelude";
 import { type TscContext, VIRTUAL_ROOT } from "./host";
 import { registerCheckerType, tsSyntax } from "./types";
@@ -135,10 +137,12 @@ function decoratorCallName(expr: Expression): string | undefined {
 
 function classDecorators(node: ClassDeclaration): Array<{ name: string; meta: Meta }> {
   const found: Array<{ name: string; meta: Meta }> = [];
-  for (const modifier of node.modifiers ?? []) {
-    if (!isDecorator(modifier)) {
-      continue;
-    }
+  const decorators =
+    (ts.getDecorators ? ts.getDecorators(node) : undefined) ??
+    (node as any).decorators ??
+    (node.modifiers?.filter(isDecorator) as any) ??
+    [];
+  for (const modifier of decorators) {
     const expr = modifier.expression;
     if (isCallExpression(expr) && isIdentifier(expr.expression)) {
       const arg = expr.arguments[0];
@@ -635,8 +639,8 @@ function addBlock(
     const text = returnTypeNode.getText();
     if (text !== "void") {
       const checkerType = ctx.checker.getTypeFromTypeNode?.(returnTypeNode as never) ?? ctx.checker.getTypeAtLocation(returnTypeNode);
-      if (checkerType && (ctx.checker.isTupleType(checkerType) || checkerType.isTupleType?.())) {
-        const args = checkerType.isTypeReference?.() ? ctx.checker.getTypeArguments(checkerType) : [];
+      if (checkerType && (ctx.checker.isTupleType(checkerType) || (checkerType as any).isTupleType?.())) {
+        const args: readonly import("typescript").Type[] = (checkerType as any).typeArguments ?? ((checkerType as any).isTypeReference?.() ? ctx.checker.getTypeArguments(checkerType as any) : []);
         const elements = "elements" in returnTypeNode ? (returnTypeNode as { elements: readonly Node[] }).elements : [];
         if (elements.length > 0) {
           elements.forEach((element, index) => {
@@ -701,7 +705,7 @@ function addBlock(
 export function extractCatalog(ctx: TscContext, file: string): BlocksDoc {
   const sourceFile =
     ctx.sourceFile(file) ??
-    ctx.program.getSourceFileNames().map((name) => ctx.program.getSourceFile(name)).find((sf) => sf && matchesFile(sf, file));
+    ctx.program.getSourceFiles().find((sf) => sf && matchesFile(sf, file));
   if (!sourceFile) {
     throw new Error(`TypeScript catalog \`${file}\` is not in the TypeChecker program`);
   }
@@ -829,8 +833,8 @@ export function extractCatalog(ctx: TscContext, file: string): BlocksDoc {
 
 export function extractAll(ctx: TscContext): BlocksDoc[] {
   const docs: BlocksDoc[] = [];
-  for (const name of ctx.program.getSourceFileNames()) {
-    const file = sourceName(name);
+  for (const sf of ctx.program.getSourceFiles()) {
+    const file = sourceName(sf.fileName);
     if (!file || file === PRELUDE_FILE || file === "tsconfig.json") {
       continue;
     }

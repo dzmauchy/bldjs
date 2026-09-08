@@ -152,8 +152,8 @@ describe("diagram compile pipeline", () => {
     expect(solution.canvas.blocks.map((block) => block.defId)).toEqual(["scope", "sin"]);
     const sin = solution.inferred.get(2);
     expect(sin?.defId).toBe("sin");
-    expect(displayType(sin!.inputs[0]!.ty, true)).toBe("(f32) -> void");
-    expect(displayType(sin!.outputs[0]!.ty, true)).toBe("(f32) -> void");
+    expect(displayType(sin!.inputs[0]!.ty, true)).toBe("(f64) -> void");
+    expect(displayType(sin!.outputs[0]!.ty, true)).toBe("(f64) -> void");
   });
 
   it("rejects unknown catalog types before compile", () => {

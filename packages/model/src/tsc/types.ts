@@ -37,14 +37,17 @@ export function tsSyntax(expr: TypeExpr): string {
 }
 
 export function typeFromTs(checker: Checker, type: Type): TypeExpr {
-  if (type.isErrorType()) {
+  if ((type as any).isErrorType?.() || ((type.flags & TypeFlags.Any) !== 0 && (type as any).intrinsicName === "error")) {
     return unbounded();
   }
 
-  const alias = type.getAliasSymbol();
+  const alias = (type as any).getAliasSymbol ? (type as any).getAliasSymbol() : type.aliasSymbol;
   if (alias) {
     const aliasName = alias.name;
-    const aliasArgs = type.getAliasTypeArguments().map((arg) => typeFromTs(checker, arg));
+    const rawAliasArgs: readonly Type[] = (type as any).getAliasTypeArguments
+      ? (type as any).getAliasTypeArguments()
+      : (type.aliasTypeArguments ?? []);
+    const aliasArgs = rawAliasArgs.map((arg) => typeFromTs(checker, arg));
     if (aliasName === "c" && aliasArgs.length === 1) {
       return funcType(aliasArgs, named("void"));
     }
@@ -75,55 +78,60 @@ export function typeFromTs(checker: Checker, type: Type): TypeExpr {
     return named(aliasName);
   }
 
-  if (type.flags & TypeFlags.Void || type.flags & TypeFlags.Undefined) {
+  const rawFlags = Number(type.flags);
+  if (rawFlags & TypeFlags.Void || rawFlags & TypeFlags.Undefined) {
     return named("void");
   }
-  if (type.flags & TypeFlags.Never) {
+  if (rawFlags & TypeFlags.Never) {
     return named("never");
   }
-  if (type.flags & TypeFlags.TypeParameter || type.isTypeParameter()) {
+  if (rawFlags & TypeFlags.TypeParameter || type.isTypeParameter()) {
     return named(type.getSymbol()?.name ?? "T");
   }
-  if (type.isUnionType()) {
-    return unionOf((type.getTypes() ?? []).map((member) => typeFromTs(checker, member)));
+  if ((type as any).isUnionType?.() || (type as any).isUnion?.()) {
+    const members: readonly Type[] = (type as any).getTypes ? (type as any).getTypes() : (type as any).types ?? [];
+    return unionOf(members.map((member) => typeFromTs(checker, member)));
   }
-  if (type.isIntersectionType()) {
-    return intersectionOf((type.getTypes() ?? []).map((member) => typeFromTs(checker, member)));
+  if ((type as any).isIntersectionType?.() || (type as any).isIntersection?.()) {
+    const members: readonly Type[] = (type as any).getTypes ? (type as any).getTypes() : (type as any).types ?? [];
+    return intersectionOf(members.map((member) => typeFromTs(checker, member)));
   }
-  if (type.flags & TypeFlags.Number) {
+  if (rawFlags & TypeFlags.Number) {
     return named("number");
   }
-  if (type.flags & TypeFlags.Boolean) {
+  if (rawFlags & TypeFlags.Boolean) {
     return named("bool");
   }
-  if (type.flags & TypeFlags.String) {
+  if (rawFlags & TypeFlags.String) {
     return named("string");
   }
 
   if (checker.isArrayType(type)) {
-    const args = type.isTypeReference() ? checker.getTypeArguments(type) : [];
+    const args: readonly Type[] = (type as any).typeArguments ?? ((type as any).isTypeReference?.() ? checker.getTypeArguments(type as any) : []);
     return arrayOf(args[0] ? typeFromTs(checker, args[0]) : unbounded());
   }
 
-  if (checker.isTupleType(type) || type.isTupleType()) {
-    const args = type.isTypeReference() ? checker.getTypeArguments(type) : [];
+  if (checker.isTupleType(type) || (type as any).isTupleType?.()) {
+    const args: readonly Type[] = (type as any).typeArguments ?? ((type as any).isTypeReference?.() ? checker.getTypeArguments(type as any) : []);
     return new TupleType(args.map((arg) => typeFromTs(checker, arg)));
   }
 
   const signatures = checker.getSignaturesOfType(type, SignatureKind.Call);
   if (signatures.length > 0) {
     const signature = signatures[0]!;
-    const params = signature.getParameters().map((_symbol, index) => {
-      const paramType = checker.getParameterType(signature, index);
+    const params = signature.getParameters().map((symbol, index) => {
+      const paramType = (checker as any).getParameterType
+        ? (checker as any).getParameterType(signature, index)
+        : (symbol.valueDeclaration ? checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration) : unbounded());
       return paramType ? typeFromTs(checker, paramType) : unbounded();
     });
     const ret = checker.getReturnTypeOfSignature(signature);
     return funcType(params, ret ? typeFromTs(checker, ret) : named("void"));
   }
 
-  const symbol = type.getSymbol();
+  const symbol = (type as any).getSymbol ? (type as any).getSymbol() : undefined;
   const name = symbol?.name ?? checker.typeToString(type);
-  const args = type.isTypeReference() ? checker.getTypeArguments(type) : [];
+  const args: readonly Type[] = (type as any).typeArguments ?? ((type as any).isTypeReference?.() ? checker.getTypeArguments(type as any) : []);
   if ((name === "Multiplexed" || name === "Array") && args.length === 1) {
     return arrayOf(typeFromTs(checker, args[0]!));
   }

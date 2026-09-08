@@ -1,7 +1,5 @@
-import { createReadStream, mkdirSync, readFileSync } from "node:fs";
-import { dirname } from "node:path";
-import { fileURLToPath, pathToFileURL, URL } from "node:url";
-import { build as bundle } from "rolldown";
+import { createReadStream, readFileSync } from "node:fs";
+import { fileURLToPath, URL } from "node:url";
 import solid from "vite-plugin-solid";
 import { defineConfig, type Plugin } from "vitest/config";
 
@@ -79,51 +77,17 @@ function serveLibavoidWasm(): Plugin {
   };
 }
 
-const stubNativeTsc = !process.env.VITEST;
-const tscStubSync = fileURLToPath(new URL("../model/src/tsc/stub-sync.ts", import.meta.url));
-const tscStubFs = fileURLToPath(new URL("../model/src/tsc/stub-fs.ts", import.meta.url));
-const catalogPluginSource = fileURLToPath(new URL("../model/src/tsc/plugin.ts", import.meta.url));
-const catalogPluginBundle = fileURLToPath(
-  new URL("../../node_modules/.cache/bld-catalog-plugin.mjs", import.meta.url),
-);
-
-/** Bundle the TypeScript 7.0.2 extractor so Vite config loading does not Node-strip `@bld/types/ast`. */
-async function loadCatalogPlugin(): Promise<() => Plugin> {
-  mkdirSync(dirname(catalogPluginBundle), { recursive: true });
-  await bundle({
-    input: catalogPluginSource,
-    platform: "node",
-    external: [/^typescript(\/|$)/, /^node:/, "vite"],
-    output: {
-      file: catalogPluginBundle,
-      format: "es",
+export default defineConfig({
+  plugins: [solid(), crossOriginIsolation(), serveLibavoidWasm()],
+  resolve: {
+    alias: {
+      $lib: fileURLToPath(new URL("./src/lib", import.meta.url)),
+      constants: "constants-browserify",
     },
-  });
-  const loaded = (await import(pathToFileURL(catalogPluginBundle).href)) as {
-    bldCatalogPlugin: () => Plugin;
-  };
-  return loaded.bldCatalogPlugin;
-}
-
-export default defineConfig(async () => {
-  const bldCatalogPlugin = await loadCatalogPlugin();
-  return {
-    plugins: [solid(), bldCatalogPlugin(), crossOriginIsolation(), serveLibavoidWasm()],
-    resolve: {
-      alias: {
-        $lib: fileURLToPath(new URL("./src/lib", import.meta.url)),
-        constants: "constants-browserify",
-        ...(stubNativeTsc
-          ? {
-              "typescript/unstable/sync": tscStubSync,
-              "typescript/unstable/fs": tscStubFs,
-            }
-          : {}),
-      },
-    },
-    optimizeDeps: {
-      exclude: ["libavoid-js", "@joint/router-avoid", "@bld/model", "typescript"],
-    },
+  },
+  optimizeDeps: {
+    exclude: ["libavoid-js", "@joint/router-avoid", "@bld/model"],
+  },
     server: {
       port: 8080,
       host: true,
@@ -149,5 +113,5 @@ export default defineConfig(async () => {
       include: ["src/**/*.test.ts"],
       setupFiles: ["src/test-setup.ts"],
     },
-  };
-});
+  },
+);

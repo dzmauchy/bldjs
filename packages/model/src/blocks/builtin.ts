@@ -1,18 +1,13 @@
 import modelSource from "../resources/models/model.ts?raw";
 import fixturesSource from "../resources/models/fixtures.ts?raw";
 import { ParseError } from "./parse";
-import { Catalog, registerPreextracted, type CatalogRef } from "./catalog";
-import { BROWSER_CATALOG_DOCS } from "./builtin-docs";
+import { Catalog, type CatalogRef } from "./catalog";
 import type { Diagram, ModelSource } from "./diagram";
 
 export const MODEL_TS = modelSource;
 export const FIXTURES_TS = fixturesSource;
 export const MODEL_FILE = "model.ts";
 export const FIXTURES_FILE = "fixtures.ts";
-
-for (const doc of BROWSER_CATALOG_DOCS) {
-  registerPreextracted(doc);
-}
 
 export const BUILTIN_MODELS: ReadonlyArray<readonly [string, string]> = [[MODEL_FILE, MODEL_TS]];
 

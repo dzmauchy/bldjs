@@ -1,5 +1,4 @@
-import { API, SignatureKind, TypeFlags, type Checker, type Project, type Snapshot, type Type } from "typescript/unstable/sync";
-import { createVirtualFileSystem, type FileSystem } from "typescript/unstable/fs";
+import ts, { type Type, type TypeChecker, SignatureKind, TypeFlags } from "typescript";
 import { desugarFunctionDecorators } from "./desugar";
 import { PRELUDE, PRELUDE_FILE } from "./prelude";
 
@@ -18,46 +17,21 @@ function virtualPath(name: string): string {
   return `${VIRTUAL_ROOT}/${name}`;
 }
 
-function tsconfigFor(files: string[]): string {
-  return `${JSON.stringify(
-    {
-      compilerOptions: {
-        target: "ES2022",
-        module: "CommonJS",
-        strict: true,
-        noLib: true,
-        experimentalDecorators: true,
-        noEmit: true,
-        skipLibCheck: true,
-      },
-      files,
-    },
-    null,
-    2,
-  )}\n`;
-}
-
-/** TypeScript 7.0.2 native TypeChecker over an in-memory virtual filesystem. */
+/** TypeScript TypeChecker over an in-memory virtual filesystem. */
 export class TscContext {
   readonly typeByText = new Map<string, Type>();
 
   constructor(
-    readonly api: API,
-    readonly snapshot: Snapshot,
-    readonly project: Project,
+    readonly program: ts.Program,
     readonly files: Map<string, string>,
   ) {}
 
-  get checker(): Checker {
-    return this.project.checker;
-  }
-
-  get program() {
-    return this.project.program;
+  get checker(): TypeChecker {
+    return this.program.getTypeChecker();
   }
 
   sourceFile(name: string) {
-    return this.program.getSourceFile(virtualPath(name));
+    return this.program.getSourceFile(virtualPath(name)) ?? this.program.getSourceFile(name);
   }
 
   registerType(text: string, type: Type): void {
@@ -79,17 +53,16 @@ export class TscContext {
   }
 
   dispose(): void {
-    this.snapshot.dispose();
-    this.api.close();
+    this.typeByText.clear();
+    this.files.clear();
   }
 }
 
 export { SignatureKind, TypeFlags, VIRTUAL_ROOT as virtualRoot };
-export type { Checker, Type };
+export type { TypeChecker as Checker, Type };
 
 export function nativeTscAvailable(): boolean {
-  const node = (globalThis as { process?: { versions?: { node?: string } } }).process?.versions?.node;
-  return typeof node === "string";
+  return true;
 }
 
 function sourcesDeclareDecorators(sources: readonly VirtualFile[]): boolean {
@@ -97,30 +70,52 @@ function sourcesDeclareDecorators(sources: readonly VirtualFile[]): boolean {
 }
 
 export function createTscContext(sources: readonly VirtualFile[]): TscContext {
-  const files: Record<string, string> = {};
+  const files = new Map<string, string>();
   const usePrelude = !sourcesDeclareDecorators(sources);
-  const names = usePrelude ? [PRELUDE_FILE, ...sources.map((source) => source.name)] : sources.map((source) => source.name);
-  files[TSCONFIG_FILE] = tsconfigFor(names);
-  const map = new Map<string, string>();
   if (usePrelude) {
-    files[virtualPath(PRELUDE_FILE)] = PRELUDE;
-    map.set(virtualPath(PRELUDE_FILE), PRELUDE);
+    files.set(virtualPath(PRELUDE_FILE), PRELUDE);
   }
-  map.set(TSCONFIG_FILE, files[TSCONFIG_FILE]!);
   for (const source of sources) {
     const path = virtualPath(source.name);
     const content = desugarFunctionDecorators(source.content);
-    files[path] = content;
-    map.set(path, content);
+    files.set(path, content);
+    files.set(source.name, content);
   }
 
-  const fs: FileSystem = createVirtualFileSystem(files);
-  const api = new API({ cwd: VIRTUAL_ROOT, fs });
-  const snapshot = api.updateSnapshot({ openProjects: [TSCONFIG_FILE] });
-  const project = snapshot.getProject(TSCONFIG_FILE) ?? snapshot.getProjects()[0];
-  if (!project) {
-    api.close();
-    throw new Error("TypeScript 7.0.2 TypeChecker produced no project");
+  const rootNames = sources.map((s) => virtualPath(s.name));
+  if (usePrelude) {
+    rootNames.unshift(virtualPath(PRELUDE_FILE));
   }
-  return new TscContext(api, snapshot, project, map);
+
+  const compilerHost: ts.CompilerHost = {
+    getSourceFile: (fileName, languageVersion) => {
+      const content = files.get(fileName) ?? files.get(fileName.replace(/^\//, ""));
+      if (content !== undefined) {
+        return ts.createSourceFile(fileName, content, languageVersion, true);
+      }
+      return undefined;
+    },
+    getDefaultLibFileName: () => "lib.d.ts",
+    writeFile: () => {},
+    getCurrentDirectory: () => VIRTUAL_ROOT,
+    getDirectories: () => [],
+    fileExists: (fileName) => files.has(fileName) || files.has(fileName.replace(/^\//, "")),
+    readFile: (fileName) => files.get(fileName) ?? files.get(fileName.replace(/^\//, "")),
+    getCanonicalFileName: (fileName) => fileName,
+    useCaseSensitiveFileNames: () => true,
+    getNewLine: () => "\n",
+  };
+
+  const options: ts.CompilerOptions = {
+    target: ts.ScriptTarget.ES2025,
+    module: ts.ModuleKind.CommonJS,
+    strict: true,
+    noLib: true,
+    experimentalDecorators: true,
+    noEmit: true,
+    skipLibCheck: true,
+  };
+
+  const program = ts.createProgram(rootNames, options, compilerHost);
+  return new TscContext(program, files);
 }

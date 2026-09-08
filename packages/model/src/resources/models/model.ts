@@ -1,68 +1,6 @@
 /** Catalog, types, and ES2025 block implementations executed in the diagram worker. */
 
-interface Float32Array {
-  readonly [index: number]: number;
-}
-interface Float64Array {
-  readonly [index: number]: number;
-}
-interface Uint8Array {
-  readonly [index: number]: number;
-}
-interface Uint16Array {
-  readonly [index: number]: number;
-}
-interface Uint32Array {
-  readonly [index: number]: number;
-}
-interface Int8Array {
-  readonly [index: number]: number;
-}
-interface Int16Array {
-  readonly [index: number]: number;
-}
-interface Int32Array {
-  readonly [index: number]: number;
-}
-interface BigUint64Array {
-  readonly [index: number]: bigint;
-}
-interface BigInt64Array {
-  readonly [index: number]: bigint;
-}
-
-interface Array<T> {
-  length: number;
-  [n: number]: T;
-  push(item: T): number;
-  slice(start?: number, end?: number): T[];
-}
-
-interface ProxyHandler<T extends object> {
-  get?(target: T, p: string | symbol, receiver: unknown): unknown;
-}
-
-declare const Proxy: {
-  new <T extends object>(target: T, handler: ProxyHandler<T>): T;
-};
-
-declare const Reflect: {
-  get(target: object, p: string | symbol, receiver?: unknown): unknown;
-};
-
-declare const Math: {
-  sin(x: number): number;
-  cos(x: number): number;
-  exp(x: number): number;
-  sqrt(x: number): number;
-};
-
-declare const Number: {
-  NaN: number;
-  (value: unknown): number;
-};
-
-interface BldHost {
+export interface BldHost {
   enter(id: number): void;
   currentBlock(): number;
   now(): number;
@@ -78,10 +16,10 @@ interface BldHost {
 
 declare const host: BldHost;
 
-type TypeMeta = { name?: string; icon?: string; [key: string]: unknown };
-type NamespaceMeta = { name?: string; icon?: string; [key: string]: unknown };
-type CatalogMeta = { id?: string; name?: string; icon?: string; [key: string]: unknown };
-type BlockMeta = {
+export type TypeMeta = { name?: string; icon?: string; [key: string]: unknown };
+export type NamespaceMeta = { name?: string; icon?: string; [key: string]: unknown };
+export type CatalogMeta = { id?: string; name?: string; icon?: string; [key: string]: unknown };
+export type BlockMeta = {
   name?: string;
   icon?: string;
   kind?: string;
@@ -92,17 +30,17 @@ type BlockMeta = {
   factory?: string;
   [key: string]: unknown;
 };
-type DiagramMeta = {
+export type DiagramMeta = {
   id: string;
   name?: string;
   description?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
   catalogs?: string[];
   attrs?: Record<string, string>;
   [key: string]: unknown;
 };
-type DiagramBlockMeta = {
+export type DiagramBlockMeta = {
   id: number;
   type: string;
   x: number;
@@ -112,10 +50,10 @@ type DiagramBlockMeta = {
   description?: string;
   width?: number;
   height?: number;
-  parameters?: Array<{ kind: string; name: string; value: string }>;
+  parameters?: Array<{ kind?: string; name: string; value: string; type?: string }>;
   [key: string]: unknown;
 };
-type ConnectionMeta = {
+export type ConnectionMeta = {
   fromBlock: number;
   fromOut: string;
   toBlock: number;
@@ -127,89 +65,113 @@ function identityDecorator<T>(fn: T): T {
   return fn;
 }
 
-function Type(meta: TypeMeta): void {
+export function Type(meta: TypeMeta): (target: Function) => void {
   void meta;
-}
-
-function Namespace(meta: NamespaceMeta): (target: Function) => void {
   return identityDecorator;
 }
 
-function Catalog(meta: CatalogMeta): (target: Function) => void {
+export function Namespace(meta: NamespaceMeta): (target: Function) => void {
+  void meta;
   return identityDecorator;
 }
 
-function Block(meta: BlockMeta): <T>(fn: T) => T {
+export function Catalog(meta: CatalogMeta): (target: Function) => void {
+  void meta;
   return identityDecorator;
 }
 
-function Inputs(meta: object): <T>(fn: T) => T {
+export function Block(meta: BlockMeta): <T>(fn: T) => T {
+  void meta;
   return identityDecorator;
 }
 
-function Outputs(meta: object): <T>(fn: T) => T {
+export function Inputs(meta: object): <T>(fn: T) => T {
+  void meta;
   return identityDecorator;
 }
 
-function Params(meta: object): <T>(fn: T) => T {
+export function Outputs(meta: object): <T>(fn: T) => T {
+  void meta;
   return identityDecorator;
 }
 
-function Diagram(meta: DiagramMeta): <T>(fn: T) => T {
+export function Params(meta: object): <T>(fn: T) => T {
+  void meta;
   return identityDecorator;
 }
 
-function DiagramBlock(meta: DiagramBlockMeta): <T>(fn: T) => T {
+export function Diagram(meta: DiagramMeta): <T>(fn: T) => T {
+  void meta;
   return identityDecorator;
 }
 
-function Connection(from: string, to: string, meta?: ConnectionMeta): <T>(fn: T) => T {
+export function DiagramBlock(meta: DiagramBlockMeta): <T>(fn: T) => T {
+  void meta;
+  return identityDecorator;
+}
+
+export function Connection(from: string, to: string, meta?: ConnectionMeta): <T>(fn: T) => T {
   void from;
   void to;
   void meta;
   return identityDecorator;
 }
 
-// Typed-array element aliases. Do not replace with `number` or branded classes.
-Type({ name: "bool", icon: "bool" });
+// Types defined via decorated classes and typed-array element aliases
+@Type({ name: "bool", icon: "bool" })
+class boolTag {}
 type bool = Uint8Array[1];
 
-Type({ name: "u8", icon: "u8" });
+@Type({ name: "u8", icon: "u8" })
+class u8Tag {}
 type u8 = Uint8Array[1];
 
-Type({ name: "u16", icon: "u16" });
+@Type({ name: "u16", icon: "u16" })
+class u16Tag {}
 type u16 = Uint16Array[1];
 
-Type({ name: "u32", icon: "u32" });
+@Type({ name: "u32", icon: "u32" })
+class u32Tag {}
 type u32 = Uint32Array[1];
 
-Type({ name: "u64", icon: "u64" });
+@Type({ name: "u64", icon: "u64" })
+class u64Tag {}
 type u64 = BigUint64Array[1];
 
-Type({ name: "i8", icon: "i8" });
+@Type({ name: "i8", icon: "i8" })
+class i8Tag {}
 type i8 = Int8Array[1];
 
-Type({ name: "i16", icon: "i16" });
+@Type({ name: "i16", icon: "i16" })
+class i16Tag {}
 type i16 = Int16Array[1];
 
-Type({ name: "i32", icon: "i32" });
+@Type({ name: "i32", icon: "i32" })
+class i32Tag {}
 type i32 = Int32Array[1];
 
-Type({ name: "i64", icon: "i64" });
+@Type({ name: "i64", icon: "i64" })
+class i64Tag {}
 type i64 = BigInt64Array[1];
 
-Type({ name: "f32", icon: "f32" });
+@Type({ name: "f32", icon: "f32" })
+class f32Tag {}
 type f32 = Float32Array[1];
 
-Type({ name: "f64", icon: "f64" });
+@Type({ name: "f64", icon: "f64" })
+class f64Tag {}
 type f64 = Float64Array[1];
 
-Type({ name: "char", icon: "char" });
+@Type({ name: "char", icon: "char" })
+class charTag {}
 type char = Uint16Array[1];
 
-Type({ name: "void", icon: "void" });
+@Type({ name: "void", icon: "void" })
+class unitTag {}
 type unit = void;
 
+@Type({ name: "c", icon: "channel" })
+class cTag {}
 type c<T> = (arg: T) => void;
 type c0 = () => void;
 type c1<T> = c<T>;
@@ -218,12 +180,11 @@ type f0<R> = () => R;
 type f1<T, R> = (arg: T) => R;
 type f2<T1, T2, R> = (a: T1, b: T2) => R;
 
-/** Vector of channels. Distinct from a vararg input so slotted wires stay one consumer each. */
-Type({ name: "Array", icon: "list" });
+@Type({ name: "Multiplexed", icon: "list" })
+class MultiplexedTag {}
 type Multiplexed<T> = T[];
-type Array<T> = Multiplexed<T>;
 
-function sample(value: f32): number {
+function sample(value: f64 | f32 | number): number {
   return Number(value);
 }
 
@@ -269,54 +230,20 @@ function tap<T>(index: number, consumer: c<T>): c<T> {
 
 function nop<T>(_value: T): void {}
 
-/** Step-input overshoot: `v` is the target, time comes from `host.now()`. */
-function overshootFromValue(ζ: number, ω: number, inp: c<f32>): c<f32> {
-  let initialized = 0;
-  let tStep = 0;
-  let baseY = 0;
-  let targetU = 0;
-  let currentY = 0;
-  return (v: f32) => {
-    const u = sample(v);
-    const curT = host.now();
-    if (initialized === 0) {
-      initialized = 1;
-      tStep = curT;
-      baseY = u;
-      targetU = u;
-      currentY = u;
-      inp(u as f32);
-      return;
-    }
-    const diff = u - targetU;
-    if (diff > 0.000001 || diff < -0.000001) {
-      tStep = curT;
-      baseY = currentY;
-      targetU = u;
-    }
-    const tau = curT - tStep;
-    const t = tau < 0 ? 0 : tau;
-    const wd = ω * Math.sqrt(1 - ζ * ζ);
-    const sigma = ζ * ω;
-    const decay = Math.exp(0 - sigma * t);
-    const phase = wd * t;
-    const factor = 1 - decay * (Math.cos(phase) + (sigma / wd) * Math.sin(phase));
-    const y = baseY + (targetU - baseY) * factor;
-    currentY = y;
-    inp(y as f32);
-  };
+function overshootFromValue(ζ: number, ω: number, inp: c<f64>): [out: c<f64>] {
+  return com.dauch.cs.tf.overshoot(ζ, ω, inp);
 }
 
 @Catalog({ id: "cs", name: "Control Systems" })
 class _catalog {}
 
-namespace com.dauch.cs {
-  @Namespace({ name: "Control Systems" })
-  class _ns {}
+export namespace com.dauch.cs {
+  @Namespace({ name: "Control Systems", icon: "cs" })
+  export class Tag {}
 
-  namespace gen {
-    @Namespace({ name: "Gen" })
-    class _ns {}
+  export namespace gen {
+    @Namespace({ name: "Gen", icon: "gen" })
+    export class Tag {}
 
     @Block({
       name: "Timer",
@@ -324,10 +251,11 @@ namespace com.dauch.cs {
       kind: "Start",
       runnable: true,
       generator: true,
-      description: "Push source. Accepts (f32)->void and writes timestamps while running.",
+      description: "Push source. Writes timestamps while running.",
       factory: "timer",
     })
     @Inputs({ in: { name: "in" } })
+    @Outputs({})
     @Params({
       period: {
         kind: "integer-range-parameter",
@@ -337,13 +265,13 @@ namespace com.dauch.cs {
         max: 1000,
         step: 1,
         default: "10",
+        type: "number",
       },
     })
-    function timer(period: number, inp: c<f32>): void {
-      const ms = period;
+    export function timer(period: number, inp: c<f64>): void {
       host.setInterval(() => {
-        inp(host.now() as f32);
-      }, ms);
+        inp(host.now() as f64);
+      }, period);
     }
 
     @Block({
@@ -352,10 +280,11 @@ namespace com.dauch.cs {
       kind: "Start",
       runnable: true,
       generator: true,
-      description: "Push source. Writes a random sample in [0, 1) at the quantization period.",
+      description: "Push source. Writes random samples in [0, 1).",
       factory: "random",
     })
     @Inputs({ in: { name: "in" } })
+    @Outputs({})
     @Params({
       period: {
         kind: "integer-range-parameter",
@@ -365,11 +294,12 @@ namespace com.dauch.cs {
         max: 1000,
         step: 1,
         default: "10",
+        type: "number",
       },
     })
-    function random(period: number, inp: c<f32>): void {
+    export function random(period: number, inp: c<f64>): void {
       host.setInterval(() => {
-        inp(host.random() as f32);
+        inp(host.random() as f64);
       }, period);
     }
 
@@ -379,10 +309,11 @@ namespace com.dauch.cs {
       kind: "Start",
       runnable: true,
       generator: true,
-      description: "Push source. Writes a constant sample at the quantization period.",
+      description: "Push source. Writes constant samples.",
       factory: "constant",
     })
     @Inputs({ in: { name: "in" } })
+    @Outputs({})
     @Params({
       value: {
         kind: "double-range-parameter",
@@ -392,6 +323,7 @@ namespace com.dauch.cs {
         max: 100,
         step: 0.1,
         default: "1",
+        type: "number",
       },
       period: {
         kind: "integer-range-parameter",
@@ -401,18 +333,19 @@ namespace com.dauch.cs {
         max: 1000,
         step: 1,
         default: "10",
+        type: "number",
       },
     })
-    function constant(value: number, period: number, inp: c<f32>): void {
+    export function constant(value: number, period: number, inp: c<f64>): void {
       host.setInterval(() => {
-        inp(value as f32);
+        inp(value as f64);
       }, period);
     }
   }
 
-  namespace gpio {
-    @Namespace({ name: "GPIO" })
-    class _ns {}
+  export namespace gpio {
+    @Namespace({ name: "GPIO", icon: "gpio" })
+    export class Tag {}
 
     @Block({
       name: "GPIO In",
@@ -420,11 +353,11 @@ namespace com.dauch.cs {
       kind: "Start",
       runnable: true,
       generator: true,
-      description:
-        "Digital input. Pushes the pin level (0 or 1) when the pin changes. In the browser, toggling the switch emits one sample.",
+      description: "Digital input. Pushes pin level (0 or 1) on change.",
       factory: "gpio_in",
     })
     @Inputs({ in: { name: "in" } })
+    @Outputs({})
     @Params({
       pin: {
         kind: "integer-range-parameter",
@@ -434,11 +367,12 @@ namespace com.dauch.cs {
         max: 31,
         step: 1,
         default: "0",
+        type: "number",
       },
     })
-    function gpio_in(pin: number, inp: c<f32>): void {
+    export function gpio_in(pin: number, inp: c<f64>): void {
       const samplePin = () => {
-        inp((host.pinRead(pin) !== 0 ? 1 : 0) as f32);
+        inp((host.pinRead(pin) !== 0 ? 1 : 0) as f64);
       };
       samplePin();
       host.onPinChange(pin, samplePin);
@@ -448,10 +382,10 @@ namespace com.dauch.cs {
       name: "GPIO Out",
       icon: "gpio_out",
       kind: "Output",
-      description:
-        "Digital output. Consumes each sample and writes the pin (HIGH when the value is greater than 0.5). In the browser, the switch is a disabled readout of the pin.",
+      description: "Digital output. Consumes each sample and writes the pin.",
       factory: "gpio_out",
     })
+    @Inputs({})
     @Outputs({ out: { name: "out" } })
     @Params({
       pin: {
@@ -462,55 +396,61 @@ namespace com.dauch.cs {
         max: 31,
         step: 1,
         default: "1",
+        type: "number",
       },
     })
-    function gpio_out(pin: number): c<f32> {
-      return (v: f32) => {
-        host.pinWrite(pin, sample(v) > 0.5 ? 1 : 0);
-      };
+    export function gpio_out(pin: number): [out: c<f64>] {
+      return [
+        (v: f64) => {
+          host.pinWrite(pin, sample(v) > 0.5 ? 1 : 0);
+        },
+      ];
     }
   }
 
-  namespace tf {
-    @Namespace({ name: "Transform" })
-    class _ns {}
+  export namespace tf {
+    @Namespace({ name: "Transform", icon: "tf" })
+    export class Tag {}
 
     @Block({
       name: "Sin",
       icon: "sin",
       kind: "Process",
-      description: "Transformer. Maps each sample with sin. (f32)->void → (f32)->void.",
+      description: "Transformer. Maps each sample with sin.",
       factory: "sin",
     })
     @Inputs({ in: { name: "in" } })
     @Outputs({ out: { name: "out" } })
-    function sin(inp: c<f32>): c<f32> {
-      return (v: f32) => {
-        inp(Math.sin(sample(v)) as f32);
-      };
+    export function sin(inp: c<f64>): [out: c<f64>] {
+      return [
+        (v: f64) => {
+          inp(Math.sin(sample(v)) as f64);
+        },
+      ];
     }
 
     @Block({
       name: "Cos",
       icon: "cos",
       kind: "Process",
-      description: "Transformer. Maps each sample with cos. (f32)->void → (f32)->void.",
+      description: "Transformer. Maps each sample with cos.",
       factory: "cos",
     })
     @Inputs({ in: { name: "in" } })
     @Outputs({ out: { name: "out" } })
-    function cos(inp: c<f32>): c<f32> {
-      return (v: f32) => {
-        inp(Math.cos(sample(v)) as f32);
-      };
+    export function cos(inp: c<f64>): [out: c<f64>] {
+      return [
+        (v: f64) => {
+          inp(Math.cos(sample(v)) as f64);
+        },
+      ];
     }
 
     @Block({
       name: "Overshoot",
       icon: "overshoot",
       kind: "Process",
-      description:
-        "Transformer. Maps time samples through a classic second-order underdamped unit-step response with damping ratio ζ and natural frequency ω. Damped frequency is ωd = ω√(1−ζ²). (f32)->void → (f32)->void.",
+      description: "Transformer. Second-order underdamped unit-step response.",
       factory: "overshoot",
     })
     @Inputs({ in: { name: "in" } })
@@ -524,6 +464,7 @@ namespace com.dauch.cs {
         max: 0.95,
         step: 0.01,
         default: "0.5",
+        type: "number",
       },
       ω: {
         kind: "double-range-parameter",
@@ -533,25 +474,46 @@ namespace com.dauch.cs {
         max: 20,
         step: 0.1,
         default: "1",
+        type: "number",
       },
     })
-    function overshoot(ζ: number, ω: number, inp: c<f32>): c<f32> {
-      let t0 = 0;
-      let on = 0;
-      return (v: f32) => {
-        const t = sample(v);
-        if (on === 0) {
-          t0 = t;
-          on = 1;
-        }
-        const tau = t - t0;
-        const wd = ω * Math.sqrt(1 - ζ * ζ);
-        const sigma = ζ * ω;
-        const decay = Math.exp(0 - sigma * tau);
-        const phase = wd * tau;
-        const y = 1 - decay * (Math.cos(phase) + (sigma / wd) * Math.sin(phase));
-        inp((tau < 0 ? 0 : y) as f32);
-      };
+    export function overshoot(ζ: number, ω: number, inp: c<f64>): [out: c<f64>] {
+      let initialized = 0;
+      let tStep = 0;
+      let baseY = 0;
+      let targetU = 0;
+      let currentY = 0;
+      return [
+        (v: f64) => {
+          const u = sample(v);
+          const curT = host.now();
+          if (initialized === 0) {
+            initialized = 1;
+            tStep = curT;
+            baseY = u;
+            targetU = u;
+            currentY = u;
+            inp(u as f64);
+            return;
+          }
+          const diff = u - targetU;
+          if (diff > 0.000001 || diff < -0.000001) {
+            tStep = curT;
+            baseY = currentY;
+            targetU = u;
+          }
+          const tau = curT - tStep;
+          const t = tau < 0 ? 0 : tau;
+          const wd = ω * Math.sqrt(1 - ζ * ζ);
+          const sigma = ζ * ω;
+          const decay = Math.exp(0 - sigma * t);
+          const phase = wd * t;
+          const factor = 1 - decay * (Math.cos(phase) + (sigma / wd) * Math.sin(phase));
+          const y = baseY + (targetU - baseY) * factor;
+          currentY = y;
+          inp(y as f64);
+        },
+      ];
     }
 
     @Block({
@@ -559,8 +521,7 @@ namespace com.dauch.cs {
       icon: "product",
       kind: "Process",
       combiner: true,
-      description:
-        "Combiner. Returns n factor consumers. Each factor updates its slot and pushes the product of all slots into the downstream consumer. Unwired slots stay at def. (f32)->void → Array[(f32)->void].",
+      description: "Combiner. Multiplies inputs and pushes product downstream.",
       factory: "product",
     })
     @Inputs({ in: { name: "in" } })
@@ -574,6 +535,7 @@ namespace com.dauch.cs {
         max: 8,
         step: 1,
         default: "2",
+        type: "number",
       },
       def: {
         kind: "double-range-parameter",
@@ -583,9 +545,10 @@ namespace com.dauch.cs {
         max: 100,
         step: 0.1,
         default: "1",
+        type: "number",
       },
     })
-    function product(n: number, def: number, inp: c<f32>): Multiplexed<c<f32>> {
+    export function product(n: number, def: number, inp: c<f64>): [out: Multiplexed<c<f64>>] {
       const slots: number[] = [];
       const seen: number[] = [];
       for (let i = 0; i < n; i++) {
@@ -593,10 +556,10 @@ namespace com.dauch.cs {
         seen.push(0);
       }
       let mask = 0;
-      return mux((index: number) => {
+      const list = mux((index: number) => {
         const bit = 1 << index;
         mask = mask | bit;
-        return (v: f32) => {
+        return (v: f64) => {
           slots[index] = sample(v);
           seen[index] = 1;
           let ready = 1;
@@ -608,25 +571,26 @@ namespace com.dauch.cs {
             }
           }
           if (ready !== 0) {
-            inp(prod as f32);
+            inp(prod as f64);
           }
         };
       });
+      return [list];
     }
   }
 
-  namespace sink {
-    @Namespace({ name: "Sink" })
-    class _ns {}
+  export namespace sink {
+    @Namespace({ name: "Sink", icon: "sink" })
+    export class Tag {}
 
     @Block({
       name: "Scope",
       icon: "scope",
       kind: "Output",
-      description:
-        "Plot sink. Returns a dynamically sized Array[(f32)->void]. Wire into a transformer or generator. After Run, Chart is a sliding multi-axis plot of finite samples.",
+      description: "Plot sink. Collects sliding window and posts samples to main page.",
       factory: "scope",
     })
+    @Inputs({})
     @Outputs({ out: { name: "out", attrs: { dynamic: "true" } } })
     @Params({
       n: {
@@ -637,6 +601,7 @@ namespace com.dauch.cs {
         max: 600,
         step: 1,
         default: "30",
+        type: "number",
       },
       m: {
         kind: "integer-range-parameter",
@@ -646,21 +611,36 @@ namespace com.dauch.cs {
         max: 1000,
         step: 1,
         default: "10",
+        type: "number",
       },
     })
-    function scope(n: number, m: number): Multiplexed<c<f32>> {
+    export function scope(n: number, m: number): [out: Multiplexed<c<f64>>] {
       const id = host.currentBlock();
       const latest: number[] = [];
+      const windowMs = n * 1000;
+      const history: Array<Array<{ t: number; v: number }>> = [];
+
       const plots = mux((index: number) => {
         latest[index] = Number.NaN;
-        return (v: f32) => {
-          latest[index] = sample(v);
+        history[index] = [];
+        return (v: f64) => {
+          const s = sample(v);
+          latest[index] = s;
+          const now = host.now();
+          const series = history[index]!;
+          series.push({ t: now, v: s });
+          const cutoff = now - windowMs;
+          while (series.length > 0 && series[0]!.t < cutoff) {
+            series.shift();
+          }
         };
       });
+
       host.setInterval(() => {
         host.postScope(id, latest.slice(), n, m);
       }, m);
-      return plots;
+
+      return [plots];
     }
   }
 }

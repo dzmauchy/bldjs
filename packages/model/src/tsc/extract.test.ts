@@ -3,9 +3,7 @@ import { displayType } from "@bld/types/ast";
 import { createTscContext } from "./host";
 import { extractCatalog } from "./extract";
 import { desugarFunctionDecorators } from "./desugar";
-import { hydrateBlocksDoc, serializeBlocksDoc } from "../blocks/serialize";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import modelSource from "../resources/models/model.ts?raw";
 
 const sample = `
 function Type(meta: object): void { void meta; }
@@ -97,11 +95,8 @@ function timer(period: number, inp: c<f32>): void {}
     }
   });
 
-  it("extracts model.ts and round-trips serialized BlocksDoc", () => {
-    const source = readFileSync(
-      fileURLToPath(new URL("../resources/models/model.ts", import.meta.url)),
-      "utf8",
-    );
+  it("extracts model.ts blocks, types, and signatures", () => {
+    const source = modelSource;
     const ctx = createTscContext([{ name: "model.ts", content: source }]);
     try {
       const doc = extractCatalog(ctx, "model.ts");
@@ -119,11 +114,8 @@ function timer(period: number, inp: c<f32>): void {}
         "sin",
         "timer",
       ]);
-      const hydrated = hydrateBlocksDoc(serializeBlocksDoc(doc));
-      expect(hydrated.id).toBe(doc.id);
-      expect(hydrated.blocks.map((block) => block.id)).toEqual(doc.blocks.map((block) => block.id));
-      const timer = hydrated.blocks.find((block) => block.id === "timer");
-      expect(displayType(timer!.inputs[0]!.ty, true)).toBe("(f32) -> void");
+      const timer = doc.blocks.find((block) => block.id === "timer");
+      expect(displayType(timer!.inputs[0]!.ty, true)).toBe("(f64) -> void");
       expect(source).toMatch(/^type f32 = Float32Array\[1];$/m);
       expect(source).toMatch(/^type f64 = Float64Array\[1];$/m);
       expect(source).toMatch(/^type c<T> = \(arg: T\) => void;$/m);

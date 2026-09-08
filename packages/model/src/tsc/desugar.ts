@@ -247,6 +247,7 @@ function findDecoratedFunctions(source: string): DecoratedFunction[] {
       const chain = parseDecoratorChain(source, i);
       if (chain.decorators.length > 0) {
         let j = skipTrivia(source, chain.next);
+        const fnStart = j;
         if (source.startsWith("export", j) && /\s/.test(source[j + 6] ?? "")) {
           j = skipTrivia(source, j + 6);
         }
@@ -255,7 +256,7 @@ function findDecoratedFunctions(source: string): DecoratedFunction[] {
           if (fn) {
             found.push({
               decoStart: i,
-              fnKw: j,
+              fnKw: fnStart,
               end: fn.end,
               name: fn.name,
               decorators: chain.decorators,

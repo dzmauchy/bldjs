@@ -172,17 +172,17 @@ export function emitDiagramStart(canvas: DiagramEmitInput): string {
     if (block.defId === "scope") {
       const n = windowSecondsFrom(param(extra, WINDOW_PARAM));
       const m = meterMsFrom(param(extra, METER_PARAM));
-      lines.push(`  const b${block.id} = ${fn}(${n}, ${m});`);
+      lines.push(`  const [b${block.id}] = ${fn}(${n}, ${m});`);
       bindMultiOutSlots(lines, block, canvas.links);
       continue;
     }
     if (block.defId === "gpio_out") {
       const pin = pinFrom(param(extra, PIN_PARAM) ?? "1");
-      lines.push(`  const b${block.id} = ${fn}(${pin});`);
+      lines.push(`  const [b${block.id}] = ${fn}(${pin});`);
       continue;
     }
     if (block.defId === "sin" || block.defId === "cos") {
-      lines.push(`  const b${block.id} = ${fn}(${inputExpr(block, canvas.links, defOf)});`);
+      lines.push(`  const [b${block.id}] = ${fn}(${inputExpr(block, canvas.links, defOf)});`);
       continue;
     }
     if (block.defId === "overshoot") {
@@ -190,13 +190,13 @@ export function emitDiagramStart(canvas: DiagramEmitInput): string {
       const w = omegaFrom(param(extra, OMEGA_PARAM));
       const inp = inputExpr(block, canvas.links, defOf);
       const fnName = overshootUsesTimeSamples(block, canvas.links, defOf) ? fn : "overshootFromValue";
-      lines.push(`  const b${block.id} = ${fnName}(${z}, ${w}, ${inp});`);
+      lines.push(`  const [b${block.id}] = ${fnName}(${z}, ${w}, ${inp});`);
       continue;
     }
     if (block.defId === "product") {
       const n = countFrom(param(extra, COUNT_PARAM));
       const def = defFrom(param(extra, DEF_PARAM));
-      lines.push(`  const b${block.id} = ${fn}(${n}, ${def}, ${inputExpr(block, canvas.links, defOf)});`);
+      lines.push(`  const [b${block.id}] = ${fn}(${n}, ${def}, ${inputExpr(block, canvas.links, defOf)});`);
       bindMultiOutSlots(lines, block, canvas.links);
       continue;
     }

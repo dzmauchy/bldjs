@@ -27,7 +27,6 @@
     "./diagram/types": "./src/diagram/types.ts",
     "./diagram/ids": "./src/diagram/ids.ts",
     "./diagram/download": "./src/diagram/download.ts",
-    "./tsc/plugin": "./src/tsc/plugin.ts",
     "./tsc/host": "./src/tsc/host.ts",
     "./tsc/emit": "./src/tsc/emit.ts",
     "./solution": "./src/solution/index.ts",
@@ -47,6 +46,6 @@
   },
   "dependencies": {
     "@bld/types": "0.1.0",
-    "typescript": "7.0.2"
+    "typescript": "6.0.3"
   }
 }

@@ -1,16 +1,24 @@
+import ts from "typescript";
 import { desugarFunctionDecorators } from "./desugar";
-import { eraseToJavaScript } from "./erase";
 
-/** TypeScript 7 has no JS `transpileModule`; erase types and emit namespace IIFEs. */
+/** Transpile TypeScript diagram source to JavaScript using the TypeScript compiler. */
 export function compileTypeScript(source: string): string {
-  return eraseToJavaScript(desugarFunctionDecorators(source));
+  const desugared = desugarFunctionDecorators(source);
+  const result = ts.transpileModule(desugared, {
+    compilerOptions: {
+      target: ts.ScriptTarget.ES2025,
+      module: ts.ModuleKind.CommonJS,
+      experimentalDecorators: true,
+      removeComments: false,
+    },
+  });
+  return result.outputText;
 }
 
 export async function compileTypeScriptAsync(source: string): Promise<string> {
   return compileTypeScript(source);
 }
 
-/** Kept so Run can warm the emitter without downloading a JS TypeScript compiler. */
 export function preloadTsc(): Promise<void> {
   return Promise.resolve();
 }
