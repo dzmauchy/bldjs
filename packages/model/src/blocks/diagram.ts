@@ -10,7 +10,7 @@ import {
   resolvedOutput,
 } from "./resolve";
 
-export interface XmlSource {
+export interface ModelSource {
   name: string;
   content: string;
 }
@@ -36,7 +36,7 @@ export function linksEqual(a: Link, b: Link): boolean {
 export class Diagram {
   id: string;
   name: string;
-  private sourceList: XmlSource[] = [];
+  private sourceList: ModelSource[] = [];
   private catalogInner = new Catalog();
   private nodeList: DiagramNode[] = [];
   private linkList: Link[] = [];
@@ -47,7 +47,7 @@ export class Diagram {
     this.name = name;
   }
 
-  sources(): XmlSource[] {
+  sources(): ModelSource[] {
     return this.sourceList;
   }
 
@@ -63,23 +63,20 @@ export class Diagram {
     return this.linkList;
   }
 
-  associateXml(name: string, content: string): void {
-    const source: XmlSource = { name, content };
-    const catalog = cloneCatalog(this.catalogInner, this.sourceList);
-    catalog.addXml(source.name, source.content);
+  associateJson(name: string, content: string | unknown): void {
+    const source: ModelSource = { name, content: typeof content === "string" ? content : `${JSON.stringify(content)}\n` };
+    const catalog = cloneCatalog(this.sourceList);
+    catalog.addJson(source.name, source.content);
     this.catalogInner = catalog;
     this.sourceList.push(source);
   }
 
-  dissociateXml(name: string): void {
+  dissociateJson(name: string): void {
     if (!this.sourceList.some((source) => source.name === name)) {
       throw ParseError.new(`model \`${name}\` is not associated`);
     }
     const remaining = this.sourceList.filter((source) => source.name !== name);
-    const catalog = new Catalog();
-    for (const source of remaining) {
-      catalog.addXml(source.name, source.content);
-    }
+    const catalog = cloneCatalog(remaining);
     const known = new Set(catalog.blocks().map((block) => block.id));
     this.nodeList = this.nodeList.filter((node) => known.has(node.defId));
     const live = new Set(this.nodeList.map((node) => node.id));
@@ -128,12 +125,11 @@ export class Diagram {
   }
 }
 
-function cloneCatalog(catalog: Catalog, sources: XmlSource[]): Catalog {
+function cloneCatalog(sources: ModelSource[]): Catalog {
   const next = new Catalog();
   for (const source of sources) {
-    next.addXml(source.name, source.content);
+    next.addJson(source.name, source.content);
   }
-  void catalog;
   return next;
 }
 

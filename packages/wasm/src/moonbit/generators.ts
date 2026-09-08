@@ -1,4 +1,4 @@
-import { DEFAULT_PERIOD_MS, DEFAULT_VALUE, valueFrom } from "@bld/xml/blocks/cs/ids";
+import { DEFAULT_PERIOD_MS, DEFAULT_VALUE, valueFrom } from "@bld/model/blocks/cs/ids";
 import { MoonBlock } from "./block";
 import type { MoonbitTarget } from "./compile";
 import { CTX_PARAM, type MoonBlockEmit } from "./types";

@@ -6,17 +6,17 @@ nodes size themselves with flex, and connectors are JointJS [`jumpover`](https:/
 `jump: 'cubic'`) drawn as CSS `clip-path` polygons, routed around other nodes by [
 `initAvoidRouter({ worker: true })`](https://docs.jointjs.com/api/avoid-router/initAvoidRouter/).
 
-Diagrams load multiple XML type/block models (`packages/xml/src/resources/models/*.xml`, described by `packages/xml/src/resources/models/blocks.xsd`). Wiring an output into an input grounds that input and infers the block's generic types. The builtin type library
-(`types.xml`) uses abstract types: `bool`, `u64`, `u32`, `i64`, `i32`, `f32`, `f64`, `char`, `void`, function types `(f32)->void`, and `Array[T]`. The WASM runtime
+Diagrams load multiple JSON type/block models (`packages/model/src/resources/models/*.json`). Wiring an output into an input grounds that input and infers the block's generic types. The builtin type library
+(`types.json`) uses abstract types: `bool`, `u64`, `u32`, `i64`, `i32`, `f32`, `f64`, `char`, `void`, function types `(f32)->void`, and `Array[T]`. The WASM runtime
 maps those onto WASM valtypes (`bool` → `i32`, `String` → js-string / `externref`).
 
 This is a TypeScript port of the Rust/Leptos [bld](https://github.com/dzmauchy/bld) workspace. The repo is an npm workspaces monorepo:
 
 ```
 packages/
-  xml/   XML model, type inference, save/open, import/export, CS blocks, runner abstraction
+  model/ JSON catalogs, type inference, save/open, import/export, CS blocks, runner abstraction
   wasm/  WASM block implementations and WASM runner
-  ui/    Lit workspace UI
+  ui/    workspace UI
 ```
 
 ## Prerequisites
@@ -62,7 +62,7 @@ Release assets go to `dist/`:
 make build
 ```
 
-`make check` / `npm run check` typechecks the app, validates catalog XML (`types.xml`, `control-systems.xml`, `blocks.xml`) against `blocks.xsd`.
+`make check` / `npm run check` typechecks the app.
 
 Serve that folder with any static file server that sets the same CSP and isolation headers.
 

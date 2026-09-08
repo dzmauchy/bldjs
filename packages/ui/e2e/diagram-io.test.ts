@@ -31,22 +31,21 @@ test.describe("diagram files", () => {
     await page?.close();
   });
 
-  test("exports and imports diagram XML", async () => {
+  test("exports and imports diagram JSON", async () => {
     await wireMiniPipeline(page);
     expect(await statusBlocks(page)).toBe("2 blocks");
 
     await openAppMenu(page);
     const downloadPromise = page.waitForEvent("download");
-    await page.locator('[data-testid="menu-export-xml"]').click();
+    await page.locator('[data-testid="menu-export-json"]').click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/\.xml$/);
+    expect(download.suggestedFilename()).toMatch(/\.json$/);
     const path = await download.path();
     expect(path).toBeTruthy();
-    const xml = await readFile(path!, "utf8");
-    expect(xml).toContain("<diagram");
-    expect(xml).toContain('type="scope"');
-    expect(xml).toContain('type="timer"');
-    expect(xml).toContain("<connector");
+    const json = await readFile(path!, "utf8");
+    expect(json).toContain('"type": "scope"');
+    expect(json).toContain('"type": "timer"');
+    expect(json).toContain('"links"');
 
     await newCanvas(page);
     expect(await statusBlocks(page)).toBe("0 blocks");
@@ -54,12 +53,12 @@ test.describe("diagram files", () => {
     await openAppMenu(page);
     const [fileChooser] = await Promise.all([
       page.waitForEvent("filechooser"),
-      page.locator('[data-testid="menu-import-xml"]').click(),
+      page.locator('[data-testid="menu-import-json"]').click(),
     ]);
     await fileChooser.setFiles({
-      name: "pipeline.xml",
-      mimeType: "text/xml",
-      buffer: Buffer.from(xml),
+      name: "pipeline.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(json),
     });
     await expect(page.locator('[data-testid="status-blocks"]')).toHaveText("2 blocks");
     await waitForLinks(page, "1 link");

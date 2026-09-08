@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Catalog } from "./blocks/catalog";
 import { flowPeriodMs } from "./flow";
 
-describe("@bld/xml module boundaries", () => {
+describe("@bld/model module boundaries", () => {
   it("loads catalog without CS internals", async () => {
     expect(typeof Catalog).toBe("function");
     expect(typeof flowPeriodMs).toBe("function");

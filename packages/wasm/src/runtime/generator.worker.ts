@@ -1,8 +1,8 @@
 import { bootGeneratorInstance, type InstantiatedGenerator } from "./boot";
 import { requestStop } from "./memory";
 
-// Stay off @bld/xml: DOMParser is not defined in workers, and pulling the
-// catalog would leave the sample ring empty so the Scope plot never appears.
+// Stay off @bld/model: pulling the catalog would leave the sample ring empty
+// so the Scope plot never appears.
 
 let memory: WebAssembly.Memory | undefined;
 let gen: InstantiatedGenerator | undefined;

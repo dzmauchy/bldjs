@@ -11,7 +11,7 @@ import {
   type Point,
   type RoutedLink,
 } from "./geometry";
-import { flowPeriodMs } from "@bld/xml/flow";
+import { flowPeriodMs } from "@bld/model/flow";
 
 const PAD = 16;
 const HIT_WIDTH = 14;

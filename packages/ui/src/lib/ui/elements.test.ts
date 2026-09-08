@@ -295,16 +295,16 @@ describe("Lit update scheduling", () => {
     const chart = document.createElement("bld-scope-modal") as BldScopeModal;
     const app = new AppState();
     expect(
-      app.io.loadXml(`<?xml version="1.0" encoding="UTF-8"?>
-<diagram id="diag_named" name="Named" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
-  <catalogs>
-    <catalog>types.xml</catalog>
-    <catalog>control-systems.xml</catalog>
-  </catalogs>
-  <blocks>
-    <block id="blk_probe" type="scope" name="Probe" x="0" y="0" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>
-  </blocks>
-</diagram>`),
+      app.io.loadJson(
+        JSON.stringify({
+          id: "diag_named",
+          name: "Named",
+          createdAt: "2026-08-31T05:00:00Z",
+          updatedAt: "2026-08-31T05:00:00Z",
+          catalogs: ["types.json", "control-systems.json"],
+          blocks: [{ id: 1, type: "scope", name: "Probe", x: 0, y: 0 }],
+        }),
+      ),
     ).toBe(true);
     const id = app.blocks[0]!.id;
     vi.spyOn(app.run, "snapshotScope").mockReturnValue([{ label: "sin", samples: [0, 1] }]);

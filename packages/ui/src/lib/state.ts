@@ -1,15 +1,15 @@
-import { type BlockDef, type BlockParameterDef, blockAttribute } from "@bld/xml/blocks/ast";
-import { associateBuiltinModels, xmlSourcesForFiles } from "@bld/xml/blocks/builtin";
-import { Catalog } from "@bld/xml/blocks/catalog";
-import { PERIOD_PARAM, PIN_PARAM, WINDOW_PARAM, METER_PARAM, ZETA_PARAM, OMEGA_PARAM, VALUE_PARAM, DEF_PARAM, COUNT_PARAM, isEventDrivenGenerator, periodMsFrom, pinFrom, windowSecondsFrom, meterMsFrom, zetaFrom, omegaFrom, valueFrom, defFrom, countFrom } from "@bld/xml/blocks/cs/ids";
-import { Diagram, type Link, type XmlSource, linksEqual } from "@bld/xml/blocks/diagram";
-import { compactLinkSlots } from "@bld/xml/blocks/ports";
-import type { ResolvedBlock } from "@bld/xml/blocks/resolve";
-import { loadDiagramSolution } from "@bld/xml/diagram/compile";
-import { blockXmlId, newDiagramId } from "@bld/xml/diagram/ids";
-import { type DiagramRepository, defaultDiagramRepository } from "@bld/xml/diagram/store";
-import type { BlockExtras, ParameterValue } from "@bld/xml/diagram/types";
-import { documentToCanvas, nowIso } from "@bld/xml/diagram/xml";
+import { type BlockDef, type BlockParameterDef, blockAttribute } from "@bld/model/blocks/ast";
+import { associateBuiltinModels, catalogSourcesForFiles } from "@bld/model/blocks/builtin";
+import { Catalog } from "@bld/model/blocks/catalog";
+import { PERIOD_PARAM, PIN_PARAM, WINDOW_PARAM, METER_PARAM, ZETA_PARAM, OMEGA_PARAM, VALUE_PARAM, DEF_PARAM, COUNT_PARAM, isEventDrivenGenerator, periodMsFrom, pinFrom, windowSecondsFrom, meterMsFrom, zetaFrom, omegaFrom, valueFrom, defFrom, countFrom } from "@bld/model/blocks/cs/ids";
+import { Diagram, type Link, type ModelSource, linksEqual } from "@bld/model/blocks/diagram";
+import { compactLinkSlots } from "@bld/model/blocks/ports";
+import type { ResolvedBlock } from "@bld/model/blocks/resolve";
+import { loadDiagramSolution } from "@bld/model/diagram/compile";
+import { newDiagramId } from "@bld/model/diagram/ids";
+import { type DiagramRepository, defaultDiagramRepository } from "@bld/model/diagram/store";
+import type { BlockExtras, CanvasDiagram, ParameterValue } from "@bld/model/diagram/types";
+import { nowIso } from "@bld/model/diagram/json";
 import { DiagramModel, type BlockInstance } from "./diagram-model";
 import {
   BLOCK_PLACE_HEIGHT,
@@ -44,7 +44,7 @@ export class AppState extends ObservableState {
   readonly deploy: DeploySession;
 
   declare catalog: Catalog;
-  declare sources: XmlSource[];
+  declare sources: ModelSource[];
   declare links: Link[];
   declare selected: number;
   declare selectedLink: Link | null;
@@ -122,8 +122,8 @@ export class AppState extends ObservableState {
     this.#updatedAt = nowIso();
   }
 
-  toDiagramXml(): string {
-    return this.io.toXml();
+  toDiagramJson(): string {
+    return this.io.toJson();
   }
 
   clearRunError(): void {
@@ -169,14 +169,14 @@ export class AppState extends ObservableState {
     return this.#diagram.block(id);
   }
 
-  /** Instance `name`, or the XML id when the block has no name. */
+  /** Instance `name`, or the numeric id when the block has no name. */
   blockDisplayName(id: number): string {
     const extra = this.#extras.get(id);
     const name = extra?.name?.trim();
     if (name) {
       return name;
     }
-    return extra?.xmlId ?? String(id);
+    return String(id);
   }
 
   isDragging(): boolean {
@@ -278,7 +278,7 @@ export class AppState extends ObservableState {
   }
 
   resolveAll(): Map<number, ResolvedBlock> {
-    return loadDiagramSolution(this.io.toXml(), this.catalog).inferred;
+    return loadDiagramSolution(this.io.toJson(), this.catalog).inferred;
   }
 
   applyIdentity(id: string, name: string): void {
@@ -287,7 +287,7 @@ export class AppState extends ObservableState {
     this.io.saveName = name;
   }
 
-  applyCanvas(canvas: ReturnType<typeof documentToCanvas>): void {
+  applyCanvas(canvas: CanvasDiagram): void {
     this.run.stop();
     this.#diagram.replace(canvas.blocks);
     this.#diagram.nextId = canvas.nextId;
@@ -348,21 +348,15 @@ export class AppState extends ObservableState {
 
   setBlockParameter(id: number, name: string, value: string): void {
     const extra = this.#ensureBlockExtras(id);
-    const now = nowIso();
     const existing = extra.parameters.find((param) => param.name === name);
     if (existing) {
       existing.value = value;
-      extra.updatedAt = now;
     } else {
       const def = this.blockDef(this.block(id)?.defId ?? "")?.parameters.find((param) => param.name === name);
       extra.parameters.push({
-        id: `prm_${id}_${name}`,
-        createdAt: now,
-        updatedAt: now,
         kind: def?.kind ?? "text-parameter",
         name,
         value,
-        attributes: [],
       });
     }
     this.touch();
@@ -606,40 +600,29 @@ export class AppState extends ObservableState {
   }
 
   #touchBlock(id: number): void {
-    const extra = this.#ensureBlockExtras(id);
-    extra.updatedAt = nowIso();
+    this.#ensureBlockExtras(id);
     this.touch();
   }
 
   #ensureBlockExtras(id: number, defId?: string): BlockExtras {
     let extra = this.#extras.get(id);
     if (!extra) {
-      const now = nowIso();
       extra = {
-        xmlId: blockXmlId(id),
-        createdAt: now,
-        updatedAt: now,
-        attributes: [],
-        parameters: this.#defaultParameters(id, defId ?? this.block(id)?.defId),
+        parameters: this.#defaultParameters(defId ?? this.block(id)?.defId),
       };
       this.#extras.set(id, extra);
     } else if (extra.parameters.length === 0) {
-      extra.parameters = this.#defaultParameters(id, defId ?? this.block(id)?.defId);
+      extra.parameters = this.#defaultParameters(defId ?? this.block(id)?.defId);
     }
     return extra;
   }
 
-  #defaultParameters(id: number, defId: string | undefined): ParameterValue[] {
+  #defaultParameters(defId: string | undefined): ParameterValue[] {
     const def = defId ? this.blockDef(defId) : undefined;
-    const now = nowIso();
     return (def?.parameters ?? []).map((param) => ({
-      id: `prm_${id}_${param.name}`,
-      createdAt: now,
-      updatedAt: now,
       kind: param.kind,
       name: param.name,
       value: param.default ?? "",
-      attributes: [],
     }));
   }
 
@@ -653,7 +636,7 @@ export class AppState extends ObservableState {
       if (selected) {
         this.#applySources(this.sources.filter((source) => source.name !== file));
       } else {
-        this.#applySources([...this.sources, ...xmlSourcesForFiles([file])]);
+        this.#applySources([...this.sources, ...catalogSourcesForFiles([file])]);
       }
       this.touch();
       this.notify();
@@ -662,10 +645,10 @@ export class AppState extends ObservableState {
     }
   }
 
-  #applySources(sources: XmlSource[]): void {
+  #applySources(sources: ModelSource[]): void {
     const catalog = new Catalog();
     for (const source of sources) {
-      catalog.addXml(source.name, source.content);
+      catalog.addJson(source.name, source.content);
     }
     const known = new Set(catalog.blocks().map((block) => block.id));
     const kept = this.blocks.filter((block) => known.has(block.defId));

@@ -1,0 +1,262 @@
+{
+  "id": "cs",
+  "name": "Control Systems",
+  "namespaces": [
+    { "id": "com.dauch.cs", "name": "Control Systems" },
+    { "id": "com.dauch.cs.gen", "name": "Gen", "parent": "com.dauch.cs" },
+    { "id": "com.dauch.cs.gpio", "name": "GPIO", "parent": "com.dauch.cs" },
+    { "id": "com.dauch.cs.tf", "name": "Transform", "parent": "com.dauch.cs" },
+    { "id": "com.dauch.cs.sink", "name": "Sink", "parent": "com.dauch.cs" }
+  ],
+  "blocks": [
+    {
+      "id": "timer",
+      "name": "Timer",
+      "ns": "com.dauch.cs.gen",
+      "icon": "timer",
+      "kind": "Start",
+      "runnable": true,
+      "generator": true,
+      "description": "Push source. Accepts (f32)->void and writes timestamps while running.",
+      "factory": "timer",
+      "parameters": [
+        {
+          "kind": "integer-range-parameter",
+          "name": "period",
+          "description": "Quantization period in milliseconds",
+          "min": 1,
+          "max": 1000,
+          "step": 1,
+          "default": "10"
+        }
+      ],
+      "in": [{ "name": "in", "type": { "name": "c1", "args": ["f32"] } }]
+    },
+    {
+      "id": "random",
+      "name": "Random",
+      "ns": "com.dauch.cs.gen",
+      "icon": "random",
+      "kind": "Start",
+      "runnable": true,
+      "generator": true,
+      "description": "Push source. Writes a random sample in [0, 1) at the quantization period.",
+      "factory": "random",
+      "parameters": [
+        {
+          "kind": "integer-range-parameter",
+          "name": "period",
+          "description": "Quantization period in milliseconds",
+          "min": 1,
+          "max": 1000,
+          "step": 1,
+          "default": "10"
+        }
+      ],
+      "in": [{ "name": "in", "type": { "name": "c1", "args": ["f32"] } }]
+    },
+    {
+      "id": "constant",
+      "name": "Constant",
+      "ns": "com.dauch.cs.gen",
+      "icon": "constant",
+      "kind": "Start",
+      "runnable": true,
+      "generator": true,
+      "description": "Push source. Writes a constant sample at the quantization period.",
+      "factory": "constant",
+      "parameters": [
+        {
+          "kind": "double-range-parameter",
+          "name": "value",
+          "description": "Constant sample value",
+          "min": -100,
+          "max": 100,
+          "step": 0.1,
+          "default": "1"
+        },
+        {
+          "kind": "integer-range-parameter",
+          "name": "period",
+          "description": "Quantization period in milliseconds",
+          "min": 1,
+          "max": 1000,
+          "step": 1,
+          "default": "10"
+        }
+      ],
+      "in": [{ "name": "in", "type": { "name": "c1", "args": ["f32"] } }]
+    },
+    {
+      "id": "sin",
+      "name": "Sin",
+      "ns": "com.dauch.cs.tf",
+      "icon": "sin",
+      "kind": "Process",
+      "description": "Transformer. Maps each sample with sin. (f32)->void → (f32)->void.",
+      "factory": "sin",
+      "in": [{ "name": "in", "type": { "name": "c1", "args": ["f32"] } }],
+      "out": [{ "name": "out", "type": { "name": "c1", "args": ["f32"] } }]
+    },
+    {
+      "id": "cos",
+      "name": "Cos",
+      "ns": "com.dauch.cs.tf",
+      "icon": "cos",
+      "kind": "Process",
+      "description": "Transformer. Maps each sample with cos. (f32)->void → (f32)->void.",
+      "factory": "cos",
+      "in": [{ "name": "in", "type": { "name": "c1", "args": ["f32"] } }],
+      "out": [{ "name": "out", "type": { "name": "c1", "args": ["f32"] } }]
+    },
+    {
+      "id": "overshoot",
+      "name": "Overshoot",
+      "ns": "com.dauch.cs.tf",
+      "icon": "overshoot",
+      "kind": "Process",
+      "description": "Transformer. Maps time samples through a classic second-order underdamped unit-step response with damping ratio ζ and natural frequency ω. Damped frequency is ωd = ω√(1−ζ²). (f32)->void → (f32)->void.",
+      "factory": "overshoot",
+      "parameters": [
+        {
+          "kind": "double-range-parameter",
+          "name": "ζ",
+          "description": "Damping ratio ζ",
+          "min": 0.05,
+          "max": 0.95,
+          "step": 0.01,
+          "default": "0.5"
+        },
+        {
+          "kind": "double-range-parameter",
+          "name": "ω",
+          "description": "Natural frequency ω (rad/s)",
+          "min": 0.1,
+          "max": 20,
+          "step": 0.1,
+          "default": "1"
+        }
+      ],
+      "in": [{ "name": "in", "type": { "name": "c1", "args": ["f32"] } }],
+      "out": [{ "name": "out", "type": { "name": "c1", "args": ["f32"] } }]
+    },
+    {
+      "id": "product",
+      "name": "Product",
+      "ns": "com.dauch.cs.tf",
+      "icon": "product",
+      "kind": "Process",
+      "combiner": true,
+      "description": "Combiner. Returns n factor consumers. Each factor updates its slot and pushes the product of all slots into the downstream consumer. Unwired slots stay at def. (f32)->void → Array[(f32)->void].",
+      "factory": "product",
+      "parameters": [
+        {
+          "kind": "integer-range-parameter",
+          "name": "n",
+          "description": "Output count",
+          "min": 1,
+          "max": 8,
+          "step": 1,
+          "default": "2"
+        },
+        {
+          "kind": "double-range-parameter",
+          "name": "def",
+          "description": "Default value of each output",
+          "min": -100,
+          "max": 100,
+          "step": 0.1,
+          "default": "1"
+        }
+      ],
+      "in": [{ "name": "in", "type": { "name": "c1", "args": ["f32"] } }],
+      "out": [
+        {
+          "name": "out",
+          "type": { "name": "Array", "args": [{ "name": "c1", "args": ["f32"] }] },
+          "attrs": { "dynamic": "true" }
+        }
+      ]
+    },
+    {
+      "id": "gpio_in",
+      "name": "GPIO In",
+      "ns": "com.dauch.cs.gpio",
+      "icon": "gpio_in",
+      "kind": "Start",
+      "runnable": true,
+      "generator": true,
+      "description": "Digital input. Pushes the pin level (0 or 1) when the pin changes. In the browser, toggling the switch emits one sample.",
+      "factory": "gpio_in",
+      "parameters": [
+        {
+          "kind": "integer-range-parameter",
+          "name": "pin",
+          "description": "GPIO pin number",
+          "min": 0,
+          "max": 31,
+          "step": 1,
+          "default": "0"
+        }
+      ],
+      "in": [{ "name": "in", "type": { "name": "c1", "args": ["f32"] } }]
+    },
+    {
+      "id": "gpio_out",
+      "name": "GPIO Out",
+      "ns": "com.dauch.cs.gpio",
+      "icon": "gpio_out",
+      "kind": "Output",
+      "description": "Digital output. Consumes each sample and writes the pin (HIGH when the value is greater than 0.5). In the browser, the switch is a disabled readout of the pin.",
+      "factory": "gpio_out",
+      "parameters": [
+        {
+          "kind": "integer-range-parameter",
+          "name": "pin",
+          "description": "GPIO pin number",
+          "min": 0,
+          "max": 31,
+          "step": 1,
+          "default": "1"
+        }
+      ],
+      "out": [{ "name": "out", "type": { "name": "c1", "args": ["f32"] } }]
+    },
+    {
+      "id": "scope",
+      "name": "Scope",
+      "ns": "com.dauch.cs.sink",
+      "icon": "scope",
+      "kind": "Output",
+      "description": "Plot sink. Returns a dynamically sized Array[(f32)->void]. Wire into a transformer or generator. After Run, Chart is a sliding multi-axis plot of finite samples.",
+      "factory": "scope",
+      "parameters": [
+        {
+          "kind": "integer-range-parameter",
+          "name": "n",
+          "description": "Time window width in seconds",
+          "min": 10,
+          "max": 600,
+          "step": 1,
+          "default": "30"
+        },
+        {
+          "kind": "integer-range-parameter",
+          "name": "m",
+          "description": "Quantizer period in milliseconds",
+          "min": 10,
+          "max": 1000,
+          "step": 1,
+          "default": "10"
+        }
+      ],
+      "out": [
+        {
+          "name": "out",
+          "type": { "name": "Array", "args": [{ "name": "c1", "args": ["f32"] }] },
+          "attrs": { "dynamic": "true" }
+        }
+      ]
+    }
+  ]
+}

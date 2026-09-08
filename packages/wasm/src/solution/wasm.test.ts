@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { compileGenerator } from "../compile";
 import { createSharedMemory, readLatest, readSamples } from "../runtime/memory";
 import { instantiateGenerator } from "../runtime/generator";
-import { solutionViewFrom } from "@bld/xml/solution/view";
+import { solutionViewFrom } from "@bld/model/solution/view";
 import { WasmSolutionBuilder } from "./wasm";
 
 describe("SolutionView", () => {

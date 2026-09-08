@@ -1,4 +1,4 @@
-import { DEFAULT_OMEGA, DEFAULT_ZETA, omegaFrom, zetaFrom } from "@bld/xml/blocks/cs/ids";
+import { DEFAULT_OMEGA, DEFAULT_ZETA, omegaFrom, zetaFrom } from "@bld/model/blocks/cs/ids";
 import { MoonBlock } from "./block";
 import type { MoonbitTarget } from "./compile";
 import { CTX_PARAM, type MoonBlockEmit } from "./types";

@@ -1,5 +1,5 @@
-import type { BlockDef } from "@bld/xml/blocks/ast";
-import type { Catalog } from "@bld/xml/blocks/catalog";
+import type { BlockDef } from "@bld/model/blocks/ast";
+import type { Catalog } from "@bld/model/blocks/catalog";
 
 export interface PaletteGroup {
   id: string;

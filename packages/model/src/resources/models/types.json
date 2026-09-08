@@ -1,0 +1,23 @@
+{
+  "id": "types",
+  "name": "Types",
+  "namespaces": [{ "id": "types", "name": "Types" }],
+  "types": [
+    { "name": "bool" },
+    { "name": "u64" },
+    { "name": "u32" },
+    { "name": "i64" },
+    { "name": "i32" },
+    { "name": "f32" },
+    { "name": "f64" },
+    { "name": "char" },
+    { "name": "void" },
+    { "name": "Array", "params": ["T"] },
+    { "name": "c0" },
+    { "name": "c1", "params": ["T"] },
+    { "name": "c2", "params": ["T1", "T2"] },
+    { "name": "f0", "params": ["R"] },
+    { "name": "f1", "params": ["T", "R"] },
+    { "name": "f2", "params": ["T1", "T2", "R"] }
+  ]
+}

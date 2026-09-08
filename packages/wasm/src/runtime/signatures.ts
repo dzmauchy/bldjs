@@ -1,4 +1,4 @@
-import { type BlockDef, type PortDef, type TypeExpr, consumerType, displayType, funcType, isArrayType } from "@bld/xml/blocks/ast";
+import { type BlockDef, type PortDef, type TypeExpr, consumerType, displayType, funcType, isArrayType } from "@bld/model/blocks/ast";
 
 /** WASM value type emitted for a MoonBit XML type expression. */
 export type WasmVal = string;

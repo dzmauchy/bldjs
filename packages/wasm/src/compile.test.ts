@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PERIOD_MS } from "@bld/xml/blocks/cs/ids";
-import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
-import { Diagram, type Link } from "@bld/xml/blocks/diagram";
-import { loadDiagramSolution } from "@bld/xml/diagram/compile";
-import { serializeCanvas } from "@bld/xml/diagram/xml";
+import { DEFAULT_PERIOD_MS } from "@bld/model/blocks/cs/ids";
+import { associateBuiltinModels } from "@bld/model/blocks/builtin";
+import { Diagram, type Link } from "@bld/model/blocks/diagram";
+import { loadDiagramSolution } from "@bld/model/diagram/compile";
+import { serializeCanvas } from "@bld/model/diagram/json";
 import { I32_ATOMIC_OPCODE, hasThreadsOpcode } from "./moonbit";
 import { compileGenerator, generatorText } from "./compile";
 import { instantiateGenerator } from "./runtime/generator";
@@ -227,8 +227,8 @@ describe("compileGenerator", () => {
     expect(text).not.toContain("fn sin(");
   });
 
-  it("builds XML first, infers types, then emits wasm", async () => {
-    const xml = serializeCanvas({
+  it("builds JSON first, infers types, then emits wasm", async () => {
+    const json = serializeCanvas({
       id: "diag_cs",
       name: "CS pipeline",
       createdAt: "2026-08-31T05:00:00Z",
@@ -243,7 +243,7 @@ describe("compileGenerator", () => {
         { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
       ],
     });
-    const solution = loadDiagramSolution(xml, catalog());
+    const solution = loadDiagramSolution(json, catalog());
     const compiled = await compileGenerator(3, solution.nodes, solution.links);
     expect(compiled?.wasm[0]).toBe(0);
     expect(String.fromCharCode(compiled!.wasm[1]!, compiled!.wasm[2]!, compiled!.wasm[3]!)).toBe("asm");

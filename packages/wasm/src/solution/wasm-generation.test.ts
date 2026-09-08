@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { solutionViewFrom } from "@bld/xml/solution/view";
+import { solutionViewFrom } from "@bld/model/solution/view";
 import {
   AbstractSolutionBuilder,
   BrowserSolutionBuilder,

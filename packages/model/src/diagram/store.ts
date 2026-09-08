@@ -1,7 +1,7 @@
 export interface StoredDiagram {
   id: string;
   name: string;
-  xml: string;
+  json: string;
   createdAt: string;
   updatedAt: string;
 }

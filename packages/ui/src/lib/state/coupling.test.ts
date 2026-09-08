@@ -11,8 +11,8 @@ describe("UI package coupling", () => {
     const state = sources["../state.ts"];
     expect(state).toBeDefined();
     expect(state).not.toMatch(/from ["']@bld\/wasm["']/);
-    expect(state).not.toMatch(/from ["']@bld\/xml["']/);
-    expect(state).toContain('from "@bld/xml/blocks/catalog"');
+    expect(state).not.toMatch(/from ["']@bld\/model["']/);
+    expect(state).toContain('from "@bld/model/blocks/catalog"');
     expect(state).toContain('from "./state/run"');
     expect(state).toContain('from "./state/io"');
   });

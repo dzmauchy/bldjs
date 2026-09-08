@@ -14,8 +14,8 @@ import {
   pinFrom,
   valueFrom,
   zetaFrom,
-} from "@bld/xml/blocks/cs/ids";
-import { portSlotIndex } from "@bld/xml/blocks/ports";
+} from "@bld/model/blocks/cs/ids";
+import { portSlotIndex } from "@bld/model/blocks/ports";
 
 export function overshootStep(time: number, zeta: number = DEFAULT_ZETA, omega: number = DEFAULT_OMEGA): number {
   if (!(time > 0)) {

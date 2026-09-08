@@ -41,12 +41,12 @@ import {
   isVarianceType,
 } from "./ast";
 import {
-  CONTROL_SYSTEMS_XML,
-  FIXTURES_XML,
-  TYPES_XML,
+  CONTROL_SYSTEMS_JSON,
+  FIXTURES_JSON,
+  TYPES_JSON,
   associateBuiltinModels,
   associateFixtureModels,
-  xmlSourcesForFiles,
+  catalogSourcesForFiles,
 } from "./builtin";
 import { Catalog } from "./catalog";
 import { isCompatible } from "./compat";
@@ -56,7 +56,7 @@ import {
   planGenerator,
 } from "./cs";
 import { type Link, Diagram } from "./diagram";
-import { parseBlocks } from "./parse";
+import { parseCatalog } from "./parse";
 import {
   type Grounding,
   TypeResolver,
@@ -81,9 +81,9 @@ function g(name: string, args: TypeExpr[]): TypeExpr {
 
 function catalog(): Catalog {
   const next = new Catalog();
-  next.addXml("types.xml", TYPES_XML);
-  next.addXml("fixtures.xml", FIXTURES_XML);
-  next.addXml("control-systems.xml", CONTROL_SYSTEMS_XML);
+  next.addJson("types.json", TYPES_JSON);
+  next.addJson("fixtures.json", FIXTURES_JSON);
+  next.addJson("control-systems.json", CONTROL_SYSTEMS_JSON);
   return next;
 }
 
@@ -103,57 +103,38 @@ function expectType(actual: TypeExpr | undefined, expected: TypeExpr): void {
 }
 
 describe("blocks", () => {
-  it("rejects catalog library elements", () => {
-    const xml = `
-      <blocks id="t" name="T">
-        <library id="lib" name="Lib"/>
-      </blocks>
-    `;
-    expect(() => parseBlocks("t.xml", xml)).toThrow(/unsupported <blocks> child <library>/);
+  it("rejects unknown catalog fields", () => {
+    expect(() => parseCatalog("t.json", { id: "t", name: "T", library: { id: "lib" } })).toThrow(
+      /unsupported catalog field `library`/,
+    );
   });
 
-  it("parses catalogs that declare blocks.xsd", () => {
-    const xml = `
-      <blocks id="t" name="T" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-              xsi:noNamespaceSchemaLocation="blocks.xsd">
-        <namespace id="n" name="N"/>
-      </blocks>
-    `;
-    expect(parseBlocks("t.xml", xml).id).toBe("t");
-  });
-
-  it("builtin catalogs declare schemas", () => {
-    expect(TYPES_XML).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
-    expect(TYPES_XML).toContain('xsi:noNamespaceSchemaLocation="types.xsd"');
-    expect(CONTROL_SYSTEMS_XML).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
-    expect(CONTROL_SYSTEMS_XML).toContain('xsi:noNamespaceSchemaLocation="blocks.xsd"');
-  });
-
-  it("fixture catalog schema location resolves to blocks.xsd", () => {
-    expect(FIXTURES_XML).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
-    expect(FIXTURES_XML).toContain('xsi:noNamespaceSchemaLocation="../resources/models/blocks.xsd"');
+  it("parses a catalog with namespaces", () => {
+    expect(parseCatalog("t.json", { id: "t", name: "T", namespaces: [{ id: "n", name: "N" }] }).id).toBe("t");
   });
 
   it("parses blocks.md apply example", () => {
-    const xml = `
-      <blocks id="workspace_01" name="Signal Processing" icon="workspace.png">
-        <namespace id="types" name="Types" icon="box.png"/>
-        <block id="b_apply" name="Apply" ns="types" icon="func.png">
-          <param name="T"/>
-          <param name="R"/>
-          <factory id="apply"/>
-          <in name="fn">
-            <type name="f1">
-              <var name="T"/>
-              <var name="R"/>
-            </type>
-          </in>
-          <in name="arg" type="T"/>
-          <out name="result" type="R"/>
-        </block>
-      </blocks>
-    `;
-    const doc = parseBlocks("apply.xml", xml);
+    const doc = parseCatalog("apply.json", {
+      id: "workspace_01",
+      name: "Signal Processing",
+      icon: "workspace.png",
+      namespaces: [{ id: "types", name: "Types", icon: "box.png" }],
+      blocks: [
+        {
+          id: "b_apply",
+          name: "Apply",
+          ns: "types",
+          icon: "func.png",
+          params: ["T", "R"],
+          factory: "apply",
+          in: [
+            { name: "fn", type: { name: "f1", args: ["T", "R"] } },
+            { name: "arg", type: "T" },
+          ],
+          out: [{ name: "result", type: "R" }],
+        },
+      ],
+    });
     expect(doc.id).toBe("workspace_01");
     const block = doc.blocks[0];
     expect(block.params.length).toBe(2);
@@ -163,28 +144,22 @@ describe("blocks", () => {
   });
 
   it("parses MoonBit holes and arrays", () => {
-    const xml = `
-      <blocks id="w" name="Holes">
-        <block id="b" name="W" ns="test">
-          <in name="ints">
-            <type name="Array">
-              <type name="Int"/>
-            </type>
-          </in>
-          <in name="consumer">
-            <type name="c1">
-              <type name="Double"/>
-            </type>
-          </in>
-          <in name="unboundedInput">
-            <type name="Array">
-              <type name="_"/>
-            </type>
-          </in>
-        </block>
-      </blocks>
-    `;
-    const doc = parseBlocks("wild.xml", xml);
+    const doc = parseCatalog("wild.json", {
+      id: "w",
+      name: "Holes",
+      blocks: [
+        {
+          id: "b",
+          name: "W",
+          ns: "test",
+          in: [
+            { name: "ints", type: { name: "Array", args: ["Int"] } },
+            { name: "consumer", type: { name: "c1", args: ["Double"] } },
+            { name: "unboundedInput", type: { name: "Array", args: ["_"] } },
+          ],
+        },
+      ],
+    });
     const block = doc.blocks[0];
     expectType(block.inputs[0].ty, arrayOf(t("Int")));
     expectType(block.inputs[1].ty, consumerType(t("Double")));
@@ -192,31 +167,30 @@ describe("blocks", () => {
   });
 
   it("parses union intersection and Self", () => {
-    const xml = `
-      <blocks id="u" name="U">
-        <block id="b_path" name="path" ns="example.Builder">
-          <in name="segment" type="String"/>
-          <in name="complexPayload">
-            <intersection>
-              <type name="c1">
-                <var name="T"/>
-              </type>
-              <type name="f0">
-                <var name="T"/>
-              </type>
-            </intersection>
-          </in>
-          <out name="result">
-            <union>
-              <type name="Int"/>
-              <type name="Int64"/>
-            </union>
-          </out>
-          <out name="this" type="Self"/>
-        </block>
-      </blocks>
-    `;
-    const doc = parseBlocks("u.xml", xml);
+    const doc = parseCatalog("u.json", {
+      id: "u",
+      name: "U",
+      blocks: [
+        {
+          id: "b_path",
+          name: "path",
+          ns: "example.Builder",
+          in: [
+            { name: "segment", type: "String" },
+            {
+              name: "complexPayload",
+              type: {
+                intersection: [{ name: "c1", args: ["T"] }, { name: "f0", args: ["T"] }],
+              },
+            },
+          ],
+          out: [
+            { name: "result", type: { union: ["Int", "Int64"] } },
+            { name: "this", type: "Self" },
+          ],
+        },
+      ],
+    });
     const block = doc.blocks[0];
     expectType(block.outputs[0].ty, unionOf([t("Int"), t("Int64")]));
     expect(block.outputs[1].ty.kind).toBe("self");
@@ -224,33 +198,27 @@ describe("blocks", () => {
   });
 
   it("parses f-bounded Rec param", () => {
-    const xml = `
-      <blocks id="e" name="E">
-        <block id="b_rec_new" name="rec.new" ns="example">
-          <param name="T">
-            <extends>
-              <type name="Rec">
-                <var name="T"/>
-              </type>
-            </extends>
-          </param>
-          <in name="cls">
-            <type name="c1">
-              <var name="T"/>
-            </type>
-          </in>
-          <out name="value" type="T"/>
-        </block>
-      </blocks>
-    `;
-    const doc = parseBlocks("e.xml", xml);
+    const doc = parseCatalog("e.json", {
+      id: "e",
+      name: "E",
+      blocks: [
+        {
+          id: "b_rec_new",
+          name: "rec.new",
+          ns: "example",
+          params: [{ name: "T", extends: { name: "Rec", args: ["T"] } }],
+          in: [{ name: "cls", type: { name: "c1", args: ["T"] } }],
+          out: [{ name: "value", type: "T" }],
+        },
+      ],
+    });
     expectType(doc.blocks[0].params[0].extends[0], g("Rec", [t("T")]));
   });
 
   it("builtin models merge", () => {
     const cat = new Catalog();
-    cat.addXml("types.xml", TYPES_XML);
-    cat.addXml("control-systems.xml", CONTROL_SYSTEMS_XML);
+    cat.addJson("types.json", TYPES_JSON);
+    cat.addJson("control-systems.json", CONTROL_SYSTEMS_JSON);
     expect(cat.block("timer")).toBeDefined();
     expect(cat.block("sin")).toBeDefined();
     expect(cat.block("cos")).toBeDefined();
@@ -288,15 +256,15 @@ describe("blocks", () => {
     expect(cat.findType("c1")).toBeDefined();
     expect(cat.sources().length).toBe(2);
     expect(cat.catalogs().map((item) => [item.file, item.name])).toEqual([
-      ["types.xml", "Types"],
-      ["control-systems.xml", "Control Systems"],
+      ["types.json", "Types"],
+      ["control-systems.json", "Control Systems"],
     ]);
   });
 
   it("looks up builtin catalogs by file name", () => {
-    expect(xmlSourcesForFiles(["types.xml"]).map((source) => source.name)).toEqual(["types.xml"]);
-    expect(() => xmlSourcesForFiles(["missing.xml"])).toThrow("unknown catalog");
-    expect(() => xmlSourcesForFiles(["models/types.xml"])).toThrow("unknown catalog");
+    expect(catalogSourcesForFiles(["types.json"]).map((source) => source.name)).toEqual(["types.json"]);
+    expect(() => catalogSourcesForFiles(["missing.json"])).toThrow("unknown catalog");
+    expect(() => catalogSourcesForFiles(["models/types.json"])).toThrow("unknown catalog");
   });
 
   it("Array[Double] is compatible with Array[_]", () => {
@@ -324,30 +292,22 @@ describe("blocks", () => {
   });
 
   it("parses Array[T] notation", () => {
-    const xml = `
-      <blocks id="a" name="A">
-        <block id="b" name="B" ns="test">
-          <in name="sugar">
-            <type name="Array">
-              <type name="Double"/>
-            </type>
-          </in>
-          <in name="nested">
-            <type name="Array">
-              <type name="Array">
-                <type name="Int"/>
-              </type>
-            </type>
-          </in>
-          <out name="alias">
-            <type name="Array">
-              <type name="String"/>
-            </type>
-          </out>
-        </block>
-      </blocks>
-    `;
-    const doc = parseBlocks("arr.xml", xml);
+    const doc = parseCatalog("arr.json", {
+      id: "a",
+      name: "A",
+      blocks: [
+        {
+          id: "b",
+          name: "B",
+          ns: "test",
+          in: [
+            { name: "sugar", type: { name: "Array", args: ["Double"] } },
+            { name: "nested", type: { name: "Array", args: [{ name: "Array", args: ["Int"] }] } },
+          ],
+          out: [{ name: "alias", type: { name: "Array", args: ["String"] } }],
+        },
+      ],
+    });
     expectType(doc.blocks[0].inputs[0].ty, arrayOf(t("Double")));
     expectType(doc.blocks[0].inputs[1].ty, arrayOf(arrayOf(t("Int"))));
     expectType(doc.blocks[0].outputs[0].ty, arrayOf(t("String")));
@@ -386,28 +346,24 @@ describe("blocks", () => {
 
   it("infer (T1, T2) -> R from two inputs", () => {
     const cat = catalog();
-    cat.addXml(
-      "f2.xml",
-      `
-        <blocks id="fn" name="Fn">
-          <block id="b_apply_f2" name="apply2" ns="test">
-            <param name="T1"/>
-            <param name="T2"/>
-            <param name="R"/>
-            <in name="fn">
-              <type name="f2">
-                <var name="T1"/>
-                <var name="T2"/>
-                <var name="R"/>
-              </type>
-            </in>
-            <in name="a" type="T1"/>
-            <in name="b" type="T2"/>
-            <out name="result" type="R"/>
-          </block>
-        </blocks>
-      `,
-    );
+    cat.addJson("f2.json", {
+      id: "fn",
+      name: "Fn",
+      blocks: [
+        {
+          id: "b_apply_f2",
+          name: "apply2",
+          ns: "test",
+          params: ["T1", "T2", "R"],
+          in: [
+            { name: "fn", type: { name: "f2", args: ["T1", "T2", "R"] } },
+            { name: "a", type: "T1" },
+            { name: "b", type: "T2" },
+          ],
+          out: [{ name: "result", type: "R" }],
+        },
+      ],
+    });
     const resolved = resolveBlock(
       cat,
       "b_apply_f2",
@@ -451,51 +407,25 @@ describe("blocks", () => {
 
   it("f-bounded Rec resolves through a multi-file catalog", () => {
     const cat = catalog();
-    cat.addXml(
-      "color.xml",
-      `
-        <blocks id="example" name="Example">
-          <type name="Rec" ns="example">
-            <param name="E">
-              <extends>
-                <type name="Rec">
-                  <var name="E"/>
-                </type>
-              </extends>
-            </param>
-          </type>
-          <type name="Color" ns="example">
-            <ancestor>
-              <type name="Rec">
-                <type name="Color"/>
-              </type>
-            </ancestor>
-          </type>
-          <block id="b_color_fn" name="Color.fn" ns="example">
-            <out name="value">
-              <type name="c1">
-                <type name="Color"/>
-              </type>
-            </out>
-          </block>
-          <block id="b_rec_new" name="rec.new" ns="example">
-            <param name="T">
-              <extends>
-                <type name="Rec">
-                  <var name="T"/>
-                </type>
-              </extends>
-            </param>
-            <in name="cls">
-              <type name="c1">
-                <var name="T"/>
-              </type>
-            </in>
-            <out name="value" type="T"/>
-          </block>
-        </blocks>
-      `,
-    );
+    cat.addJson("color.json", {
+      id: "example",
+      name: "Example",
+      types: [
+        { name: "Rec", ns: "example", params: [{ name: "E", extends: { name: "Rec", args: ["E"] } }] },
+        { name: "Color", ns: "example", ancestors: [{ name: "Rec", args: ["Color"] }] },
+      ],
+      blocks: [
+        { id: "b_color_fn", name: "Color.fn", ns: "example", out: [{ name: "value", type: { name: "c1", args: ["Color"] } }] },
+        {
+          id: "b_rec_new",
+          name: "rec.new",
+          ns: "example",
+          params: [{ name: "T", extends: { name: "Rec", args: ["T"] } }],
+          in: [{ name: "cls", type: { name: "c1", args: ["T"] } }],
+          out: [{ name: "value", type: "T" }],
+        },
+      ],
+    });
     const resolved = resolveBlock(
       cat,
       "b_rec_new",
@@ -507,47 +437,45 @@ describe("blocks", () => {
 
   it("incompatible grounding is reported", () => {
     const cat = catalog();
-    cat.addXml(
-      "need.xml",
-      `
-        <blocks id="b" name="B">
-          <block id="need_c1" name="Need" ns="test">
-            <param name="N">
-              <extends>
-                <type name="c1">
-                  <type name="Double"/>
-                </type>
-              </extends>
-            </param>
-            <in name="in" type="N"/>
-            <out name="out" type="N"/>
-          </block>
-        </blocks>
-      `,
-    );
+    cat.addJson("need.json", {
+      id: "b",
+      name: "B",
+      blocks: [
+        {
+          id: "need_c1",
+          name: "Need",
+          ns: "test",
+          params: [{ name: "N", extends: { name: "c1", args: ["Double"] } }],
+          in: [{ name: "in", type: "N" }],
+          out: [{ name: "out", type: "N" }],
+        },
+      ],
+    });
     const resolved = resolveBlock(cat, "need_c1", new Map([["in", { kind: "single", ty: t("Int") }]]));
     expect(resolved.compatible.get("in")).toBe(false);
   });
 
   it("builder Self type is namespace", () => {
     const cat = new Catalog();
-    cat.addXml(
-      "mod.xml",
-      `
-        <blocks id="mod" name="Module">
-          <block id="b_path" name="path" ns="example.Builder">
-            <factory id="Builder#path"/>
-            <in name="segment" type="String"/>
-            <out name="this" type="Self"/>
-          </block>
-        </blocks>
-      `,
-    );
+    cat.addJson("mod.json", {
+      id: "mod",
+      name: "Module",
+      blocks: [
+        {
+          id: "b_path",
+          name: "path",
+          ns: "example.Builder",
+          factory: "Builder#path",
+          in: [{ name: "segment", type: "String" }],
+          out: [{ name: "this", type: "Self" }],
+        },
+      ],
+    });
     const resolved = resolveBlock(cat, "b_path", new Map([["segment", { kind: "single", ty: t("String") }]]));
     expectType(resolvedOutput(resolved, "this"), t("example.Builder"));
   });
 
-  it("diagram associates multiple xml files and grounds inputs", () => {
+  it("diagram associates multiple catalog files and grounds inputs", () => {
     const diagram = new Diagram("d1", "Demo");
     associateFixtureModels(diagram);
     expect(diagram.sources().length).toBe(3);
@@ -579,11 +507,11 @@ describe("blocks", () => {
     expectType(resolvedOutput(diagram.resolveNode(arrayId)!, "result"), arrayOf(t("Double")));
   });
 
-  it("dissociate xml rebuilds catalog", () => {
+  it("dissociate catalog rebuilds catalog", () => {
     const diagram = new Diagram("d3", "Drop");
     associateFixtureModels(diagram);
     diagram.addNode("b_array_of");
-    diagram.dissociateXml("fixtures.xml");
+    diagram.dissociateJson("fixtures.json");
     expect(diagram.catalog().block("b_array_of")).toBeUndefined();
     expect(diagram.catalog().block("timer")).toBeDefined();
     expect(diagram.nodes().length).toBe(0);
@@ -1096,20 +1024,24 @@ describe("constants, settings, relations, and type intersection inference", () =
     });
   });
 
-  describe("XML settings and parameter representation", () => {
-    it("parses block with <settings> container and typed <setting> elements", () => {
-      const xml = `
-        <blocks id="cfg" name="Config">
-          <block id="b_cfg" name="ConfigBlock" ns="test">
-            <settings>
-              <setting name="bufferSize" type="Int" default="1024" min="64" max="65536" step="64"/>
-              <setting name="threshold" type="Double" default="0.75" min="0" max="1" step="0.05"/>
-              <setting name="mode" type="String" default="fast" pattern="[a-z]+"/>
-            </settings>
-          </block>
-        </blocks>
-      `;
-      const doc = parseBlocks("cfg.xml", xml);
+  describe("JSON settings and parameter representation", () => {
+    it("parses block settings and typed setting elements", () => {
+      const doc = parseCatalog("cfg.json", {
+        id: "cfg",
+        name: "Config",
+        blocks: [
+          {
+            id: "b_cfg",
+            name: "ConfigBlock",
+            ns: "test",
+            settings: [
+              { name: "bufferSize", type: "Int", default: "1024", min: 64, max: 65536, step: 64 },
+              { name: "threshold", type: "Double", default: "0.75", min: 0, max: 1, step: 0.05 },
+              { name: "mode", type: "String", default: "fast", pattern: "[a-z]+" },
+            ],
+          },
+        ],
+      });
       const block = doc.blocks[0];
       expect(block.parameters).toHaveLength(3);
       expect(block.settings).toHaveLength(3);
@@ -1135,18 +1067,22 @@ describe("constants, settings, relations, and type intersection inference", () =
     });
 
     it("parses block with typed specific parameters", () => {
-      const xml = `
-        <blocks id="p" name="Params">
-          <block id="b_proc" name="Proc" ns="test">
-            <parameters>
-              <integer-parameter name="retries" type="Int" default="3"/>
-              <double-range-parameter name="ratio" type="Double" min="0.1" max="5.0" step="0.1" default="1.0"/>
-              <parameter name="customFlag" type="Bool" default="true"/>
-            </parameters>
-          </block>
-        </blocks>
-      `;
-      const doc = parseBlocks("p.xml", xml);
+      const doc = parseCatalog("p.json", {
+        id: "p",
+        name: "Params",
+        blocks: [
+          {
+            id: "b_proc",
+            name: "Proc",
+            ns: "test",
+            parameters: [
+              { kind: "integer-parameter", name: "retries", type: "Int", default: "3" },
+              { kind: "double-range-parameter", name: "ratio", type: "Double", min: 0.1, max: 5.0, step: 0.1, default: "1.0" },
+              { kind: "parameter", name: "customFlag", type: "Bool", default: "true" },
+            ],
+          },
+        ],
+      });
       const block = doc.blocks[0];
       expect(block.parameters).toHaveLength(3);
       expect(block.parameters[0].name).toBe("retries");
@@ -1158,18 +1094,24 @@ describe("constants, settings, relations, and type intersection inference", () =
     });
   });
 
-  describe("XML ports, variance, and relation representation", () => {
+  describe("JSON ports, variance, and relation representation", () => {
     it("parses input/output aliases and port direction/relations", () => {
-      const xml = `
-        <blocks id="ports_test" name="Ports">
-          <block id="b_rel_port" name="RelPort" ns="test">
-            <input name="in1" type="Double" icon="pin"/>
-            <input name="in2" type="Int"/>
-            <output name="out1" type="Double" icon="out_pin" relation="intersection" relatesTo="in1,in2"/>
-          </block>
-        </blocks>
-      `;
-      const doc = parseBlocks("ports.xml", xml);
+      const doc = parseCatalog("ports.json", {
+        id: "ports_test",
+        name: "Ports",
+        blocks: [
+          {
+            id: "b_rel_port",
+            name: "RelPort",
+            ns: "test",
+            inputs: [
+              { name: "in1", type: "Double", icon: "pin" },
+              { name: "in2", type: "Int" },
+            ],
+            outputs: [{ name: "out1", type: "Double", icon: "out_pin", relation: "intersection", relatesTo: "in1,in2" }],
+          },
+        ],
+      });
       const block = doc.blocks[0];
       expect(block.inputs).toHaveLength(2);
       expect(block.outputs).toHaveLength(1);
@@ -1188,17 +1130,18 @@ describe("constants, settings, relations, and type intersection inference", () =
     });
 
     it("parses type parameter variance, super, and relation attributes", () => {
-      const xml = `
-        <blocks id="type_params" name="TypeParams">
-          <block id="b_poly" name="Poly" ns="test">
-            <param name="T" variance="+" relation="intersection">
-              <extends type="Rec[T]"/>
-              <super type="Int"/>
-            </param>
-          </block>
-        </blocks>
-      `;
-      const doc = parseBlocks("poly.xml", xml);
+      const doc = parseCatalog("poly.json", {
+        id: "type_params",
+        name: "TypeParams",
+        blocks: [
+          {
+            id: "b_poly",
+            name: "Poly",
+            ns: "test",
+            params: [{ name: "T", variance: "+", relation: "intersection", extends: "Rec[T]", super: "Int" }],
+          },
+        ],
+      });
       const param = doc.blocks[0].params[0];
       expect(param.name).toBe("T");
       expect(param.variance).toBe("+");
@@ -1208,19 +1151,24 @@ describe("constants, settings, relations, and type intersection inference", () =
       expectType(param.super![0], t("Int"));
     });
 
-    it("parses <relation> and <type-relation> elements in blocks", () => {
-      const xml = `
-        <blocks id="rel_doc" name="RelDoc">
-          <block id="b_intersect_block" name="IntersectBlock" ns="test">
-            <in name="inA" type="Double"/>
-            <in name="inB" type="Int"/>
-            <out name="res" type="Unit"/>
-            <relation kind="intersection" from="inA,inB" to="res"/>
-            <type-relation kind="union" input="inA,inB" output="res2"/>
-          </block>
-        </blocks>
-      `;
-      const doc = parseBlocks("rel.xml", xml);
+    it("parses relation entries in blocks", () => {
+      const doc = parseCatalog("rel.json", {
+        id: "rel_doc",
+        name: "RelDoc",
+        blocks: [
+          {
+            id: "b_intersect_block",
+            name: "IntersectBlock",
+            ns: "test",
+            in: [{ name: "inA", type: "Double" }, { name: "inB", type: "Int" }],
+            out: [{ name: "res", type: "Unit" }],
+            relations: [
+              { kind: "intersection", from: "inA,inB", to: "res" },
+              { kind: "union", input: "inA,inB", output: "res2" },
+            ],
+          },
+        ],
+      });
       const block = doc.blocks[0];
       expect(block.relations).toBeDefined();
       expect(block.relations).toHaveLength(2);
@@ -1306,20 +1254,15 @@ describe("constants, settings, relations, and type intersection inference", () =
   describe("subtype simplification in intersections and unions", () => {
     function setupSubtypeCatalog(): Catalog {
       const cat = new Catalog();
-      cat.addXml(
-        "shapes.xml",
-        `
-          <blocks id="shapes" name="Shapes">
-            <type name="Shape" ns="shapes"/>
-            <type name="Polygon" ns="shapes">
-              <ancestor type="shapes.Shape"/>
-            </type>
-            <type name="Triangle" ns="shapes">
-              <ancestor type="shapes.Polygon"/>
-            </type>
-          </blocks>
-        `,
-      );
+      cat.addJson("shapes.json", {
+        id: "shapes",
+        name: "Shapes",
+        types: [
+          { name: "Shape", ns: "shapes" },
+          { name: "Polygon", ns: "shapes", extends: "shapes.Shape" },
+          { name: "Triangle", ns: "shapes", extends: "shapes.Polygon" },
+        ],
+      });
       return cat;
     }
 
@@ -1361,19 +1304,20 @@ describe("constants, settings, relations, and type intersection inference", () =
   describe("block type parameter inference as intersection across inputs", () => {
     it("infers generic parameter T as intersection when grounded by two inputs", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "merge.xml",
-        `
-          <blocks id="b_test" name="Test">
-            <block id="b_merge" name="Merge" ns="test">
-              <param name="T"/>
-              <in name="in1" type="T"/>
-              <in name="in2" type="T"/>
-              <out name="out" type="T"/>
-            </block>
-          </blocks>
-        `,
-      );
+      cat.addJson("merge.json", {
+        id: "b_test",
+        name: "Test",
+        blocks: [
+          {
+            id: "b_merge",
+            name: "Merge",
+            ns: "test",
+            params: ["T"],
+            in: [{ name: "in1", type: "T" }, { name: "in2", type: "T" }],
+            out: [{ name: "out", type: "T" }],
+          },
+        ],
+      });
       const resolved = resolveBlock(
         cat,
         "b_merge",
@@ -1390,20 +1334,20 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("infers generic parameter T as intersection across three inputs", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "merge3.xml",
-        `
-          <blocks id="b_test" name="Test">
-            <block id="b_merge3" name="Merge3" ns="test">
-              <param name="T"/>
-              <in name="in1" type="T"/>
-              <in name="in2" type="T"/>
-              <in name="in3" type="T"/>
-              <out name="out" type="T"/>
-            </block>
-          </blocks>
-        `,
-      );
+      cat.addJson("merge3.json", {
+        id: "b_test",
+        name: "Test",
+        blocks: [
+          {
+            id: "b_merge3",
+            name: "Merge3",
+            ns: "test",
+            params: ["T"],
+            in: [{ name: "in1", type: "T" }, { name: "in2", type: "T" }, { name: "in3", type: "T" }],
+            out: [{ name: "out", type: "T" }],
+          },
+        ],
+      });
       const resolved = resolveBlock(
         cat,
         "b_merge3",
@@ -1419,23 +1363,24 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("simplifies intersection when inputs have a subtyping relation", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "subtypes.xml",
-        `
-          <blocks id="sub_mod" name="SubMod">
-            <type name="Base" ns="sub"/>
-            <type name="Derived" ns="sub">
-              <ancestor type="sub.Base"/>
-            </type>
-            <block id="b_sub_merge" name="SubMerge" ns="sub">
-              <param name="T"/>
-              <in name="in1" type="T"/>
-              <in name="in2" type="T"/>
-              <out name="out" type="T"/>
-            </block>
-          </blocks>
-        `,
-      );
+      cat.addJson("subtypes.json", {
+        id: "sub_mod",
+        name: "SubMod",
+        types: [
+          { name: "Base", ns: "sub" },
+          { name: "Derived", ns: "sub", extends: "sub.Base" },
+        ],
+        blocks: [
+          {
+            id: "b_sub_merge",
+            name: "SubMerge",
+            ns: "sub",
+            params: ["T"],
+            in: [{ name: "in1", type: "T" }, { name: "in2", type: "T" }],
+            out: [{ name: "out", type: "T" }],
+          },
+        ],
+      });
       const resolved = resolveBlock(
         cat,
         "b_sub_merge",
@@ -1451,19 +1396,20 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("respects explicit strategy in ResolveOptions", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "opt.xml",
-        `
-          <blocks id="opt" name="Opt">
-            <block id="b_opt" name="Opt" ns="test">
-              <param name="T"/>
-              <in name="in1" type="T"/>
-              <in name="in2" type="T"/>
-              <out name="out" type="T"/>
-            </block>
-          </blocks>
-        `,
-      );
+      cat.addJson("opt.json", {
+        id: "opt",
+        name: "Opt",
+        blocks: [
+          {
+            id: "b_opt",
+            name: "Opt",
+            ns: "test",
+            params: ["T"],
+            in: [{ name: "in1", type: "T" }, { name: "in2", type: "T" }],
+            out: [{ name: "out", type: "T" }],
+          },
+        ],
+      });
       const block = cat.block("b_opt")!;
       const resolver = new TypeResolver(cat);
       const grounding = new Map<string, Grounding>([
@@ -1484,22 +1430,20 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("respects param relation='intersection' on vararg input", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "param_rel.xml",
-        `
-          <blocks id="pr" name="PR">
-            <block id="b_inter_varargs" name="InterVarargs" ns="test">
-              <param name="T" relation="intersection"/>
-              <in name="elems" type="T" vararg="true"/>
-              <out name="result">
-                <type name="Array">
-                  <var name="T"/>
-                </type>
-              </out>
-            </block>
-          </blocks>
-        `,
-      );
+      cat.addJson("param_rel.json", {
+        id: "pr",
+        name: "PR",
+        blocks: [
+          {
+            id: "b_inter_varargs",
+            name: "InterVarargs",
+            ns: "test",
+            params: [{ name: "T", relation: "intersection" }],
+            in: [{ name: "elems", type: "T", vararg: true }],
+            out: [{ name: "result", type: { name: "Array", args: ["T"] } }],
+          },
+        ],
+      });
       const resolved = resolveBlock(
         cat,
         "b_inter_varargs",
@@ -1513,21 +1457,22 @@ describe("constants, settings, relations, and type intersection inference", () =
   });
 
   describe("explicit relations between input and output types", () => {
-    it("infers output type as intersection via <relation kind='intersection'>", () => {
+    it("infers output type as intersection via relation kind intersection", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "rel_block.xml",
-        `
-          <blocks id="rb" name="RB">
-            <block id="b_rel_inter" name="RelInter" ns="test">
-              <in name="a" type="Double"/>
-              <in name="b" type="Int"/>
-              <out name="out" type="_"/>
-              <relation kind="intersection" from="a,b" to="out"/>
-            </block>
-          </blocks>
-        `,
-      );
+      cat.addJson("rel_block.json", {
+        id: "rb",
+        name: "RB",
+        blocks: [
+          {
+            id: "b_rel_inter",
+            name: "RelInter",
+            ns: "test",
+            in: [{ name: "a", type: "Double" }, { name: "b", type: "Int" }],
+            out: [{ name: "out", type: "_" }],
+            relations: [{ kind: "intersection", from: "a,b", to: "out" }],
+          },
+        ],
+      });
       const resolved = resolveBlock(
         cat,
         "b_rel_inter",
@@ -1539,21 +1484,22 @@ describe("constants, settings, relations, and type intersection inference", () =
       expectType(resolvedOutput(resolved, "out"), intersectionOf([t("Double"), t("Int")]));
     });
 
-    it("infers output type as union via <relation kind='union'>", () => {
+    it("infers output type as union via relation kind union", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "rel_union.xml",
-        `
-          <blocks id="ru" name="RU">
-            <block id="b_rel_union" name="RelUnion" ns="test">
-              <in name="x" type="Float"/>
-              <in name="y" type="Double"/>
-              <out name="out" type="_"/>
-              <relation kind="union" from="x,y" to="out"/>
-            </block>
-          </blocks>
-        `,
-      );
+      cat.addJson("rel_union.json", {
+        id: "ru",
+        name: "RU",
+        blocks: [
+          {
+            id: "b_rel_union",
+            name: "RelUnion",
+            ns: "test",
+            in: [{ name: "x", type: "Float" }, { name: "y", type: "Double" }],
+            out: [{ name: "out", type: "_" }],
+            relations: [{ kind: "union", from: "x,y", to: "out" }],
+          },
+        ],
+      });
       const resolved = resolveBlock(
         cat,
         "b_rel_union",
@@ -1567,18 +1513,19 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("infers output type via port relatesTo and relation attributes", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "port_rel.xml",
-        `
-          <blocks id="pr2" name="PR2">
-            <block id="b_port_rel" name="PortRel" ns="test">
-              <in name="inA" type="String"/>
-              <in name="inB" type="Int"/>
-              <out name="res" type="_" relation="intersection" relatesTo="inA,inB"/>
-            </block>
-          </blocks>
-        `,
-      );
+      cat.addJson("port_rel.json", {
+        id: "pr2",
+        name: "PR2",
+        blocks: [
+          {
+            id: "b_port_rel",
+            name: "PortRel",
+            ns: "test",
+            in: [{ name: "inA", type: "String" }, { name: "inB", type: "Int" }],
+            out: [{ name: "res", type: "_", relation: "intersection", relatesTo: "inA,inB" }],
+          },
+        ],
+      });
       const resolved = resolveBlock(
         cat,
         "b_port_rel",
@@ -1592,18 +1539,20 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("infers output type via identity relation", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "id_rel.xml",
-        `
-          <blocks id="idr" name="IDR">
-            <block id="b_ident_rel" name="IdentRel" ns="test">
-              <in name="source" type="Array[Int]"/>
-              <out name="dest" type="_"/>
-              <relation kind="identity" from="source" to="dest"/>
-            </block>
-          </blocks>
-        `,
-      );
+      cat.addJson("id_rel.json", {
+        id: "idr",
+        name: "IDR",
+        blocks: [
+          {
+            id: "b_ident_rel",
+            name: "IdentRel",
+            ns: "test",
+            in: [{ name: "source", type: { name: "Array", args: ["Int"] } }],
+            out: [{ name: "dest", type: "_" }],
+            relations: [{ kind: "identity", from: "source", to: "dest" }],
+          },
+        ],
+      });
       const resolved = resolveBlock(
         cat,
         "b_ident_rel",
@@ -1632,41 +1581,30 @@ describe("constants, settings, relations, and type intersection inference", () =
     });
 
     it("wires inferred intersection into downstream blocks in a diagram", () => {
-      const sysXml = `
-        <blocks id="sys" name="Sys">
-          <type name="Double"/>
-          <type name="Int"/>
-          <type name="String"/>
-
-          <block id="source_double" name="SourceDouble" ns="sys">
-            <out name="val" type="Double"/>
-          </block>
-
-          <block id="source_int" name="SourceInt" ns="sys">
-            <out name="val" type="Int"/>
-          </block>
-
-          <block id="combiner" name="Combiner" ns="sys">
-            <param name="T"/>
-            <in name="in1" type="T"/>
-            <in name="in2" type="T"/>
-            <out name="out" type="T"/>
-          </block>
-
-          <block id="sink_double" name="SinkDouble" ns="sys">
-            <in name="in" type="Double"/>
-          </block>
-
-          <block id="sink_int" name="SinkInt" ns="sys">
-            <in name="in" type="Int"/>
-          </block>
-        </blocks>
-      `;
+      const sys = {
+        id: "sys",
+        name: "Sys",
+        types: [{ name: "Double" }, { name: "Int" }, { name: "String" }],
+        blocks: [
+          { id: "source_double", name: "SourceDouble", ns: "sys", out: [{ name: "val", type: "Double" }] },
+          { id: "source_int", name: "SourceInt", ns: "sys", out: [{ name: "val", type: "Int" }] },
+          {
+            id: "combiner",
+            name: "Combiner",
+            ns: "sys",
+            params: ["T"],
+            in: [{ name: "in1", type: "T" }, { name: "in2", type: "T" }],
+            out: [{ name: "out", type: "T" }],
+          },
+          { id: "sink_double", name: "SinkDouble", ns: "sys", in: [{ name: "in", type: "Double" }] },
+          { id: "sink_int", name: "SinkInt", ns: "sys", in: [{ name: "in", type: "Int" }] },
+        ],
+      };
       const cat = new Catalog();
-      cat.addXml("system.xml", sysXml);
+      cat.addJson("system.json", sys);
 
       const diagram = new Diagram("d_sys", "SysDiagram");
-      diagram.associateXml("system.xml", sysXml);
+      diagram.associateJson("system.json", sys);
 
 
       const dId = diagram.addNode("source_double");
@@ -1692,10 +1630,10 @@ describe("constants, settings, relations, and type intersection inference", () =
     });
   });
 
-  describe("types.xsd, blocks.xsd, parameterized types with constraints, and wildcard variance", () => {
-    it("types.xml defines primitive types, standard types, Array, and function types like c1<T>", () => {
+  describe("parameterized types with constraints, and wildcard variance", () => {
+    it("types.json defines primitive types, standard types, Array, and function types like c1<T>", () => {
       const cat = new Catalog();
-      cat.addXml("types.xml", TYPES_XML);
+      cat.addJson("types.json", TYPES_JSON);
 
       const c1Def = cat.findType("c1");
       expect(c1Def).toBeDefined();
@@ -1709,22 +1647,26 @@ describe("constants, settings, relations, and type intersection inference", () =
       expect(isPushType(arrayOf(generic("c1", [t("f64")])))).toBe(true);
     });
 
-    it("parses XML type elements with generics, wildcards, and intersections", () => {
-      const doc = parseBlocks(
-        "test.xml",
-        `
-        <blocks id="test" name="Test">
-          <block id="b1" name="B1" ns="test">
-            <in name="p1"><type name="c1"><type name="f64"/></type></in>
-            <in name="p2"><type name="Animal"><wildcard variance="+" type="Genotype"/></type></in>
-            <in name="p3"><type name="Animal"><wildcard variance="-" type="Cat"/></type></in>
-            <in name="p4"><type name="Animal"><wildcard/></type></in>
-            <in name="p5"><type name="Box"><type name="Box"><var name="T"/></type></type></in>
-            <in name="p6"><type name="Box"><intersection><type name="Reader"/><type name="Writer"/></intersection></type></in>
-          </block>
-        </blocks>
-        `,
-      );
+    it("parses type elements with generics, wildcards, and intersections", () => {
+      const doc = parseCatalog("test.json", {
+        id: "test",
+        name: "Test",
+        blocks: [
+          {
+            id: "b1",
+            name: "B1",
+            ns: "test",
+            in: [
+              { name: "p1", type: { name: "c1", args: ["f64"] } },
+              { name: "p2", type: { name: "Animal", args: [{ wildcard: true, variance: "+", bound: "Genotype" }] } },
+              { name: "p3", type: { name: "Animal", args: [{ wildcard: true, variance: "-", bound: "Cat" }] } },
+              { name: "p4", type: { name: "Animal", args: [{ wildcard: true }] } },
+              { name: "p5", type: { name: "Box", args: [{ name: "Box", args: ["T"] }] } },
+              { name: "p6", type: { name: "Box", args: [{ intersection: ["Reader", "Writer"] }] } },
+            ],
+          },
+        ],
+      });
       const b1 = doc.blocks[0]!;
       const p1 = b1.inputs[0]!.ty;
       expect(p1.kind).toBe("type");
@@ -1768,29 +1710,17 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("types can have type parameters and constraints without variance: Animal<X extends Genotype>, Cat<X extends Genotype> extends Animal<X>", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "animals.xml",
-        `
-          <types id="animals" name="Animals" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="types.xsd">
-            <type name="Genotype"/>
-            <type name="CatGenotype" extends="Genotype"/>
-            <type name="DogGenotype" extends="Genotype"/>
-
-            <type name="Animal">
-              <var name="X" extends="Genotype"/>
-            </type>
-
-            <type name="Cat">
-              <var name="X" extends="Genotype"/>
-              <extends>
-                <type name="Animal">
-                  <var name="X"/>
-                </type>
-              </extends>
-            </type>
-          </types>
-        `,
-      );
+      cat.addJson("animals.json", {
+        id: "animals",
+        name: "Animals",
+        types: [
+          { name: "Genotype" },
+          { name: "CatGenotype", extends: "Genotype" },
+          { name: "DogGenotype", extends: "Genotype" },
+          { name: "Animal", params: [{ name: "X", extends: "Genotype" }] },
+          { name: "Cat", params: [{ name: "X", extends: "Genotype" }], extends: { name: "Animal", args: ["X"] } },
+        ],
+      });
 
       const animalDef = cat.findType("Animal");
       expect(animalDef).toBeDefined();
@@ -1819,29 +1749,17 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("wildcard variance: only wildcards have variance, enabling use-site covariance and contravariance", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "wildcards.xml",
-        `
-          <types id="wildcards" name="Wildcards" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="types.xsd">
-            <type name="Genotype"/>
-            <type name="CatGenotype" extends="Genotype"/>
-            <type name="PersianGenotype" extends="CatGenotype"/>
-
-            <type name="Animal">
-              <var name="X" extends="Genotype"/>
-            </type>
-
-            <type name="Cat">
-              <var name="X" extends="Genotype"/>
-              <extends>
-                <type name="Animal">
-                  <var name="X"/>
-                </type>
-              </extends>
-            </type>
-          </types>
-        `,
-      );
+      cat.addJson("wildcards.json", {
+        id: "wildcards",
+        name: "Wildcards",
+        types: [
+          { name: "Genotype" },
+          { name: "CatGenotype", extends: "Genotype" },
+          { name: "PersianGenotype", extends: "CatGenotype" },
+          { name: "Animal", params: [{ name: "X", extends: "Genotype" }] },
+          { name: "Cat", params: [{ name: "X", extends: "Genotype" }], extends: { name: "Animal", args: ["X"] } },
+        ],
+      });
 
       // Invariance without wildcards:
       // Animal<Genotype> requires Animal<Genotype> exactly, Animal<CatGenotype> cannot be passed
@@ -1870,24 +1788,27 @@ describe("constants, settings, relations, and type intersection inference", () =
       expect(isCompatible(cat, [], unboundedWild, generic("Cat", [t("PersianGenotype")]))).toBe(true);
     });
 
-    it("block can have type variables via <var> with constraints (extends ...)", () => {
+    it("block can have type variables with constraints", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "block_vars.xml",
-        `
-          <blocks id="test_block_vars" name="TestBlockVars" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
-            <type name="Genotype"/>
-            <type name="CatGenotype" extends="Genotype"/>
-            <type name="String"/>
-
-            <block id="b_process_gene" name="ProcessGene" ns="test">
-              <var name="T" extends="Genotype"/>
-              <in name="gene" type="T"/>
-              <out name="result" type="T"/>
-            </block>
-          </blocks>
-        `,
-      );
+      cat.addJson("block_vars.json", {
+        id: "test_block_vars",
+        name: "TestBlockVars",
+        types: [
+          { name: "Genotype" },
+          { name: "CatGenotype", extends: "Genotype" },
+          { name: "String" },
+        ],
+        blocks: [
+          {
+            id: "b_process_gene",
+            name: "ProcessGene",
+            ns: "test",
+            vars: [{ name: "T", extends: "Genotype" }],
+            in: [{ name: "gene", type: "T" }],
+            out: [{ name: "result", type: "T" }],
+          },
+        ],
+      });
 
       const block = cat.block("b_process_gene")!;
       expect(block).toBeDefined();
@@ -1911,99 +1832,39 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("each input can define its type via block type variable, raw type, intersection, and parameterized type with all forms", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "all_input_forms.xml",
-        `
-          <blocks id="input_forms" name="InputForms" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
-            <type name="Genotype"/>
-            <type name="Cat" extends="Genotype"/>
-            <type name="Reader"/>
-            <type name="Writer"/>
-            <type name="f64"/>
-
-            <type name="Animal">
-              <var name="X" extends="Genotype"/>
-            </type>
-
-            <type name="Box">
-              <var name="T"/>
-            </type>
-
-            <block id="b_all_forms" name="AllForms" ns="test">
-              <var name="V" extends="Genotype"/>
-
-              <!-- 1. Block type variable -->
-              <in name="p_var" type="V"/>
-
-              <!-- 2. Raw type -->
-              <in name="p_raw" type="f64"/>
-
-              <!-- 3. Intersection type -->
-              <in name="p_inter">
-                <intersection>
-                  <type name="Reader"/>
-                  <type name="Writer"/>
-                </intersection>
-              </in>
-
-              <!-- 4. Parameterized type with: -->
-              <!-- 4a. parameterized type of this definition -->
-              <in name="p_param_nested">
-                <type name="Box">
-                  <type name="Box">
-                    <var name="V"/>
-                  </type>
-                </type>
-              </in>
-
-              <!-- 4b. block type variable -->
-              <in name="p_param_var">
-                <type name="Box">
-                  <var name="V"/>
-                </type>
-              </in>
-
-              <!-- 4c. raw type -->
-              <in name="p_param_raw">
-                <type name="Box">
-                  <raw-type name="f64"/>
-                </type>
-              </in>
-
-              <!-- 4d. wildcard type with upper bound -->
-              <in name="p_param_wild_upper">
-                <type name="Animal">
-                  <wildcard variance="+" type="Genotype"/>
-                </type>
-              </in>
-
-              <!-- 4e. wildcard type with lower bound -->
-              <in name="p_param_wild_lower">
-                <type name="Animal">
-                  <wildcard variance="-" type="Cat"/>
-                </type>
-              </in>
-
-              <!-- 4f. wildcard type unbounded -->
-              <in name="p_param_wild_unbounded">
-                <type name="Animal">
-                  <wildcard/>
-                </type>
-              </in>
-
-              <!-- 4g. intersection type -->
-              <in name="p_param_inter">
-                <type name="Box">
-                  <intersection>
-                    <type name="Reader"/>
-                    <type name="Writer"/>
-                  </intersection>
-                </type>
-              </in>
-            </block>
-          </blocks>
-        `,
-      );
+      cat.addJson("all_input_forms.json", {
+        id: "input_forms",
+        name: "InputForms",
+        types: [
+          { name: "Genotype" },
+          { name: "Cat", extends: "Genotype" },
+          { name: "Reader" },
+          { name: "Writer" },
+          { name: "f64" },
+          { name: "Animal", params: [{ name: "X", extends: "Genotype" }] },
+          { name: "Box", params: ["T"] },
+        ],
+        blocks: [
+          {
+            id: "b_all_forms",
+            name: "AllForms",
+            ns: "test",
+            vars: [{ name: "V", extends: "Genotype" }],
+            in: [
+              { name: "p_var", type: "V" },
+              { name: "p_raw", type: "f64" },
+              { name: "p_inter", type: { intersection: ["Reader", "Writer"] } },
+              { name: "p_param_nested", type: { name: "Box", args: [{ name: "Box", args: ["V"] }] } },
+              { name: "p_param_var", type: { name: "Box", args: ["V"] } },
+              { name: "p_param_raw", type: { name: "Box", args: ["f64"] } },
+              { name: "p_param_wild_upper", type: { name: "Animal", args: [{ wildcard: true, variance: "+", bound: "Genotype" }] } },
+              { name: "p_param_wild_lower", type: { name: "Animal", args: [{ wildcard: true, variance: "-", bound: "Cat" }] } },
+              { name: "p_param_wild_unbounded", type: { name: "Animal", args: [{ wildcard: true }] } },
+              { name: "p_param_inter", type: { name: "Box", args: [{ intersection: ["Reader", "Writer"] }] } },
+            ],
+          },
+        ],
+      });
 
       const block = cat.block("b_all_forms")!;
       expect(block).toBeDefined();
@@ -2052,114 +1913,23 @@ describe("constants, settings, relations, and type intersection inference", () =
       expectType(resolved.params.get("V"), t("Cat"));
     });
 
-    it("inputs can also be defined via structured XML child elements", () => {
-      const cat = new Catalog();
-      cat.addXml(
-        "structured_inputs.xml",
-        `
-          <blocks id="struct_inputs" name="StructInputs" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
-            <type name="Genotype"/>
-            <type name="Cat" extends="Genotype"/>
-            <type name="f64"/>
-            <type name="Animal"><var name="X" extends="Genotype"/></type>
-            <type name="Box"><var name="T"/></type>
-            <type name="Reader"/>
-            <type name="Writer"/>
-
-            <block id="b_struct" name="StructBlock" ns="test">
-              <var name="V" extends="Genotype"/>
-
-              <!-- block type variable -->
-              <in name="p_var"><var name="V"/></in>
-
-              <!-- raw type -->
-              <in name="p_raw"><raw-type name="f64"/></in>
-
-              <!-- intersection type -->
-              <in name="p_inter">
-                <intersection>
-                  <type name="Reader"/>
-                  <type name="Writer"/>
-                </intersection>
-              </in>
-
-              <!-- parameterized type with wildcard upper bound -->
-              <in name="p_wild_upper">
-                <type name="Animal">
-                  <wildcard variance="+" extends="Genotype"/>
-                </type>
-              </in>
-
-              <!-- parameterized type with wildcard lower bound -->
-              <in name="p_wild_lower">
-                <type name="Animal">
-                  <wildcard variance="-" super="Cat"/>
-                </type>
-              </in>
-
-              <!-- parameterized type with unbounded wildcard -->
-              <in name="p_wild_unbound">
-                <type name="Animal">
-                  <wildcard/>
-                </type>
-              </in>
-
-              <!-- parameterized type with nested parameterized type -->
-              <in name="p_nested">
-                <type name="Box">
-                  <type name="Box">
-                    <var name="V"/>
-                  </type>
-                </type>
-              </in>
-            </block>
-          </blocks>
-        `,
-      );
-
-      const block = cat.block("b_struct")!;
-      expect(block).toBeDefined();
-
-      expect(blockInput(block, "p_var")!.ty.equals(t("V"))).toBe(true);
-      expect(blockInput(block, "p_raw")!.ty.equals(t("f64"))).toBe(true);
-      expect(blockInput(block, "p_inter")!.ty.kind).toBe("intersection");
-
-      const pWildUpper = blockInput(block, "p_wild_upper")!.ty;
-      expect((pWildUpper as any).args[0].kind).toBe("wildcard");
-      expect((pWildUpper as any).args[0].boundKind).toBe("extends");
-
-      const pWildLower = blockInput(block, "p_wild_lower")!.ty;
-      expect((pWildLower as any).args[0].kind).toBe("wildcard");
-      expect((pWildLower as any).args[0].boundKind).toBe("super");
-
-      const pWildUnbound = blockInput(block, "p_wild_unbound")!.ty;
-      expect((pWildUnbound as any).args[0].kind).toBe("wildcard");
-      expect((pWildUnbound as any).args[0].boundKind).toBeNull();
-    });
-
     it("type resolver infers type variables through c1<T> and functions", () => {
       const cat = new Catalog();
-      cat.addXml("types.xml", TYPES_XML);
-      cat.addXml(
-        "fn_blocks.xml",
-        `
-          <blocks id="fn_blocks" name="FnBlocks" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
-            <block id="b_c1_consumer" name="C1Consumer" ns="test">
-              <var name="T"/>
-              <in name="fn">
-                <type name="c1">
-                  <var name="T"/>
-                </type>
-              </in>
-              <out name="echo">
-                <type name="c1">
-                  <var name="T"/>
-                </type>
-              </out>
-            </block>
-          </blocks>
-        `,
-      );
+      cat.addJson("types.json", TYPES_JSON);
+      cat.addJson("fn_blocks.json", {
+        id: "fn_blocks",
+        name: "FnBlocks",
+        blocks: [
+          {
+            id: "b_c1_consumer",
+            name: "C1Consumer",
+            ns: "test",
+            vars: ["T"],
+            in: [{ name: "fn", type: { name: "c1", args: ["T"] } }],
+            out: [{ name: "echo", type: { name: "c1", args: ["T"] } }],
+          },
+        ],
+      });
 
       const block = cat.block("b_c1_consumer")!;
       expect(block).toBeDefined();
@@ -2181,28 +1951,25 @@ describe("constants, settings, relations, and type intersection inference", () =
 
     it("type resolver infers type variables from wildcard bounds", () => {
       const cat = new Catalog();
-      cat.addXml(
-        "wildcard_infer.xml",
-        `
-          <blocks id="wild_infer" name="WildcardInfer" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="blocks.xsd">
-            <type name="Genotype"/>
-            <type name="Cat" extends="Genotype"/>
-            <type name="Animal"><var name="X" extends="Genotype"/></type>
-
-            <block id="b_wild_block" name="WildBlock" ns="test">
-              <var name="T" extends="Genotype"/>
-              <in name="animal">
-                <type name="Animal">
-                  <wildcard variance="+">
-                    <var name="T"/>
-                  </wildcard>
-                </type>
-              </in>
-              <out name="out" type="T"/>
-            </block>
-          </blocks>
-        `,
-      );
+      cat.addJson("wildcard_infer.json", {
+        id: "wild_infer",
+        name: "WildcardInfer",
+        types: [
+          { name: "Genotype" },
+          { name: "Cat", extends: "Genotype" },
+          { name: "Animal", params: [{ name: "X", extends: "Genotype" }] },
+        ],
+        blocks: [
+          {
+            id: "b_wild_block",
+            name: "WildBlock",
+            ns: "test",
+            vars: [{ name: "T", extends: "Genotype" }],
+            in: [{ name: "animal", type: { name: "Animal", args: [{ wildcard: true, variance: "+", bound: "T" }] } }],
+            out: [{ name: "out", type: "T" }],
+          },
+        ],
+      });
 
       const block = cat.block("b_wild_block")!;
       const resolver = new TypeResolver(cat);

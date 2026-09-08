@@ -1,4 +1,4 @@
-import { catalogPortName } from "@bld/xml/blocks/ports";
+import { catalogPortName } from "@bld/model/blocks/ports";
 import type { PortView } from "./types";
 
 export interface PortGroup {

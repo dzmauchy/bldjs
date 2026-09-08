@@ -1,14 +1,14 @@
-import { catalogFromFiles, xmlSourcesForFiles } from "@bld/xml/blocks/builtin";
-import type { Catalog } from "@bld/xml/blocks/catalog";
-import type { Link, XmlSource } from "@bld/xml/blocks/diagram";
-import { diagramFilename, downloadTextFile } from "@bld/xml/diagram/download";
+import { catalogFromFiles, catalogSourcesForFiles } from "@bld/model/blocks/builtin";
+import type { Catalog } from "@bld/model/blocks/catalog";
+import type { Link, ModelSource } from "@bld/model/blocks/diagram";
+import { diagramFilename, downloadTextFile } from "@bld/model/diagram/download";
 import {
   type DiagramRepository,
   type StoredDiagram,
   defaultDiagramRepository,
-} from "@bld/xml/diagram/store";
-import type { BlockExtras } from "@bld/xml/diagram/types";
-import { documentToCanvas, parseDiagramXml, serializeCanvas } from "@bld/xml/diagram/xml";
+} from "@bld/model/diagram/store";
+import type { BlockExtras, CanvasDiagram } from "@bld/model/diagram/types";
+import { parseDiagram, serializeCanvas } from "@bld/model/diagram/json";
 import type { BlockInstance } from "../diagram-model";
 import { HostedState } from "../observable";
 
@@ -17,11 +17,11 @@ export type DiagramIoMode = "closed" | "save" | "open";
 export interface IoHost {
   notify(): void;
   catalog: Catalog;
-  sources: XmlSource[];
+  sources: ModelSource[];
   links: Link[];
   blocks: BlockInstance[];
   extras(): Map<number, BlockExtras>;
-  applyCanvas(canvas: ReturnType<typeof documentToCanvas>): void;
+  applyCanvas(canvas: CanvasDiagram): void;
   applyIdentity(id: string, name: string): void;
   clearRunError(): void;
   get diagramId(): string;
@@ -32,7 +32,7 @@ export interface IoHost {
   touch(): void;
 }
 
-/** Save / open / import / export. Keeps IndexedDB and diagram XML off the run path. */
+/** Save / open / import / export. Keeps IndexedDB and diagram JSON off the run path. */
 export class DiagramIo extends HostedState<IoHost> {
   #repo: DiagramRepository;
   declare mode: DiagramIoMode;
@@ -46,7 +46,7 @@ export class DiagramIo extends HostedState<IoHost> {
     this.defineFields({ mode: "closed", error: null, saveName: "Workspace" });
   }
 
-  toXml(): string {
+  toJson(): string {
     return serializeCanvas({
       id: this.host.diagramId,
       name: this.host.diagramName,
@@ -59,10 +59,10 @@ export class DiagramIo extends HostedState<IoHost> {
     });
   }
 
-  loadXml(xml: string): boolean {
+  loadJson(json: string): boolean {
     try {
-      const canvas = documentToCanvas(parseDiagramXml(xml));
-      const sources = xmlSourcesForFiles(canvas.catalogs);
+      const canvas = parseDiagram(json);
+      const sources = catalogSourcesForFiles(canvas.catalogs);
       const catalog = catalogFromFiles(canvas.catalogs);
       const unknown = canvas.blocks.find((block) => !catalog.block(block.defId));
       if (unknown) {
@@ -75,13 +75,13 @@ export class DiagramIo extends HostedState<IoHost> {
       this.host.clearRunError();
       return true;
     } catch (error) {
-      this.error = error instanceof Error ? error.message : "Invalid diagram XML";
+      this.error = error instanceof Error ? error.message : "Invalid diagram JSON";
       return false;
     }
   }
 
   exportFile(): void {
-    downloadTextFile(diagramFilename(this.host.diagramName), this.toXml());
+    downloadTextFile(diagramFilename(this.host.diagramName), this.toJson());
   }
 
   openSave(): void {
@@ -119,7 +119,7 @@ export class DiagramIo extends HostedState<IoHost> {
       await this.#repo.save({
         id: this.host.diagramId,
         name: trimmed,
-        xml: this.toXml(),
+        json: this.toJson(),
         createdAt: this.host.createdAt,
         updatedAt: this.host.updatedAt,
       });
@@ -140,7 +140,7 @@ export class DiagramIo extends HostedState<IoHost> {
         this.error = "Diagram not found";
         return false;
       }
-      if (!this.loadXml(record.xml)) {
+      if (!this.loadJson(record.json)) {
         return false;
       }
       this.host.applyIdentity(record.id, record.name);

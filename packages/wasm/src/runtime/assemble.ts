@@ -1,11 +1,11 @@
-import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
-import { Diagram } from "@bld/xml/blocks/diagram";
-import { type SolutionView, type SolutionViewConnector } from "@bld/xml/solution/view";
+import { associateBuiltinModels } from "@bld/model/blocks/builtin";
+import { Diagram } from "@bld/model/blocks/diagram";
+import { type SolutionView, type SolutionViewConnector } from "@bld/model/solution/view";
 import { linearSolutionView, WasmSolutionBuilder } from "../solution/wasm";
 import { blockSignature, blockTypeWat } from "./signatures";
 
 export { blockTypeWat } from "./signatures";
-export type { SolutionView } from "@bld/xml/solution/view";
+export type { SolutionView } from "@bld/model/solution/view";
 
 export interface AssembleOptions {
   generator?: string;

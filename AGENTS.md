@@ -29,9 +29,9 @@ This project expects **Grok 4.6 High** at standard (non-Fast) speed. If that is 
 
 ## Testing
 
-Cover type resolution, XML parsing, catalog merge, compatibility, 
+Cover type resolution, JSON parsing, catalog merge, compatibility, 
 and input grounding with Vitest (`make test` / `npm test`). 
-Put those tests next to the logic (for example `packages/xml/src/blocks/blocks.test.ts`).
+Put those tests next to the logic (for example `packages/model/src/blocks/blocks.test.ts`).
 
 Cover UI-specific behavior (port clicks, wiring interaction, layout, pan/zoom, drag) 
 with Playwright (`make test-e2e` / `npm run test:e2e`). Prefer Playwright tests over launching browser subagents.
@@ -41,14 +41,14 @@ Do not repeat a UI walkthrough for inference cases that unit tests already cover
 
 ## Imports
 
-Do not import `@bld/types`, `@bld/xml`, or `@bld/wasm` package roots. Those packages have no
+Do not import `@bld/types`, `@bld/model`, or `@bld/wasm` package roots. Those packages have no
 kitchen-sink barrel. Import the file that owns the symbol:
 
 - `@bld/types/ast`, `catalog`, `compat`, `ports`, `resolve`, `format`, `types`
-- `@bld/xml/blocks/ast`, `catalog`, `compat`, `ports`, `resolve`, `parse`, `diagram`, `builtin`
-- `@bld/xml/blocks/cs/ids`, `cs/types`, `cs/plan`
-- `@bld/xml/diagram/xml`, `diagram/store`, `diagram/compile`
-- `@bld/xml/solution/view`, `@bld/xml/flow`, `@bld/xml/topology`, `@bld/xml/runner`
+- `@bld/model/blocks/ast`, `catalog`, `compat`, `ports`, `resolve`, `parse`, `diagram`, `builtin`
+- `@bld/model/blocks/cs/ids`, `cs/types`, `cs/plan`
+- `@bld/model/diagram/json`, `diagram/store`, `diagram/compile`
+- `@bld/model/solution/view`, `@bld/model/flow`, `@bld/model/topology`, `@bld/model/runner`
 - `@bld/wasm/isolation`, `@bld/wasm/runtime/diagram-runner`, `@bld/wasm/solution/wasm`
 
 UI run/stop lives in `packages/ui/src/lib/state/run.ts`. Save/open lives in

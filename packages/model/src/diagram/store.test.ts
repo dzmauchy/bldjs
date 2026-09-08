@@ -7,14 +7,14 @@ describe("diagram library", () => {
     await repo.save({
       id: "diag_a",
       name: "Alpha",
-      xml: "<diagram/>",
+      json: "{}",
       createdAt: "2026-08-31T05:00:00Z",
       updatedAt: "2026-08-31T05:10:00Z",
     });
     await repo.save({
       id: "diag_b",
       name: "Beta",
-      xml: "<diagram id='b'/>",
+      json: "{}",
       createdAt: "2026-08-31T05:00:00Z",
       updatedAt: "2026-08-31T05:20:00Z",
     });

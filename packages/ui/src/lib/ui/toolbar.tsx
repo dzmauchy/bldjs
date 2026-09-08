@@ -25,9 +25,9 @@ export class BldToolbar extends AppHost {
     if (this.#menuOpen[0]() && !e.composedPath().includes(this)) this.#close();
   };
 
-  #importXml(): void {
+  #importJson(): void {
     this.#close();
-    const input = this.querySelector<HTMLInputElement>('[data-testid="import-xml-input"]');
+    const input = this.querySelector<HTMLInputElement>('[data-testid="import-json-input"]');
     if (input) {
       input.value = "";
       input.click();
@@ -38,7 +38,7 @@ export class BldToolbar extends AppHost {
     const input = event.target as HTMLInputElement;
     const file = input?.files?.[0];
     if (input) input.value = "";
-    if (file) this.app.io.loadXml(await file.text());
+    if (file) this.app.io.loadJson(await file.text());
   }
 
   override render(): JSX.Element {
@@ -89,9 +89,9 @@ export class BldToolbar extends AppHost {
         </button>
         <input
           type="file"
-          accept=".xml,text/xml,application/xml"
+          accept=".json,application/json"
           hidden
-          data-testid="import-xml-input"
+          data-testid="import-json-input"
           onChange={(e) => this.#onImportFile(e)}
         />
 
@@ -127,8 +127,8 @@ export class BldToolbar extends AppHost {
                   {item("menu-new-canvas", "New canvas", () => app.clearCanvas())}
                   {item("menu-save-diagram", "Save…", () => app.io.openSave())}
                   {item("menu-open-diagram", "Open…", () => void app.io.openLibrary())}
-                  {item("menu-import-xml", "Import XML…", () => this.#importXml())}
-                  {item("menu-export-xml", "Export XML", () => app.io.exportFile())}
+                  {item("menu-import-json", "Import JSON…", () => this.#importJson())}
+                  {item("menu-export-json", "Export JSON", () => app.io.exportFile())}
                   {item("menu-delete-selected", "Delete selected", () => app.deleteSelected())}
 
                   <wa-divider></wa-divider>

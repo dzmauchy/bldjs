@@ -100,15 +100,15 @@ describe("BldToolbar", () => {
     expect(dropdown()?.querySelector('[data-testid="menu-new-canvas"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-save-diagram"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-open-diagram"]')).not.toBeNull();
-    expect(dropdown()?.querySelector('[data-testid="menu-import-xml"]')).not.toBeNull();
-    expect(dropdown()?.querySelector('[data-testid="menu-export-xml"]')).not.toBeNull();
+    expect(dropdown()?.querySelector('[data-testid="menu-import-json"]')).not.toBeNull();
+    expect(dropdown()?.querySelector('[data-testid="menu-export-json"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-zoom-in"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-catalogs"]')?.textContent).toBe("Catalogs");
-    expect(dropdown()?.querySelector('[data-testid="menu-catalog-types.xml"]')?.textContent).toContain("Types");
-    expect(dropdown()?.querySelector('[data-testid="menu-catalog-control-systems.xml"]')?.textContent).toContain(
+    expect(dropdown()?.querySelector('[data-testid="menu-catalog-types.json"]')?.textContent).toContain("Types");
+    expect(dropdown()?.querySelector('[data-testid="menu-catalog-control-systems.json"]')?.textContent).toContain(
       "Control Systems",
     );
-    expect(dropdown()?.textContent).not.toContain("types.xml");
+    expect(dropdown()?.textContent).not.toContain("types.json");
   });
 
   it("toggles a catalog from the overflow menu by display name", async () => {
@@ -121,14 +121,14 @@ describe("BldToolbar", () => {
     (bar.renderRoot.querySelector('[data-testid="toolbar-menu"]') as HTMLButtonElement).click();
     await bar.updateComplete;
     const control = bar.renderRoot.querySelector(
-      '[data-testid="menu-catalog-control-systems.xml"]',
+      '[data-testid="menu-catalog-control-systems.json"]',
     ) as HTMLButtonElement;
     expect(control.getAttribute("aria-checked")).toBe("true");
     control.click();
     await bar.updateComplete;
     expect(app.blockDef("timer")).toBeUndefined();
     expect(
-      bar.renderRoot.querySelector('[data-testid="menu-catalog-control-systems.xml"]')?.getAttribute("aria-checked"),
+      bar.renderRoot.querySelector('[data-testid="menu-catalog-control-systems.json"]')?.getAttribute("aria-checked"),
     ).toBe("false");
     expect(bar.renderRoot.querySelector('[data-testid="toolbar-menu-dropdown"]')?.classList.contains("show")).toBe(
       true,
