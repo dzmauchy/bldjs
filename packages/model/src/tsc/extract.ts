@@ -645,9 +645,12 @@ function addBlock(
         if (elements.length > 0) {
           elements.forEach((element, index) => {
             const name = isNamedTupleMember(element) ? element.name.text : outputEntries[index]?.[0] ?? `out${index}`;
-            const ty = args[index]
-              ? registerCheckerType(ctx.checker, args[index]!, (t, ty) => ctx.registerType(t, ty))
-              : typeFromNode(ctx, isNamedTupleMember(element) ? element.type : element);
+            const memberTypeNode = isNamedTupleMember(element) ? element.type : (element as any);
+            const ty = memberTypeNode
+              ? typeFromNode(ctx, memberTypeNode)
+              : (args[index]
+                  ? registerCheckerType(ctx.checker, args[index]!, (t, ty) => ctx.registerType(t, ty))
+                  : named("void"));
             const meta = outputEntries.find((entry) => entry[0] === name)?.[1] ?? outputEntries[index]?.[1];
             outputs.push(portFromMeta(name, ty, "out", meta));
           });

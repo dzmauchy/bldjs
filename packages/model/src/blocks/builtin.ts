@@ -1,12 +1,15 @@
 import modelSource from "../resources/models/model.ts?raw";
+import librarySource from "../resources/models/library.ts?raw";
 import fixturesSource from "../resources/models/fixtures.ts?raw";
 import { ParseError } from "./parse";
 import { Catalog, type CatalogRef } from "./catalog";
 import type { Diagram, ModelSource } from "./diagram";
 
 export const MODEL_TS = modelSource;
+export const LIBRARY_TS = librarySource;
 export const FIXTURES_TS = fixturesSource;
 export const MODEL_FILE = "model.ts";
+export const LIBRARY_FILE = "library.ts";
 export const FIXTURES_FILE = "fixtures.ts";
 
 export const BUILTIN_MODELS: ReadonlyArray<readonly [string, string]> = [[MODEL_FILE, MODEL_TS]];
@@ -28,6 +31,9 @@ export function builtinCatalog(file: string): BuiltinCatalog | undefined {
 export function catalogSource(file: string): string | undefined {
   if (file === FIXTURES_FILE) {
     return FIXTURES_TS;
+  }
+  if (file === LIBRARY_FILE) {
+    return LIBRARY_TS;
   }
   return BUILTIN_BY_FILE.get(file)?.source;
 }

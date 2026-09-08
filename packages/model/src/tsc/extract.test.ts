@@ -115,7 +115,7 @@ function timer(period: number, inp: c<f32>): void {}
         "timer",
       ]);
       const timer = doc.blocks.find((block) => block.id === "timer");
-      expect(displayType(timer!.inputs[0]!.ty, true)).toBe("(f64) -> void");
+      expect(displayType(timer!.inputs[0]!.ty, true)).toBe("(f32) -> void");
       expect(source).toMatch(/^type f32 = Float32Array\[1];$/m);
       expect(source).toMatch(/^type f64 = Float64Array\[1];$/m);
       expect(source).toMatch(/^type c<T> = \(arg: T\) => void;$/m);

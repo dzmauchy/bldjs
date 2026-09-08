@@ -186,6 +186,9 @@ export class RunningDiagram implements RunnerSession {
 
 export interface DiagramStartOptions extends RunnerStartOptions {
   source?: string;
+  diagram?: string;
+  model?: string;
+  library?: string;
 }
 
 /**
@@ -221,7 +224,8 @@ export class DiagramRunner implements Runner {
     if (op !== this.#op) {
       throw new DiagramRunCancelled();
     }
-    const source =
+    const diagram =
+      options.diagram ??
       options.source ??
       serializeCanvas({
         id: "run",
@@ -232,7 +236,11 @@ export class DiagramRunner implements Runner {
         links,
         extras: extrasFromNodes(nodes),
       });
-    const js = await compileTypeScriptAsync(source);
+    const js = await compileTypeScriptAsync({
+      library: options.library,
+      model: options.model,
+      diagram,
+    });
     if (op !== this.#op) {
       throw new DiagramRunCancelled();
     }

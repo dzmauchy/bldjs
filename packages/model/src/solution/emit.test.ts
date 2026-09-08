@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MODEL_TS } from "../blocks/builtin";
 import { serializeCanvas, parseDiagram } from "../diagram/json";
 import { emitDiagramStart } from "./emit";
 
@@ -60,9 +61,9 @@ describe("diagram TypeScript emit", () => {
       ],
       links: [{ fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" }],
     });
-    expect(source).toContain("function Diagram(");
-    expect(source).toContain("type f32 = Float32Array[1]");
-    expect(source).toContain("type Multiplexed<T> = T[]");
+    expect(MODEL_TS).toContain("function Diagram(");
+    expect(MODEL_TS).toContain("type f32 = Float32Array[1]");
+    expect(MODEL_TS).toContain("type Multiplexed<T> = T[]");
     expect(source).toContain("@Diagram(");
     expect(source).toContain('caption');
     expect(source).toContain("com.dauch.cs.sink.scope");

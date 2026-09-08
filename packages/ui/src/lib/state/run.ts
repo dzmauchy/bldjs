@@ -1,5 +1,6 @@
 import type { Catalog } from "@bld/model/blocks/catalog";
-import type { Link } from "@bld/model/blocks/diagram";
+import type { Link, ModelSource } from "@bld/model/blocks/diagram";
+import { LIBRARY_TS, MODEL_TS } from "@bld/model/blocks/builtin";
 import { loadDiagramSolution } from "@bld/model/diagram/compile";
 import { plannedGenerators, topologyKey } from "@bld/model/topology";
 import {
@@ -15,6 +16,7 @@ import { NONE_ID } from "../model";
 export interface RunHost {
   notify(): void;
   catalog: Catalog;
+  sources?: readonly ModelSource[];
   links: Link[];
   runNodes(): Array<{
     id: number;
@@ -126,10 +128,14 @@ export class RunSession extends HostedState<RunHost> {
     }
     this.starting = true;
     try {
-      const source = this.host.toDiagramJson();
-      const solution = loadDiagramSolution(source, this.host.catalog);
+      const diagram = this.host.toDiagramJson();
+      const model = this.host.sources?.find((s) => s.name === "model.ts")?.content ?? MODEL_TS;
+      const library = LIBRARY_TS;
+      const solution = loadDiagramSolution(diagram, this.host.catalog);
       await this.#runner.start(solution.nodes, solution.links, {
-        source,
+        diagram,
+        model,
+        library,
         onArmed: () => this.host.notify(),
         onMessage: () => this.host.notify(),
         gpio: this.host.gpioSnapshot?.(),

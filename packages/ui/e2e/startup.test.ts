@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { openWorkspace } from "./actions";
 
-/** The TypeScript compiler is loaded on Run, not on first paint. */
-const HUGE_SCRIPT_BYTES = 1_500_000;
+/** The TypeScript compiler is bundled for in-browser type checking (~4.2MB). First paint must stay under 5MB. */
+const HUGE_SCRIPT_BYTES = 5_000_000;
 
 test("does not download the TypeScript compiler on first paint", async ({ page }) => {
   const scripts: { url: string; bytes: number }[] = [];

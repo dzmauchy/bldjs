@@ -5,7 +5,6 @@ import { emitDiagramStart } from "../solution/emit";
 import { findDecoratorCalls } from "../tsc/literal-text";
 import { nextNumericId } from "./ids";
 import { isParameterKind, type BlockExtras, type BlockInstance, type CanvasDiagram, type ParameterValue } from "./types";
-import MODEL_TS from "../resources/models/model.ts?raw";
 
 export { ParseError };
 
@@ -293,5 +292,5 @@ export function serializeCanvas(canvas: CanvasInput): string {
   lines.push(`}`);
   lines.push(`diagram();`);
   lines.push("");
-  return `${MODEL_TS.replace(/\s+$/, "")}\n\n${lines.join("\n")}\n`;
+  return `${lines.join("\n")}\n`;
 }

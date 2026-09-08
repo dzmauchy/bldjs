@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MODEL_TS } from "../blocks/builtin";
 import type { Link } from "../blocks/diagram";
 import { serializeCanvas } from "../diagram/json";
 import { compileTypeScript } from "../tsc/emit";
@@ -134,7 +135,7 @@ describe("DiagramRunner", () => {
     let extra = 0;
     const scopes: number[][] = [];
     const source = serializeCanvas(gpioProductCanvas());
-    expect(source).toMatch(/^type f32 = Float32Array\[1];$/m);
+    expect(MODEL_TS).toMatch(/^type f32 = Float32Array\[1];$/m);
     const js = compileTypeScript(source);
     expect(js).toContain("overshootFromValue");
     expect(js).not.toContain("type f32");
