@@ -126,7 +126,7 @@ describe("blocks", () => {
     expect(() => catalogSourcesForFiles(["models/model.ts"])).toThrow("unknown catalog");
   });
 
-  it("branded primitives do not widen", () => {
+  it("typed-array aliases stay distinct by written name", () => {
     const cat = catalog();
     expect(isCompatible(cat, [], t("f64"), t("f32"))).toBe(false);
     expect(isCompatible(cat, [], t("f32"), t("f64"))).toBe(false);

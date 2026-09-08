@@ -84,7 +84,9 @@ function timer(period: number, inp: c<f32>): void {}
       expect(timer?.parameters[0]?.name).toBe("period");
       expect(timer?.parameters[0]?.default).toBe("10");
       expect(displayType(timer!.inputs[0]!.ty, true)).toBe("(f32) -> void");
-      expect(sample).toContain("type f32 = Float32Array[1]");
+      expect(sample).toMatch(/^type f32 = Float32Array\[1];$/m);
+      expect(sample).not.toMatch(/type f32 = number/);
+      expect(sample).not.toMatch(/class f32\b/);
       expect(timer?.outputs).toEqual([]);
       expect(scope?.ns).toBe("com.dauch.cs.sink");
       expect(displayType(scope!.outputs[0]!.ty, true)).toBe("Array[(f32) -> void]");
@@ -122,8 +124,12 @@ function timer(period: number, inp: c<f32>): void {}
       expect(hydrated.blocks.map((block) => block.id)).toEqual(doc.blocks.map((block) => block.id));
       const timer = hydrated.blocks.find((block) => block.id === "timer");
       expect(displayType(timer!.inputs[0]!.ty, true)).toBe("(f32) -> void");
-      expect(source).toContain("type f32 = Float32Array[1]");
-      expect(source).toContain("type Multiplexed<T> = T[]");
+      expect(source).toMatch(/^type f32 = Float32Array\[1];$/m);
+      expect(source).toMatch(/^type f64 = Float64Array\[1];$/m);
+      expect(source).toMatch(/^type c<T> = \(arg: T\) => void;$/m);
+      expect(source).toMatch(/^type Multiplexed<T> = T\[\];$/m);
+      expect(source).not.toMatch(/type f32 = number/);
+      expect(source).not.toMatch(/class f32\b/);
     } finally {
       ctx.dispose();
     }

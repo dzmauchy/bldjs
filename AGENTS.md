@@ -39,6 +39,18 @@ with Playwright (`make test-e2e` / `npm run test:e2e`). Prefer Playwright tests 
 Do not repeat a UI walkthrough for inference cases that unit tests already cover
 (`array`, `f2`, varargs, chains, F-bounded types, multi-file catalogs, and similar).
 
+## Types
+
+Catalog primitives are typed-array element aliases in `packages/model/src/resources/models/model.ts`:
+
+```
+type f32 = Float32Array[1]
+type c<T> = (arg: T) => void
+type Multiplexed<T> = T[]
+```
+
+Do not replace those with `number` or branded classes. The checker reduces `Float32Array[1]` to `number`; extract port types from the written AST so `c<f32>` stays `(f32) -> void` and `f32` stays distinct from `f64`.
+
 ## Imports
 
 Do not import `@bld/types` or `@bld/model` package roots. Those packages have no
