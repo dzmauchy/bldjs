@@ -1,9 +1,11 @@
 import type { Attribute } from "../blocks/ast";
 import type { Link } from "../blocks/diagram";
 import { ParseError } from "../blocks/parse";
+import { emitDiagramStart } from "../solution/emit";
 import { findDecoratorCalls } from "../tsc/literal-text";
 import { nextNumericId } from "./ids";
 import { isParameterKind, type BlockExtras, type BlockInstance, type CanvasDiagram, type ParameterValue } from "./types";
+import MODEL_TS from "../resources/models/model.ts?raw";
 
 export { ParseError };
 
@@ -157,7 +159,7 @@ export function parseDiagram(source: string, _file = "diagram.ts"): CanvasDiagra
         y: num(value.y, "y"),
       } satisfies BlockInstance,
       extra: {
-        name: optStr(value.name),
+        name: optStr(value.caption) ?? optStr(value.name),
         description: optStr(value.description),
         width: optNum(value.width, "width"),
         height: optNum(value.height, "height"),
@@ -242,7 +244,12 @@ export function serializeCanvas(canvas: CanvasInput): string {
       x: block.x,
       y: block.y,
     };
-    if (extra.name) meta.name = extra.name;
+    if (extra.name) {
+      meta.caption = extra.name;
+      meta.name = extra.name;
+    } else {
+      meta.caption = block.defId;
+    }
     if (extra.description) meta.description = extra.description;
     if (extra.width !== undefined) meta.width = extra.width;
     if (extra.height !== undefined) meta.height = extra.height;
@@ -278,7 +285,13 @@ export function serializeCanvas(canvas: CanvasInput): string {
   if (canvas.links.length > 0) {
     lines.push(`  function wires() {}`);
   }
+  const start = emitDiagramStart(canvas);
+  if (start.trim().length > 0) {
+    lines.push("");
+    lines.push(start);
+  }
   lines.push(`}`);
+  lines.push(`diagram();`);
   lines.push("");
-  return `${lines.join("\n")}\n`;
+  return `${MODEL_TS.replace(/\s+$/, "")}\n\n${lines.join("\n")}\n`;
 }

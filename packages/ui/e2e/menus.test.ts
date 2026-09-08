@@ -33,7 +33,7 @@ test.describe("menus", () => {
         corp: response.headers.get("cross-origin-resource-policy") ?? "",
       };
     });
-    expect(headers.csp).toBe("script-src 'self' 'wasm-unsafe-eval';");
+    expect(headers.csp).toBe("script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:;");
     expect(headers.coop).toBe("same-origin");
     expect(headers.coep).toBe("require-corp");
     expect(headers.corp).toBe("same-origin");

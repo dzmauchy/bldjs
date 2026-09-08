@@ -12,15 +12,6 @@ function unwrapMultiplexedConsumer(actual: TypeExpr): TypeExpr {
   return actual;
 }
 
-function checkerCompatible(catalog: Catalog, formal: TypeExpr, actual: TypeExpr): boolean | undefined {
-  const source = catalog.lookupCheckerType(actual);
-  const target = catalog.lookupCheckerType(formal);
-  if (!source || !target || !catalog.tsc) {
-    return undefined;
-  }
-  return catalog.tsc.isTypeAssignableTo(source, target);
-}
-
 /** `actual` can be passed where `formal` is required. */
 export function isCompatible(
   catalog: Catalog,
@@ -39,12 +30,8 @@ export function isCompatibleWith(
   onMatch: (name: string, ty: TypeExpr) => void,
 ): boolean {
   const unwrapped = unwrapMultiplexedConsumer(actual);
-  if (params.length === 0) {
-    const viaChecker = checkerCompatible(catalog, formal, unwrapped);
-    if (viaChecker !== undefined) {
-      return viaChecker;
-    }
-  }
+  // Named aliases such as `type f32 = Float32Array[1]` reduce to `number` in tsc.
+  // Catalog compatibility keeps those written names distinct.
   return baseCompatibleWith(catalog, params, formal, unwrapped, onMatch);
 }
 

@@ -1,3 +1,32 @@
+function Type(meta: object): (target: Function) => void {
+  void meta;
+  return (target) => target;
+}
+function Namespace(meta: object): (target: Function) => void {
+  void meta;
+  return (target) => target;
+}
+function Catalog(meta: object): (target: Function) => void {
+  void meta;
+  return (target) => target;
+}
+function Block(meta: object): <T>(fn: T) => T {
+  void meta;
+  return (fn) => fn;
+}
+function Inputs(meta: object): <T>(fn: T) => T {
+  void meta;
+  return (fn) => fn;
+}
+function Outputs(meta: object): <T>(fn: T) => T {
+  void meta;
+  return (fn) => fn;
+}
+function Params(meta: object): <T>(fn: T) => T {
+  void meta;
+  return (fn) => fn;
+}
+
 @Catalog({ id: "fixtures", name: "Test Fixtures" })
 class _catalog {}
 

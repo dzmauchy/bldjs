@@ -41,7 +41,7 @@ Do not repeat a UI walkthrough for inference cases that unit tests already cover
 
 ## Imports
 
-Do not import `@bld/types`, `@bld/model`, or `@bld/wasm` package roots. Those packages have no
+Do not import `@bld/types` or `@bld/model` package roots. Those packages have no
 kitchen-sink barrel. Import the file that owns the symbol:
 
 - `@bld/types/ast`, `catalog`, `compat`, `ports`, `resolve`, `format`, `types`
@@ -49,7 +49,7 @@ kitchen-sink barrel. Import the file that owns the symbol:
 - `@bld/model/blocks/cs/ids`, `cs/types`, `cs/plan`
 - `@bld/model/diagram/json`, `diagram/store`, `diagram/compile`
 - `@bld/model/solution/view`, `@bld/model/flow`, `@bld/model/topology`, `@bld/model/runner`
-- `@bld/wasm/isolation`, `@bld/wasm/runtime/diagram-runner`, `@bld/wasm/solution/wasm`
+- `@bld/model/isolation`, `@bld/model/runtime/diagram-runner`, `@bld/model/tsc/emit`
 
 UI run/stop lives in `packages/ui/src/lib/state/run.ts`. Save/open lives in
 `packages/ui/src/lib/state/io.ts`. Canvas wiring stays in `packages/ui/src/lib/state.ts`.

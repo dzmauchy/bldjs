@@ -1,21 +1,19 @@
 # Bld
 
-A client-side [Lit](https://lit.dev/) app. The workspace is custom elements: a toolbar (Run / Stop, plus a three-line menu), a left palette of block icons, and
+A client-side [Solid](https://www.solidjs.com/) app. The workspace is custom elements: a toolbar (Run / Stop, plus a three-line menu), a left palette of block icons, and
 a `bld-diagram` canvas that owns pan, zoom, drop, and wiring. Nodes (`bld-node`) and connectors (`bld-connector`) are also custom elements with shadow trees;
 nodes size themselves with flex, and connectors are JointJS [`jumpover`](https://docs.jointjs.com/api/connectors/#jumpover) paths (`size: 5`, `radius: 5`,
 `jump: 'cubic'`) drawn as CSS `clip-path` polygons, routed around other nodes by [
 `initAvoidRouter({ worker: true })`](https://docs.jointjs.com/api/avoid-router/initAvoidRouter/).
 
 Diagrams load a TypeScript catalog (`packages/model/src/resources/models/model.ts`). The TypeScript 7.0.2 TypeChecker infers port types and input/output compatibility. The builtin model
-uses branded primitives: `bool`, `u64`, `u32`, `i64`, `i32`, `f32`, `f64`, `char`, `void`, function types `(f32)->void`, and `Array[T]` (`Multiplexed<T>`). The WASM runtime
-maps those onto WASM valtypes (`bool` → `i32`, `String` → js-string / `externref`).
+uses typed-array aliases (`type f32 = Float32Array[1]`, `type Multiplexed<T> = T[]`), function types `(f32)->void` (`c<T>`), and real ES2025 block implementations that run in a worker.
 
 This is a TypeScript port of the Rust/Leptos [bld](https://github.com/dzmauchy/bld) workspace. The repo is an npm workspaces monorepo:
 
 ```
 packages/
-  model/ TypeScript catalog, TypeChecker inference, save/open, import/export, CS blocks, runner abstraction
-  wasm/  WASM block implementations and WASM runner
+  model/ TypeScript catalog, TypeChecker inference, diagram I/O, CS blocks, tsc compile, worker runner
   ui/    workspace UI
 ```
 
@@ -44,16 +42,16 @@ make serve
 Then open [http://localhost:8080](http://localhost:8080). Vite rebuilds and live-reloads when you change TypeScript or CSS. The server sends
 
 ```
-Content-Security-Policy: script-src 'self' 'wasm-unsafe-eval';
+Content-Security-Policy: script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:;
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 Cross-Origin-Resource-Policy: same-origin
 ```
 
-so generated WASM can instantiate without `unsafe-eval`, and `SharedArrayBuffer` is available (`crossOriginIsolated`) for generator worker threads.
+so JointJS libavoid WASM can instantiate, blob workers can run compiled diagrams, and `SharedArrayBuffer` is available (`crossOriginIsolated`) for the avoid-router worker.
 
 Those headers only isolate a **secure context** (HTTPS or `localhost`). Opening `http://192.168.x.x:8080` from a phone is not secure, so `crossOriginIsolated`
-stays false. The app then runs the avoid router and generator on the main thread instead of failing to start a worker. `make build` also writes `dist/_headers`
+stays false. The app then runs the avoid router on the main thread instead of failing to start a worker. `make build` also writes `dist/_headers`
 (Netlify / Cloudflare Pages) with the same values.
 
 Release assets go to `dist/`:
@@ -84,34 +82,24 @@ Serve that folder with any static file server that sets the same CSP and isolati
   1). Scope has a time window `n` (default 30 s, 10–600) and quantizer period `m` (default 10 ms, 10–1000); the plot is a sliding `Float64Array` of
   `n * (1000 / m)` measurements whose length is fixed from construction, addressed with a single write pointer. GPIO blocks also have a `pin` range (0–31) and a
   HIGH/LOW toggle that simulates the pin in the browser. GPIO In samples the current pin once when the solution starts, then again on each edge. Blocks with
-  configurable inputs show a small button that opens the input editor. MoonBit builder blocks use the same `in` / `out` ports as the JSON catalog, plus a
-  runtime `ctx : Int`.
-- **Run** serializes the canvas to diagram JSON, infers types from that JSON and the block catalog, then asks SolutionBuilder to emit MoonBit (one
-  function per catalog block from `packages/wasm/src/moonbit`, `fork` on fan-in) and compile **two** modules
-  with [moonc-worker](https://www.npmjs.com/package/@moonbit/moonc-worker): **dev** `wasm-gc` for the browser (`Math` / `Date` / `js.setInterval` /
-  `host.push` / simulated `host.pin_*`) and **prod** linear `wasm` for a microcontroller RTOS (WAMR) using the `"env"` ABI (`wait_event`, `pin_*`,
-  `timer_start`, `usb_write`) and `app_main`. The browser Run path instantiates the wasm-gc module. **Hardware → Deploy MCU wasm** sends the prod module over
-  WebSerial as an 8-byte `WASM` framed packet. Consumers are `C1 = (Double) -> Unit`. It starts one worker thread per generator (Timer, Constant, Sin, Cos,
-  Random, GPIO In). That worker calls exported `start`, which registers the imported browser `setInterval` (internal quantizer period, default 10 ms) and writes
-  samples through `host.push`. Each connector has an introspector that measures how often the value changes; live wires set `animation-duration` from that Hertz
-  (`1000 / hz`, clamped to 200–2500 ms) via inline style. After Run, click Chart on Scope; the plot is a canvas multi-axis line: `host.push` updates the current
-  value (default `NaN`), and a browser `setInterval` every `m` ms copies that value into a sliding `n`-second `Float64Array`. NaN ticks are stored but not
-  drawn.
+  configurable inputs show a small button that opens the input editor.
+- **Run** serializes the canvas to a TypeScript diagram (the Load/Save payload), infers types from that file and `model.ts`, compiles the diagram with tsc, and
+  executes the JavaScript in a worker. Block implementations live in `model.ts`. Scope posts samples to the page on its quantizer period `m`. Each connector has an
+  introspector that measures how often the value changes; live wires set `animation-duration` from that Hertz (`1000 / hz`, clamped to 200–2500 ms) via inline
+  style. After Run, click Chart on Scope; the plot is a canvas multi-axis line. NaN ticks are stored but not drawn.
 - **File** in the three-line menu: **Save…** / **Open…** store named diagrams in IndexedDB (manual only). **Import TypeScript…** / **Export TypeScript** read and write
-  diagram files. **Catalogs** lists associated block catalogs by name and can be toggled for the current diagram; the diagram TypeScript
-  records those catalogs as file names under `catalogs`. **Hardware** connects a microcontroller over WebSerial and deploys the prod wasm binary.
+  diagram files. Those files include decorator definitions, types, block implementations, and `@Diagram` / `@DiagramBlock` / `@Connection` metadata so the editor can
+  restore layout (x, y, captions, parameters). **Catalogs** lists associated block catalogs by name and can be toggled for the current diagram.
 - Scroll to zoom toward the cursor. Use the zoom controls in the lower-right, or **View** in the three-line menu.
 - Drag empty canvas space to pan. Drag a placed block to move it (touch and mouse; the canvas captures the pointer so a phone can drag).
 - **Delete** / **Backspace** removes the selected block or edge. **Ctrl/Cmd+0** resets the view.
 
 ## Stack
 
-- [Lit](https://lit.dev/) custom elements (CSR)
+- [Solid](https://www.solidjs.com/) custom elements (CSR)
 - [JointJS avoid router](https://docs.jointjs.com/api/avoid-router/initAvoidRouter/) (`initAvoidRouter` in a Worker) plus the [
   `jumpover`](https://docs.jointjs.com/api/connectors/#jumpover) connector (`size: 5`, `radius: 5`, `jump: 'cubic'`) as CSS `clip-path` polygons
 - Canvas 2d for the scope (dark mode, multi-axis line)
-- [MoonBit](https://www.moonbitlang.com/) via [moonc-worker](https://www.npmjs.com/package/@moonbit/moonc-worker): **dev** wasm-gc (browser `Math`/`Date`/
-  `setInterval`, GPIO simulation) and **prod** linear wasm (MCU `"env"` ABI + WebSerial deploy)
+- TypeScript 7 TypeChecker for catalog extract and `tsc` emit for the worker runtime
 - Vite
-- TypeScript 7
 - Web Awesome 3, dark theme (`class="wa-dark"`)

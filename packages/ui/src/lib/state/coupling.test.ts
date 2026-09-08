@@ -17,10 +17,10 @@ describe("UI package coupling", () => {
     expect(state).toContain('from "./state/io"');
   });
 
-  it("imports isolation from its own wasm subpath", () => {
+  it("imports isolation from the model package", () => {
     const avoid = sources["../flow/avoid-router.ts"];
     expect(avoid).toBeDefined();
-    expect(avoid).toContain('from "@bld/wasm/isolation"');
-    expect(avoid).not.toMatch(/from ["']@bld\/wasm["']/);
+    expect(avoid).toContain('from "@bld/model/isolation"');
+    expect(avoid).not.toMatch(/from ["']@bld\/model["']/);
   });
 });

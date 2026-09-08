@@ -3,7 +3,6 @@ export {
   type SolutionAssembly,
   type SolutionBuilder,
   type TargetAssembly,
-  type WasmTarget,
 } from "./builder";
 export {
   SolutionView,

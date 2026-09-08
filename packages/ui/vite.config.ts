@@ -5,7 +5,7 @@ import { build as bundle } from "rolldown";
 import solid from "vite-plugin-solid";
 import { defineConfig, type Plugin } from "vitest/config";
 
-const csp = "script-src 'self' 'wasm-unsafe-eval';";
+const csp = "script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:;";
 
 /** Isolation headers required for SharedArrayBuffer / wasm worker threads. */
 const isolationHeaders = {
@@ -122,8 +122,7 @@ export default defineConfig(async () => {
       },
     },
     optimizeDeps: {
-      include: ["@moonbit/moonc-worker"],
-      exclude: ["libavoid-js", "@joint/router-avoid", "@bld/model", "@bld/wasm", "typescript"],
+      exclude: ["libavoid-js", "@joint/router-avoid", "@bld/model", "typescript"],
     },
     server: {
       port: 8080,
@@ -141,8 +140,6 @@ export default defineConfig(async () => {
     build: {
       outDir: "../../dist",
       emptyOutDir: true,
-      // moonc-web is a single ~5 MB compiler chunk; do not warn on that known size.
-      chunkSizeWarningLimit: 6000,
     },
     worker: {
       format: "es",

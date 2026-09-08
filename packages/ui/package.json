@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@bld/types": "0.1.0",
-    "@bld/wasm": "0.1.0",
     "@bld/model": "0.1.0",
     "@joint/router-avoid": "^4.3.3",
     "@awesome.me/webawesome": "^3.12.0",

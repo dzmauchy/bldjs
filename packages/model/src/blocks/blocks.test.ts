@@ -211,7 +211,7 @@ describe("blocks", () => {
     expect(arrayOf(consumerType(t("Double"))).isPush()).toBe(true);
   });
 
-  it("displays common MoonBit types", () => {
+  it("displays common function and array types", () => {
     expect(displayType(consumerType(t("Double")), true)).toBe("(Double) -> void");
     expect(displayType(consumerType(consumerType(t("Double"))), true)).toBe("((Double) -> void) -> void");
     expect(displayType(consumerType(consumerType(consumerType(t("Double")))), true)).toBe(

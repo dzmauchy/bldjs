@@ -10,6 +10,7 @@ export interface RunnerSession {
   snapshotScope(id: number): ScopeSeries[];
   gpioLevel?(pin: number): number;
   setGpio?(pin: number, level: number): void;
+  tick?(id: number): void;
 }
 
 export interface RunnerStartOptions {
@@ -17,10 +18,12 @@ export interface RunnerStartOptions {
   onArmed?: (session: RunnerSession) => void;
   /** Initial simulated GPIO levels keyed by pin number (dev / browser). */
   gpio?: ReadonlyMap<number, number>;
+  /** Full diagram TypeScript payload. When omitted, the runner serializes nodes/links. */
+  source?: string;
 }
 
 /**
- * Start and stop a compiled diagram. WASM (or another backend) implements this.
+ * Start and stop a compiled diagram TypeScript runtime.
  */
 export interface Runner {
   readonly current: RunnerSession | null;

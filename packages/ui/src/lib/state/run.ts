@@ -2,8 +2,12 @@ import type { Catalog } from "@bld/model/blocks/catalog";
 import type { Link } from "@bld/model/blocks/diagram";
 import { loadDiagramSolution } from "@bld/model/diagram/compile";
 import { plannedGenerators, topologyKey } from "@bld/model/topology";
-import { DiagramRunCancelled, DiagramRunner, EMPTY_RUN_MESSAGE } from "@bld/wasm/runtime/diagram-runner";
-import { preloadAssembler } from "@bld/wasm/solution/wasm";
+import {
+  DiagramRunCancelled,
+  DiagramRunner,
+  EMPTY_RUN_MESSAGE,
+  preloadAssembler,
+} from "@bld/model/runtime/diagram-runner";
 import { HostedState } from "../observable";
 import { NONE_ID } from "../model";
 
@@ -33,7 +37,7 @@ export interface RunHost {
   gpioSnapshot?(): ReadonlyMap<number, number>;
 }
 
-/** WASM runner lifecycle. UI reads `running` / `error`; canvas samples Hertz from here. */
+/** TypeScript runner lifecycle. UI reads `running` / `error`; canvas samples Hertz from here. */
 export class RunSession extends HostedState<RunHost> {
   #runner = new DiagramRunner();
   declare starting: boolean;
@@ -96,10 +100,6 @@ export class RunSession extends HostedState<RunHost> {
     this.#runner.current?.tick(id);
   }
 
-  prodWasm(): Uint8Array | null {
-    return this.#runner.current?.prodWasm ?? this.#runner.lastProdWasm;
-  }
-
   stop(): void {
     this.#runner.stop();
     const changed = this.starting || this.running;
@@ -126,8 +126,10 @@ export class RunSession extends HostedState<RunHost> {
     }
     this.starting = true;
     try {
-      const solution = loadDiagramSolution(this.host.toDiagramJson(), this.host.catalog);
+      const source = this.host.toDiagramJson();
+      const solution = loadDiagramSolution(source, this.host.catalog);
       await this.#runner.start(solution.nodes, solution.links, {
+        source,
         onArmed: () => this.host.notify(),
         gpio: this.host.gpioSnapshot?.(),
       });

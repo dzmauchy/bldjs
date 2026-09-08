@@ -103,8 +103,8 @@ describe("diagram TypeScript", () => {
       blocks: [],
       links: [],
     });
-    expect(empty).not.toContain("catalogs");
     expect(parseDiagram(empty).catalogs).toEqual([]);
+    expect(empty).toMatch(/@Diagram\(\{[\s\S]*id: "diag_none"/);
   });
 
   it("treats missing catalogs as none", () => {
@@ -156,7 +156,7 @@ describe("diagram compile pipeline", () => {
     expect(displayType(sin!.outputs[0]!.ty, true)).toBe("(f32) -> void");
   });
 
-  it("rejects unknown catalog types before wasm", () => {
+  it("rejects unknown catalog types before compile", () => {
     const source = serializeCanvas({
       id: "diag_bad",
       name: "Bad",

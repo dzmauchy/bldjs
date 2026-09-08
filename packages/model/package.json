@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
-  "description": "Catalog model, type inference, diagram I/O, CS blocks, and runner abstraction",
+  "description": "Catalog model, TypeChecker inference, diagram I/O, CS blocks, and TypeScript runner",
   "exports": {
     "./blocks/ast": "./src/blocks/ast.ts",
     "./blocks/catalog": "./src/blocks/catalog.ts",
@@ -29,9 +29,14 @@
     "./diagram/download": "./src/diagram/download.ts",
     "./tsc/plugin": "./src/tsc/plugin.ts",
     "./tsc/host": "./src/tsc/host.ts",
+    "./tsc/emit": "./src/tsc/emit.ts",
     "./solution": "./src/solution/index.ts",
     "./solution/view": "./src/solution/view.ts",
     "./solution/builder": "./src/solution/builder.ts",
+    "./solution/emit": "./src/solution/emit.ts",
+    "./runtime/diagram-runner": "./src/runtime/diagram-runner.ts",
+    "./runtime/host": "./src/runtime/host.ts",
+    "./isolation": "./src/isolation.ts",
     "./runner": "./src/runner.ts",
     "./topology": "./src/topology.ts",
     "./flow": "./src/flow.ts"
