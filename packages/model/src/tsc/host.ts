@@ -88,7 +88,8 @@ export { SignatureKind, TypeFlags, VIRTUAL_ROOT as virtualRoot };
 export type { Checker, Type };
 
 export function nativeTscAvailable(): boolean {
-  return typeof process !== "undefined" && typeof process.versions?.node === "string";
+  const node = (globalThis as { process?: { versions?: { node?: string } } }).process?.versions?.node;
+  return typeof node === "string";
 }
 
 export function createTscContext(sources: readonly VirtualFile[]): TscContext {
