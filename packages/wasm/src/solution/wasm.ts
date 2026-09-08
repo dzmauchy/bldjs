@@ -1,22 +1,22 @@
-import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
-import { Catalog } from "@bld/xml/blocks/catalog";
-import { isGeneratorId, isTransformerId } from "@bld/xml/blocks/cs/ids";
-import { Diagram } from "@bld/xml/blocks/diagram";
-import { portSlotIndex } from "@bld/xml/blocks/ports";
+import { associateBuiltinModels } from "@bld/model/blocks/builtin";
+import { Catalog } from "@bld/model/blocks/catalog";
+import { isGeneratorId, isTransformerId } from "@bld/model/blocks/cs/ids";
+import { Diagram } from "@bld/model/blocks/diagram";
+import { portSlotIndex } from "@bld/model/blocks/ports";
 import {
   AbstractSolutionBuilder as BaseSolutionBuilder,
   type SolutionAssembly,
   type SolutionBuilder,
   type TargetAssembly,
-} from "@bld/xml/solution/builder";
-import { SolutionView, type SolutionViewBlock, type SolutionViewConnector } from "@bld/xml/solution/view";
+} from "@bld/model/solution/builder";
+import { SolutionView, type SolutionViewBlock, type SolutionViewConnector } from "@bld/model/solution/view";
 import { compileMoonbit, preloadMoonc, type MoonbitTarget } from "../moonbit/compile";
 import { emitSolutionFiles, moonbitText } from "../moonbit/emit";
 import { BROWSER_BLOCKS, MCU_BLOCKS } from "../moonbit/scripts";
 import type { MoonBlock } from "../moonbit/block";
 import type { MoonbitFile } from "../moonbit/types";
 
-export type { TargetAssembly } from "@bld/xml/solution/builder";
+export type { TargetAssembly } from "@bld/model/solution/builder";
 
 export interface WasmBuildOptions {
   delayMs?: number;

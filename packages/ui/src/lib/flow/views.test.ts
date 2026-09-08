@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
-import { Diagram, infer, type Link } from "@bld/xml/blocks/diagram";
+import { associateBuiltinModels } from "@bld/model/blocks/builtin";
+import { Diagram, infer, type Link } from "@bld/model/blocks/diagram";
 import type { BlockInstance } from "$lib/diagram-model";
 import { blockKindFromName } from "$lib/model";
 import { buildConnectorViews, buildNodeState } from "./views";

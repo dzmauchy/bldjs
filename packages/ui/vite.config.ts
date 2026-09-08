@@ -87,7 +87,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ["@moonbit/moonc-worker"],
-    exclude: ["libavoid-js", "@joint/router-avoid", "@bld/xml", "@bld/wasm"],
+    exclude: ["libavoid-js", "@joint/router-avoid", "@bld/model", "@bld/wasm"],
   },
   server: {
     port: 8080,

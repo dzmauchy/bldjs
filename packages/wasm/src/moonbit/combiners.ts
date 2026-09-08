@@ -1,4 +1,4 @@
-import { countFrom, defFrom, DEFAULT_COUNT, DEFAULT_VALUE } from "@bld/xml/blocks/cs/ids";
+import { countFrom, defFrom, DEFAULT_COUNT, DEFAULT_VALUE } from "@bld/model/blocks/cs/ids";
 import { MoonBlock } from "./block";
 import type { MoonbitTarget } from "./compile";
 import { CTX_PARAM, type MoonBlockEmit } from "./types";

@@ -1,6 +1,6 @@
 export type { DiagramSolution } from "./compile";
 export { DiagramCompileError, loadDiagramSolution } from "./compile";
-export { allocateNumericIds, blockXmlId, newDiagramId } from "./ids";
+export { newDiagramId } from "./ids";
 export {
   defaultDiagramRepository,
   IndexedDbDiagramRepository,
@@ -8,14 +8,13 @@ export {
   type DiagramRepository,
   type StoredDiagram,
 } from "./store";
-export type { BlockExtras, BlockInstance, DiagramDocument, ParameterValue } from "./types";
+export type { BlockExtras, BlockInstance, CanvasDiagram, ParameterValue } from "./types";
 export { diagramFilename, downloadTextFile } from "./download";
 export {
-  canvasToDocument,
   catalogFileName,
-  documentToCanvas,
   nowIso,
-  parseDiagramXml,
+  parseDiagram,
+  parseDiagram as parseDiagramJson,
   serializeCanvas,
-  serializeDiagramXml,
-} from "./xml";
+  type CanvasInput,
+} from "./json";

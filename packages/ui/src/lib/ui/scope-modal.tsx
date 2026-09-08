@@ -1,7 +1,7 @@
 import { createEffect, createSignal, type JSX } from "solid-js";
 import { isNoneId } from "$lib/model";
 import { capturePointer, releasePointer } from "$lib/flow/pointer";
-import type { ScopeSeries } from "@bld/xml/blocks/cs/types";
+import type { ScopeSeries } from "@bld/model/blocks/cs/types";
 import { AppHost } from "./app-host";
 import { SCOPE_CHART_HEIGHT, SCOPE_CHART_MAX_WIDTH, ScopeCanvasPlot } from "./scope-chart";
 

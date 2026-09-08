@@ -6,17 +6,17 @@ nodes size themselves with flex, and connectors are JointJS [`jumpover`](https:/
 `jump: 'cubic'`) drawn as CSS `clip-path` polygons, routed around other nodes by [
 `initAvoidRouter({ worker: true })`](https://docs.jointjs.com/api/avoid-router/initAvoidRouter/).
 
-Diagrams load multiple XML type/block models (`packages/xml/src/resources/models/*.xml`, described by `packages/xml/src/resources/models/blocks.xsd`). Wiring an output into an input grounds that input and infers the block's generic types. The builtin type library
-(`types.xml`) uses abstract types: `bool`, `u64`, `u32`, `i64`, `i32`, `f32`, `f64`, `char`, `void`, function types `(f32)->void`, and `Array[T]`. The WASM runtime
+Diagrams load multiple JSON type/block models (`packages/model/src/resources/models/*.json`). Wiring an output into an input grounds that input and infers the block's generic types. The builtin type library
+(`types.json`) uses abstract types: `bool`, `u64`, `u32`, `i64`, `i32`, `f32`, `f64`, `char`, `void`, function types `(f32)->void`, and `Array[T]`. The WASM runtime
 maps those onto WASM valtypes (`bool` → `i32`, `String` → js-string / `externref`).
 
 This is a TypeScript port of the Rust/Leptos [bld](https://github.com/dzmauchy/bld) workspace. The repo is an npm workspaces monorepo:
 
 ```
 packages/
-  xml/   XML model, type inference, save/open, import/export, CS blocks, runner abstraction
+  model/ JSON catalogs, type inference, save/open, import/export, CS blocks, runner abstraction
   wasm/  WASM block implementations and WASM runner
-  ui/    Lit workspace UI
+  ui/    workspace UI
 ```
 
 ## Prerequisites
@@ -62,7 +62,7 @@ Release assets go to `dist/`:
 make build
 ```
 
-`make check` / `npm run check` typechecks the app, validates catalog XML (`types.xml`, `control-systems.xml`, `blocks.xml`) against `blocks.xsd`.
+`make check` / `npm run check` typechecks the app.
 
 Serve that folder with any static file server that sets the same CSP and isolation headers.
 
@@ -84,10 +84,10 @@ Serve that folder with any static file server that sets the same CSP and isolati
   1). Scope has a time window `n` (default 30 s, 10–600) and quantizer period `m` (default 10 ms, 10–1000); the plot is a sliding `Float64Array` of
   `n * (1000 / m)` measurements whose length is fixed from construction, addressed with a single write pointer. GPIO blocks also have a `pin` range (0–31) and a
   HIGH/LOW toggle that simulates the pin in the browser. GPIO In samples the current pin once when the solution starts, then again on each edge. Blocks with
-  configurable inputs show a small button that opens the input editor. MoonBit builder blocks use the same `<in>` / `<out>` ports as the XML catalog, plus a
+  configurable inputs show a small button that opens the input editor. MoonBit builder blocks use the same `in` / `out` ports as the JSON catalog, plus a
   runtime `ctx : Int`.
-- **Run** serializes the canvas to diagram XML (`diagram.xsd`), infers types from that XML and the block catalog, then asks SolutionBuilder to emit MoonBit (one
-  function per XML block from `packages/wasm/src/moonbit`, `fork` on fan-in) and compile **two** modules
+- **Run** serializes the canvas to diagram JSON, infers types from that JSON and the block catalog, then asks SolutionBuilder to emit MoonBit (one
+  function per catalog block from `packages/wasm/src/moonbit`, `fork` on fan-in) and compile **two** modules
   with [moonc-worker](https://www.npmjs.com/package/@moonbit/moonc-worker): **dev** `wasm-gc` for the browser (`Math` / `Date` / `js.setInterval` /
   `host.push` / simulated `host.pin_*`) and **prod** linear `wasm` for a microcontroller RTOS (WAMR) using the `"env"` ABI (`wait_event`, `pin_*`,
   `timer_start`, `usb_write`) and `app_main`. The browser Run path instantiates the wasm-gc module. **Hardware → Deploy MCU wasm** sends the prod module over
@@ -97,9 +97,9 @@ Serve that folder with any static file server that sets the same CSP and isolati
   (`1000 / hz`, clamped to 200–2500 ms) via inline style. After Run, click Chart on Scope; the plot is a canvas multi-axis line: `host.push` updates the current
   value (default `NaN`), and a browser `setInterval` every `m` ms copies that value into a sliding `n`-second `Float64Array`. NaN ticks are stored but not
   drawn.
-- **File** in the three-line menu: **Save…** / **Open…** store named diagrams in IndexedDB (manual only). **Import XML…** / **Export XML** read and write
-  `diagram.xsd` files. **Catalogs** lists associated block catalogs by their XML `blocks.name` and can be toggled for the current diagram; the diagram XML
-  records those catalogs as file names under `<catalogs>`. **Hardware** connects a microcontroller over WebSerial and deploys the prod wasm binary.
+- **File** in the three-line menu: **Save…** / **Open…** store named diagrams in IndexedDB (manual only). **Import JSON…** / **Export JSON** read and write
+  diagram files. **Catalogs** lists associated block catalogs by name and can be toggled for the current diagram; the diagram JSON
+  records those catalogs as file names under `catalogs`. **Hardware** connects a microcontroller over WebSerial and deploys the prod wasm binary.
 - Scroll to zoom toward the cursor. Use the zoom controls in the lower-right, or **View** in the three-line menu.
 - Drag empty canvas space to pan. Drag a placed block to move it (touch and mouse; the canvas captures the pointer so a phone can drag).
 - **Delete** / **Backspace** removes the selected block or edge. **Ctrl/Cmd+0** resets the view.

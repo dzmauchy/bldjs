@@ -1,4 +1,4 @@
-import { ConnectorIntrospector } from "@bld/xml/flow";
+import { ConnectorIntrospector } from "@bld/model/flow";
 import {
   SAMPLE_CAP,
   bumpFlowCount,

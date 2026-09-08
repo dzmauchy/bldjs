@@ -1,8 +1,8 @@
-import { isArrayType, type BlockDef } from "@bld/xml/blocks/ast";
-import type { Catalog } from "@bld/xml/blocks/catalog";
-import { DEFAULT_PERIOD_MS, isEventDrivenGenerator, isGeneratorId, isTransformerId } from "@bld/xml/blocks/cs/ids";
-import { catalogPortName, portSlotIndex } from "@bld/xml/blocks/ports";
-import type { SolutionView, SolutionViewBlock } from "@bld/xml/solution/view";
+import { isArrayType, type BlockDef } from "@bld/model/blocks/ast";
+import type { Catalog } from "@bld/model/blocks/catalog";
+import { DEFAULT_PERIOD_MS, isEventDrivenGenerator, isGeneratorId, isTransformerId } from "@bld/model/blocks/cs/ids";
+import { catalogPortName, portSlotIndex } from "@bld/model/blocks/ports";
+import type { SolutionView, SolutionViewBlock } from "@bld/model/solution/view";
 import { DEV_TARGET, type MoonbitTarget } from "./compile";
 import { emitFork } from "./fork";
 import { emitAppMain, emitStart, PIN_INPUT_PULLUP, PIN_OUTPUT, preamble } from "./runtime";

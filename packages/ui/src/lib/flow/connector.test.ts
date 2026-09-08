@@ -8,7 +8,7 @@ const cssPath = [
 ].find((p) => fs.existsSync(p))!;
 const appCss = fs.readFileSync(cssPath, "utf8");
 import { BldConnector } from "./connector";
-import { FLOW_PERIOD_MIN_MS, flowPeriodMs } from "@bld/xml/flow";
+import { FLOW_PERIOD_MIN_MS, flowPeriodMs } from "@bld/model/flow";
 import "./connector";
 
 async function mountConnector(init: Partial<BldConnector>): Promise<BldConnector> {

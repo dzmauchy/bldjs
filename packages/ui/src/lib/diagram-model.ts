@@ -1,4 +1,4 @@
-import type { BlockInstance } from "@bld/xml/diagram/types";
+import type { BlockInstance } from "@bld/model/diagram/types";
 
 export type { BlockInstance };
 

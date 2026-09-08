@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BLOCK_PLACE_HEIGHT, BLOCK_PLACE_WIDTH } from "./model";
 import { AppState } from "./state";
-import { MemoryDiagramRepository } from "@bld/xml/diagram/store";
+import { MemoryDiagramRepository } from "@bld/model/diagram/store";
 
 function wireCsPipeline(app: AppState): { generatorId: number; scopeId: number; transformerId: number } {
   const generatorId = app.nextId;
@@ -350,8 +350,8 @@ describe("AppState run", () => {
     expect(app.blockInputs(id).map((input) => [input.def.name, input.value])).toEqual([["period", "10"]]);
     app.setBlockParameter(id, "period", "25");
     expect(app.blockPeriodMs(id)).toBe(25);
-    expect(app.toDiagramXml()).toContain('name="period"');
-    expect(app.toDiagramXml()).toContain('value="25"');
+    expect(app.toDiagramJson()).toContain('"name": "period"');
+    expect(app.toDiagramJson()).toContain('"value": "25"');
   });
 
   it("seeds scope window N=30 s and quantizer M=10 ms", () => {
@@ -368,10 +368,10 @@ describe("AppState run", () => {
     app.setBlockParameter(id, "m", "20");
     expect(app.blockWindowS(id)).toBe(60);
     expect(app.blockMeterMs(id)).toBe(20);
-    expect(app.toDiagramXml()).toContain('name="n"');
-    expect(app.toDiagramXml()).toContain('value="60"');
-    expect(app.toDiagramXml()).toContain('name="m"');
-    expect(app.toDiagramXml()).toContain('value="20"');
+    expect(app.toDiagramJson()).toContain('"name": "n"');
+    expect(app.toDiagramJson()).toContain('"value": "60"');
+    expect(app.toDiagramJson()).toContain('"name": "m"');
+    expect(app.toDiagramJson()).toContain('"value": "20"');
   });
 
   it("seeds overshoot ζ at 0.5 and ω at 1 and updates them", () => {
@@ -388,10 +388,10 @@ describe("AppState run", () => {
     app.setBlockParameter(id, "ω", "2");
     expect(app.blockZeta(id)).toBe(0.7);
     expect(app.blockOmega(id)).toBe(2);
-    expect(app.toDiagramXml()).toContain('name="ζ"');
-    expect(app.toDiagramXml()).toContain('value="0.7"');
-    expect(app.toDiagramXml()).toContain('name="ω"');
-    expect(app.toDiagramXml()).toContain('value="2"');
+    expect(app.toDiagramJson()).toContain('"name": "ζ"');
+    expect(app.toDiagramJson()).toContain('"value": "0.7"');
+    expect(app.toDiagramJson()).toContain('"name": "ω"');
+    expect(app.toDiagramJson()).toContain('"value": "2"');
   });
 
   it("seeds constant value at 1 and period at 10 ms", () => {
@@ -406,8 +406,8 @@ describe("AppState run", () => {
     ]);
     app.setBlockParameter(id, "value", "2.5");
     expect(app.blockValue(id)).toBe(2.5);
-    expect(app.toDiagramXml()).toContain('name="value"');
-    expect(app.toDiagramXml()).toContain('value="2.5"');
+    expect(app.toDiagramJson()).toContain('"name": "value"');
+    expect(app.toDiagramJson()).toContain('"value": "2.5"');
   });
 
   it("seeds product n at 2 and def at 1", () => {
@@ -424,10 +424,10 @@ describe("AppState run", () => {
     app.setBlockParameter(id, "def", "0.5");
     expect(app.blockCount(id)).toBe(3);
     expect(app.blockDefValue(id)).toBe(0.5);
-    expect(app.toDiagramXml()).toContain('name="n"');
-    expect(app.toDiagramXml()).toContain('value="3"');
-    expect(app.toDiagramXml()).toContain('name="def"');
-    expect(app.toDiagramXml()).toContain('value="0.5"');
+    expect(app.toDiagramJson()).toContain('"name": "n"');
+    expect(app.toDiagramJson()).toContain('"value": "3"');
+    expect(app.toDiagramJson()).toContain('"name": "def"');
+    expect(app.toDiagramJson()).toContain('"value": "0.5"');
   });
 
   it("closes and ignores input configuration while a run is busy", async () => {
@@ -523,60 +523,66 @@ describe("AppState run", () => {
   });
 });
 
-describe("AppState diagram XML", () => {
-  it("exports and imports a wired canvas through diagram XML", () => {
+describe("AppState diagram JSON", () => {
+  it("exports and imports a wired canvas through diagram JSON", () => {
     const app = new AppState();
     wireCsPipeline(app);
-    const xml = app.toDiagramXml();
-    expect(xml).toContain("<diagram");
-    expect(xml).toContain("<catalog>types.xml</catalog>");
-    expect(xml).toContain("<catalog>control-systems.xml</catalog>");
-    expect(xml).toContain('type="timer"');
-    expect(xml).toContain('type="sin"');
-    expect(xml).toContain("<connector");
+    const json = app.toDiagramJson();
+    expect(json).toContain('"id"');
+    expect(json).toContain("types.json");
+    expect(json).toContain("control-systems.json");
+    expect(json).toContain('"type": "timer"');
+    expect(json).toContain('"type": "sin"');
+    expect(json).toContain('"links"');
 
     const other = new AppState();
-    expect(other.io.loadXml(xml)).toBe(true);
+    expect(other.io.loadJson(json)).toBe(true);
     expect(other.blocks.map((block) => block.defId)).toEqual(["timer", "sin", "scope"]);
     expect(other.links).toHaveLength(2);
     expect(other.run.canStart()).toBe(true);
     expect(other.diagramName).toBe("Workspace");
   });
 
-  it("uses a block name when present and the XML id otherwise", () => {
+  it("uses a block name when present and the numeric id otherwise", () => {
     const app = new AppState();
     const id = app.nextId;
     app.addBlock("scope", 0, 0);
-    expect(app.blockDisplayName(id)).toBe(`blk_${id}`);
+    expect(app.blockDisplayName(id)).toBe(String(id));
 
     expect(
-      app.io.loadXml(`<?xml version="1.0" encoding="UTF-8"?>
-<diagram id="diag_named" name="Named" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
-  <catalogs>
-    <catalog>types.xml</catalog>
-    <catalog>control-systems.xml</catalog>
-  </catalogs>
-  <blocks>
-    <block id="blk_probe" type="scope" name="Probe" x="0" y="0" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>
-    <block id="blk_plain" type="scope" x="180" y="0" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>
-  </blocks>
-</diagram>`),
+      app.io.loadJson(
+        JSON.stringify({
+          id: "diag_named",
+          name: "Named",
+          createdAt: "2026-08-31T05:00:00Z",
+          updatedAt: "2026-08-31T05:00:00Z",
+          catalogs: ["types.json", "control-systems.json"],
+          blocks: [
+            { id: 1, type: "scope", name: "Probe", x: 0, y: 0 },
+            { id: 2, type: "scope", x: 180, y: 0 },
+          ],
+        }),
+      ),
     ).toBe(true);
     const named = app.blocks.find((block) => app.blockDisplayName(block.id) === "Probe");
-    const plain = app.blocks.find((block) => app.blockDisplayName(block.id) === "blk_plain");
+    const plain = app.blocks.find((block) => app.blockDisplayName(block.id) === "2");
     expect(named?.defId).toBe("scope");
     expect(plain?.defId).toBe("scope");
   });
 
   it("rejects unknown block types on import", () => {
     const app = new AppState();
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<diagram id="diag_bad" name="Bad" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
-  <blocks>
-    <block id="blk_1" type="sensor_source" x="0" y="0" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>
-  </blocks>
-</diagram>`;
-    expect(app.io.loadXml(xml)).toBe(false);
+    expect(
+      app.io.loadJson(
+        JSON.stringify({
+          id: "diag_bad",
+          name: "Bad",
+          createdAt: "2026-08-31T05:00:00Z",
+          updatedAt: "2026-08-31T05:00:00Z",
+          blocks: [{ id: 1, type: "sensor_source", x: 0, y: 0 }],
+        }),
+      ),
+    ).toBe(false);
     expect(app.io.error).toMatch(/unknown block type/);
     expect(app.blocks).toHaveLength(0);
   });
@@ -588,26 +594,30 @@ describe("AppState diagram XML", () => {
       ["Types", true],
       ["Control Systems", true],
     ]);
-    app.toggleCatalog("control-systems.xml");
+    app.toggleCatalog("control-systems.json");
     expect(app.blockDef("timer")).toBeUndefined();
     expect(app.blocks).toHaveLength(0);
-    expect(app.catalogChoices().find((item) => item.file === "control-systems.xml")?.selected).toBe(false);
-    expect(app.toDiagramXml()).toContain("<catalog>types.xml</catalog>");
-    expect(app.toDiagramXml()).not.toContain("control-systems.xml");
-    app.toggleCatalog("control-systems.xml");
+    expect(app.catalogChoices().find((item) => item.file === "control-systems.json")?.selected).toBe(false);
+    expect(app.toDiagramJson()).toContain("types.json");
+    expect(app.toDiagramJson()).not.toContain("control-systems.json");
+    app.toggleCatalog("control-systems.json");
     expect(app.blockDef("timer")).toBeDefined();
   });
 
-  it("loads catalog files listed in diagram XML", () => {
+  it("loads catalog files listed in diagram JSON", () => {
     const app = new AppState();
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<diagram id="diag_types" name="Types only" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
-  <catalogs>
-    <catalog>types.xml</catalog>
-  </catalogs>
-</diagram>`;
-    expect(app.io.loadXml(xml)).toBe(true);
-    expect(app.sources.map((source) => source.name)).toEqual(["types.xml"]);
+    expect(
+      app.io.loadJson(
+        JSON.stringify({
+          id: "diag_types",
+          name: "Types only",
+          createdAt: "2026-08-31T05:00:00Z",
+          updatedAt: "2026-08-31T05:00:00Z",
+          catalogs: ["types.json"],
+        }),
+      ),
+    ).toBe(true);
+    expect(app.sources.map((source) => source.name)).toEqual(["types.json"]);
     expect(app.blockDef("timer")).toBeUndefined();
     expect(app.catalog.catalogs().map((item) => item.name)).toEqual(["Types"]);
   });
@@ -616,8 +626,14 @@ describe("AppState diagram XML", () => {
     const app = new AppState();
     expect(app.blockDef("timer")).toBeDefined();
     expect(
-      app.io.loadXml(`<?xml version="1.0" encoding="UTF-8"?>
-<diagram id="diag_none" name="None" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z"/>`),
+      app.io.loadJson(
+        JSON.stringify({
+          id: "diag_none",
+          name: "None",
+          createdAt: "2026-08-31T05:00:00Z",
+          updatedAt: "2026-08-31T05:00:00Z",
+        }),
+      ),
     ).toBe(true);
     expect(app.sources).toEqual([]);
     expect(app.catalog.catalogs()).toEqual([]);
@@ -626,15 +642,19 @@ describe("AppState diagram XML", () => {
 
   it("rejects unknown catalog files on import", () => {
     const app = new AppState();
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<diagram id="diag_missing" name="Missing" createdAt="2026-08-31T05:00:00Z" updatedAt="2026-08-31T05:00:00Z">
-  <catalogs>
-    <catalog>missing.xml</catalog>
-  </catalogs>
-</diagram>`;
-    expect(app.io.loadXml(xml)).toBe(false);
+    expect(
+      app.io.loadJson(
+        JSON.stringify({
+          id: "diag_missing",
+          name: "Missing",
+          createdAt: "2026-08-31T05:00:00Z",
+          updatedAt: "2026-08-31T05:00:00Z",
+          catalogs: ["missing.json"],
+        }),
+      ),
+    ).toBe(false);
     expect(app.io.error).toMatch(/unknown catalog/);
-    expect(app.sources.map((source) => source.name)).toEqual(["types.xml", "control-systems.xml"]);
+    expect(app.sources.map((source) => source.name)).toEqual(["types.json", "control-systems.json"]);
   });
 
   it("saves and loads diagrams from the library by hand", async () => {

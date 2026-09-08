@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
-import { Diagram } from "@bld/xml/blocks/diagram";
+import { associateBuiltinModels } from "@bld/model/blocks/builtin";
+import { Diagram } from "@bld/model/blocks/diagram";
 import { buildPaletteTree, paletteGroupIds } from "./palette-tree";
 
 describe("palette tree", () => {

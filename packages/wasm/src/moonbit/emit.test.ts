@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
-import { Diagram } from "@bld/xml/blocks/diagram";
-import { solutionViewFrom } from "@bld/xml/solution/view";
+import { associateBuiltinModels } from "@bld/model/blocks/builtin";
+import { Diagram } from "@bld/model/blocks/diagram";
+import { solutionViewFrom } from "@bld/model/solution/view";
 import { emitSolutionFiles, emitSolutionMoonbit } from "./emit";
 import { CTX_PARAM } from "./types";
 

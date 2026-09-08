@@ -1,7 +1,7 @@
-import type { Catalog } from "@bld/xml/blocks/catalog";
-import type { Link } from "@bld/xml/blocks/diagram";
-import { loadDiagramSolution } from "@bld/xml/diagram/compile";
-import { plannedGenerators, topologyKey } from "@bld/xml/topology";
+import type { Catalog } from "@bld/model/blocks/catalog";
+import type { Link } from "@bld/model/blocks/diagram";
+import { loadDiagramSolution } from "@bld/model/diagram/compile";
+import { plannedGenerators, topologyKey } from "@bld/model/topology";
 import { DiagramRunCancelled, DiagramRunner, EMPTY_RUN_MESSAGE } from "@bld/wasm/runtime/diagram-runner";
 import { preloadAssembler } from "@bld/wasm/solution/wasm";
 import { HostedState } from "../observable";
@@ -25,7 +25,7 @@ export interface RunHost {
     windowS?: number;
     meterMs?: number;
   }>;
-  toDiagramXml(): string;
+  toDiagramJson(): string;
   get scopeOpen(): number;
   set scopeOpen(id: number);
   get inputsOpen(): number;
@@ -126,7 +126,7 @@ export class RunSession extends HostedState<RunHost> {
     }
     this.starting = true;
     try {
-      const solution = loadDiagramSolution(this.host.toDiagramXml(), this.host.catalog);
+      const solution = loadDiagramSolution(this.host.toDiagramJson(), this.host.catalog);
       await this.#runner.start(solution.nodes, solution.links, {
         onArmed: () => this.host.notify(),
         gpio: this.host.gpioSnapshot?.(),

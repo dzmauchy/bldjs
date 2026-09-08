@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SAMPLE_CAP as XML_SAMPLE_CAP } from "@bld/xml/blocks/cs/ids";
+import { SAMPLE_CAP as MODEL_SAMPLE_CAP } from "@bld/model/blocks/cs/ids";
 import { pushSample } from "./host";
 import {
   SAMPLE_CAP,
@@ -17,8 +17,8 @@ import {
 } from "./memory";
 
 describe("runtime memory", () => {
-  it("keeps the sample ring capacity aligned with the XML package", () => {
-    expect(SAMPLE_CAP).toBe(XML_SAMPLE_CAP);
+  it("keeps the sample ring capacity aligned with the model package", () => {
+    expect(SAMPLE_CAP).toBe(MODEL_SAMPLE_CAP);
   });
 
   it("uses atomics on shared memory", () => {

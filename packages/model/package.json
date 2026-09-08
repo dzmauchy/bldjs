@@ -1,10 +1,10 @@
 {
-  "name": "@bld/xml",
+  "name": "@bld/model",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
-  "description": "XML model, type inference, diagram I/O, CS blocks, and runner abstraction",
+  "description": "Catalog model, type inference, diagram I/O, CS blocks, and runner abstraction",
   "exports": {
     "./blocks/ast": "./src/blocks/ast.ts",
     "./blocks/catalog": "./src/blocks/catalog.ts",
@@ -21,7 +21,7 @@
     "./blocks/cs/plan": "./src/blocks/cs/plan.ts",
     "./blocks/cs/samples": "./src/blocks/cs/samples.ts",
     "./diagram": "./src/diagram/index.ts",
-    "./diagram/xml": "./src/diagram/xml.ts",
+    "./diagram/json": "./src/diagram/json.ts",
     "./diagram/store": "./src/diagram/store.ts",
     "./diagram/compile": "./src/diagram/compile.ts",
     "./diagram/types": "./src/diagram/types.ts",
@@ -35,7 +35,7 @@
     "./flow": "./src/flow.ts"
   },
   "scripts": {
-    "check": "tsc --noEmit && node scripts/check-xsd.mjs",
+    "check": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {

@@ -24,8 +24,8 @@ import {
   defFrom,
   countFrom,
 } from "../blocks/cs/ids";
-import { documentToCanvas, parseDiagramXml } from "./xml";
-import type { DiagramDocument } from "./types";
+import { parseDiagram, type CanvasInput } from "./json";
+import type { CanvasDiagram } from "./types";
 
 export class DiagramCompileError extends Error {
   constructor(message: string) {
@@ -35,8 +35,8 @@ export class DiagramCompileError extends Error {
 }
 
 export interface DiagramSolution {
-  xml: string;
-  doc: DiagramDocument;
+  json: string;
+  canvas: CanvasDiagram;
   nodes: Array<{
     id: number;
     defId: string;
@@ -54,28 +54,28 @@ export interface DiagramSolution {
   inferred: Map<number, ResolvedBlock>;
 }
 
-/**
- * Parse diagram XML, then infer types. WASM assembly happens after this step.
- */
-export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolution {
-  const doc = parseDiagramXml(xml);
-  const canvas = documentToCanvas(doc);
+function param(canvas: CanvasDiagram, blockId: number, name: string): string | undefined {
+  return canvas.extras.get(blockId)?.parameters.find((item) => item.name === name)?.value;
+}
+
+/** Parse diagram JSON, then infer types. WASM assembly happens after this step. */
+export function loadDiagramSolution(json: string, catalog: Catalog): DiagramSolution {
+  const canvas = parseDiagram(json);
   for (const block of canvas.blocks) {
     if (!catalog.block(block.defId)) {
       throw new DiagramCompileError(`unknown block type \`${block.defId}\``);
     }
   }
   const nodes = canvas.blocks.map((block) => {
-    const extra = canvas.extras.get(block.id);
-    const period = extra?.parameters.find((param) => param.name === PERIOD_PARAM)?.value;
-    const pin = extra?.parameters.find((param) => param.name === PIN_PARAM)?.value;
-    const zeta = extra?.parameters.find((param) => param.name === ZETA_PARAM)?.value;
-    const omega = extra?.parameters.find((param) => param.name === OMEGA_PARAM)?.value;
-    const value = extra?.parameters.find((param) => param.name === VALUE_PARAM)?.value;
-    const count = extra?.parameters.find((param) => param.name === COUNT_PARAM)?.value;
-    const def = extra?.parameters.find((param) => param.name === DEF_PARAM)?.value;
-    const window = extra?.parameters.find((param) => param.name === WINDOW_PARAM)?.value;
-    const meter = extra?.parameters.find((param) => param.name === METER_PARAM)?.value;
+    const period = param(canvas, block.id, PERIOD_PARAM);
+    const pin = param(canvas, block.id, PIN_PARAM);
+    const zeta = param(canvas, block.id, ZETA_PARAM);
+    const omega = param(canvas, block.id, OMEGA_PARAM);
+    const value = param(canvas, block.id, VALUE_PARAM);
+    const count = param(canvas, block.id, COUNT_PARAM);
+    const def = param(canvas, block.id, DEF_PARAM);
+    const window = param(canvas, block.id, WINDOW_PARAM);
+    const meter = param(canvas, block.id, METER_PARAM);
     return {
       id: block.id,
       defId: block.defId,
@@ -103,5 +103,7 @@ export function loadDiagramSolution(xml: string, catalog: Catalog): DiagramSolut
       );
     }
   }
-  return { xml, doc, nodes, links: canvas.links, inferred };
+  return { json, canvas, nodes, links: canvas.links, inferred };
 }
+
+export type { CanvasInput };

@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@bld/types": "0.1.0",
-    "@bld/xml": "0.1.0",
+    "@bld/model": "0.1.0",
     "@moonbit/moonc-worker": "^0.1.202608311"
   }
 }

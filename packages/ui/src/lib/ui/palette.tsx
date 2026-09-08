@@ -1,5 +1,5 @@
 import { createEffect, createSignal, For, type JSX } from "solid-js";
-import { type BlockDef } from "@bld/xml/blocks/ast";
+import { type BlockDef } from "@bld/model/blocks/ast";
 import { isArrayType, type PortDef } from "@bld/types/ast";
 import { FLOW_MIME, PALETTE_DROP_EVENT, type PaletteDropDetail } from "$lib/flow/mime";
 import { AppHost } from "./app-host";

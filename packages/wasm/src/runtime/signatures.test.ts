@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { arrayOf, consumerType, displayType, generic, named, funcType } from "@bld/xml/blocks/ast";
-import { associateBuiltinModels, associateFixtureModels } from "@bld/xml/blocks/builtin";
-import { Diagram } from "@bld/xml/blocks/diagram";
+import { arrayOf, consumerType, displayType, generic, named, funcType } from "@bld/model/blocks/ast";
+import { associateBuiltinModels, associateFixtureModels } from "@bld/model/blocks/builtin";
+import { Diagram } from "@bld/model/blocks/diagram";
 import { blockSignature, signatureWat, wasmHeapTypeName, wasmValType } from "./signatures";
 
 describe("XML ↔ WASM signatures", () => {

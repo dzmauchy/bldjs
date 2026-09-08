@@ -1,7 +1,7 @@
 import { isArrayType, isPushType, type BlockDef, type TypeExpr } from "@bld/types/ast";
 import { formatType } from "@bld/types/format";
-import type { Catalog } from "@bld/xml/blocks/catalog";
-import type { Link } from "@bld/xml/blocks/diagram";
+import type { Catalog } from "@bld/model/blocks/catalog";
+import type { Link } from "@bld/model/blocks/diagram";
 import { inputSlotsFor, outputSlotsFor, type PortSlot } from "@bld/types/ports";
 import { isResolvedCompatible, resolvedInput, resolvedOutput, type ResolvedBlock } from "@bld/types/resolve";
 import type { BlockInstance } from "$lib/diagram-model";

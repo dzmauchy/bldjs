@@ -1,4 +1,4 @@
-import type { ScopeSeries } from "@bld/xml/blocks/cs/types";
+import type { ScopeSeries } from "@bld/model/blocks/cs/types";
 
 /** Chart.js sample palette, kept for the canvas plot. */
 export const SCOPE_CHART_COLORS = [

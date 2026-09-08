@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-declare module "*.xml?raw" {
+declare module "*.json?raw" {
   const content: string;
   export default content;
 }

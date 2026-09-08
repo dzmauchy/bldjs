@@ -1,4 +1,4 @@
-import type { Link } from "@bld/xml/blocks/diagram";
+import type { Link } from "@bld/model/blocks/diagram";
 import type { AppState } from "$lib/state";
 import { blockOriginFromDrop } from "$lib/model";
 import { nodeFromClientPoint, nodeFromComposedPath, portFromClientPoint, portFromComposedPath } from "./layout";

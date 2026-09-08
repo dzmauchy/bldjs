@@ -1,0 +1,48 @@
+{
+  "id": "fixtures",
+  "name": "Test Fixtures",
+  "namespaces": [
+    { "id": "types", "name": "Types" },
+    { "id": "flow", "name": "Flow" }
+  ],
+  "blocks": [
+    { "id": "b_Int", "name": "Int", "ns": "types", "icon": "i32", "kind": "Data", "out": [{ "name": "value", "type": "Int" }] },
+    { "id": "b_Int64", "name": "Int64", "ns": "types", "icon": "i64", "kind": "Data", "out": [{ "name": "value", "type": "Int64" }] },
+    { "id": "b_Float", "name": "Float", "ns": "types", "icon": "f32", "kind": "Data", "out": [{ "name": "value", "type": "Float" }] },
+    { "id": "b_Double", "name": "Double", "ns": "types", "icon": "f64", "kind": "Data", "out": [{ "name": "value", "type": "Double" }] },
+    { "id": "b_String", "name": "String", "ns": "types", "icon": "string", "kind": "Data", "out": [{ "name": "value", "type": "String" }] },
+    { "id": "b_Bool", "name": "Bool", "ns": "types", "icon": "bool", "kind": "Data", "out": [{ "name": "value", "type": "Bool" }] },
+    {
+      "id": "b_array_of",
+      "name": "array",
+      "ns": "types",
+      "icon": "list",
+      "kind": "Process",
+      "description": "Vararg elements become Array[T]",
+      "params": ["T"],
+      "factory": "Array::from",
+      "in": [{ "name": "elems", "type": "T", "vararg": true }],
+      "out": [{ "name": "result", "type": { "name": "Array", "args": ["T"] } }]
+    },
+    {
+      "id": "b_array_get",
+      "name": "array.get",
+      "ns": "types",
+      "icon": "list",
+      "kind": "Process",
+      "params": ["T"],
+      "factory": "Array::get",
+      "in": [
+        { "name": "array", "type": { "name": "Array", "args": ["T"] } },
+        { "name": "index", "type": "Int" }
+      ],
+      "out": [{ "name": "elem", "type": "T" }]
+    },
+    { "id": "b_start", "name": "Start", "ns": "flow", "icon": "start", "kind": "Start", "description": "Entry point for a flow", "params": ["T"], "out": [{ "name": "out", "type": "T" }] },
+    { "id": "b_process", "name": "Process", "ns": "flow", "icon": "process", "kind": "Process", "description": "Do some work", "params": ["T"], "in": [{ "name": "in", "type": "T" }], "out": [{ "name": "out", "type": "T" }] },
+    { "id": "b_decision", "name": "Decision", "ns": "flow", "icon": "decision", "kind": "Decision", "description": "Branch on a condition", "params": ["T"], "in": [{ "name": "in", "type": "T" }], "out": [{ "name": "true", "type": "T" }, { "name": "false", "type": "T" }] },
+    { "id": "b_data", "name": "Data", "ns": "flow", "icon": "data", "kind": "Data", "description": "Read or write data", "params": ["T"], "in": [{ "name": "in", "type": "T" }], "out": [{ "name": "out", "type": "T" }] },
+    { "id": "b_output", "name": "Output", "ns": "flow", "icon": "output", "kind": "Output", "description": "Emit a result", "params": ["T"], "in": [{ "name": "in", "type": "T" }] },
+    { "id": "b_identity", "name": "Identity", "ns": "flow", "icon": "identity", "kind": "Process", "description": "Pass a value through, unifying T", "params": ["T"], "in": [{ "name": "in", "type": "T" }], "out": [{ "name": "out", "type": "T" }] }
+  ]
+}

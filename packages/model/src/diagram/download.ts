@@ -1,9 +1,9 @@
 export function diagramFilename(name: string): string {
   const base = name.trim().replace(/[<>:"/\\|?*\u0000-\u001f]+/g, "_") || "diagram";
-  return base.toLowerCase().endsWith(".xml") ? base : `${base}.xml`;
+  return base.toLowerCase().endsWith(".json") ? base : `${base}.json`;
 }
 
-export function downloadTextFile(filename: string, contents: string, mime = "application/xml"): void {
+export function downloadTextFile(filename: string, contents: string, mime = "application/json"): void {
   if (typeof document === "undefined") {
     return;
   }

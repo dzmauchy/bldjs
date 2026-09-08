@@ -9,7 +9,7 @@ import {
   NamedType,
 } from "./ast";
 
-/** One associated catalog document (`<blocks name>` from the XML file). */
+/** One associated catalog document. */
 export interface CatalogRef {
   file: string;
   id: string;

@@ -1,5 +1,5 @@
-import { BUILTIN_CATALOGS } from "@bld/xml/blocks/builtin";
-import type { Catalog, CatalogRef } from "@bld/xml/blocks/catalog";
+import { BUILTIN_CATALOGS } from "@bld/model/blocks/builtin";
+import type { Catalog, CatalogRef } from "@bld/model/blocks/catalog";
 
 export interface CatalogChoice extends CatalogRef {
   selected: boolean;

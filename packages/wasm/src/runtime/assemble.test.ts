@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { associateBuiltinModels } from "@bld/xml/blocks/builtin";
-import { Diagram } from "@bld/xml/blocks/diagram";
+import { associateBuiltinModels } from "@bld/model/blocks/builtin";
+import { Diagram } from "@bld/model/blocks/diagram";
 import { BLOCK_SCRIPTS, I32_ATOMIC_OPCODE, QUANTIZER_PERIOD_NS, hasThreadsOpcode, preamble } from "../moonbit";
 import { assembleModule, blockTypeWat, runtimeTypeWat } from "./assemble";
 import { createMemory, readSamples } from "./memory";
