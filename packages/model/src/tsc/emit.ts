@@ -1,4 +1,4 @@
-import ts from "typescript";
+import * as esbuild from "esbuild-wasm";
 import { desugarFunctionDecorators } from "./desugar";
 import { LIBRARY_TS, MODEL_TS } from "../blocks/builtin";
 
@@ -8,8 +8,25 @@ export interface CompileSources {
   diagram: string;
 }
 
-/** Transpile TypeScript diagram source to JavaScript using the TypeScript compiler. */
-export function compileTypeScript(
+let esbuildInitPromise: Promise<void> | null = null;
+
+export async function ensureEsbuildInitialized(): Promise<void> {
+  if (esbuildInitPromise) {
+    return esbuildInitPromise;
+  }
+  esbuildInitPromise = (async () => {
+    const isNode = typeof process !== "undefined" && Boolean(process.versions?.node);
+    if (!isNode) {
+      await esbuild.initialize({
+        wasmURL: "/assets/esbuild.wasm",
+        worker: false,
+      });
+    }
+  })();
+  return esbuildInitPromise;
+}
+
+export function combineSources(
   source: string | CompileSources,
   options?: { library?: string; model?: string },
 ): string {
@@ -19,31 +36,42 @@ export function compileTypeScript(
     typeof source === "object" ? source.model ?? MODEL_TS : options?.model ?? MODEL_TS;
   const diagram = typeof source === "object" ? source.diagram : source;
 
-  let combined: string;
   if (diagram.includes("@Catalog({ id: \"cs\"") && diagram.includes("overshootFromValue")) {
-    combined = diagram;
-  } else if (diagram.includes("@Catalog({ id: \"cs\"")) {
-    combined = `${diagram}\n\n${library}`;
-  } else {
-    combined = `${model.replace(/\s+$/, "")}\n\n${library.replace(/\s+$/, "")}\n\n${diagram.trimStart()}`;
+    return diagram;
   }
+  if (diagram.includes("@Catalog({ id: \"cs\"")) {
+    return `${diagram}\n\n${library}`;
+  }
+  return `${model.replace(/\s+$/, "")}\n\n${library.replace(/\s+$/, "")}\n\n${diagram.trimStart()}`;
+}
 
+/** Transpile TypeScript diagram source to JavaScript using esbuild-wasm. */
+export function compileTypeScript(
+  source: string | CompileSources,
+  options?: { library?: string; model?: string },
+): string {
+  const combined = combineSources(source, options);
   const desugared = desugarFunctionDecorators(combined);
-  const result = ts.transpileModule(desugared, {
-    compilerOptions: {
-      target: ts.ScriptTarget.ES2025,
-      module: ts.ModuleKind.CommonJS,
-      experimentalDecorators: true,
-      removeComments: false,
-    },
+  const result = esbuild.transformSync(desugared, {
+    loader: "ts",
+    format: "cjs",
+    target: "es2025",
   });
-  return result.outputText;
+  return result.code;
 }
 
 export async function compileTypeScriptAsync(source: string | CompileSources): Promise<string> {
-  return compileTypeScript(source);
+  await ensureEsbuildInitialized();
+  const combined = combineSources(source);
+  const desugared = desugarFunctionDecorators(combined);
+  const result = await esbuild.transform(desugared, {
+    loader: "ts",
+    format: "cjs",
+    target: "es2025",
+  });
+  return result.code;
 }
 
-export function preloadTsc(): Promise<void> {
-  return Promise.resolve();
+export async function preloadTsc(): Promise<void> {
+  await ensureEsbuildInitialized();
 }

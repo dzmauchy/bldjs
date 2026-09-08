@@ -46,6 +46,7 @@
   },
   "dependencies": {
     "@bld/types": "0.1.0",
+    "esbuild-wasm": "^0.28.2",
     "typescript": "6.0.3"
   }
 }

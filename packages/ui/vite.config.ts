@@ -54,18 +54,26 @@ const libavoidWasm = fileURLToPath(
 );
 
 function serveLibavoidWasm(): Plugin {
+  const middleware = (
+    req: { url?: string },
+    res: { setHeader: (name: string, value: string) => void },
+    next: () => void,
+  ) => {
+    if (req.url?.split("?")[0] !== "/assets/libavoid.wasm") {
+      next();
+      return;
+    }
+    res.setHeader("Content-Type", "application/wasm");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+    createReadStream(libavoidWasm).pipe(res as unknown as NodeJS.WritableStream);
+  };
   return {
     name: "libavoid-wasm",
     configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (req.url?.split("?")[0] !== "/assets/libavoid.wasm") {
-          next();
-          return;
-        }
-        res.setHeader("Content-Type", "application/wasm");
-        res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
-        createReadStream(libavoidWasm).pipe(res);
-      });
+      server.middlewares.use(middleware);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(middleware);
     },
     generateBundle() {
       this.emitFile({
@@ -77,8 +85,44 @@ function serveLibavoidWasm(): Plugin {
   };
 }
 
+const esbuildWasm = fileURLToPath(
+  new URL("../../node_modules/esbuild-wasm/esbuild.wasm", import.meta.url),
+);
+
+function serveEsbuildWasm(): Plugin {
+  const middleware = (
+    req: { url?: string },
+    res: { setHeader: (name: string, value: string) => void },
+    next: () => void,
+  ) => {
+    if (req.url?.split("?")[0] !== "/assets/esbuild.wasm") {
+      next();
+      return;
+    }
+    res.setHeader("Content-Type", "application/wasm");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+    createReadStream(esbuildWasm).pipe(res as unknown as NodeJS.WritableStream);
+  };
+  return {
+    name: "esbuild-wasm",
+    configureServer(server) {
+      server.middlewares.use(middleware);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(middleware);
+    },
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "assets/esbuild.wasm",
+        source: readFileSync(esbuildWasm),
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [solid(), crossOriginIsolation(), serveLibavoidWasm()],
+  plugins: [solid(), crossOriginIsolation(), serveLibavoidWasm(), serveEsbuildWasm()],
   resolve: {
     alias: {
       $lib: fileURLToPath(new URL("./src/lib", import.meta.url)),

@@ -5,7 +5,9 @@
   "type": "module",
   "license": "AGPL-3.0-or-later",
   "description": "BLD",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm run dev -w @bld/ui",
     "build": "npm run build -w @bld/ui",
@@ -17,6 +19,7 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
+    "esbuild-wasm": "^0.28.2",
     "typescript": "6.0.3"
   },
   "devDependencies": {

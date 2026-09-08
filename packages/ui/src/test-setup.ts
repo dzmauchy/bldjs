@@ -1,3 +1,19 @@
+if (typeof TextEncoder !== "undefined" && typeof Uint8Array !== "undefined") {
+  const nodeUint8Array = new TextEncoder().encode("").constructor;
+  if (!(new TextEncoder().encode("") instanceof Uint8Array)) {
+    const origHasInstance = Function.prototype[Symbol.hasInstance];
+    Object.defineProperty(Uint8Array, Symbol.hasInstance, {
+      value(instance: unknown) {
+        return (
+          instance instanceof (nodeUint8Array as unknown as typeof Uint8Array) ||
+          origHasInstance.call(this, instance)
+        );
+      },
+      configurable: true,
+    });
+  }
+}
+
 if (typeof globalThis.ResizeObserver !== "function") {
   globalThis.ResizeObserver = class {
     observe(): void {}

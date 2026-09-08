@@ -139,7 +139,8 @@ export function runCompiledDiagram(js: string, host: BldHost): void {
   const global = globalThis as typeof globalThis & { host: BldHost };
   global.host = host;
   const exports: Record<string, unknown> = {};
+  const module = { exports };
   const body = `"use strict";\n${js}\n`;
-  const fn = new Function("host", "exports", body);
-  fn(host, exports);
+  const fn = new Function("host", "exports", "module", body);
+  fn(host, exports, module);
 }
