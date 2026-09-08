@@ -102,9 +102,36 @@ function readPort(links: readonly Link[], link: Link, fromDef: string): string {
         item.fromOut === link.fromOut && item.toBlock === link.toBlock && item.toIn === link.toIn,
     );
     const slotIndex = dense >= 0 ? dense : portSlotIndex(link.fromOut);
-    return tapped(`slot(${local}, ${slotIndex})`);
+    return tapped(`b${link.fromBlock}s${slotIndex}`);
   }
   return tapped(local);
+}
+
+function overshootUsesTimeSamples(
+  block: BlockInstance,
+  links: readonly Link[],
+  defOf: Map<number, string>,
+): boolean {
+  let curr = outgoingFrom(links, block.id, "out")[0]?.toBlock;
+  while (curr !== undefined) {
+    const defId = defOf.get(curr);
+    if (defId === "timer") {
+      return true;
+    }
+    if (defId === "sin" || defId === "cos" || defId === "overshoot") {
+      curr = outgoingFrom(links, curr, "out")[0]?.toBlock;
+      continue;
+    }
+    return false;
+  }
+  return false;
+}
+
+function bindMultiOutSlots(lines: string[], block: BlockInstance, links: readonly Link[]): void {
+  const outgoing = outgoingFrom(links, block.id, "out");
+  outgoing.forEach((_link, index) => {
+    lines.push(`  const b${block.id}s${index} = slot(b${block.id}, ${index});`);
+  });
 }
 
 function inputExpr(block: BlockInstance, links: readonly Link[], defOf: Map<number, string>): string {
@@ -146,6 +173,7 @@ export function emitDiagramStart(canvas: DiagramEmitInput): string {
       const n = windowSecondsFrom(param(extra, WINDOW_PARAM));
       const m = meterMsFrom(param(extra, METER_PARAM));
       lines.push(`  const b${block.id} = ${fn}(${n}, ${m});`);
+      bindMultiOutSlots(lines, block, canvas.links);
       continue;
     }
     if (block.defId === "gpio_out") {
@@ -160,13 +188,16 @@ export function emitDiagramStart(canvas: DiagramEmitInput): string {
     if (block.defId === "overshoot") {
       const z = zetaFrom(param(extra, ZETA_PARAM));
       const w = omegaFrom(param(extra, OMEGA_PARAM));
-      lines.push(`  const b${block.id} = ${fn}(${z}, ${w}, ${inputExpr(block, canvas.links, defOf)});`);
+      const inp = inputExpr(block, canvas.links, defOf);
+      const fnName = overshootUsesTimeSamples(block, canvas.links, defOf) ? fn : "overshootFromValue";
+      lines.push(`  const b${block.id} = ${fnName}(${z}, ${w}, ${inp});`);
       continue;
     }
     if (block.defId === "product") {
       const n = countFrom(param(extra, COUNT_PARAM));
       const def = defFrom(param(extra, DEF_PARAM));
       lines.push(`  const b${block.id} = ${fn}(${n}, ${def}, ${inputExpr(block, canvas.links, defOf)});`);
+      bindMultiOutSlots(lines, block, canvas.links);
       continue;
     }
     if (isGeneratorId(block.defId)) {

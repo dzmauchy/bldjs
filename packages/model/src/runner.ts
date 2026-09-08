@@ -20,6 +20,8 @@ export interface RunnerStartOptions {
   gpio?: ReadonlyMap<number, number>;
   /** Full diagram TypeScript payload. When omitted, the runner serializes nodes/links. */
   source?: string;
+  /** Called when the runtime posts a GPIO (or other) host message. */
+  onMessage?: () => void;
 }
 
 /**

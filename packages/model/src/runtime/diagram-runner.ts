@@ -244,6 +244,12 @@ export class DiagramRunner implements Runner {
       const worker = new Worker(new URL("./diagram.worker.ts", import.meta.url), { type: "module" });
       worker.onmessage = (event: MessageEvent) => {
         session.handleMessage(event.data);
+        if (event.data?.type === "gpio") {
+          options.onMessage?.();
+        }
+      };
+      worker.onerror = () => {
+        options.onMessage?.();
       };
       session.attachWorker(worker);
       worker.postMessage({
@@ -260,6 +266,9 @@ export class DiagramRunner implements Runner {
         gpio,
         post(message) {
           session.handleMessage(message);
+          if (message.type === "gpio") {
+            options.onMessage?.();
+          }
         },
       });
       session.attachHost(host);

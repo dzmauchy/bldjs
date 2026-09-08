@@ -131,6 +131,7 @@ export class RunSession extends HostedState<RunHost> {
       await this.#runner.start(solution.nodes, solution.links, {
         source,
         onArmed: () => this.host.notify(),
+        onMessage: () => this.host.notify(),
         gpio: this.host.gpioSnapshot?.(),
       });
       if (!this.#runner.current) {

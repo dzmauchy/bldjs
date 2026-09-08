@@ -19,7 +19,14 @@ self.onmessage = (event: MessageEvent<{ type: string; js?: string; gpio?: Array<
         self.postMessage(message);
       },
     });
-    runCompiledDiagram(msg.js, host);
+    try {
+      runCompiledDiagram(msg.js, host);
+    } catch (error) {
+      self.postMessage({
+        type: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
     return;
   }
   if (msg.type === "gpio" && msg.pin !== undefined && msg.level !== undefined) {

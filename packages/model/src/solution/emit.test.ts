@@ -19,7 +19,32 @@ describe("diagram TypeScript emit", () => {
     expect(start).toContain("com.dauch.cs.tf.sin(");
     expect(start).toContain("com.dauch.cs.gen.timer(10,");
     expect(start).toContain("tap(0,");
+    expect(start).toContain("b1s0");
     expect(start).toContain("slot(b1, 0)");
+  });
+
+  it("uses host time for overshoot when the generator is not a timer", () => {
+    const start = emitDiagramStart({
+      blocks: [
+        { id: 1, defId: "scope", x: 0, y: 0 },
+        { id: 2, defId: "overshoot", x: 120, y: 0 },
+        { id: 3, defId: "product", x: 240, y: 0 },
+        { id: 4, defId: "constant", x: 360, y: 0 },
+        { id: 5, defId: "gpio_in", x: 360, y: 120 },
+      ],
+      links: [
+        { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
+        { fromBlock: 2, fromOut: "out", toBlock: 3, toIn: "in" },
+        { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in" },
+        { fromBlock: 3, fromOut: "out[1]", toBlock: 5, toIn: "in" },
+      ],
+    });
+    expect(start).toContain("overshootFromValue(");
+    expect(start).not.toContain("com.dauch.cs.tf.overshoot(");
+    expect(start).toContain("const b3s0 = slot(b3, 0)");
+    expect(start).toContain("const b3s1 = slot(b3, 1)");
+    expect(start).toContain("tap(2, b3s0)");
+    expect(start).toContain("tap(3, b3s1)");
   });
 
   it("serializes a self-contained diagram with decorator defs and start()", () => {

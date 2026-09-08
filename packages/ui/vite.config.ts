@@ -5,7 +5,7 @@ import { build as bundle } from "rolldown";
 import solid from "vite-plugin-solid";
 import { defineConfig, type Plugin } from "vitest/config";
 
-const csp = "script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:;";
+const csp = "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:;";
 
 /** Isolation headers required for SharedArrayBuffer / wasm worker threads. */
 const isolationHeaders = {

@@ -170,6 +170,7 @@ function Connection(from: string, to: string, meta?: ConnectionMeta): <T>(fn: T)
   return identityDecorator;
 }
 
+// Typed-array element aliases. Do not replace with `number` or branded classes.
 Type({ name: "bool", icon: "bool" });
 type bool = Uint8Array[1];
 
@@ -267,6 +268,44 @@ function tap<T>(index: number, consumer: c<T>): c<T> {
 }
 
 function nop<T>(_value: T): void {}
+
+/** Step-input overshoot: `v` is the target, time comes from `host.now()`. */
+function overshootFromValue(ζ: number, ω: number, inp: c<f32>): c<f32> {
+  let initialized = 0;
+  let tStep = 0;
+  let baseY = 0;
+  let targetU = 0;
+  let currentY = 0;
+  return (v: f32) => {
+    const u = sample(v);
+    const curT = host.now();
+    if (initialized === 0) {
+      initialized = 1;
+      tStep = curT;
+      baseY = u;
+      targetU = u;
+      currentY = u;
+      inp(u as f32);
+      return;
+    }
+    const diff = u - targetU;
+    if (diff > 0.000001 || diff < -0.000001) {
+      tStep = curT;
+      baseY = currentY;
+      targetU = u;
+    }
+    const tau = curT - tStep;
+    const t = tau < 0 ? 0 : tau;
+    const wd = ω * Math.sqrt(1 - ζ * ζ);
+    const sigma = ζ * ω;
+    const decay = Math.exp(0 - sigma * t);
+    const phase = wd * t;
+    const factor = 1 - decay * (Math.cos(phase) + (sigma / wd) * Math.sin(phase));
+    const y = baseY + (targetU - baseY) * factor;
+    currentY = y;
+    inp(y as f32);
+  };
+}
 
 @Catalog({ id: "cs", name: "Control Systems" })
 class _catalog {}

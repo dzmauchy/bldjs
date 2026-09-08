@@ -42,7 +42,7 @@ make serve
 Then open [http://localhost:8080](http://localhost:8080). Vite rebuilds and live-reloads when you change TypeScript or CSS. The server sends
 
 ```
-Content-Security-Policy: script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:;
+Content-Security-Policy: script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:;
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 Cross-Origin-Resource-Policy: same-origin
