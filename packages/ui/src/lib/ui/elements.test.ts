@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import "$lib/ui/app-element";
 import { AppState } from "$lib/state";
+import { serializeCanvas } from "@bld/model/diagram/json";
 import { BldApp } from "./app-element";
 import { BldBlockIcon } from "./block-icon";
 import { BldDiagramIoModal } from "./diagram-io-modal";
@@ -296,13 +297,15 @@ describe("Lit update scheduling", () => {
     const app = new AppState();
     expect(
       app.io.loadJson(
-        JSON.stringify({
+        serializeCanvas({
           id: "diag_named",
           name: "Named",
           createdAt: "2026-08-31T05:00:00Z",
           updatedAt: "2026-08-31T05:00:00Z",
-          catalogs: ["types.json", "control-systems.json"],
-          blocks: [{ id: 1, type: "scope", name: "Probe", x: 0, y: 0 }],
+          catalogs: ["model.ts"],
+          blocks: [{ id: 1, defId: "scope", x: 0, y: 0 }],
+          extras: new Map([[1, { name: "Probe", parameters: [] }]]),
+          links: [],
         }),
       ),
     ).toBe(true);

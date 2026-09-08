@@ -648,7 +648,7 @@ export class AppState extends ObservableState {
   #applySources(sources: ModelSource[]): void {
     const catalog = new Catalog();
     for (const source of sources) {
-      catalog.addJson(source.name, source.content);
+      catalog.addTypeScript(source.name, source.content);
     }
     const known = new Set(catalog.blocks().map((block) => block.id));
     const kept = this.blocks.filter((block) => known.has(block.defId));

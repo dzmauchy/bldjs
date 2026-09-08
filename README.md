@@ -6,15 +6,15 @@ nodes size themselves with flex, and connectors are JointJS [`jumpover`](https:/
 `jump: 'cubic'`) drawn as CSS `clip-path` polygons, routed around other nodes by [
 `initAvoidRouter({ worker: true })`](https://docs.jointjs.com/api/avoid-router/initAvoidRouter/).
 
-Diagrams load multiple JSON type/block models (`packages/model/src/resources/models/*.json`). Wiring an output into an input grounds that input and infers the block's generic types. The builtin type library
-(`types.json`) uses abstract types: `bool`, `u64`, `u32`, `i64`, `i32`, `f32`, `f64`, `char`, `void`, function types `(f32)->void`, and `Array[T]`. The WASM runtime
+Diagrams load a TypeScript catalog (`packages/model/src/resources/models/model.ts`). The TypeScript 7.0.2 TypeChecker infers port types and input/output compatibility. The builtin model
+uses branded primitives: `bool`, `u64`, `u32`, `i64`, `i32`, `f32`, `f64`, `char`, `void`, function types `(f32)->void`, and `Array[T]` (`Multiplexed<T>`). The WASM runtime
 maps those onto WASM valtypes (`bool` → `i32`, `String` → js-string / `externref`).
 
 This is a TypeScript port of the Rust/Leptos [bld](https://github.com/dzmauchy/bld) workspace. The repo is an npm workspaces monorepo:
 
 ```
 packages/
-  model/ JSON catalogs, type inference, save/open, import/export, CS blocks, runner abstraction
+  model/ TypeScript catalog, TypeChecker inference, save/open, import/export, CS blocks, runner abstraction
   wasm/  WASM block implementations and WASM runner
   ui/    workspace UI
 ```
@@ -97,8 +97,8 @@ Serve that folder with any static file server that sets the same CSP and isolati
   (`1000 / hz`, clamped to 200–2500 ms) via inline style. After Run, click Chart on Scope; the plot is a canvas multi-axis line: `host.push` updates the current
   value (default `NaN`), and a browser `setInterval` every `m` ms copies that value into a sliding `n`-second `Float64Array`. NaN ticks are stored but not
   drawn.
-- **File** in the three-line menu: **Save…** / **Open…** store named diagrams in IndexedDB (manual only). **Import JSON…** / **Export JSON** read and write
-  diagram files. **Catalogs** lists associated block catalogs by name and can be toggled for the current diagram; the diagram JSON
+- **File** in the three-line menu: **Save…** / **Open…** store named diagrams in IndexedDB (manual only). **Import TypeScript…** / **Export TypeScript** read and write
+  diagram files. **Catalogs** lists associated block catalogs by name and can be toggled for the current diagram; the diagram TypeScript
   records those catalogs as file names under `catalogs`. **Hardware** connects a microcontroller over WebSerial and deploys the prod wasm binary.
 - Scroll to zoom toward the cursor. Use the zoom controls in the lower-right, or **View** in the three-line menu.
 - Drag empty canvas space to pan. Drag a placed block to move it (touch and mouse; the canvas captures the pointer so a phone can drag).

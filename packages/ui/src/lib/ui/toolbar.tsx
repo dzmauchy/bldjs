@@ -89,7 +89,7 @@ export class BldToolbar extends AppHost {
         </button>
         <input
           type="file"
-          accept=".json,application/json"
+          accept=".ts,text/typescript,text/plain"
           hidden
           data-testid="import-json-input"
           onChange={(e) => this.#onImportFile(e)}
@@ -127,8 +127,8 @@ export class BldToolbar extends AppHost {
                   {item("menu-new-canvas", "New canvas", () => app.clearCanvas())}
                   {item("menu-save-diagram", "Save…", () => app.io.openSave())}
                   {item("menu-open-diagram", "Open…", () => void app.io.openLibrary())}
-                  {item("menu-import-json", "Import JSON…", () => this.#importJson())}
-                  {item("menu-export-json", "Export JSON", () => app.io.exportFile())}
+                  {item("menu-import-json", "Import TypeScript…", () => this.#importJson())}
+                  {item("menu-export-json", "Export TypeScript", () => app.io.exportFile())}
                   {item("menu-delete-selected", "Delete selected", () => app.deleteSelected())}
 
                   <wa-divider></wa-divider>

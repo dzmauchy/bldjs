@@ -63,15 +63,20 @@ export class Diagram {
     return this.linkList;
   }
 
-  associateJson(name: string, content: string | unknown): void {
-    const source: ModelSource = { name, content: typeof content === "string" ? content : `${JSON.stringify(content)}\n` };
+  associateTypeScript(name: string, content: string): void {
+    const source: ModelSource = { name, content };
     const catalog = cloneCatalog(this.sourceList);
-    catalog.addJson(source.name, source.content);
+    catalog.addTypeScript(source.name, source.content);
     this.catalogInner = catalog;
     this.sourceList.push(source);
   }
 
-  dissociateJson(name: string): void {
+  /** @deprecated Use associateTypeScript. */
+  associateJson(name: string, content: string | unknown): void {
+    this.associateTypeScript(name, typeof content === "string" ? content : String(content));
+  }
+
+  dissociateTypeScript(name: string): void {
     if (!this.sourceList.some((source) => source.name === name)) {
       throw ParseError.new(`model \`${name}\` is not associated`);
     }
@@ -83,6 +88,11 @@ export class Diagram {
     this.linkList = this.linkList.filter((link) => live.has(link.fromBlock) && live.has(link.toBlock));
     this.sourceList = remaining;
     this.catalogInner = catalog;
+  }
+
+  /** @deprecated Use dissociateTypeScript. */
+  dissociateJson(name: string): void {
+    this.dissociateTypeScript(name);
   }
 
   addNode(defId: string): number {
@@ -128,7 +138,7 @@ export class Diagram {
 function cloneCatalog(sources: ModelSource[]): Catalog {
   const next = new Catalog();
   for (const source of sources) {
-    next.addJson(source.name, source.content);
+    next.addTypeScript(source.name, source.content);
   }
   return next;
 }

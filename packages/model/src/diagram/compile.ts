@@ -58,7 +58,7 @@ function param(canvas: CanvasDiagram, blockId: number, name: string): string | u
   return canvas.extras.get(blockId)?.parameters.find((item) => item.name === name)?.value;
 }
 
-/** Parse diagram JSON, then infer types. WASM assembly happens after this step. */
+/** Parse diagram TypeScript, then infer types. WASM assembly happens after this step. */
 export function loadDiagramSolution(json: string, catalog: Catalog): DiagramSolution {
   const canvas = parseDiagram(json);
   for (const block of canvas.blocks) {

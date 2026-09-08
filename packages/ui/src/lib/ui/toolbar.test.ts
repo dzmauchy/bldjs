@@ -104,11 +104,10 @@ describe("BldToolbar", () => {
     expect(dropdown()?.querySelector('[data-testid="menu-export-json"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-zoom-in"]')).not.toBeNull();
     expect(dropdown()?.querySelector('[data-testid="menu-catalogs"]')?.textContent).toBe("Catalogs");
-    expect(dropdown()?.querySelector('[data-testid="menu-catalog-types.json"]')?.textContent).toContain("Types");
-    expect(dropdown()?.querySelector('[data-testid="menu-catalog-control-systems.json"]')?.textContent).toContain(
+    expect(dropdown()?.querySelector('[data-testid="menu-catalog-model.ts"]')?.textContent).toContain(
       "Control Systems",
     );
-    expect(dropdown()?.textContent).not.toContain("types.json");
+    expect(dropdown()?.textContent).not.toContain("model.ts");
   });
 
   it("toggles a catalog from the overflow menu by display name", async () => {
@@ -121,14 +120,14 @@ describe("BldToolbar", () => {
     (bar.renderRoot.querySelector('[data-testid="toolbar-menu"]') as HTMLButtonElement).click();
     await bar.updateComplete;
     const control = bar.renderRoot.querySelector(
-      '[data-testid="menu-catalog-control-systems.json"]',
+      '[data-testid="menu-catalog-model.ts"]',
     ) as HTMLButtonElement;
     expect(control.getAttribute("aria-checked")).toBe("true");
     control.click();
     await bar.updateComplete;
     expect(app.blockDef("timer")).toBeUndefined();
     expect(
-      bar.renderRoot.querySelector('[data-testid="menu-catalog-control-systems.json"]')?.getAttribute("aria-checked"),
+      bar.renderRoot.querySelector('[data-testid="menu-catalog-model.ts"]')?.getAttribute("aria-checked"),
     ).toBe("false");
     expect(bar.renderRoot.querySelector('[data-testid="toolbar-menu-dropdown"]')?.classList.contains("show")).toBe(
       true,

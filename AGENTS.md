@@ -29,7 +29,7 @@ This project expects **Grok 4.6 High** at standard (non-Fast) speed. If that is 
 
 ## Testing
 
-Cover type resolution, JSON parsing, catalog merge, compatibility, 
+Cover type resolution, TypeScript catalog extract, catalog merge, TypeChecker compatibility,
 and input grounding with Vitest (`make test` / `npm test`). 
 Put those tests next to the logic (for example `packages/model/src/blocks/blocks.test.ts`).
 
@@ -45,7 +45,7 @@ Do not import `@bld/types`, `@bld/model`, or `@bld/wasm` package roots. Those pa
 kitchen-sink barrel. Import the file that owns the symbol:
 
 - `@bld/types/ast`, `catalog`, `compat`, `ports`, `resolve`, `format`, `types`
-- `@bld/model/blocks/ast`, `catalog`, `compat`, `ports`, `resolve`, `parse`, `diagram`, `builtin`
+- `@bld/model/blocks/ast`, `catalog`, `compat`, `ports`, `resolve`, `diagram`, `builtin`
 - `@bld/model/blocks/cs/ids`, `cs/types`, `cs/plan`
 - `@bld/model/diagram/json`, `diagram/store`, `diagram/compile`
 - `@bld/model/solution/view`, `@bld/model/flow`, `@bld/model/topology`, `@bld/model/runner`

@@ -148,12 +148,9 @@ test.describe("menus", () => {
 
   test("lists catalogs by blocks.name and toggles the current solution", async () => {
     await openAppMenu(page);
-    const types = page.locator('[data-testid="menu-catalog-types.json"]');
-    const control = page.locator('[data-testid="menu-catalog-control-systems.json"]');
+    const control = page.locator('[data-testid="menu-catalog-model.ts"]');
     await expect(page.locator('[data-testid="menu-catalogs"]')).toHaveText("Catalogs");
-    await expect(types).toContainText("Types");
     await expect(control).toContainText("Control Systems");
-    await expect(types).toHaveAttribute("aria-checked", "true");
     await expect(control).toHaveAttribute("aria-checked", "true");
 
     await control.click();
@@ -161,7 +158,7 @@ test.describe("menus", () => {
     await expect(page.locator('[data-testid="palette-timer"]')).toHaveCount(0);
 
     await openAppMenu(page);
-    await page.locator('[data-testid="menu-catalog-control-systems.json"]').click();
+    await page.locator('[data-testid="menu-catalog-model.ts"]').click();
     await expect(page.locator('[data-testid="palette-timer"]')).toHaveCount(1);
   });
 });

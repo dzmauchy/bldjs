@@ -2,6 +2,7 @@ import { createReadStream, readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import solid from "vite-plugin-solid";
 import { defineConfig, type Plugin } from "vitest/config";
+import { bldCatalogPlugin } from "../model/src/tsc/plugin";
 
 const csp = "script-src 'self' 'wasm-unsafe-eval';";
 
@@ -77,17 +78,27 @@ function serveLibavoidWasm(): Plugin {
   };
 }
 
+const stubNativeTsc = !process.env.VITEST;
+const tscStubSync = fileURLToPath(new URL("../model/src/tsc/stub-sync.ts", import.meta.url));
+const tscStubFs = fileURLToPath(new URL("../model/src/tsc/stub-fs.ts", import.meta.url));
+
 export default defineConfig({
-  plugins: [solid(), crossOriginIsolation(), serveLibavoidWasm()],
+  plugins: [solid(), bldCatalogPlugin(), crossOriginIsolation(), serveLibavoidWasm()],
   resolve: {
     alias: {
       $lib: fileURLToPath(new URL("./src/lib", import.meta.url)),
-      constants: 'constants-browserify'
+      constants: "constants-browserify",
+      ...(stubNativeTsc
+        ? {
+            "typescript/unstable/sync": tscStubSync,
+            "typescript/unstable/fs": tscStubFs,
+          }
+        : {}),
     },
   },
   optimizeDeps: {
     include: ["@moonbit/moonc-worker"],
-    exclude: ["libavoid-js", "@joint/router-avoid", "@bld/model", "@bld/wasm"],
+    exclude: ["libavoid-js", "@joint/router-avoid", "@bld/model", "@bld/wasm", "typescript"],
   },
   server: {
     port: 8080,

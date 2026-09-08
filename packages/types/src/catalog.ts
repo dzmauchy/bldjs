@@ -46,6 +46,16 @@ export class Catalog {
     return index === undefined ? undefined : this.blockList[index];
   }
 
+  reset(): void {
+    this.namespaces.clear();
+    this.types = [];
+    this.typeByName.clear();
+    this.blockList = [];
+    this.blockById.clear();
+    this.sourceList = [];
+    this.catalogList = [];
+  }
+
   addDoc(doc: BlocksDoc): void {
     if (this.sourceList.includes(doc.source)) {
       throw new Error(`model \`${doc.source}\` is already associated`);
