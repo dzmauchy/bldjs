@@ -10,13 +10,17 @@ export interface CompileSources {
 
 let esbuildInitPromise: Promise<void> | null = null;
 
+function runningOnNode(): boolean {
+  const proc = (globalThis as { process?: { versions?: { node?: string } } }).process;
+  return Boolean(proc?.versions?.node);
+}
+
 export async function ensureEsbuildInitialized(): Promise<void> {
   if (esbuildInitPromise) {
     return esbuildInitPromise;
   }
   esbuildInitPromise = (async () => {
-    const isNode = typeof process !== "undefined" && Boolean(process.versions?.node);
-    if (!isNode) {
+    if (!runningOnNode()) {
       await esbuild.initialize({
         wasmURL: "/assets/esbuild.wasm",
         worker: false,
