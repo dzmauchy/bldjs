@@ -26,7 +26,7 @@ describe("Type inference for blocks", () => {
   cat.addDoc({
     id: "test",
     name: "Test",
-    source: "test.xml",
+    source: "test.json",
     namespaces: [],
     types: [
       {
@@ -36,7 +36,7 @@ describe("Type inference for blocks", () => {
         params: [],
         ancestors: [],
         attributes: [],
-        source: "test.xml",
+        source: "test.json",
       },
       {
         name: "Cat",
@@ -45,7 +45,7 @@ describe("Type inference for blocks", () => {
         params: [],
         ancestors: [named("Animal")],
         attributes: [],
-        source: "test.xml",
+        source: "test.json",
       },
       {
         name: "Dog",
@@ -54,7 +54,7 @@ describe("Type inference for blocks", () => {
         params: [],
         ancestors: [named("Animal")],
         attributes: [],
-        source: "test.xml",
+        source: "test.json",
       },
     ],
     blocks: [],
@@ -107,7 +107,7 @@ describe("Type inference for blocks", () => {
       inputs: [{ name: "in", ty: named("T"), vararg: false, icon: null, attributes: [] }],
       outputs: [{ name: "out", ty: named("T"), vararg: false, icon: null, attributes: [] }],
       attributes: [],
-      source: "test.xml",
+      source: "test.json",
     };
 
     const grounded = new Map([["in", { kind: "single" as const, ty: named("Cat") }]]);
@@ -133,7 +133,7 @@ describe("Type inference for blocks", () => {
       inputs: [{ name: "in", ty: generic("c1", [named("f32")]), vararg: false, icon: null, attributes: [] }],
       outputs: [{ name: "out", ty: generic("c1", [named("f32")]), vararg: false, icon: null, attributes: [] }],
       attributes: [],
-      source: "cs.xml",
+      source: "cs.json",
     };
 
     const grounded = new Map([["in", { kind: "single" as const, ty: generic("c1", [named("f32")]) }]]);
