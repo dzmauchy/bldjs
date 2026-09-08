@@ -159,7 +159,7 @@ export function parseDiagram(source: string, _file = "diagram.ts"): CanvasDiagra
         y: num(value.y, "y"),
       } satisfies BlockInstance,
       extra: {
-        name: optStr(value.caption) ?? optStr(value.name),
+        name: optStr(value.name),
         description: optStr(value.description),
         width: optNum(value.width, "width"),
         height: optNum(value.height, "height"),
