@@ -1,12 +1,13 @@
 import type { Attribute } from "../blocks/ast";
 import type { Link } from "../blocks/diagram";
 import { ParseError } from "../blocks/parse";
+import { findDecoratorCalls } from "../tsc/literal-text";
 import { nextNumericId } from "./ids";
 import { isParameterKind, type BlockExtras, type BlockInstance, type CanvasDiagram, type ParameterValue } from "./types";
 
 export { ParseError };
 
-const CATALOG_FILE = /^[A-Za-z0-9._-]+\.json$/;
+const CATALOG_FILE = /^[A-Za-z0-9._-]+\.ts$/;
 
 export function catalogFileName(value: string): string {
   const file = value.trim();
@@ -86,72 +87,112 @@ function parseCatalogs(value: unknown): string[] {
   return files;
 }
 
-function parseBlock(value: unknown): { block: BlockInstance; extra: BlockExtras } {
-  if (!isRecord(value)) {
-    fail("expected block object");
-  }
-  const id = num(value.id, "block id");
-  if (!Number.isInteger(id) || id < 1) {
-    fail(`invalid block id \`${id}\``);
-  }
-  const parameters = Array.isArray(value.parameters) ? value.parameters.map(parseParameter) : [];
-  return {
-    block: {
-      id,
-      defId: str(value.type ?? value.defId, "block type"),
-      x: num(value.x, "x"),
-      y: num(value.y, "y"),
-    },
-    extra: {
-      name: optStr(value.name),
-      description: optStr(value.description),
-      width: optNum(value.width, "width"),
-      height: optNum(value.height, "height"),
-      parameters,
-    },
-  };
+function instanceName(defId: string, id: number): string {
+  return `${defId.replace(/[^A-Za-z0-9_]/g, "_")}_${id}`;
 }
 
-function parseLink(value: unknown): Link {
-  if (!isRecord(value)) {
-    fail("expected link object");
-  }
-  return {
-    fromBlock: num(value.fromBlock, "fromBlock"),
-    fromOut: str(value.fromOut, "fromOut"),
-    toBlock: num(value.toBlock, "toBlock"),
-    toIn: str(value.toIn, "toIn"),
-  };
+function jsString(value: string): string {
+  return JSON.stringify(value);
 }
 
-export function parseDiagram(json: string, _file = "diagram.json"): CanvasDiagram {
-  let data: unknown;
-  try {
-    data = JSON.parse(json) as unknown;
-  } catch (error) {
-    fail(error instanceof Error ? error.message : "JSON parse error");
+function emitObject(value: Record<string, unknown>, indent: number): string {
+  const pad = "  ".repeat(indent);
+  const inner = "  ".repeat(indent + 1);
+  const entries = Object.entries(value).filter(([, item]) => item !== undefined);
+  if (entries.length === 0) {
+    return "{}";
   }
-  if (!isRecord(data)) {
-    fail("expected diagram object");
+  const lines = entries.map(([key, item]) => {
+    const ident = /^[A-Za-z_$][\w$]*$/.test(key) ? key : jsString(key);
+    return `${inner}${ident}: ${emitValue(item, indent + 1)},`;
+  });
+  return `{\n${lines.join("\n")}\n${pad}}`;
+}
+
+function emitValue(value: unknown, indent: number): string {
+  if (typeof value === "string") {
+    return jsString(value);
   }
-  const parsed = Array.isArray(data.blocks) ? data.blocks.map(parseBlock) : [];
-  const blocks = parsed.map((item) => item.block);
-  const extras = new Map(parsed.map((item) => [item.block.id, item.extra]));
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return "[]";
+    }
+    const pad = "  ".repeat(indent);
+    const inner = "  ".repeat(indent + 1);
+    return `[\n${value.map((item) => `${inner}${emitValue(item, indent + 1)},`).join("\n")}\n${pad}]`;
+  }
+  if (isRecord(value)) {
+    return emitObject(value, indent);
+  }
+  return "undefined";
+}
+
+export function parseDiagram(source: string, _file = "diagram.ts"): CanvasDiagram {
+  const diagrams = findDecoratorCalls(source, "Diagram");
+  if (diagrams.length === 0) {
+    fail("expected @Diagram(...) catalog");
+  }
+  const meta = diagrams[0]!.args[0];
+  if (!isRecord(meta)) {
+    fail("expected @Diagram meta object");
+  }
+  const parsedBlocks = findDecoratorCalls(source, "DiagramBlock").map((call) => {
+    const value = call.args[0];
+    if (!isRecord(value)) {
+      fail("expected @DiagramBlock meta object");
+    }
+    const id = num(value.id, "block id");
+    if (!Number.isInteger(id) || id < 1) {
+      fail(`invalid block id \`${id}\``);
+    }
+    const parameters = Array.isArray(value.parameters) ? value.parameters.map(parseParameter) : [];
+    return {
+      block: {
+        id,
+        defId: str(value.type ?? value.defId, "block type"),
+        x: num(value.x, "x"),
+        y: num(value.y, "y"),
+      } satisfies BlockInstance,
+      extra: {
+        name: optStr(value.name),
+        description: optStr(value.description),
+        width: optNum(value.width, "width"),
+        height: optNum(value.height, "height"),
+        parameters,
+      } satisfies BlockExtras,
+    };
+  });
+  const blocks = parsedBlocks.map((item) => item.block);
+  const extras = new Map(parsedBlocks.map((item) => [item.block.id, item.extra]));
   const known = new Set(blocks.map((block) => block.id));
-  const links = Array.isArray(data.links) ? data.links.map(parseLink) : [];
+  const links = findDecoratorCalls(source, "Connection").map((call) => {
+    const value = call.args[2] ?? call.args[0];
+    if (!isRecord(value)) {
+      fail("expected @Connection meta object");
+    }
+    return {
+      fromBlock: num(value.fromBlock, "fromBlock"),
+      fromOut: str(value.fromOut, "fromOut"),
+      toBlock: num(value.toBlock, "toBlock"),
+      toIn: str(value.toIn, "toIn"),
+    } satisfies Link;
+  });
   for (const link of links) {
     if (!known.has(link.fromBlock) || !known.has(link.toBlock)) {
       fail(`link references missing block ${link.fromBlock}->${link.toBlock}`);
     }
   }
   return {
-    id: str(data.id, "id"),
-    name: optStr(data.name) ?? "Workspace",
-    description: optStr(data.description),
-    createdAt: str(data.createdAt, "createdAt"),
-    updatedAt: str(data.updatedAt, "updatedAt"),
-    attributes: attrs(data.attrs),
-    catalogs: parseCatalogs(data.catalogs),
+    id: str(meta.id, "id"),
+    name: optStr(meta.name) ?? "Workspace",
+    description: optStr(meta.description),
+    createdAt: str(meta.createdAt, "createdAt"),
+    updatedAt: str(meta.updatedAt, "updatedAt"),
+    attributes: attrs(meta.attrs),
+    catalogs: parseCatalogs(meta.catalogs),
     blocks,
     links,
     extras,
@@ -177,38 +218,67 @@ function extrasFor(block: BlockInstance, extras: Map<number, BlockExtras> | unde
 }
 
 export function serializeCanvas(canvas: CanvasInput): string {
-  return `${JSON.stringify(
-    {
-      id: canvas.id,
-      name: canvas.name,
-      ...(canvas.description ? { description: canvas.description } : {}),
-      createdAt: canvas.createdAt,
-      updatedAt: canvas.updatedAt,
-      ...(canvas.attributes && canvas.attributes.length > 0
-        ? { attrs: Object.fromEntries(canvas.attributes.map((item) => [item.name, item.value])) }
-        : {}),
-      ...(canvas.catalogs && canvas.catalogs.length > 0 ? { catalogs: canvas.catalogs.map(catalogFileName) } : {}),
-      ...(canvas.blocks.length > 0
-        ? {
-            blocks: canvas.blocks.map((block) => {
-              const extra = extrasFor(block, canvas.extras);
-              return {
-                id: block.id,
-                type: block.defId,
-                x: block.x,
-                y: block.y,
-                ...(extra.name ? { name: extra.name } : {}),
-                ...(extra.description ? { description: extra.description } : {}),
-                ...(extra.width !== undefined ? { width: extra.width } : {}),
-                ...(extra.height !== undefined ? { height: extra.height } : {}),
-                ...(extra.parameters.length > 0 ? { parameters: extra.parameters } : {}),
-              };
-            }),
-          }
-        : {}),
-      ...(canvas.links.length > 0 ? { links: canvas.links } : {}),
-    },
-    null,
-    2,
-  )}\n`;
+  const diagramMeta: Record<string, unknown> = {
+    id: canvas.id,
+    name: canvas.name,
+    createdAt: canvas.createdAt,
+    updatedAt: canvas.updatedAt,
+  };
+  if (canvas.description) {
+    diagramMeta.description = canvas.description;
+  }
+  if (canvas.attributes && canvas.attributes.length > 0) {
+    diagramMeta.attrs = Object.fromEntries(canvas.attributes.map((item) => [item.name, item.value]));
+  }
+  if (canvas.catalogs && canvas.catalogs.length > 0) {
+    diagramMeta.catalogs = canvas.catalogs.map(catalogFileName);
+  }
+  const lines: string[] = [`@Diagram(${emitValue(diagramMeta, 0)})`, `function diagram() {`];
+  for (const block of canvas.blocks) {
+    const extra = extrasFor(block, canvas.extras);
+    const meta: Record<string, unknown> = {
+      id: block.id,
+      type: block.defId,
+      x: block.x,
+      y: block.y,
+    };
+    if (extra.name) meta.name = extra.name;
+    if (extra.description) meta.description = extra.description;
+    if (extra.width !== undefined) meta.width = extra.width;
+    if (extra.height !== undefined) meta.height = extra.height;
+    if (extra.parameters.length > 0) {
+      meta.parameters = extra.parameters.map((param) => ({
+        kind: param.kind,
+        name: param.name,
+        value: param.value,
+      }));
+    }
+    const fn = instanceName(block.defId, block.id);
+    lines.push(`  @DiagramBlock(${emitValue(meta, 1)})`);
+    lines.push(`  function ${fn}() {}`);
+    lines.push("");
+  }
+  for (const link of canvas.links) {
+    const from = `${instanceName("", link.fromBlock).replace(/^_/, "")}${link.fromOut}`;
+    const fromName = `${instanceName("block", link.fromBlock)}_${link.fromOut.replace(/[^A-Za-z0-9_]/g, "_")}`;
+    const toName = `${instanceName("block", link.toBlock)}_${link.toIn.replace(/[^A-Za-z0-9_]/g, "_")}`;
+    void from;
+    lines.push(
+      `  @Connection(${jsString(fromName)}, ${jsString(toName)}, ${emitValue(
+        {
+          fromBlock: link.fromBlock,
+          fromOut: link.fromOut,
+          toBlock: link.toBlock,
+          toIn: link.toIn,
+        },
+        1,
+      )})`,
+    );
+  }
+  if (canvas.links.length > 0) {
+    lines.push(`  function wires() {}`);
+  }
+  lines.push(`}`);
+  lines.push("");
+  return `${lines.join("\n")}\n`;
 }

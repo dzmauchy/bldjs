@@ -75,7 +75,7 @@ export class DiagramIo extends HostedState<IoHost> {
       this.host.clearRunError();
       return true;
     } catch (error) {
-      this.error = error instanceof Error ? error.message : "Invalid diagram JSON";
+      this.error = error instanceof Error ? error.message : "Invalid diagram TypeScript";
       return false;
     }
   }

@@ -31,7 +31,7 @@ test.describe("diagram files", () => {
     await page?.close();
   });
 
-  test("exports and imports diagram JSON", async () => {
+  test("exports and imports diagram TypeScript", async () => {
     await wireMiniPipeline(page);
     expect(await statusBlocks(page)).toBe("2 blocks");
 
@@ -39,13 +39,13 @@ test.describe("diagram files", () => {
     const downloadPromise = page.waitForEvent("download");
     await page.locator('[data-testid="menu-export-json"]').click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/\.json$/);
+    expect(download.suggestedFilename()).toMatch(/\.ts$/);
     const path = await download.path();
     expect(path).toBeTruthy();
     const json = await readFile(path!, "utf8");
-    expect(json).toContain('"type": "scope"');
-    expect(json).toContain('"type": "timer"');
-    expect(json).toContain('"links"');
+    expect(json).toContain('type: "scope"');
+    expect(json).toContain('type: "timer"');
+    expect(json).toContain("@Connection");
 
     await newCanvas(page);
     expect(await statusBlocks(page)).toBe("0 blocks");
@@ -56,8 +56,8 @@ test.describe("diagram files", () => {
       page.locator('[data-testid="menu-import-json"]').click(),
     ]);
     await fileChooser.setFiles({
-      name: "pipeline.json",
-      mimeType: "application/json",
+      name: "pipeline.ts",
+      mimeType: "text/plain",
       buffer: Buffer.from(json),
     });
     await expect(page.locator('[data-testid="status-blocks"]')).toHaveText("2 blocks");

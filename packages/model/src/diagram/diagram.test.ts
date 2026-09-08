@@ -25,31 +25,33 @@ function csCanvas() {
   };
 }
 
-describe("diagram JSON", () => {
+describe("diagram TypeScript", () => {
   it("shares parameter kinds with the catalog AST", () => {
     expect(PARAMETER_KINDS).toEqual(BLOCK_PARAMETER_KINDS);
   });
 
-  it("round-trips diagram JSON through serialize and parse", () => {
-    const json = `{
-      "id": "diag_telemetry_01",
-      "name": "Telemetry",
-      "createdAt": "2026-08-31T05:00:00Z",
-      "updatedAt": "2026-08-31T05:30:00Z",
-      "catalogs": ["control-systems.json"],
-      "blocks": [
-        { "id": 1, "type": "sensor_source", "x": 120, "y": 80 },
-        {
-          "id": 2,
-          "type": "scaler",
-          "x": 460,
-          "y": 80,
-          "parameters": [{ "kind": "decimal-parameter", "name": "calibrationOffset", "value": "0.0042" }]
-        }
+  it("round-trips diagram TypeScript through serialize and parse", () => {
+    const source = serializeCanvas({
+      id: "diag_telemetry_01",
+      name: "Telemetry",
+      createdAt: "2026-08-31T05:00:00Z",
+      updatedAt: "2026-08-31T05:30:00Z",
+      catalogs: ["model.ts"],
+      blocks: [
+        { id: 1, defId: "sensor_source", x: 120, y: 80 },
+        { id: 2, defId: "scaler", x: 460, y: 80 },
       ],
-      "links": [{ "fromBlock": 1, "fromOut": "data_out", "toBlock": 2, "toIn": "raw_in" }]
-    }`;
-    const doc = parseDiagram(json);
+      links: [{ fromBlock: 1, fromOut: "data_out", toBlock: 2, toIn: "raw_in" }],
+      extras: new Map([
+        [
+          2,
+          {
+            parameters: [{ kind: "decimal-parameter", name: "calibrationOffset", value: "0.0042" }],
+          },
+        ],
+      ]),
+    });
+    const doc = parseDiagram(source);
     const again = parseDiagram(serializeCanvas(doc));
     expect(again.id).toBe(doc.id);
     expect(again.blocks).toHaveLength(doc.blocks.length);
@@ -57,58 +59,41 @@ describe("diagram JSON", () => {
       doc.links.map((item) => [item.fromBlock, item.toBlock]),
     );
     expect(again.extras.get(2)?.parameters[0]?.value).toBe("0.0042");
-    expect(again.catalogs).toEqual(["control-systems.json"]);
+    expect(again.catalogs).toEqual(["model.ts"]);
   });
 
   it("parses catalog file names and rejects paths", () => {
     expect(
       parseDiagram(
-        JSON.stringify({
-          id: "diag_cats",
-          name: "Cats",
-          createdAt: "2026-08-31T05:00:00Z",
-          updatedAt: "2026-08-31T05:00:00Z",
-          catalogs: ["types.json", "control-systems.json"],
-        }),
+        `@Diagram({ id: "diag_cats", name: "Cats", createdAt: "2026-08-31T05:00:00Z", updatedAt: "2026-08-31T05:00:00Z", catalogs: ["model.ts"] })\nfunction diagram() {}\n`,
       ).catalogs,
-    ).toEqual(["types.json", "control-systems.json"]);
+    ).toEqual(["model.ts"]);
     expect(() =>
       parseDiagram(
-        JSON.stringify({
-          id: "diag_path",
-          createdAt: "2026-08-31T05:00:00Z",
-          updatedAt: "2026-08-31T05:00:00Z",
-          catalogs: ["models/types.json"],
-        }),
+        `@Diagram({ id: "diag_path", createdAt: "2026-08-31T05:00:00Z", updatedAt: "2026-08-31T05:00:00Z", catalogs: ["models/model.ts"] })\nfunction diagram() {}\n`,
       ),
     ).toThrow("catalog must be a file name");
     expect(() =>
       parseDiagram(
-        JSON.stringify({
-          id: "diag_dup",
-          createdAt: "2026-08-31T05:00:00Z",
-          updatedAt: "2026-08-31T05:00:00Z",
-          catalogs: ["types.json", "types.json"],
-        }),
+        `@Diagram({ id: "diag_dup", createdAt: "2026-08-31T05:00:00Z", updatedAt: "2026-08-31T05:00:00Z", catalogs: ["model.ts", "model.ts"] })\nfunction diagram() {}\n`,
       ),
     ).toThrow("duplicate catalog");
   });
 
   it("serializes selected catalog file names", () => {
-    const json = serializeCanvas({
+    const source = serializeCanvas({
       id: "diag_cats",
       name: "Cats",
       createdAt: "2026-08-31T05:00:00Z",
       updatedAt: "2026-08-31T05:00:00Z",
-      catalogs: ["types.json", "control-systems.json"],
+      catalogs: ["model.ts"],
       blocks: [],
       links: [],
     });
-    expect(json).toContain('"catalogs"');
-    expect(json).toContain("types.json");
-    expect(json).toContain("control-systems.json");
-    expect(json).not.toContain("resources/models");
-    expect(parseDiagram(json).catalogs).toEqual(["types.json", "control-systems.json"]);
+    expect(source).toContain("catalogs");
+    expect(source).toContain("model.ts");
+    expect(source).not.toContain("resources/models");
+    expect(parseDiagram(source).catalogs).toEqual(["model.ts"]);
     const empty = serializeCanvas({
       id: "diag_none",
       name: "None",
@@ -125,18 +110,13 @@ describe("diagram JSON", () => {
   it("treats missing catalogs as none", () => {
     expect(
       parseDiagram(
-        JSON.stringify({
-          id: "diag_empty",
-          name: "Empty",
-          createdAt: "2026-08-31T05:00:00Z",
-          updatedAt: "2026-08-31T05:00:00Z",
-        }),
+        `@Diagram({ id: "diag_empty", name: "Empty", createdAt: "2026-08-31T05:00:00Z", updatedAt: "2026-08-31T05:00:00Z" })\nfunction diagram() {}\n`,
       ).catalogs,
     ).toEqual([]);
   });
 
   it("serializes canvas blocks and slotted wires", () => {
-    const json = serializeCanvas({
+    const source = serializeCanvas({
       id: "diag_slots",
       name: "Slots",
       createdAt: "2026-08-31T05:00:00Z",
@@ -154,7 +134,7 @@ describe("diagram JSON", () => {
         { fromBlock: 3, fromOut: "out", toBlock: 4, toIn: "in[1]" },
       ],
     });
-    const canvas = parseDiagram(json);
+    const canvas = parseDiagram(source);
     expect(canvas.blocks.map((block) => block.defId)).toEqual(["scope", "sin", "cos", "timer"]);
     expect(canvas.links).toEqual([
       { fromBlock: 1, fromOut: "out", toBlock: 2, toIn: "in" },
@@ -166,9 +146,9 @@ describe("diagram JSON", () => {
 });
 
 describe("diagram compile pipeline", () => {
-  it("parses JSON first, then infers types", () => {
-    const json = serializeCanvas(csCanvas());
-    const solution = loadDiagramSolution(json, catalog());
+  it("parses TypeScript first, then infers types", () => {
+    const source = serializeCanvas(csCanvas());
+    const solution = loadDiagramSolution(source, catalog());
     expect(solution.canvas.blocks.map((block) => block.defId)).toEqual(["scope", "sin"]);
     const sin = solution.inferred.get(2);
     expect(sin?.defId).toBe("sin");
@@ -177,7 +157,7 @@ describe("diagram compile pipeline", () => {
   });
 
   it("rejects unknown catalog types before wasm", () => {
-    const json = serializeCanvas({
+    const source = serializeCanvas({
       id: "diag_bad",
       name: "Bad",
       createdAt: "2026-08-31T05:00:00Z",
@@ -185,7 +165,7 @@ describe("diagram compile pipeline", () => {
       blocks: [{ id: 1, defId: "sensor_source", x: 0, y: 0 }],
       links: [],
     });
-    expect(() => loadDiagramSolution(json, catalog())).toThrow(DiagramCompileError);
-    expect(() => loadDiagramSolution(json, catalog())).toThrow("unknown block type `sensor_source`");
+    expect(() => loadDiagramSolution(source, catalog())).toThrow(DiagramCompileError);
+    expect(() => loadDiagramSolution(source, catalog())).toThrow("unknown block type `sensor_source`");
   });
 });

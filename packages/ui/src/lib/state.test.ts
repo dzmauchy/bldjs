@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BLOCK_PLACE_HEIGHT, BLOCK_PLACE_WIDTH } from "./model";
 import { AppState } from "./state";
 import { MemoryDiagramRepository } from "@bld/model/diagram/store";
+import { serializeCanvas } from "@bld/model/diagram/json";
 
 function wireCsPipeline(app: AppState): { generatorId: number; scopeId: number; transformerId: number } {
   const generatorId = app.nextId;
@@ -350,8 +351,8 @@ describe("AppState run", () => {
     expect(app.blockInputs(id).map((input) => [input.def.name, input.value])).toEqual([["period", "10"]]);
     app.setBlockParameter(id, "period", "25");
     expect(app.blockPeriodMs(id)).toBe(25);
-    expect(app.toDiagramJson()).toContain('"name": "period"');
-    expect(app.toDiagramJson()).toContain('"value": "25"');
+    expect(app.toDiagramJson()).toContain('name: "period"');
+    expect(app.toDiagramJson()).toContain('value: "25"');
   });
 
   it("seeds scope window N=30 s and quantizer M=10 ms", () => {
@@ -368,10 +369,10 @@ describe("AppState run", () => {
     app.setBlockParameter(id, "m", "20");
     expect(app.blockWindowS(id)).toBe(60);
     expect(app.blockMeterMs(id)).toBe(20);
-    expect(app.toDiagramJson()).toContain('"name": "n"');
-    expect(app.toDiagramJson()).toContain('"value": "60"');
-    expect(app.toDiagramJson()).toContain('"name": "m"');
-    expect(app.toDiagramJson()).toContain('"value": "20"');
+    expect(app.toDiagramJson()).toContain('name: "n"');
+    expect(app.toDiagramJson()).toContain('value: "60"');
+    expect(app.toDiagramJson()).toContain('name: "m"');
+    expect(app.toDiagramJson()).toContain('value: "20"');
   });
 
   it("seeds overshoot ζ at 0.5 and ω at 1 and updates them", () => {
@@ -388,10 +389,10 @@ describe("AppState run", () => {
     app.setBlockParameter(id, "ω", "2");
     expect(app.blockZeta(id)).toBe(0.7);
     expect(app.blockOmega(id)).toBe(2);
-    expect(app.toDiagramJson()).toContain('"name": "ζ"');
-    expect(app.toDiagramJson()).toContain('"value": "0.7"');
-    expect(app.toDiagramJson()).toContain('"name": "ω"');
-    expect(app.toDiagramJson()).toContain('"value": "2"');
+    expect(app.toDiagramJson()).toContain('name: "ζ"');
+    expect(app.toDiagramJson()).toContain('value: "0.7"');
+    expect(app.toDiagramJson()).toContain('name: "ω"');
+    expect(app.toDiagramJson()).toContain('value: "2"');
   });
 
   it("seeds constant value at 1 and period at 10 ms", () => {
@@ -406,8 +407,8 @@ describe("AppState run", () => {
     ]);
     app.setBlockParameter(id, "value", "2.5");
     expect(app.blockValue(id)).toBe(2.5);
-    expect(app.toDiagramJson()).toContain('"name": "value"');
-    expect(app.toDiagramJson()).toContain('"value": "2.5"');
+    expect(app.toDiagramJson()).toContain('name: "value"');
+    expect(app.toDiagramJson()).toContain('value: "2.5"');
   });
 
   it("seeds product n at 2 and def at 1", () => {
@@ -424,10 +425,10 @@ describe("AppState run", () => {
     app.setBlockParameter(id, "def", "0.5");
     expect(app.blockCount(id)).toBe(3);
     expect(app.blockDefValue(id)).toBe(0.5);
-    expect(app.toDiagramJson()).toContain('"name": "n"');
-    expect(app.toDiagramJson()).toContain('"value": "3"');
-    expect(app.toDiagramJson()).toContain('"name": "def"');
-    expect(app.toDiagramJson()).toContain('"value": "0.5"');
+    expect(app.toDiagramJson()).toContain('name: "n"');
+    expect(app.toDiagramJson()).toContain('value: "3"');
+    expect(app.toDiagramJson()).toContain('name: "def"');
+    expect(app.toDiagramJson()).toContain('value: "0.5"');
   });
 
   it("closes and ignores input configuration while a run is busy", async () => {
@@ -523,20 +524,19 @@ describe("AppState run", () => {
   });
 });
 
-describe("AppState diagram JSON", () => {
-  it("exports and imports a wired canvas through diagram JSON", () => {
+describe("AppState diagram TypeScript", () => {
+  it("exports and imports a wired canvas through diagram TypeScript", () => {
     const app = new AppState();
     wireCsPipeline(app);
-    const json = app.toDiagramJson();
-    expect(json).toContain('"id"');
-    expect(json).toContain("types.json");
-    expect(json).toContain("control-systems.json");
-    expect(json).toContain('"type": "timer"');
-    expect(json).toContain('"type": "sin"');
-    expect(json).toContain('"links"');
+    const source = app.toDiagramJson();
+    expect(source).toContain("id:");
+    expect(source).toContain("model.ts");
+    expect(source).toContain('type: "timer"');
+    expect(source).toContain('type: "sin"');
+    expect(source).toContain("@Connection");
 
     const other = new AppState();
-    expect(other.io.loadJson(json)).toBe(true);
+    expect(other.io.loadJson(source)).toBe(true);
     expect(other.blocks.map((block) => block.defId)).toEqual(["timer", "sin", "scope"]);
     expect(other.links).toHaveLength(2);
     expect(other.run.canStart()).toBe(true);
@@ -551,16 +551,18 @@ describe("AppState diagram JSON", () => {
 
     expect(
       app.io.loadJson(
-        JSON.stringify({
+        serializeCanvas({
           id: "diag_named",
           name: "Named",
           createdAt: "2026-08-31T05:00:00Z",
           updatedAt: "2026-08-31T05:00:00Z",
-          catalogs: ["types.json", "control-systems.json"],
+          catalogs: ["model.ts"],
           blocks: [
-            { id: 1, type: "scope", name: "Probe", x: 0, y: 0 },
-            { id: 2, type: "scope", x: 180, y: 0 },
+            { id: 1, defId: "scope", x: 0, y: 0 },
+            { id: 2, defId: "scope", x: 180, y: 0 },
           ],
+          extras: new Map([[1, { name: "Probe", parameters: [] }]]),
+          links: [],
         }),
       ),
     ).toBe(true);
@@ -574,12 +576,13 @@ describe("AppState diagram JSON", () => {
     const app = new AppState();
     expect(
       app.io.loadJson(
-        JSON.stringify({
+        serializeCanvas({
           id: "diag_bad",
           name: "Bad",
           createdAt: "2026-08-31T05:00:00Z",
           updatedAt: "2026-08-31T05:00:00Z",
-          blocks: [{ id: 1, type: "sensor_source", x: 0, y: 0 }],
+          blocks: [{ id: 1, defId: "sensor_source", x: 0, y: 0 }],
+          links: [],
         }),
       ),
     ).toBe(false);
@@ -590,36 +593,34 @@ describe("AppState diagram JSON", () => {
   it("toggles catalogs for the current solution by file name", () => {
     const app = new AppState();
     wireCsPipeline(app);
-    expect(app.catalogChoices().map((item) => [item.name, item.selected])).toEqual([
-      ["Types", true],
-      ["Control Systems", true],
-    ]);
-    app.toggleCatalog("control-systems.json");
+    expect(app.catalogChoices().map((item) => [item.name, item.selected])).toEqual([["Control Systems", true]]);
+    app.toggleCatalog("model.ts");
     expect(app.blockDef("timer")).toBeUndefined();
     expect(app.blocks).toHaveLength(0);
-    expect(app.catalogChoices().find((item) => item.file === "control-systems.json")?.selected).toBe(false);
-    expect(app.toDiagramJson()).toContain("types.json");
-    expect(app.toDiagramJson()).not.toContain("control-systems.json");
-    app.toggleCatalog("control-systems.json");
+    expect(app.catalogChoices().find((item) => item.file === "model.ts")?.selected).toBe(false);
+    expect(app.toDiagramJson()).not.toContain("model.ts");
+    app.toggleCatalog("model.ts");
     expect(app.blockDef("timer")).toBeDefined();
   });
 
-  it("loads catalog files listed in diagram JSON", () => {
+  it("loads catalog files listed in the diagram", () => {
     const app = new AppState();
     expect(
       app.io.loadJson(
-        JSON.stringify({
+        serializeCanvas({
           id: "diag_types",
-          name: "Types only",
+          name: "Control Systems",
           createdAt: "2026-08-31T05:00:00Z",
           updatedAt: "2026-08-31T05:00:00Z",
-          catalogs: ["types.json"],
+          catalogs: ["model.ts"],
+          blocks: [],
+          links: [],
         }),
       ),
     ).toBe(true);
-    expect(app.sources.map((source) => source.name)).toEqual(["types.json"]);
-    expect(app.blockDef("timer")).toBeUndefined();
-    expect(app.catalog.catalogs().map((item) => item.name)).toEqual(["Types"]);
+    expect(app.sources.map((source) => source.name)).toEqual(["model.ts"]);
+    expect(app.blockDef("timer")).toBeDefined();
+    expect(app.catalog.catalogs().map((item) => item.name)).toEqual(["Control Systems"]);
   });
 
   it("loads no catalogs when the diagram omits them", () => {
@@ -627,11 +628,13 @@ describe("AppState diagram JSON", () => {
     expect(app.blockDef("timer")).toBeDefined();
     expect(
       app.io.loadJson(
-        JSON.stringify({
+        serializeCanvas({
           id: "diag_none",
           name: "None",
           createdAt: "2026-08-31T05:00:00Z",
           updatedAt: "2026-08-31T05:00:00Z",
+          blocks: [],
+          links: [],
         }),
       ),
     ).toBe(true);
@@ -644,17 +647,11 @@ describe("AppState diagram JSON", () => {
     const app = new AppState();
     expect(
       app.io.loadJson(
-        JSON.stringify({
-          id: "diag_missing",
-          name: "Missing",
-          createdAt: "2026-08-31T05:00:00Z",
-          updatedAt: "2026-08-31T05:00:00Z",
-          catalogs: ["missing.json"],
-        }),
+        `@Diagram({ id: "diag_missing", name: "Missing", createdAt: "2026-08-31T05:00:00Z", updatedAt: "2026-08-31T05:00:00Z", catalogs: ["missing.ts"] })\nfunction diagram() {}\n`,
       ),
     ).toBe(false);
     expect(app.io.error).toMatch(/unknown catalog/);
-    expect(app.sources.map((source) => source.name)).toEqual(["types.json", "control-systems.json"]);
+    expect(app.sources.map((source) => source.name)).toEqual(["model.ts"]);
   });
 
   it("saves and loads diagrams from the library by hand", async () => {
